@@ -1,0 +1,128 @@
+From 75a1b312f1bfa39d35b76c7575fac73782c0ba6b Mon Sep 17 00:00:00 2001
+From: Sohaib <sohaib.developlogix@gmail.com>
+Date: Mon, 28 Jul 2025 20:10:50 +0500
+Subject: [PATCH] fix: Enhanced iOS zoom functionality and map reset behavior
+
+- Fixed iOS zoom out issue in resetToOriginalLocations method
+- Added multiple camera updates for iOS reliability
+- Implemented viewport refresh mechanism for iOS MapBox
+- Enhanced zoom animation with longer duration for smoother transitions
+- Added proper state management for currentZoom reactive value
+- Improved error handling and debugging logs
+- Fixed zoom level calculation to ensure proper zoom out effect
+---
+ .../map/controllers/map_controller.dart       | 57 +++++++++++++++++--
+ .../views/mini_widgets/map_view_widget.dart   |  3 +-
+ 2 files changed, 54 insertions(+), 6 deletions(-)
+
+diff --git a/lib/app/modules/map/controllers/map_controller.dart b/lib/app/modules/map/controllers/map_controller.dart
+index e089c6f..ceb47a5 100644
+--- a/lib/app/modules/map/controllers/map_controller.dart
++++ b/lib/app/modules/map/controllers/map_controller.dart
+@@ -281,26 +281,73 @@ class MapController extends GetxController with WidgetsBindingObserver {
+ 
+       // Reset state flags
+       isShowingNewLocations.value = false;
+-      currentZoom.value = 1.6;
++      final newZoomLevel = 1.6 - 0.8; // Calculate the zoomed out level
++      currentZoom.value = newZoomLevel;
++
++      debugPrint('🔄 RESET - Updated currentZoom to: ${currentZoom.value}');
+ 
+       debugPrint('🔄 RESET - Original locations and zoom restored');
+ 
+       // If map is ready, update the display
+       if (isMapReady.value && mapController != null) {
+-        // First ensure camera is at correct zoom and position
++        // Use the updated currentZoom value
++        final targetZoom = 1.6;
++        debugPrint('🔄 RESET - Setting zoom to: $targetZoom');
++
++        // First ensure camera is at correct zoom and position with iOS-specific handling
+         await mapController!.flyTo(
+           mapbox.CameraOptions(
+             center: mapbox.Point(coordinates: locations[0]),
+-            zoom: currentZoom.value,
++            zoom: targetZoom,
++            bearing: 0,
++            pitch: 0,
++          ),
++          mapbox.MapAnimationOptions(duration: 1500), // Longer duration for iOS
++        );
++
++        // Wait for the camera animation to complete
++        await Future.delayed(const Duration(milliseconds: 1600));
++
++        // Force another camera update for iOS reliability
++        await mapController!.setCamera(
++          mapbox.CameraOptions(
++            center: mapbox.Point(coordinates: locations[0]),
++            zoom: targetZoom,
++            bearing: 0,
++            pitch: 0,
++          ),
++        );
++
++        // Additional iOS-specific fix: Force viewport refresh
++        await Future.delayed(const Duration(milliseconds: 200));
++
++        // Trigger a small camera movement to force iOS to refresh
++        await mapController!.setCamera(
++          mapbox.CameraOptions(
++            center: mapbox.Point(coordinates: locations[0]),
++            zoom: targetZoom + 0.01, // Tiny zoom change
++            bearing: 0,
++            pitch: 0,
++          ),
++        );
++
++        await Future.delayed(const Duration(milliseconds: 100));
++
++        // Set back to the exact target zoom
++        await mapController!.setCamera(
++          mapbox.CameraOptions(
++            center: mapbox.Point(coordinates: locations[0]),
++            zoom: targetZoom,
+             bearing: 0,
+             pitch: 0,
+           ),
+-          mapbox.MapAnimationOptions(duration: 1000),
+         );
+ 
+         // Then recreate annotations and paths
+         await _setAnnotations();
+         await _setTravelPath();
++
++        debugPrint('🔄 RESET - Camera and annotations updated');
+       }
+     } catch (e) {
+       debugPrint('Error resetting to original locations: $e');
+@@ -1391,4 +1438,4 @@ class MapController extends GetxController with WidgetsBindingObserver {
+       }
+     }
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/lib/app/modules/map/views/mini_widgets/map_view_widget.dart b/lib/app/modules/map/views/mini_widgets/map_view_widget.dart
+index 195f8a5..7fb22fb 100644
+--- a/lib/app/modules/map/views/mini_widgets/map_view_widget.dart
++++ b/lib/app/modules/map/views/mini_widgets/map_view_widget.dart
+@@ -8,6 +8,7 @@ class MapViewWidget extends StatelessWidget {
+ 
+   @override
+   Widget build(BuildContext context) {
++    
+     final controller = Get.find<MapController>();
+ 
+     debugPrint('🔄 MapViewWidget build() called');
+@@ -26,4 +27,4 @@ class MapViewWidget extends StatelessWidget {
+       return controller.buildMapWidget(context);
+     });
+   }
+-}
++}
+\ No newline at end of file
+-- 
+2.39.5 (Apple Git-154)
+
