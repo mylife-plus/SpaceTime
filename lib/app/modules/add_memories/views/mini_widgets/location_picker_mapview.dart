@@ -1,0 +1,128 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
+import 'package:spacetime/app/modules/add_memories/controllers/location_picker_controller.dart';
+import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/modules/map/views/mini_widgets/internet_required_screen_new.dart';
+
+import '../../../../config/app_colors.dart';
+
+class LocationPickerWidget extends GetView<LocationPickerController> {
+  const LocationPickerWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Initialize controller
+    Get.put(LocationPickerController());
+
+    final uiController = Get.find<UiController>();
+
+    // Debug logging for state tracking
+    return Obx(() {
+      debugPrint('[LocationPickerWidget][build] State: showInternetRequiredScreen=${controller.showInternetRequiredScreen.value}, isCheckingInternet=${controller.isCheckingInternet.value}, isLoading=${controller.isLoading.value}');
+
+      // Show Internet Required Screen if no internet connectivity
+      if (controller.showInternetRequiredScreen.value) {
+        debugPrint('[LocationPickerWidget][build] Displaying InternetRequiredScreenNew');
+        return const InternetRequiredScreenNew();
+      }
+
+      return Scaffold(
+        backgroundColor: uiController.darkMode.value ? Colors.black : Colors.white,
+        body: Stack(
+          children: [
+            if (controller.isCheckingInternet.value)
+              const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Checking internet connectivity...'),
+                  ],
+                ),
+              )
+            else if (controller.isLoading.value)
+              const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Getting your location...'),
+                  ],
+                ),
+              )
+            else if (controller.currentPosition.value == null)
+              const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.location_off, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'Unable to get location',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Please check location permissions',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              )
+            else
+              mapbox.MapWidget(
+                key: const ValueKey("mapWidget"),
+                cameraOptions: mapbox.CameraOptions(
+                  center: mapbox.Point(
+                    coordinates: mapbox.Position(
+                      controller.currentPosition.value!.longitude,
+                      controller.currentPosition.value!.latitude,
+                    ),
+                  ),
+                  zoom: 1.0,
+                ),
+                styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
+                textureView: true,
+                onMapCreated: controller.onMapCreated,
+                onTapListener: controller.onMapTap,
+                onMapLoadErrorListener: controller.onMapLoadError,
+              ),
+
+            // Top right Done button
+            if (!controller.isLoading.value && controller.currentPosition.value != null)
+              Positioned(
+                top: 50,
+                right: 20,
+                child: TextButton(
+                  onPressed: controller.onDonePressed,
+                  style: TextButton.styleFrom(
+                    backgroundColor: uiController.primaryColor ??
+                        (uiController.darkMode.value
+                            ? Colors.black.withValues(alpha: 0.6)
+                            : Colors.white.withValues(alpha: 0.9)),
+                    foregroundColor: uiController.darkMode.value
+                        ? Colors.white
+                        : AppColors.blue,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+}
