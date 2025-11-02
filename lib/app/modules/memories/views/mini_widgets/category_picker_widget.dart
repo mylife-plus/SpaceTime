@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:google_fonts/google_fonts.dart' as gfonts;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
@@ -39,6 +42,20 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   final RxBool _isLoading = false.obs;
   final RxBool _isSearching = false.obs;
   final RxMap<int, bool> _expandedCategories = <int, bool>{}.obs;
+  final RxMap<int, bool> _addingToCategory = <int, bool>{}.obs;
+  final RxMap<int, TextEditingController> _inlineNameControllers = <int, TextEditingController>{}.obs;
+  final RxMap<int, TextEditingController> _inlineEmojiControllers = <int, TextEditingController>{}.obs;
+  final RxMap<int, ExpansionTileController> _expansionControllers = <int, ExpansionTileController>{}.obs;
+  final RxMap<int, bool> _pendingAddingMode = <int, bool>{}.obs;
+
+  // Inline editing state for subcategories
+  final RxMap<int, bool> _editingCategory = <int, bool>{}.obs;
+  final RxMap<int, TextEditingController> _editNameControllers = <int, TextEditingController>{}.obs;
+  final RxMap<int, TextEditingController> _editEmojiControllers = <int, TextEditingController>{}.obs;
+
+  // Recently selected subcategories storage (max 6 items)
+  static const String _recentSubcategoriesKey = 'recent_subcategories';
+  static const int _maxRecentItems = 6;
 
   // Multiple selection state
   final RxList<PlaceCategory> _selectedCategories = <PlaceCategory>[].obs;
@@ -98,6 +115,22 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+
+    // Dispose inline controllers
+    for (final controller in _inlineNameControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _inlineEmojiControllers.values) {
+      controller.dispose();
+    }
+
+    // Dispose editing controllers
+    for (final controller in _editNameControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _editEmojiControllers.values) {
+      controller.dispose();
+    }
 
     // Clean up global refresh notifier
     try {
@@ -306,6 +339,11 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       '[CategoryPickerWidget][_selectCategory] Selected: ${category.name}',
     );
 
+    // Save to recent subcategories if it's a subcategory
+    if (category.isSubcategory) {
+      _saveRecentlySelectedSubcategory(category);
+    }
+
     if (widget.allowMultipleSelection) {
       // Multiple selection mode - toggle category selection
       _toggleCategorySelection(category);
@@ -338,6 +376,11 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       debugPrint(
         '[CategoryPickerWidget][_toggleCategorySelection] Added: ${category.name}',
       );
+
+      // Save to recent subcategories if it's a subcategory
+      if (category.isSubcategory) {
+        _saveRecentlySelectedSubcategory(category);
+      }
     }
 
     debugPrint(
@@ -364,202 +407,329 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         !(_expandedCategories[categoryId] ?? false);
   }
 
-  /// Show add new category dialog
-  void _showAddCategoryDialog({PlaceCategory? parentCategory}) {
-    final uiController = Get.find<UiController>();
-    final nameController = TextEditingController();
-    final emojiController = TextEditingController();
+  /// Start inline adding for a category
+  void _startInlineAdding(int categoryId) {
+    // Check if category is already expanded
+    final isCurrentlyExpanded = _expandedCategories[categoryId] ?? false;
 
-    Get.dialog(
-      AlertDialog(
-        backgroundColor:
-            uiController.darkMode.value ? Colors.grey[900] : Colors.white,
-        title: Text(
-          parentCategory == null
-              ? 'Add New Main Category'
-              : 'Add New Subcategory',
-          style: TextStyle(
-            color: uiController.darkMode.value ? Colors.white : Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (parentCategory != null) ...[
-              Text(
-                'Adding to: ${parentCategory.name}',
-                style: TextStyle(
-                  color:
-                      uiController.darkMode.value
-                          ? Colors.white70
-                          : Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            TextField(
-              controller: nameController,
-              cursorColor:
-                  uiController.darkMode.value
-                      ? Colors.white70
-                      : Colors.grey[600],
-              decoration: InputDecoration(
-                labelText: 'Category Name',
-                labelStyle: TextStyle(
-                  color:
-                      uiController.darkMode.value
-                          ? Colors.white70
-                          : Colors.grey[600],
-                ),
-                border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                    color:
-                        uiController.darkMode.value
-                            ? Colors.white30
-                            : Colors.grey,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: uiController.currentMainColor),
-                ),
-              ),
-              style: TextStyle(
-                color:
-                    uiController.darkMode.value ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Emoji Picker Button with StatefulBuilder for reactivity
-            if (parentCategory != null)
-              StatefulBuilder(
-                builder: (context, setEmojiState) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color:
-                            uiController.darkMode.value
-                                ? Colors.white30
-                                : Colors.grey,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: InkWell(
-                      onTap: () async {
-                        await _showEmojiPicker(context, emojiController);
-                        // Update the emoji display after selection
-                        setEmojiState(() {});
-                      },
-                      borderRadius: BorderRadius.circular(4),
-                      child: Container(
-                        height: 56,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            // Selected emoji display or placeholder
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color:
-                                    uiController.darkMode.value
-                                        ? Colors.white10
-                                        : Colors.grey[100],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  emojiController.text.isEmpty
-                                      ? '🏠'
-                                      : emojiController.text,
-                                  style: const TextStyle(fontSize: 24),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Label and instruction
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Emoji',
-                                    style: TextStyle(
-                                      color:
-                                          uiController.darkMode.value
-                                              ? Colors.white70
-                                              : Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    emojiController.text.isEmpty
-                                        ? 'Tap to select emoji'
-                                        : 'Tap to change emoji',
-                                    style: TextStyle(
-                                      color:
-                                          uiController.darkMode.value
-                                              ? Colors.white
-                                              : Colors.black87,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Arrow icon
-                            Icon(
-                              Icons.keyboard_arrow_right,
-                              color:
-                                  uiController.darkMode.value
-                                      ? Colors.white54
-                                      : Colors.grey[600],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white70
-                        : Colors.grey[600],
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed:
-                () => _addNewCategory(
-                  nameController.text.trim(),
-                  emojiController.text.trim(),
-                  parentCategory?.id,
-                ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: uiController.currentMainColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
+    if (!isCurrentlyExpanded) {
+      // If not expanded, use the controller to expand (this will trigger onExpansionChanged)
+      final controller = _expansionControllers[categoryId];
+      if (controller != null && !controller.isExpanded) {
+        // Set a flag to indicate we're expanding for adding mode
+        _pendingAddingMode[categoryId] = true;
+        controller.expand();
+      }
+    } else {
+      // If already expanded, just enable adding mode
+      _enableAddingMode(categoryId);
+    }
+
+    debugPrint('[CategoryPickerWidget][_startInlineAdding] Started inline adding for category: $categoryId, expanded: ${_expandedCategories[categoryId]}, adding: ${_addingToCategory[categoryId]}');
   }
 
-  /// Add a new custom category
+  /// Helper method to enable adding mode
+  void _enableAddingMode(int categoryId) {
+    _addingToCategory[categoryId] = true;
+
+    // Initialize controllers
+    _inlineNameControllers[categoryId] = TextEditingController();
+    _inlineEmojiControllers[categoryId] = TextEditingController(text: '');
+  }
+
+  /// Cancel inline adding
+  void _cancelInlineAdding(int categoryId) {
+    _addingToCategory[categoryId] = false;
+    _inlineNameControllers[categoryId]?.dispose();
+    _inlineEmojiControllers[categoryId]?.dispose();
+    _inlineNameControllers.remove(categoryId);
+    _inlineEmojiControllers.remove(categoryId);
+  }
+
+  /// Start inline editing for a subcategory
+  void _startInlineEditing(PlaceCategory category) {
+    if (category.id == null) return;
+
+    _editingCategory[category.id!] = true;
+    _editNameControllers[category.id!] = TextEditingController(text: category.name);
+    _editEmojiControllers[category.id!] = TextEditingController(text: category.emoji);
+  }
+
+  /// Cancel inline editing
+  void _cancelInlineEditing(int categoryId) {
+    _editingCategory[categoryId] = false;
+    _editNameControllers[categoryId]?.dispose();
+    _editEmojiControllers[categoryId]?.dispose();
+    _editNameControllers.remove(categoryId);
+    _editEmojiControllers.remove(categoryId);
+  }
+
+  /// Save inline edited subcategory
+  Future<void> _saveInlineEditedSubcategory(int categoryId) async {
+    final nameController = _editNameControllers[categoryId];
+    final emojiController = _editEmojiControllers[categoryId];
+
+    if (nameController == null || emojiController == null) return;
+
+    final name = nameController.text.trim();
+    final emoji = emojiController.text.trim();
+
+    // Validate that both name and emoji are provided
+    if (name.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please enter a category name',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (emoji.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please select an emoji',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    try {
+      debugPrint('[CategoryPickerWidget][_saveInlineEditedSubcategory] Updating: $name ($emoji)');
+
+      final success = await _categoryService.updateCategory(
+        categoryId: categoryId,
+        name: name,
+        emoji: emoji,
+      );
+
+      if (success) {
+        // Clean up the inline editing state
+        _cancelInlineEditing(categoryId);
+
+        // Refresh categories from database to show the updated category
+        await _refreshCategoriesFromDatabase();
+
+        // Also trigger global refresh for any other category pickers that might be open
+        _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+
+        Get.snackbar(
+          'Success',
+          'Category "$name" updated successfully!',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to update category',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      debugPrint('[CategoryPickerWidget][_saveInlineEditedSubcategory] Error: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to update category: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Save recently selected subcategory
+  Future<void> _saveRecentlySelectedSubcategory(PlaceCategory subcategory) async {
+    try {
+      // Only save subcategories (not main categories)
+      if (!subcategory.isSubcategory) return;
+
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get existing recent subcategories
+      final existingJson = prefs.getString(_recentSubcategoriesKey);
+      List<Map<String, dynamic>> recentList = [];
+
+      if (existingJson != null) {
+        final decoded = json.decode(existingJson) as List;
+        recentList = decoded.cast<Map<String, dynamic>>();
+      }
+
+      // Create subcategory data map with all necessary information
+      final subcategoryData = {
+        'id': subcategory.id,
+        'name': subcategory.name,
+        'emoji': subcategory.emoji,
+        'parentId': subcategory.parentId,
+        'order': subcategory.order,
+        'isCustom': subcategory.isCustom,
+        'createdAt': subcategory.createdAt.toIso8601String(),
+        'updatedAt': subcategory.updatedAt.toIso8601String(),
+        'selectedAt': DateTime.now().toIso8601String(), // Track when it was selected
+      };
+
+      // Remove if already exists (to move it to front)
+      recentList.removeWhere((item) => item['id'] == subcategory.id);
+
+      // Add to front of list
+      recentList.insert(0, subcategoryData);
+
+      // Keep only the most recent items (max 6)
+      if (recentList.length > _maxRecentItems) {
+        recentList = recentList.take(_maxRecentItems).toList();
+      }
+
+      // Save back to preferences
+      await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
+
+      debugPrint('[CategoryPickerWidget] Saved recent subcategory: ${subcategory.name} (${subcategory.id})');
+    } catch (e) {
+      debugPrint('[CategoryPickerWidget] Error saving recent subcategory: $e');
+    }
+  }
+
+  /// Get recently selected subcategories
+  static Future<List<PlaceCategory>> getRecentlySelectedSubcategories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingJson = prefs.getString(_recentSubcategoriesKey);
+
+      if (existingJson == null) return [];
+
+      final decoded = json.decode(existingJson) as List;
+      final recentList = decoded.cast<Map<String, dynamic>>();
+
+      // Convert back to PlaceCategory objects
+      final categories = <PlaceCategory>[];
+      for (final item in recentList) {
+        try {
+          final category = PlaceCategory(
+            id: item['id'],
+            name: item['name'],
+            emoji: item['emoji'],
+            parentId: item['parentId'],
+            order: item['order'] ?? 0,
+            isCustom: item['isCustom'] ?? false,
+            createdAt: DateTime.parse(item['createdAt']),
+            updatedAt: DateTime.parse(item['updatedAt']),
+          );
+          categories.add(category);
+        } catch (e) {
+          debugPrint('[CategoryPickerWidget] Error parsing recent subcategory: $e');
+        }
+      }
+
+      return categories;
+    } catch (e) {
+      debugPrint('[CategoryPickerWidget] Error getting recent subcategories: $e');
+      return [];
+    }
+  }
+
+  /// Clear recently selected subcategories
+  static Future<void> clearRecentlySelectedSubcategories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_recentSubcategoriesKey);
+      debugPrint('[CategoryPickerWidget] Cleared recent subcategories');
+    } catch (e) {
+      debugPrint('[CategoryPickerWidget] Error clearing recent subcategories: $e');
+    }
+  }
+
+  /// Example method to demonstrate how to use recent subcategories
+  /// Call this from other screens to get and display recent subcategories
+  static Future<void> printRecentSubcategories() async {
+    final recentSubcategories = await getRecentlySelectedSubcategories();
+    debugPrint('[CategoryPickerWidget] Recent subcategories (${recentSubcategories.length}):');
+    for (final subcategory in recentSubcategories) {
+      debugPrint('  - ${subcategory.emoji} ${subcategory.name} (ID: ${subcategory.id}, Parent: ${subcategory.parentId})');
+    }
+  }
+
+  /// Save inline added subcategory
+  Future<void> _saveInlineSubcategory(int parentCategoryId) async {
+    final nameController = _inlineNameControllers[parentCategoryId];
+    final emojiController = _inlineEmojiControllers[parentCategoryId];
+
+    if (nameController == null || emojiController == null) return;
+
+    final name = nameController.text.trim();
+    final emoji = emojiController.text.trim();
+
+    // Validate that both name and emoji are provided
+    if (name.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please enter a subcategory name',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (emoji.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please select an emoji',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    try {
+      debugPrint(
+        '[CategoryPickerWidget][_saveInlineSubcategory] Adding: $name ($emoji)',
+      );
+
+      final newCategory = await _categoryService.addCustomCategory(
+        name: name,
+        emoji: emoji,
+        parentId: parentCategoryId,
+      );
+
+      if (newCategory != null) {
+        // Clean up the inline adding state
+        _cancelInlineAdding(parentCategoryId);
+
+        // Refresh categories from database to show the new addition
+        await _refreshCategoriesFromDatabase();
+
+        // Also trigger global refresh for any other category pickers that might be open
+        _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+
+        Get.snackbar(
+          'Success',
+          'Subcategory "$name" added successfully!',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+
+        debugPrint(
+          '[CategoryPickerWidget][_saveInlineSubcategory] Successfully added subcategory: ${newCategory.id}',
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to add subcategory',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      debugPrint('[CategoryPickerWidget][_saveInlineSubcategory] Error: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to add subcategory: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  // /// Add a new custom category
   Future<void> _addNewCategory(String name, String emoji, int? parentId) async {
     if (name.isEmpty || emoji.isEmpty) {
       Get.snackbar(
@@ -626,199 +796,198 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     }
   }
 
-  /// Show edit category dialog
+  /// Show edit category dialog - now uses inline editing style
   void _showEditCategoryDialog(PlaceCategory category) {
     // Allow editing of all categories (both custom and predefined)
     debugPrint(
-      '[CategoryPickerWidget][_showEditCategoryDialog] Opening edit dialog for: ${category.name} (${category.isCustom ? 'Custom' : 'Predefined'})',
+      '[CategoryPickerWidget][_showEditCategoryDialog] Opening inline edit for: ${category.name} (${category.isCustom ? 'Custom' : 'Predefined'})',
     );
 
     final uiController = Get.find<UiController>();
     final nameController = TextEditingController(text: category.name);
     final emojiController = TextEditingController(text: category.emoji);
+    final focusNode = FocusNode();
+
+    // Auto-focus the text field after dialog is shown
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      focusNode.requestFocus();
+    });
 
     Get.dialog(
-      AlertDialog(
-        backgroundColor:
-            uiController.darkMode.value ? Colors.grey[900] : Colors.white,
-        title: Text(
-          'Edit Category',
-          style: TextStyle(
-            color: uiController.darkMode.value ? Colors.white : Colors.black,
-            fontWeight: FontWeight.bold,
+      Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: uiController.darkMode.value
+                ? Colors.grey[900]
+                : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(
-                labelText: 'Category Name',
-
-                labelStyle: TextStyle(
-                  color:
-                      uiController.darkMode.value
-                          ? Colors.white70
-                          : Colors.grey[600],
-                ),
-                border: const OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                    color:
-                        uiController.darkMode.value
-                            ? Colors.white30
-                            : Colors.grey,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: uiController.currentMainColor),
-                ),
-              ),
-              style: TextStyle(
-                color:
-                    uiController.darkMode.value ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (!category.isMainCategory)
-              // Emoji Picker Button with StatefulBuilder for reactivity
+          child: Row(
+            children: [
+              // Emoji picker button
               StatefulBuilder(
                 builder: (context, setEmojiState) {
                   return Container(
+                    width: 0,
+                    height: 40,
                     decoration: BoxDecoration(
+                      color: Colors.white,  // Always white background
+                      borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color:
-                            uiController.darkMode.value
-                                ? Colors.white30
-                                : Colors.grey,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: InkWell(
-                      onTap: () async {
-                        await _showEmojiPicker(context, emojiController);
-                        // Update the emoji display after selection
-                        setEmojiState(() {});
-                      },
-                      borderRadius: BorderRadius.circular(4),
-                      child: Container(
-                        height: 56,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            // Selected emoji display or placeholder
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color:
-                                    uiController.darkMode.value
-                                        ? Colors.white10
-                                        : Colors.grey[100],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  emojiController.text.isEmpty
-                                      ? '🏠'
-                                      : emojiController.text,
-                                  style: const TextStyle(fontSize: 24),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Label and instruction
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Emoji',
-                                    style: TextStyle(
-                                      color:
-                                          uiController.darkMode.value
-                                              ? Colors.white70
-                                              : Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    emojiController.text.isEmpty
-                                        ? 'Tap to select emoji'
-                                        : 'Tap to change emoji',
-                                    style: TextStyle(
-                                      color:
-                                          uiController.darkMode.value
-                                              ? Colors.white
-                                              : Colors.black87,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Arrow icon
-                            Icon(
-                              Icons.keyboard_arrow_right,
-                              color:
-                                  uiController.darkMode.value
-                                      ? Colors.white54
-                                      : Colors.grey[600],
-                            ),
-                          ],
-                        ),
+                        color: Colors.grey.withValues(alpha: 0.3),
                       ),
                     ),
+                    child: Container()
                   );
                 },
               ),
-          ],
+              // const SizedBox(width: 12),
+              // Text input field
+              Expanded(
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    textSelectionTheme: TextSelectionThemeData(
+                      cursorColor: uiController.currentMainColor,
+                      selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                      selectionHandleColor: uiController.currentMainColor,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: nameController,
+                    focusNode: focusNode,
+                    autofocus: true,
+                    cursorColor: uiController.currentMainColor,
+                    style: gfonts.GoogleFonts.kumbhSans(
+                      color: uiController.darkMode.value ? Colors.white : Colors.black,
+                      fontSize: 14,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Category Name',
+                      hintStyle: gfonts.GoogleFonts.kumbhSans(
+                        color: uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.5)
+                            : Colors.grey[500],
+                        fontSize: 14,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Cancel button (red cross)
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  child: ColorFiltered(
+                    colorFilter: const ColorFilter.mode(
+                      Colors.red,
+                      BlendMode.srcIn,
+                    ),
+                    child: Image.asset(
+                      'assets/images/ic_cross.png',
+                      width: 10,
+                      height: 10,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Save button (green tick)
+              GestureDetector(
+                onTap: () async {
+                  final name = nameController.text.trim();
+                  final emoji = emojiController.text.trim();
+
+                  // Validate that both name and emoji are provided
+                  if (name.isEmpty) {
+                    Get.snackbar(
+                      'Validation Error',
+                      'Please enter a category name',
+                      backgroundColor: Colors.orange,
+                      colorText: Colors.white,
+                    );
+                    return;
+                  }
+
+                  if (emoji.isEmpty) {
+                    Get.snackbar(
+                      'Validation Error',
+                      'Please select an emoji',
+                      backgroundColor: Colors.orange,
+                      colorText: Colors.white,
+                    );
+                    return;
+                  }
+
+                  try {
+                    debugPrint('[CategoryPickerWidget][EditDialog] Updating: $name ($emoji)');
+
+                    final success = await _categoryService.updateCategory(
+                      categoryId: category.id!,
+                      name: name,
+                      emoji: emoji,
+                    );
+
+                    if (success) {
+                      Get.back(); // Close dialog
+
+                      // Refresh categories from database to show the updated category
+                      await _refreshCategoriesFromDatabase();
+
+                      // Also trigger global refresh for any other category pickers that might be open
+                      _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+
+                      Get.snackbar(
+                        'Success',
+                        'Category "$name" updated successfully!',
+                        backgroundColor: Colors.green,
+                        colorText: Colors.white,
+                      );
+                    } else {
+                      Get.snackbar(
+                        'Error',
+                        'Failed to update category',
+                        backgroundColor: Colors.red,
+                        colorText: Colors.white,
+                      );
+                    }
+                  } catch (e) {
+                    debugPrint('[CategoryPickerWidget][EditDialog] Error: $e');
+                    Get.snackbar(
+                      'Error',
+                      'Failed to update category: $e',
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                    );
+                  }
+                },
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  child: Image.asset(
+                    'assets/images/ic_tick.png',
+                    width: 10,
+                    height: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white70
-                        : Colors.grey[600],
-              ),
-            ),
-          ),
-          // Allow deletion of custom categories and predefined subcategories (but not main categories)
-          if (category.isCustom || category.isSubcategory)
-            TextButton(
-              onPressed: () => _showDeleteConfirmation(category),
-              child: Text(
-                'Delete',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize:
-                      category.isCustom
-                          ? 14
-                          : 12, // Slightly smaller for predefined
-                ),
-              ),
-            ),
-          ElevatedButton(
-            onPressed:
-                () => _updateCategory(
-                  category.id!,
-                  nameController.text.trim(),
-                  emojiController.text.trim(),
-                ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: uiController.currentMainColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Update'),
-          ),
-        ],
       ),
     );
   }
@@ -900,7 +1069,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             uiController.darkMode.value ? Colors.grey[900] : Colors.white,
         title: Text(
           'Delete Category',
-          style: TextStyle(
+          style: gfonts.GoogleFonts.kumbhSans(
             color: uiController.darkMode.value ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
           ),
@@ -911,7 +1080,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           children: [
             Text(
               'Are you sure you want to delete "${category.emoji} ${category.name}"?',
-              style: TextStyle(
+              style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value
                         ? Colors.white70
@@ -936,7 +1105,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     Expanded(
                       child: Text(
                         'This is a predefined category. Deleting it will remove it permanently.',
-                        style: TextStyle(
+                        style: gfonts.GoogleFonts.kumbhSans(
                           color: Colors.orange[700],
                           fontSize: 12,
                         ),
@@ -949,7 +1118,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             ],
             Text(
               'This action cannot be undone.',
-              style: TextStyle(
+              style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value
                         ? Colors.white60
@@ -965,7 +1134,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             onPressed: () => Get.back(),
             child: Text(
               'Cancel',
-              style: TextStyle(
+              style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value
                         ? Colors.white70
@@ -979,7 +1148,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Delete'),
+            child: Text('Delete', style: gfonts.GoogleFonts.kumbhSans()),
           ),
         ],
       ),
@@ -1062,7 +1231,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             const SizedBox(width: 8),
             Text(
               'Cannot Delete Category',
-              style: TextStyle(
+              style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value ? Colors.white : Colors.black,
                 fontWeight: FontWeight.bold,
@@ -1077,7 +1246,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           children: [
             Text(
               'The category "$categoryName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
-              style: TextStyle(
+              style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value
                         ? Colors.white70
@@ -1100,7 +1269,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                   Expanded(
                     child: Text(
                       'To delete this category, first change the category of all memories that use it, or delete those memories.',
-                      style: TextStyle(color: Colors.orange[700], fontSize: 14),
+                      style: gfonts.GoogleFonts.kumbhSans(color: Colors.orange[700], fontSize: 14),
                     ),
                   ),
                 ],
@@ -1113,7 +1282,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             onPressed: () => Get.back(),
             child: Text(
               'OK',
-              style: TextStyle(
+              style: gfonts.GoogleFonts.kumbhSans(
                 color: uiController.currentMainColor,
                 fontWeight: FontWeight.bold,
               ),
@@ -1129,7 +1298,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
-    _showAddCategoryDialog();
+    // _showAddCategoryDialog();
   }
 
   /// Show emoji picker as bottom sheet
@@ -1184,7 +1353,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                       children: [
                         Text(
                           '',
-                          style: TextStyle(
+                          style: gfonts.GoogleFonts.kumbhSans(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color:
@@ -1294,7 +1463,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             const SizedBox(height: 16),
             Text(
               'Fixing category inconsistencies...',
-              style: TextStyle(
+              style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value ? Colors.white : Colors.black87,
               ),
@@ -1332,7 +1501,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               Expanded(
                 child: Text(
                   'Fix Complete',
-                  style: TextStyle(
+                  style: gfonts.GoogleFonts.kumbhSans(
                     color:
                         uiController.darkMode.value
                             ? Colors.white
@@ -1346,7 +1515,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           ),
           content: Text(
             'Fixed $totalFixed category inconsistencies.\n\nMemories and category picker now show the correct updated category names.',
-            style: TextStyle(
+            style: gfonts.GoogleFonts.kumbhSans(
               color:
                   uiController.darkMode.value
                       ? Colors.white70
@@ -1359,7 +1528,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               onPressed: () => Get.back(),
               child: Text(
                 'OK',
-                style: TextStyle(
+                style: gfonts.GoogleFonts.kumbhSans(
                   color: uiController.currentMainColor,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1386,7 +1555,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               Expanded(
                 child: Text(
                   'Fix Failed',
-                  style: TextStyle(
+                  style: gfonts.GoogleFonts.kumbhSans(
                     color:
                         uiController.darkMode.value
                             ? Colors.white
@@ -1400,7 +1569,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           ),
           content: Text(
             'An error occurred while fixing category inconsistencies:\n\n$e',
-            style: TextStyle(
+            style: gfonts.GoogleFonts.kumbhSans(
               color:
                   uiController.darkMode.value
                       ? Colors.white70
@@ -1413,7 +1582,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               onPressed: () => Get.back(),
               child: Text(
                 'OK',
-                style: TextStyle(
+                style: gfonts.GoogleFonts.kumbhSans(
                   color: uiController.currentMainColor,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1439,11 +1608,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         }
       },
       child: Scaffold(
-        backgroundColor:
-            uiController.darkMode.value
-                ? Colors.white.withValues(alpha: 0.03)
-                : Colors.white,
-        appBar: AppBar(
+              appBar: AppBar(
           leading:
               widget.allowMultipleSelection
                   ? Obx(
@@ -1460,14 +1625,20 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           title: Obx(
             () => Text(
               widget.allowMultipleSelection
-                  ? 'Select Categories (${_selectedCategories.length})'
-                  : 'Select Place Category',
-              style: TextStyle(
+                  ? '📍 Place Categories'
+                  : '📍 Place Categories',
+              style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value ? Colors.white : Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
               ),
+              maxLines: null, // Allow unlimited lines
+              overflow: TextOverflow.visible, // Show all text
+              textAlign: TextAlign.center, // Keep centered
             ),
           ),
+          centerTitle: true,
           backgroundColor: uiController.currentMainColor,
           foregroundColor:
               uiController.darkMode.value ? Colors.white : Colors.white,
@@ -1502,85 +1673,85 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         body: Column(
           children: [
             // Search Field
-            Container(
-              color:
-                  uiController.darkMode.value
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : uiController.getLightModeBackgroundColor(
-                            uiController.mainColor.value,
-                          ) ??
-                          const Color(0xFFF8FBFF),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search or add new category...',
-                    hintStyle: TextStyle(
-                      color:
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.grey[600],
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color:
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.7)
-                              : Colors.grey[600],
-                    ),
-                    suffixIcon: null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color:
-                            uiController.darkMode.value
-                                ? Colors.white.withValues(alpha: 0.3)
-                                : Colors.grey.shade300,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color:
-                            uiController.darkMode.value
-                                ? Colors.white.withValues(alpha: 0.3)
-                                : Colors.grey.shade300,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color:
-                            uiController.darkMode.value
-                                ? Colors.white.withValues(alpha: 0.5)
-                                : (uiController.primaryColor ?? Colors.blue),
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor:
-                        uiController.darkMode.value
-                            ? Colors.black
-                            : Colors.white,
-                  ),
-                  style: TextStyle(
-                    color:
-                        uiController.darkMode.value
-                            ? Colors.white
-                            : Colors.black,
-                  ),
-                ),
-              ),
-            ),
-
+            // Container(
+            //   color:
+            //       uiController.darkMode.value
+            //           ? Colors.white.withValues(alpha: 0.06)
+            //           : uiController.getLightModeBackgroundColor(
+            //                 uiController.mainColor.value,
+            //               ) ??
+            //               const Color(0xFFF8FBFF),
+            //   child: Padding(
+            //     padding: const EdgeInsets.all(16.0),
+            //     child: TextField(
+            //       controller: _searchController,
+            //       decoration: InputDecoration(
+            //         hintText: 'Search or add new category...',
+            //         hintStyle: TextStyle(
+            //           color:
+            //               uiController.darkMode.value
+            //                   ? Colors.white.withValues(alpha: 0.6)
+            //                   : Colors.grey[600],
+            //         ),
+            //         prefixIcon: Icon(
+            //           Icons.search,
+            //           color:
+            //               uiController.darkMode.value
+            //                   ? Colors.white.withValues(alpha: 0.7)
+            //                   : Colors.grey[600],
+            //         ),
+            //         suffixIcon: null,
+            //         border: OutlineInputBorder(
+            //           borderRadius: BorderRadius.circular(12),
+            //           borderSide: BorderSide(
+            //             color:
+            //                 uiController.darkMode.value
+            //                     ? Colors.white.withValues(alpha: 0.3)
+            //                     : Colors.grey.shade300,
+            //           ),
+            //         ),
+            //         enabledBorder: OutlineInputBorder(
+            //           borderRadius: BorderRadius.circular(12),
+            //           borderSide: BorderSide(
+            //             color:
+            //                 uiController.darkMode.value
+            //                     ? Colors.white.withValues(alpha: 0.3)
+            //                     : Colors.grey.shade300,
+            //           ),
+            //         ),
+            //         focusedBorder: OutlineInputBorder(
+            //           borderRadius: BorderRadius.circular(12),
+            //           borderSide: BorderSide(
+            //             color:
+            //                 uiController.darkMode.value
+            //                     ? Colors.white.withValues(alpha: 0.5)
+            //                     : (uiController.primaryColor ?? Colors.blue),
+            //             width: 2,
+            //           ),
+            //         ),
+            //         filled: true,
+            //         fillColor:
+            //             uiController.darkMode.value
+            //                 ? Colors.black
+            //                 : Colors.white,
+            //       ),
+            //       style: TextStyle(
+            //         color:
+            //             uiController.darkMode.value
+            //                 ? Colors.white
+            //                 : Colors.black,
+            //       ),
+            //     ),
+            //   ),
+            // ),
+        
             // Categories List
             Expanded(
               child: Obx(() {
                 if (_isLoading.value) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
+        
                 // Show search results when searching
                 if (_isSearching.value) {
                   return Padding(
@@ -1588,17 +1759,15 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     child: _buildSearchResults(),
                   );
                 }
-
+        
                 // Show hierarchical categories when not searching
                 return Container(
                   color:
-                      uiController.darkMode.value
-                          ? Colors.white.withValues(alpha: 0.06)
-                          : uiController.getLightModeBackgroundColor(
-                            uiController.mainColor.value,
-                          ),
+                       uiController.darkMode.value
+              ? Colors.black
+              :                    uiController.currentMainColor.withValues(alpha: 0.1),
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.all(2.0),
                     child: _buildHierarchicalCategories(),
                   ),
                 );
@@ -1643,7 +1812,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               const SizedBox(height: 16),
               Text(
                 'No categories match your search',
-                style: TextStyle(
+                style: gfonts.GoogleFonts.kumbhSans(
                   color:
                       uiController.darkMode.value
                           ? Colors.white.withValues(alpha: 0.6)
@@ -1714,7 +1883,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               const SizedBox(height: 16),
               Text(
                 'No categories found',
-                style: TextStyle(
+                style: gfonts.GoogleFonts.kumbhSans(
                   color:
                       uiController.darkMode.value
                           ? Colors.white.withValues(alpha: 0.6)
@@ -1723,18 +1892,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                 ),
               ),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _showAddCategoryDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add First Category'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: uiController.currentMainColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
+              
             ],
           ),
         ),
@@ -1753,16 +1911,298 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     );
   }
 
+  /// Build inline add widget for subcategories
+  Widget _buildInlineAddWidget(int parentCategoryId) {
+    
+    final uiController = Get.find<UiController>();
+    final nameController = _inlineNameControllers[parentCategoryId];
+    final emojiController = _inlineEmojiControllers[parentCategoryId];
+
+    if (nameController == null || emojiController == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      padding: const EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 4),
+      decoration: BoxDecoration(
+        color: uiController.darkMode.value
+                ? Colors.black
+                :                    uiController.currentMainColor.withValues(alpha: 0.1)
+,borderRadius: BorderRadius.circular(2),
+      ),
+      child: Row(
+        children: [
+          // Emoji picker button
+          StatefulBuilder(
+            builder: (context, setEmojiState) {
+              return GestureDetector(
+                onTap: () async {
+                  await _showEmojiPicker(context, emojiController);
+                  // Update the emoji display after selection
+                  setEmojiState(() {});
+                },
+                child: Container(
+                  width: 35,
+                  height: 35,
+                  decoration: BoxDecoration(
+                    color:           (!uiController.darkMode.value
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : Colors.grey[800]),
+                    borderRadius: BorderRadius.circular(6),
+                    // border: Border.all(
+                      // color: Colors.grey.withValues(alpha: 0.3),
+                    // ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2.0),
+                    child: Center(
+                      child: emojiController.text.isEmpty
+                          ? ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                              uiController.currentMainColor,
+                                BlendMode.srcIn,
+                              ),
+                              child: Image.asset(
+                                'assets/images/ic_add.png',
+                                width: 25,
+                                height: 25,
+                              ),
+                            )
+                          : Text(
+                              emojiController.text,
+                              style: gfonts.GoogleFonts.kumbhSans(fontSize: 20),
+                            ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+          // Name input field
+          Expanded(
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                textSelectionTheme: TextSelectionThemeData(
+                  cursorColor: uiController.currentMainColor,
+                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionHandleColor: uiController.currentMainColor,
+                ),
+              ),
+              child: TextField(
+                controller: nameController,
+                cursorColor: uiController.currentMainColor,
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                  fontSize: 16,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Place Name',
+                  hintStyle: gfonts.GoogleFonts.kumbhSans(
+                    color: uiController.darkMode.value
+                        ? Colors.white.withValues(alpha: 0.6)
+                        : Colors.grey[600],
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                autofocus: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Cancel button (red cross)
+          GestureDetector(
+            onTap: () => _cancelInlineAdding(parentCategoryId),
+            child: Container(
+              width: 18,
+              height: 18,
+
+              child: Image.asset(
+                'assets/images/ic_cross.png',
+                width: 10,
+                height: 10,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Save button (green tick)
+          GestureDetector(
+            onTap: () => _saveInlineSubcategory(parentCategoryId),
+            child: Container(
+              width: 18,
+              height: 18,
+             
+              child: Image.asset(
+                'assets/images/ic_tick.png',
+                width: 10,
+                height: 10,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build inline edit widget for subcategories
+  Widget _buildInlineEditWidget(int categoryId) {
+    final uiController = Get.find<UiController>();
+    final nameController = _editNameControllers[categoryId];
+    final emojiController = _editEmojiControllers[categoryId];
+
+    if (nameController == null || emojiController == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+        horizontal: 18, // Same as subcategory margin
+        vertical: 2,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: uiController.darkMode.value
+                ? Colors.black
+                :                    uiController.currentMainColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(2),
+        
+      ),
+      child: Row(
+        children: [
+          // Emoji picker button
+          StatefulBuilder(
+            builder: (context, setEmojiState) {
+              return GestureDetector(
+                onTap: () async {
+                  await _showEmojiPicker(context, emojiController);
+                  // Update the emoji display after selection
+                  setEmojiState(() {});
+                },
+                child: Container(
+                  width: 35,
+                  height: 35,
+                  decoration: BoxDecoration(
+                   color:    (!uiController.darkMode.value
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : Colors.grey[800]),
+                    borderRadius: BorderRadius.circular(6),
+                    // border: Border.all(
+                      // color: Colors.grey.withValues(alpha: 0.3),
+                    // ),
+                                      // borderRadius: BorderRadius.circular(6),
+                   
+                  ),
+                  child: Center(
+                    child: emojiController.text.isEmpty
+                        ? ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              Colors.grey[600] ?? Colors.grey,
+                              BlendMode.srcIn,
+                            ),
+                            child: Image.asset(
+                              'assets/images/ic_add.png',
+                              width: 25,
+                              height: 25,
+                            ),
+                          )
+                        : Text(
+                            emojiController.text,
+                            style: gfonts.GoogleFonts.kumbhSans(fontSize: 20),
+                          ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+          // Name input field
+          Expanded(
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                textSelectionTheme: TextSelectionThemeData(
+                  cursorColor: uiController.currentMainColor,
+                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionHandleColor: uiController.currentMainColor,
+                ),
+              ),
+              child: TextField(
+                controller: nameController,
+                cursorColor: uiController.currentMainColor,
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                  fontSize: 16,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Place Name',
+                  hintStyle: gfonts.GoogleFonts.kumbhSans(
+                    color: uiController.darkMode.value
+                        ? Colors.white.withValues(alpha: 0.6)
+                        : Colors.grey[600],
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                autofocus: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Cancel button (red cross)
+          GestureDetector(
+            onTap: () => _cancelInlineEditing(categoryId),
+            child: Container(
+              width: 18,
+              height: 18,
+              // decoration: BoxDecoration(
+                // color: Colors.red.withValues(alpha: 0.1),
+                // borderRadius: BorderRadius.circular(16),
+              // ),
+              child: Image.asset(
+                'assets/images/ic_cross.png',
+                width: 10,
+                height: 10,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Save button (green tick)
+          GestureDetector(
+            onTap: () => _saveInlineEditedSubcategory(categoryId),
+            child: Container(
+              width: 18,
+              height: 18,
+           
+              child: Image.asset(
+                'assets/images/ic_tick.png',
+                width: 10,
+                height: 10,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Build main category expansion tile
   Widget _buildMainCategoryExpansionTile(PlaceCategory mainCategory) {
     final uiController = Get.find<UiController>();
     final isExpanded = _expandedCategories[mainCategory.id] ?? false;
 
+    // Create or get the expansion controller for this category
+    final categoryId = mainCategory.id!;
+    if (_expansionControllers[categoryId] == null) {
+      _expansionControllers[categoryId] = ExpansionTileController();
+    }
+    final controller = _expansionControllers[categoryId]!;
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
       decoration: BoxDecoration(
         color: uiController.darkMode.value ? Colors.black : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(2),
         border: Border.all(
           color:
               uiController.darkMode.value
@@ -1772,16 +2212,17 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       ),
       child: ExpansionTile(
         key: ValueKey(mainCategory.id),
+        controller: controller,
         initiallyExpanded: isExpanded,
         onExpansionChanged:
             (expanded) => _toggleCategoryExpansion(mainCategory.id!),
         tilePadding: EdgeInsets.zero,
         childrenPadding: EdgeInsets.zero,
         collapsedShape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderRadius: BorderRadius.all(Radius.circular(2)),
         ),
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderRadius: BorderRadius.all(Radius.circular(2)),
         ),
         // leading: Text(
         //   ' ',
@@ -1789,45 +2230,61 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         // ),
         title: Padding(
           padding: const EdgeInsets.only(left: 20.0),
-          child: Text(
-            mainCategory.name,
-            style: TextStyle(
-              color: uiController.darkMode.value ? Colors.white : Colors.black,
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: mainCategory.name,
+                        style: gfonts.GoogleFonts.kumbhSans(
+                          color: uiController.darkMode.value ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' (${mainCategory.subcategories!.length})',
+                        style: gfonts.GoogleFonts.kumbhSans(
+                          color:
+                              uiController.darkMode.value
+                                  ? Colors.white.withValues(alpha: 0.6)
+                                  : Colors.grey[600],
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  maxLines: null, // Allow unlimited lines
+                  overflow: TextOverflow.visible, // Show all text
+                ),
+              ),
+            ],
           ),
         ),
-        subtitle:
-            mainCategory.hasSubcategories
-                ? Padding(
-                  padding: const EdgeInsets.only(left: 20.0),
-                  child: Text(
-                    '${mainCategory.subcategories!.length} subcategories',
-                    style: TextStyle(
-                      color:
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                )
-                : null,
+        
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Show edit button for all categories
             IconButton(
-              icon: Icon(
-                Icons.edit,
-                size: 20,
-                color:
-                    mainCategory.isCustom
-                        ? uiController.currentMainColor
-                        : (uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.6)
-                            : Colors.grey[500]),
+              icon: ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  mainCategory.isCustom
+                      ? uiController.currentMainColor
+                      : (uiController.darkMode.value
+                          ? Colors.white.withValues(alpha: 0.6)
+                          : Colors.grey[500] ?? Colors.grey),
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  'assets/images/ic_edit.png',
+                  width: 25,
+                  height: 25,
+                ),
               ),
               onPressed: () => _showEditCategoryDialog(mainCategory),
               tooltip:
@@ -1835,51 +2292,62 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                       ? 'Edit Custom Category'
                       : 'Edit Category',
             ),
-            IconButton(
-              icon: Icon(
-                Icons.add,
-                size: 20,
-                color: uiController.currentMainColor,
+            Obx(
+              () => IconButton(
+                icon: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    (_addingToCategory[mainCategory.id] ?? false)
+                        ? Colors.grey
+                        : uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.6)
+                            : uiController.currentMainColor,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset(
+                    'assets/images/ic_add.png',
+                    width: 25,
+                    height: 25,
+                  ),
+                ),
+                onPressed: (_addingToCategory[mainCategory.id] ?? false)
+                    ? null
+                    : () => _startInlineAdding(mainCategory.id!),
+                tooltip: 'Add Subcategory',
               ),
-              onPressed:
-                  () => _showAddCategoryDialog(parentCategory: mainCategory),
-              tooltip: 'Add Subcategory',
             ),
-            Icon(
-              isExpanded ? Icons.expand_less : Icons.expand_more,
-              color:
+            Obx(
+              () => ColorFiltered(
+                colorFilter: ColorFilter.mode(
                   uiController.darkMode.value
                       ? Colors.white.withValues(alpha: 0.6)
-                      : Colors.grey[600],
+                      : Colors.grey[600] ?? Colors.grey,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  (_expandedCategories[mainCategory.id] ?? false)
+                      ? 'assets/images/ic_expand_close.png'
+                      : 'assets/images/ic_expand_open.png',
+                  width: 25,
+                  height: 25,
+                ),
+              ),
             ),
 
             Container(width: 15),
           ],
         ),
         children: [
+          // Inline adding widget at index 0
+          Obx(() => (_addingToCategory[mainCategory.id] ?? false)
+              ? _buildInlineAddWidget(mainCategory.id!)
+              : const SizedBox.shrink()),
           if (mainCategory.hasSubcategories)
             ...mainCategory.subcategories!.map(
               (subCategory) =>
                   _buildCategoryTile(subCategory, isSubcategory: true),
             ),
           // Add subcategory option
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: ListTile(
-              leading: Icon(
-                Icons.add_circle_outline,
-                color: uiController.currentMainColor,
-              ),
-              title: Text(
-                'Add new subcategory',
-                style: TextStyle(
-                  color: uiController.currentMainColor,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-              onTap: () => _showAddCategoryDialog(parentCategory: mainCategory),
-            ),
-          ),
+          
         ],
       ),
     );
@@ -1894,6 +2362,14 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     final uiController = Get.find<UiController>();
 
     return Obx(() {
+      // Check if this category is being edited inline
+      final isBeingEdited = _editingCategory[category.id] ?? false;
+
+      // If being edited, show the inline edit widget instead
+      if (isBeingEdited && category.id != null) {
+        return _buildInlineEditWidget(category.id!);
+      }
+
       final bool isSelected;
       if (widget.allowMultipleSelection) {
         isSelected = _selectedCategories.any((c) => c.id == category.id);
@@ -1903,36 +2379,28 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
       return Container(
         margin: EdgeInsets.symmetric(
-          horizontal: isSubcategory ? 24 : 16,
+          horizontal: isSubcategory ? 16 : 16,
           vertical: 2,
         ),
         decoration: BoxDecoration(
           color:
               isSelected
-                  ? uiController.currentMainColor.withValues(alpha: 0.1)
+                  ? uiController.currentMainColor.withValues(alpha: 0.2)
                   : (uiController.darkMode.value
                       ? Colors.grey[900]
-                      : Colors.grey[50]),
-          borderRadius: BorderRadius.circular(8),
-          border:
-              isSelected
-                  ? Border.all(color: uiController.currentMainColor, width: 2)
-                  : Border.all(
-                    color:
-                        uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : Colors.grey.shade200,
-                  ),
+                      : Colors.grey[100]),
+          borderRadius: BorderRadius.circular(2),
+          
         ),
         child: ListTile(
           dense: isSubcategory,
           leading: Text(
             !isSubcategory ? '' : category.emoji,
-            style: TextStyle(fontSize: isSubcategory ? 20 : 24),
+            style: gfonts.GoogleFonts.kumbhSans(fontSize: isSubcategory ? 20 : 24),
           ),
           title: Text(
             category.name,
-            style: TextStyle(
+            style: gfonts.GoogleFonts.kumbhSans(
               color: uiController.darkMode.value ? Colors.white : Colors.black,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               fontSize: isSubcategory ? 14 : 16,
@@ -1942,7 +2410,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               isSearchResult && category.isSubcategory
                   ? Text(
                     'in ${_getParentCategoryName(category.parentId!)}',
-                    style: TextStyle(
+                    style: gfonts.GoogleFonts.kumbhSans(
                       color:
                           uiController.darkMode.value
                               ? Colors.white.withValues(alpha: 0.5)
@@ -1958,56 +2426,16 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     onChanged: (bool? value) => _selectCategory(category),
                     activeColor: uiController.currentMainColor,
                   )
-                  : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Show edit button for all categories
-                      IconButton(
-                        icon: Icon(
-                          Icons.edit,
-                          size: 16,
-                          color:
-                              category.isCustom
-                                  ? uiController.currentMainColor
-                                  : (uiController.darkMode.value
-                                      ? Colors.white.withValues(alpha: 0.5)
-                                      : Colors.grey[400]),
-                        ),
-                        onPressed: () => _showEditCategoryDialog(category),
-                        tooltip:
-                            category.isCustom
-                                ? 'Edit Custom Category'
-                                : 'Edit Category',
+                  : GestureDetector(
+                    onTap: () => _startInlineEditing(category),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Image.asset(
+                        'assets/images/ic_edit.png',
+                        width: 20,
+                        height: 20,
                       ),
-                      if (category.isCustom)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Custom',
-                            style: TextStyle(
-                              color: Colors.blue[700],
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 14,
-                        color:
-                            uiController.darkMode.value
-                                ? Colors.white.withValues(alpha: 0.4)
-                                : Colors.grey[400],
-                      ),
-                    ],
+                    ),
                   ),
           onTap: () => _selectCategory(category),
         ),

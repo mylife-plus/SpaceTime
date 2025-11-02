@@ -5,9 +5,11 @@
 *.swp
 .DS_Store
 .atom/
+.build/
 .buildlog/
 .history
 .svn/
+.swiftpm/
 migrate_working_dir/
 
 # IntelliJ related
@@ -141,3 +143,6 @@ devtools_options.yaml
 # assets/cities*.txt
 # assets/*.csv
 # assets/data/
+
+# FVM Version Cache
+.fvm/

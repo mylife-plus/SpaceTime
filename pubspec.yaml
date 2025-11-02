@@ -53,6 +53,7 @@ dependencies:
   intl: ^0.20.2
   geocoder_offline_json: ^0.2.2
   emoji_picker_flutter: ^3.0.0
+  google_fonts: ^6.1.0
 
 dependency_overrides:
   csv: ^6.0.0

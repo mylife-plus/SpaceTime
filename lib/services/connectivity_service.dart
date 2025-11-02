@@ -281,7 +281,7 @@ class ConnectivityService extends GetxController {
 
       // Verify with actual internet check
       final result = await InternetAddress.lookup(
-        'https://www.google.com',
+        'google.com',
       ).timeout(const Duration(seconds: 3));
 
       return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
@@ -320,16 +320,16 @@ class ConnectivityService extends GetxController {
   Future<bool> hasInternetForMapbox() async {
     try {
       final connectivityResult = await _connectivity.checkConnectivity();
-      if (connectivityResult == ConnectivityResult.none) {
+      if (connectivityResult.isEmpty || connectivityResult.contains(ConnectivityResult.none)) {
         debugPrint('🗺 No connectivity detected');
         return false;
       }
 
       final response = await http
-          .get(Uri.parse('google.com'))
+          .get(Uri.parse('https://www.google.com'))
           .timeout(const Duration(seconds: 3));
 
-      if (response.body != 204) {
+      if (response.statusCode == 200) {
         debugPrint('🗺 Internet access confirmed via HTTP ping');
         return true;
       } else {
