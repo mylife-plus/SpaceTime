@@ -332,7 +332,7 @@ class MemoryInfoWidget extends StatelessWidget {
               surfaceTintColor: Colors.transparent, // Remove surface tint
               shadowColor: Colors.transparent, // Remove shadow
             ),
-            appBarTheme: AppBarThemeData(
+            appBarTheme: AppBarTheme(
               backgroundColor:
                   uiController.darkMode.value
                       ? const Color(0xFF1E1E1E) // Dark mode app bar background

@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      9; // Updated version for enhanced location information
+      10; // Updated version for hashtag groups
 
   // Memory table and columns
   static const tableMemories = 'memories';
@@ -75,6 +75,16 @@ class DatabaseHelper {
   static const columnPlaceCategoryIsCustom = 'place_category_is_custom';
   static const columnPlaceCategoryCreatedAt = 'place_category_created_at';
   static const columnPlaceCategoryUpdatedAt = 'place_category_updated_at';
+
+  // Hashtag groups table and columns
+  static const tableHashtagGroups = 'hashtag_groups';
+  static const columnHashtagGroupId = 'hashtag_group_id';
+  static const columnHashtagGroupName = 'hashtag_group_name';
+  static const columnHashtagGroupParentId = 'hashtag_group_parent_id';
+  static const columnHashtagGroupOrder = 'hashtag_group_order';
+  static const columnHashtagGroupIsCustom = 'hashtag_group_is_custom';
+  static const columnHashtagGroupCreatedAt = 'hashtag_group_created_at';
+  static const columnHashtagGroupUpdatedAt = 'hashtag_group_updated_at';
 
   // Singleton pattern
   DatabaseHelper._privateConstructor();
@@ -265,11 +275,28 @@ class DatabaseHelper {
       )
     ''');
 
+    // Create hashtag groups table
+    await db.execute('''
+      CREATE TABLE $tableHashtagGroups (
+        $columnHashtagGroupId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $columnHashtagGroupName TEXT NOT NULL,
+        $columnHashtagGroupParentId INTEGER,
+        $columnHashtagGroupOrder INTEGER DEFAULT 0,
+        $columnHashtagGroupIsCustom INTEGER DEFAULT 0,
+        $columnHashtagGroupCreatedAt TEXT NOT NULL,
+        $columnHashtagGroupUpdatedAt TEXT NOT NULL,
+        FOREIGN KEY ($columnHashtagGroupParentId) REFERENCES $tableHashtagGroups ($columnHashtagGroupId) ON DELETE CASCADE
+      )
+    ''');
+
     // Insert predefined categories
     await _insertPredefinedCategories(db);
 
     // Insert predefined place categories
     await _insertPredefinedPlaceCategories(db);
+
+    // Insert predefined hashtag groups
+    await _insertPredefinedHashtagGroups(db);
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -397,6 +424,27 @@ class DatabaseHelper {
       );
 
       debugPrint('✅ Enhanced location columns added to memories table');
+    }
+
+    if (oldVersion < 10) {
+      // Add hashtag groups table
+      await db.execute('''
+        CREATE TABLE $tableHashtagGroups (
+          $columnHashtagGroupId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $columnHashtagGroupName TEXT NOT NULL,
+          $columnHashtagGroupParentId INTEGER,
+          $columnHashtagGroupOrder INTEGER DEFAULT 0,
+          $columnHashtagGroupIsCustom INTEGER DEFAULT 0,
+          $columnHashtagGroupCreatedAt TEXT NOT NULL,
+          $columnHashtagGroupUpdatedAt TEXT NOT NULL,
+          FOREIGN KEY ($columnHashtagGroupParentId) REFERENCES $tableHashtagGroups ($columnHashtagGroupId) ON DELETE CASCADE
+        )
+      ''');
+
+      // Insert predefined hashtag groups
+      await _insertPredefinedHashtagGroups(db);
+
+      debugPrint('✅ Hashtag groups table created and initialized');
     }
   }
 
@@ -1610,6 +1658,221 @@ class DatabaseHelper {
     } catch (e) {
       debugPrint('[DatabaseHelper] Database health check failed: $e');
       return false;
+    }
+  }
+
+  // ==================== HASHTAG GROUPS METHODS ====================
+
+  /// Insert predefined hashtag groups
+  Future<void> _insertPredefinedHashtagGroups(Database db) async {
+    debugPrint('[DatabaseHelper][_insertPredefinedHashtagGroups] Starting insertion');
+
+    final currentTime = DateTime.now().toIso8601String();
+    int order = 0;
+
+    // Define predefined hashtag groups structure
+    final Map<String, List<String>> predefinedGroups = {
+      'Sports': ['football', 'basketball', 'tennis', 'swimming', 'running', 'cycling'],
+      'Exercise': ['gym', 'workout', 'fitness', 'yoga', 'pilates', 'cardio'],
+      'Food': ['cooking', 'restaurant', 'recipe', 'healthy', 'dessert', 'breakfast'],
+      'Travel': ['vacation', 'adventure', 'beach', 'mountain', 'city', 'culture'],
+      'Work': ['meeting', 'project', 'deadline', 'presentation', 'conference', 'networking'],
+      'Entertainment': ['movie', 'music', 'concert', 'theater', 'gaming', 'reading'],
+    };
+
+    for (final entry in predefinedGroups.entries) {
+      final categoryName = entry.key;
+      final subgroups = entry.value;
+
+      try {
+        // Insert main group
+        final parentId = await db.insert(tableHashtagGroups, {
+          columnHashtagGroupName: categoryName,
+          columnHashtagGroupParentId: null,
+          columnHashtagGroupOrder: order++,
+          columnHashtagGroupIsCustom: 0,
+          columnHashtagGroupCreatedAt: currentTime,
+          columnHashtagGroupUpdatedAt: currentTime,
+        });
+
+        debugPrint(
+          '[DatabaseHelper][_insertPredefinedHashtagGroups] Inserted main group: $categoryName with ID: $parentId',
+        );
+
+        // Insert subgroups
+        int subOrder = 0;
+        for (final subgroupName in subgroups) {
+          await db.insert(tableHashtagGroups, {
+            columnHashtagGroupName: subgroupName,
+            columnHashtagGroupParentId: parentId,
+            columnHashtagGroupOrder: subOrder++,
+            columnHashtagGroupIsCustom: 0,
+            columnHashtagGroupCreatedAt: currentTime,
+            columnHashtagGroupUpdatedAt: currentTime,
+          });
+
+          debugPrint(
+            '[DatabaseHelper][_insertPredefinedHashtagGroups] Inserted subgroup: $subgroupName under $categoryName',
+          );
+        }
+      } catch (e) {
+        debugPrint(
+          '[DatabaseHelper][_insertPredefinedHashtagGroups] Error inserting group $categoryName: $e',
+        );
+      }
+    }
+
+    debugPrint('[DatabaseHelper][_insertPredefinedHashtagGroups] Completed insertion');
+  }
+
+  /// Insert a new hashtag group
+  Future<int> insertHashtagGroup(Map<String, dynamic> group) async {
+    final db = await database;
+    return await db.insert(tableHashtagGroups, group);
+  }
+
+  /// Update a hashtag group
+  Future<int> updateHashtagGroup(int groupId, Map<String, dynamic> updates) async {
+    try {
+      debugPrint('[DatabaseHelper][updateHashtagGroup] ===== DATABASE UPDATE STARTED =====');
+      debugPrint('[DatabaseHelper][updateHashtagGroup] Input parameters:');
+      debugPrint('  - Group ID: $groupId (type: ${groupId.runtimeType})');
+      debugPrint('  - Updates: $updates');
+      debugPrint('  - Table: $tableHashtagGroups');
+      debugPrint('  - Where clause: $columnHashtagGroupId = ?');
+      debugPrint('  - Where args: [$groupId]');
+
+      final db = await database;
+      debugPrint('[DatabaseHelper][updateHashtagGroup] Database instance obtained');
+
+      // First, let's check if the record exists
+      final existingRecords = await db.query(
+        tableHashtagGroups,
+        where: '$columnHashtagGroupId = ?',
+        whereArgs: [groupId],
+      );
+
+      debugPrint('[DatabaseHelper][updateHashtagGroup] Existing records found: ${existingRecords.length}');
+      if (existingRecords.isNotEmpty) {
+        debugPrint('[DatabaseHelper][updateHashtagGroup] Current record: ${existingRecords.first}');
+      } else {
+        debugPrint('[DatabaseHelper][updateHashtagGroup] ❌ NO RECORD FOUND with ID $groupId');
+      }
+
+      debugPrint('[DatabaseHelper][updateHashtagGroup] 🔄 Executing update...');
+      final result = await db.update(
+        tableHashtagGroups,
+        updates,
+        where: '$columnHashtagGroupId = ?',
+        whereArgs: [groupId],
+      );
+
+      debugPrint('[DatabaseHelper][updateHashtagGroup] Update result: $result rows affected');
+
+      // Verify the update
+      if (result > 0) {
+        final updatedRecords = await db.query(
+          tableHashtagGroups,
+          where: '$columnHashtagGroupId = ?',
+          whereArgs: [groupId],
+        );
+        debugPrint('[DatabaseHelper][updateHashtagGroup] ✅ Updated record: ${updatedRecords.first}');
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('[DatabaseHelper][updateHashtagGroup] ❌ EXCEPTION: $e');
+      debugPrint('[DatabaseHelper][updateHashtagGroup] Exception type: ${e.runtimeType}');
+      rethrow;
+    }
+  }
+
+  /// Delete a hashtag group (only custom groups and subgroups)
+  Future<int> deleteHashtagGroup(int groupId) async {
+    final db = await database;
+
+    // Allow deletion of:
+    // 1. Custom groups (both main and sub)
+    // 2. Predefined subgroups (but not predefined main groups)
+    return await db.delete(
+      tableHashtagGroups,
+      where:
+          '$columnHashtagGroupId = ? AND ($columnHashtagGroupIsCustom = 1 OR $columnHashtagGroupParentId IS NOT NULL)',
+      whereArgs: [groupId],
+    );
+  }
+
+  /// Get all hashtag groups
+  Future<List<Map<String, dynamic>>> getAllHashtagGroups() async {
+    final db = await database;
+    return await db.query(
+      tableHashtagGroups,
+      orderBy: '$columnHashtagGroupOrder ASC',
+    );
+  }
+
+  /// Get main hashtag groups only (no parent)
+  Future<List<Map<String, dynamic>>> getMainHashtagGroups() async {
+    final db = await database;
+    return await db.query(
+      tableHashtagGroups,
+      where: '$columnHashtagGroupParentId IS NULL',
+      orderBy: '$columnHashtagGroupOrder ASC',
+    );
+  }
+
+  /// Get subgroups for a specific main group
+  Future<List<Map<String, dynamic>>> getSubHashtagGroups(int mainGroupId) async {
+    final db = await database;
+    return await db.query(
+      tableHashtagGroups,
+      where: '$columnHashtagGroupParentId = ?',
+      whereArgs: [mainGroupId],
+      orderBy: '$columnHashtagGroupOrder ASC',
+    );
+  }
+
+  /// Get a specific hashtag group by ID
+  Future<Map<String, dynamic>?> getHashtagGroupById(int groupId) async {
+    final db = await database;
+    final results = await db.query(
+      tableHashtagGroups,
+      where: '$columnHashtagGroupId = ?',
+      whereArgs: [groupId],
+      limit: 1,
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  /// Check if hashtag groups are already initialized
+  Future<bool> areHashtagGroupsInitialized() async {
+    final db = await database;
+    final result = await db.query(
+      tableHashtagGroups,
+      where: '$columnHashtagGroupIsCustom = 0',
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
+
+  /// Initialize hashtag groups if not already done (for app launch)
+  Future<void> initializeHashtagGroupsIfNeeded() async {
+    debugPrint(
+      '[DatabaseHelper][initializeHashtagGroupsIfNeeded] Checking if hashtag groups need initialization',
+    );
+
+    final isInitialized = await areHashtagGroupsInitialized();
+
+    if (!isInitialized) {
+      debugPrint(
+        '[DatabaseHelper][initializeHashtagGroupsIfNeeded] Hashtag groups not initialized, adding them now',
+      );
+      final db = await database;
+      await _insertPredefinedHashtagGroups(db);
+    } else {
+      debugPrint(
+        '[DatabaseHelper][initializeHashtagGroupsIfNeeded] Hashtag groups already initialized',
+      );
     }
   }
 }

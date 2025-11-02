@@ -55,6 +55,11 @@ Future<void> main() async {
   await DatabaseHelper.instance.initializePlaceCategoriesIfNeeded();
   debugPrint('🏷️ [MAIN] Place categories initialization completed');
 
+  // Initialize hashtag groups if not already done
+  debugPrint('🏷️ [MAIN] Initializing hashtag groups...');
+  await DatabaseHelper.instance.initializeHashtagGroupsIfNeeded();
+  debugPrint('🏷️ [MAIN] Hashtag groups initialization completed');
+
   await dotenv.load(fileName: ".env");
   MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
 
