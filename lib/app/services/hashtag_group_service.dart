@@ -64,8 +64,8 @@ class HashtagGroupService {
       debugPrint('  - Name trimmed length: ${name.trim().length}');
 
       final updateData = {
-        'hashtag_group_name': name.trim(),
-        'hashtag_group_updated_at': DateTime.now().toIso8601String(),
+        'name': name.trim(),
+        'updated_at': DateTime.now().toIso8601String(),
       };
 
       debugPrint('[HashtagGroupService][updateGroup] Update data: $updateData');

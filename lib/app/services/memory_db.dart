@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      10; // Updated version for hashtag groups
+      11; // Updated version for contact groups
 
   // Memory table and columns
   static const tableMemories = 'memories';
@@ -85,6 +85,16 @@ class DatabaseHelper {
   static const columnHashtagGroupIsCustom = 'hashtag_group_is_custom';
   static const columnHashtagGroupCreatedAt = 'hashtag_group_created_at';
   static const columnHashtagGroupUpdatedAt = 'hashtag_group_updated_at';
+
+  // Contact groups table and columns
+  static const tableContactGroups = 'contact_groups';
+  static const columnContactGroupId = 'contact_group_id';
+  static const columnContactGroupName = 'contact_group_name';
+  static const columnContactGroupParentId = 'contact_group_parent_id';
+  static const columnContactGroupOrder = 'contact_group_order';
+  static const columnContactGroupIsCustom = 'contact_group_is_custom';
+  static const columnContactGroupCreatedAt = 'contact_group_created_at';
+  static const columnContactGroupUpdatedAt = 'contact_group_updated_at';
 
   // Singleton pattern
   DatabaseHelper._privateConstructor();
@@ -289,6 +299,20 @@ class DatabaseHelper {
       )
     ''');
 
+    // Create contact groups table
+    await db.execute('''
+      CREATE TABLE $tableContactGroups (
+        $columnContactGroupId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $columnContactGroupName TEXT NOT NULL,
+        $columnContactGroupParentId INTEGER,
+        $columnContactGroupOrder INTEGER DEFAULT 0,
+        $columnContactGroupIsCustom INTEGER DEFAULT 0,
+        $columnContactGroupCreatedAt TEXT NOT NULL,
+        $columnContactGroupUpdatedAt TEXT NOT NULL,
+        FOREIGN KEY ($columnContactGroupParentId) REFERENCES $tableContactGroups ($columnContactGroupId) ON DELETE CASCADE
+      )
+    ''');
+
     // Insert predefined categories
     await _insertPredefinedCategories(db);
 
@@ -297,6 +321,9 @@ class DatabaseHelper {
 
     // Insert predefined hashtag groups
     await _insertPredefinedHashtagGroups(db);
+
+    // Insert predefined contact groups
+    await _insertPredefinedContactGroups(db);
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -445,6 +472,27 @@ class DatabaseHelper {
       await _insertPredefinedHashtagGroups(db);
 
       debugPrint('✅ Hashtag groups table created and initialized');
+    }
+
+    if (oldVersion < 11) {
+      // Add contact groups table
+      await db.execute('''
+        CREATE TABLE $tableContactGroups (
+          $columnContactGroupId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $columnContactGroupName TEXT NOT NULL,
+          $columnContactGroupParentId INTEGER,
+          $columnContactGroupOrder INTEGER DEFAULT 0,
+          $columnContactGroupIsCustom INTEGER DEFAULT 0,
+          $columnContactGroupCreatedAt TEXT NOT NULL,
+          $columnContactGroupUpdatedAt TEXT NOT NULL,
+          FOREIGN KEY ($columnContactGroupParentId) REFERENCES $tableContactGroups ($columnContactGroupId) ON DELETE CASCADE
+        )
+      ''');
+
+      // Insert predefined contact groups
+      await _insertPredefinedContactGroups(db);
+
+      debugPrint('✅ Contact groups table created and initialized');
     }
   }
 
@@ -1872,6 +1920,221 @@ class DatabaseHelper {
     } else {
       debugPrint(
         '[DatabaseHelper][initializeHashtagGroupsIfNeeded] Hashtag groups already initialized',
+      );
+    }
+  }
+
+  // ==================== CONTACT GROUPS METHODS ====================
+
+  /// Insert predefined contact groups
+  Future<void> _insertPredefinedContactGroups(Database db) async {
+    debugPrint('[DatabaseHelper][_insertPredefinedContactGroups] Starting insertion');
+
+    final currentTime = DateTime.now().toIso8601String();
+    int order = 0;
+
+    // Define predefined contact groups structure
+    final Map<String, List<String>> predefinedGroups = {
+      'Family': ['mother', 'father', 'brother', 'sister', 'grandparents', 'cousins'],
+      'Friends': ['bestfriend', 'colleague', 'neighbor', 'classmate', 'teammate', 'roommate'],
+      'Work': ['boss', 'manager', 'coworker', 'client', 'partner', 'assistant'],
+      'Social': ['acquaintance', 'mentor', 'student', 'teacher', 'doctor', 'trainer'],
+      'Community': ['volunteer', 'member', 'leader', 'organizer', 'participant', 'supporter'],
+      'Professional': ['consultant', 'advisor', 'expert', 'specialist', 'contractor', 'vendor'],
+    };
+
+    for (final entry in predefinedGroups.entries) {
+      final categoryName = entry.key;
+      final subgroups = entry.value;
+
+      try {
+        // Insert main group
+        final parentId = await db.insert(tableContactGroups, {
+          columnContactGroupName: categoryName,
+          columnContactGroupParentId: null,
+          columnContactGroupOrder: order++,
+          columnContactGroupIsCustom: 0,
+          columnContactGroupCreatedAt: currentTime,
+          columnContactGroupUpdatedAt: currentTime,
+        });
+
+        debugPrint(
+          '[DatabaseHelper][_insertPredefinedContactGroups] Inserted main group: $categoryName with ID: $parentId',
+        );
+
+        // Insert subgroups
+        int subOrder = 0;
+        for (final subgroupName in subgroups) {
+          await db.insert(tableContactGroups, {
+            columnContactGroupName: subgroupName,
+            columnContactGroupParentId: parentId,
+            columnContactGroupOrder: subOrder++,
+            columnContactGroupIsCustom: 0,
+            columnContactGroupCreatedAt: currentTime,
+            columnContactGroupUpdatedAt: currentTime,
+          });
+
+          debugPrint(
+            '[DatabaseHelper][_insertPredefinedContactGroups] Inserted subgroup: $subgroupName under $categoryName',
+          );
+        }
+      } catch (e) {
+        debugPrint(
+          '[DatabaseHelper][_insertPredefinedContactGroups] Error inserting group $categoryName: $e',
+        );
+      }
+    }
+
+    debugPrint('[DatabaseHelper][_insertPredefinedContactGroups] Completed insertion');
+  }
+
+  /// Insert a new contact group
+  Future<int> insertContactGroup(Map<String, dynamic> group) async {
+    final db = await database;
+    return await db.insert(tableContactGroups, group);
+  }
+
+  /// Update a contact group
+  Future<int> updateContactGroup(int groupId, Map<String, dynamic> updates) async {
+    try {
+      debugPrint('[DatabaseHelper][updateContactGroup] ===== DATABASE UPDATE STARTED =====');
+      debugPrint('[DatabaseHelper][updateContactGroup] Input parameters:');
+      debugPrint('  - Group ID: $groupId (type: ${groupId.runtimeType})');
+      debugPrint('  - Updates: $updates');
+      debugPrint('  - Table: $tableContactGroups');
+      debugPrint('  - Where clause: $columnContactGroupId = ?');
+      debugPrint('  - Where args: [$groupId]');
+
+      final db = await database;
+      debugPrint('[DatabaseHelper][updateContactGroup] Database instance obtained');
+
+      // First, let's check if the record exists
+      final existingRecords = await db.query(
+        tableContactGroups,
+        where: '$columnContactGroupId = ?',
+        whereArgs: [groupId],
+      );
+
+      debugPrint('[DatabaseHelper][updateContactGroup] Existing records found: ${existingRecords.length}');
+      if (existingRecords.isNotEmpty) {
+        debugPrint('[DatabaseHelper][updateContactGroup] Current record: ${existingRecords.first}');
+      } else {
+        debugPrint('[DatabaseHelper][updateContactGroup] ❌ NO RECORD FOUND with ID $groupId');
+      }
+
+      debugPrint('[DatabaseHelper][updateContactGroup] 🔄 Executing update...');
+      final result = await db.update(
+        tableContactGroups,
+        updates,
+        where: '$columnContactGroupId = ?',
+        whereArgs: [groupId],
+      );
+
+      debugPrint('[DatabaseHelper][updateContactGroup] Update result: $result rows affected');
+
+      // Verify the update
+      if (result > 0) {
+        final updatedRecords = await db.query(
+          tableContactGroups,
+          where: '$columnContactGroupId = ?',
+          whereArgs: [groupId],
+        );
+        debugPrint('[DatabaseHelper][updateContactGroup] ✅ Updated record: ${updatedRecords.first}');
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('[DatabaseHelper][updateContactGroup] ❌ EXCEPTION: $e');
+      debugPrint('[DatabaseHelper][updateContactGroup] Exception type: ${e.runtimeType}');
+      rethrow;
+    }
+  }
+
+  /// Delete a contact group (only custom groups and subgroups)
+  Future<int> deleteContactGroup(int groupId) async {
+    final db = await database;
+
+    // Allow deletion of:
+    // 1. Custom groups (both main and sub)
+    // 2. Predefined subgroups (but not predefined main groups)
+    return await db.delete(
+      tableContactGroups,
+      where:
+          '$columnContactGroupId = ? AND ($columnContactGroupIsCustom = 1 OR $columnContactGroupParentId IS NOT NULL)',
+      whereArgs: [groupId],
+    );
+  }
+
+  /// Get all contact groups
+  Future<List<Map<String, dynamic>>> getAllContactGroups() async {
+    final db = await database;
+    return await db.query(
+      tableContactGroups,
+      orderBy: '$columnContactGroupOrder ASC',
+    );
+  }
+
+  /// Get main contact groups only (no parent)
+  Future<List<Map<String, dynamic>>> getMainContactGroups() async {
+    final db = await database;
+    return await db.query(
+      tableContactGroups,
+      where: '$columnContactGroupParentId IS NULL',
+      orderBy: '$columnContactGroupOrder ASC',
+    );
+  }
+
+  /// Get subgroups for a specific main group
+  Future<List<Map<String, dynamic>>> getSubContactGroups(int mainGroupId) async {
+    final db = await database;
+    return await db.query(
+      tableContactGroups,
+      where: '$columnContactGroupParentId = ?',
+      whereArgs: [mainGroupId],
+      orderBy: '$columnContactGroupOrder ASC',
+    );
+  }
+
+  /// Get a specific contact group by ID
+  Future<Map<String, dynamic>?> getContactGroupById(int groupId) async {
+    final db = await database;
+    final results = await db.query(
+      tableContactGroups,
+      where: '$columnContactGroupId = ?',
+      whereArgs: [groupId],
+      limit: 1,
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  /// Check if contact groups are already initialized
+  Future<bool> areContactGroupsInitialized() async {
+    final db = await database;
+    final result = await db.query(
+      tableContactGroups,
+      where: '$columnContactGroupIsCustom = 0',
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
+
+  /// Initialize contact groups if not already done (for app launch)
+  Future<void> initializeContactGroupsIfNeeded() async {
+    debugPrint(
+      '[DatabaseHelper][initializeContactGroupsIfNeeded] Checking if contact groups need initialization',
+    );
+
+    final isInitialized = await areContactGroupsInitialized();
+
+    if (!isInitialized) {
+      debugPrint(
+        '[DatabaseHelper][initializeContactGroupsIfNeeded] Contact groups not initialized, adding them now',
+      );
+      final db = await database;
+      await _insertPredefinedContactGroups(db);
+    } else {
+      debugPrint(
+        '[DatabaseHelper][initializeContactGroupsIfNeeded] Contact groups already initialized',
       );
     }
   }
