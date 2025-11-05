@@ -7,9 +7,7 @@ import 'package:spacetime/app/modules/map/views/mini_widgets/map_fab.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/top_buttons.dart';
 import '../../controllers/map_controller_new.dart';
 import 'internet_required_screen_new.dart';
-import 'permission_required_screen.dart';
-
-import '../../../../../services/permission_service.dart';
+// Note: Permission-related imports removed as location check is disabled
 import '../../../../widgets/offline_download_overlay.dart';
 import '../../../ui/controllers/ui_controller.dart';
 import 'map_filter_overlay.dart';
@@ -106,7 +104,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 
                 
                   // Permission and Internet screens overlay
-                  _buildPermissionAndInternetScreens(context, controller),
+                  // _buildPermissionAndInternetScreens(context, controller),
                 ],
               ),
             ),
@@ -196,61 +194,12 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 
       Widget? overlayContent;
 
-      // PRIORITY 1: Handle permission-related states first (ALWAYS show if no permission)
-      if (!controller.hasLocationPermission.value) {
-        debugPrint(
-          '[MapViewWidgetNew] 🔍 Permission check - MapController.hasLocationPermission: ${controller.hasLocationPermission.value}',
-        );
-        try {
-          final permissionService = Get.find<PermissionService>();
-          debugPrint(
-            '[MapViewWidgetNew] 🔍 Permission check - PermissionService.hasLocationPermission: ${permissionService.hasLocationPermission.value}',
-          );
-        } catch (e) {
-          debugPrint(
-            '[MapViewWidgetNew] Could not access PermissionService: $e',
-          );
-        }
+      // PRIORITY 1: Location permission check removed - no longer required
+      // Note: Current location check has been disabled as requested
 
-        if (controller.isLoadingLocation.value) {
-          debugPrint(
-            '[MapViewWidgetNew] Showing loading screen - checking permissions',
-          );
-          overlayContent = _buildLoadingScreen(
-            'Checking permissions...',
-            controller,
-          );
-        } else {
-          try {
-            final permissionService = Get.find<PermissionService>();
-            if (permissionService.hasLocationPermission.value &&
-                !controller.hasLocationPermission.value) {
-              debugPrint(
-                '[MapViewWidgetNew] 🔄 Detected state mismatch! PermissionService has permission but MapController does not. Forcing sync...',
-              );
-              controller.forcePermissionStateCheck();
-              overlayContent = _buildLoadingScreen(
-                'Syncing permission state...',
-                controller,
-              );
-            }
-          } catch (e) {
-            debugPrint('[MapViewWidgetNew] Error checking permission sync: $e');
-          }
-
-          overlayContent ??= () {
-            debugPrint(
-              '[MapViewWidgetNew] 🔐 Showing permission required screen - NO LOCATION PERMISSION',
-            );
-            return const PermissionRequiredScreen();
-          }();
-        }
-      }
-
-      // PRIORITY 2: Show internet-related screens (regardless of permission status, but permission takes priority)
-      if (overlayContent == null &&
-          (controller.showInternetRequiredScreen.value ||
-              !controller.hasInternetConnection.value)) {
+      // PRIORITY 2: Show internet-related screens
+      if (controller.showInternetRequiredScreen.value ||
+          !controller.hasInternetConnection.value) {
         debugPrint(
           '[MapViewWidgetNew] 🌐 Showing internet required screen - NO INTERNET CONNECTION',
         );

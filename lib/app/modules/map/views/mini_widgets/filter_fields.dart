@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../controllers/map_controller.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/location_picker_widget.dart';
@@ -93,9 +94,19 @@ class FilterTextFieldRow extends StatelessWidget {
                             : controller.filterValues[hint] ?? '';
 
                     return TextField(
+                      style: GoogleFonts.kumbhSans(
+                        color: controller2.darkMode.value ? Colors.white : Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: hint,
+                        hintStyle: GoogleFonts.kumbhSans(
+                          color: controller2.darkMode.value ? Colors.white54 : Colors.grey[600],
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
                       controller: TextEditingController(text: value),
                       onChanged: (val) => _handleTextChanged(val, controller),

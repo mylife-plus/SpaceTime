@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
@@ -69,7 +70,7 @@ class SearchOverlay extends StatelessWidget {
                           },
                           decoration: InputDecoration(
                             hintText: 'search memories',
-                            hintStyle: TextStyle(
+                            hintStyle: GoogleFonts.kumbhSans(
                               // color: Color(0xFF9A9A9A),
                               color:
                                   controller2.darkMode.value

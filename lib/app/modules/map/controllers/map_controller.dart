@@ -3105,75 +3105,121 @@ class MapController extends GetxController with WidgetsBindingObserver {
           '[MapController][loadMemoriesFromDatabase]: Entered empty memories branch',
         );
         debugPrint(
-          '[MapController][loadMemoriesFromDatabase] No memories found in database, returning early',
+          '[MapController][loadMemoriesFromDatabase] No memories found in database',
         );
         print(
           '[MapController][loadMemoriesFromDatabase]: Empty memories log printed',
         );
 
-        // Move to user's current location
-        try {
-          print(
-            '[MapController][loadMemoriesFromDatabase]: Entered location try block',
-          );
+        // Check location permission status
+        print(
+          '[MapController][loadMemoriesFromDatabase]: Checking location permission status',
+        );
+        final permissionService = Get.find<PermissionService>();
+        final hasLocationPermission = permissionService.hasLocationPermission.value;
 
-          print(
-            '[MapController][loadMemoriesFromDatabase]: About to get PermissionService',
-          );
-          final permissionService = Get.find<PermissionService>();
-          print(
-            '[MapController][loadMemoriesFromDatabase]: PermissionService obtained: ${permissionService != null}',
-          );
-          print(
-            '[MapController][loadMemoriesFromDatabase]: About to call getCurrentLocation()',
-          );
-          final currentPosition = await permissionService.getCurrentLocation();
-          print(
-            '[MapController][loadMemoriesFromDatabase]: getCurrentLocation() returned: ${currentPosition != null}',
-          );
+        print(
+          '[MapController][loadMemoriesFromDatabase]: Location permission status: $hasLocationPermission',
+        );
+        debugPrint(
+          '[MapController][loadMemoriesFromDatabase] Location permission: $hasLocationPermission, No memories: true',
+        );
 
+        if (!hasLocationPermission) {
+          // No location permission AND no memories -> Show fully zoomed out world view
           print(
-            '[MapController][loadMemoriesFromDatabase]: About to call mapController.flyTo()',
-          );
-          await mapController!.flyTo(
-            mapbox.CameraOptions(
-              center: mapbox.Point(
-                coordinates: mapbox.Position(
-                  currentPosition?.longitude ?? 33.3,
-                  currentPosition?.latitude ?? 73.03,
-                ),
-              ),
-              zoom: 8.0,
-            ),
-            mapbox.MapAnimationOptions(duration: 1000),
-          );
-          print(
-            '[MapController][loadMemoriesFromDatabase]: mapController.flyTo() completed',
-          );
-        } catch (e) {
-          print(
-            '[MapController][loadMemoriesFromDatabase]: Caught location exception: $e',
+            '[MapController][loadMemoriesFromDatabase]: No location permission and no memories - showing world view',
           );
           debugPrint(
-            '[MapController][loadMemoriesFromDatabase] Error getting current location: $e',
+            '[MapController][loadMemoriesFromDatabase] Setting world view: no permission + no memories',
           );
+
+          try {
+            await mapController!.flyTo(
+              mapbox.CameraOptions(
+                center: mapbox.Point(coordinates: mapbox.Position(0, 0)), // World center
+                zoom: 2.0, // Fully zoomed out world view
+              ),
+              mapbox.MapAnimationOptions(duration: 1000),
+            );
+            print(
+              '[MapController][loadMemoriesFromDatabase]: World view set successfully',
+            );
+          } catch (e) {
+            print(
+              '[MapController][loadMemoriesFromDatabase]: Error setting world view: $e',
+            );
+            debugPrint(
+              '[MapController][loadMemoriesFromDatabase] Error setting world view: $e',
+            );
+          }
+        } else {
+          // Has location permission but no memories -> Move to user's current location
           print(
-            '[MapController][loadMemoriesFromDatabase]: Location error log printed',
+            '[MapController][loadMemoriesFromDatabase]: Has location permission - moving to user location',
           );
-          // Fallback to world view
-          print(
-            '[MapController][loadMemoriesFromDatabase]: About to call fallback flyTo()',
+          debugPrint(
+            '[MapController][loadMemoriesFromDatabase] Has permission, getting current location',
           );
-          // await mapController!.flyTo(
-          //   mapbox.CameraOptions(
-          //     center: mapbox.Point(coordinates: mapbox.Position(0, 0)),
-          //     zoom: 2.0,
-          //   ),
-          //   mapbox.MapAnimationOptions(duration: 1000),
-          // );
-          print(
-            '[MapController][loadMemoriesFromDatabase]: Fallback flyTo() completed',
-          );
+
+          try {
+            print(
+              '[MapController][loadMemoriesFromDatabase]: About to call getCurrentLocation()',
+            );
+            final currentPosition = await permissionService.getCurrentLocation();
+            print(
+              '[MapController][loadMemoriesFromDatabase]: getCurrentLocation() returned: ${currentPosition != null}',
+            );
+
+            print(
+              '[MapController][loadMemoriesFromDatabase]: About to call mapController.flyTo()',
+            );
+            await mapController!.flyTo(
+              mapbox.CameraOptions(
+                center: mapbox.Point(
+                  coordinates: mapbox.Position(
+                    currentPosition?.longitude ?? 33.3,
+                    currentPosition?.latitude ?? 73.03,
+                  ),
+                ),
+                zoom: 8.0,
+              ),
+              mapbox.MapAnimationOptions(duration: 1000),
+            );
+            print(
+              '[MapController][loadMemoriesFromDatabase]: mapController.flyTo() completed',
+            );
+          } catch (e) {
+            print(
+              '[MapController][loadMemoriesFromDatabase]: Caught location exception: $e',
+            );
+            debugPrint(
+              '[MapController][loadMemoriesFromDatabase] Error getting current location: $e',
+            );
+            print(
+              '[MapController][loadMemoriesFromDatabase]: Location error log printed',
+            );
+            // Fallback to world view
+            print(
+              '[MapController][loadMemoriesFromDatabase]: Fallback to world view',
+            );
+            try {
+              await mapController!.flyTo(
+                mapbox.CameraOptions(
+                  center: mapbox.Point(coordinates: mapbox.Position(0, 0)),
+                  zoom: 2.0,
+                ),
+                mapbox.MapAnimationOptions(duration: 1000),
+              );
+              print(
+                '[MapController][loadMemoriesFromDatabase]: Fallback world view set',
+              );
+            } catch (fallbackError) {
+              print(
+                '[MapController][loadMemoriesFromDatabase]: Fallback error: $fallbackError',
+              );
+            }
+          }
         }
 
         print(
@@ -7094,9 +7140,25 @@ class MapController extends GetxController with WidgetsBindingObserver {
         );
         await _fitCameraToMemoryClusters();
       } else {
-        debugPrint('No memory clusters found, falling back to default view');
-        // Set a default world view
-        currentZoom.value = 1.6;
+        debugPrint('No memory clusters found, checking location permission for fallback view');
+
+        // Check location permission status
+        final permissionService = Get.find<PermissionService>();
+        final hasLocationPermission = permissionService.hasLocationPermission.value;
+        final hasMemories = allMemories.isNotEmpty;
+
+        debugPrint('Fallback view: hasLocationPermission=$hasLocationPermission, hasMemories=$hasMemories');
+
+        if (!hasLocationPermission && !hasMemories) {
+          // No location permission AND no memories -> Set fully zoomed out world view
+          debugPrint('Setting world view: no permission + no memories');
+          currentZoom.value = 2.0; // Fully zoomed out
+        } else {
+          // Has location permission OR has memories -> Use default zoom
+          debugPrint('Using default view: has permission or memories');
+          currentZoom.value = 1.6;
+        }
+
         await _setImmediateCamera();
       }
     } catch (e) {
@@ -7992,17 +8054,43 @@ class MapController extends GetxController with WidgetsBindingObserver {
       '[MapController][_setHardcodedLocation] Setting hardcoded location',
     );
 
-    // Use a default location (San Francisco)
-    const defaultLat = 37.7749;
-    const defaultLng = -122.4194;
-
-    final hardcodedLocation = mapbox.Position(defaultLng, defaultLat);
-    locations.clear();
-    locations.add(hardcodedLocation);
-
+    // Check if there are any memories in the database
+    final hasMemories = allMemories.isNotEmpty;
     debugPrint(
-      '[MapController][_setHardcodedLocation] Set hardcoded location: $defaultLat, $defaultLng',
+      '[MapController][_setHardcodedLocation] Has memories: $hasMemories',
     );
+
+    if (!hasMemories) {
+      // No location permission AND no memories -> Use world center for fully zoomed out view
+      debugPrint(
+        '[MapController][_setHardcodedLocation] No permission + no memories: using world center',
+      );
+      final worldCenterLocation = mapbox.Position(0, 0); // World center
+      locations.clear();
+      locations.add(worldCenterLocation);
+
+      // Set zoom to world view level
+      currentZoom.value = 2.0;
+
+      debugPrint(
+        '[MapController][_setHardcodedLocation] Set world center location: 0, 0 with zoom: 2.0',
+      );
+    } else {
+      // Has memories but no location permission -> Use a default location (San Francisco)
+      debugPrint(
+        '[MapController][_setHardcodedLocation] Has memories but no permission: using default location',
+      );
+      const defaultLat = 37.7749;
+      const defaultLng = -122.4194;
+
+      final hardcodedLocation = mapbox.Position(defaultLng, defaultLat);
+      locations.clear();
+      locations.add(hardcodedLocation);
+
+      debugPrint(
+        '[MapController][_setHardcodedLocation] Set hardcoded location: $defaultLat, $defaultLng',
+      );
+    }
   }
 
   /// Wait for map to be ready and positioned

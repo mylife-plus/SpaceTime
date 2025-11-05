@@ -1,20 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/filter_fileds.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/filter_dropdown.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/category_picker_widget.dart';
-import 'package:spacetime/app/models/place_category_model.dart';
-import 'package:spacetime/app/services/place_category_service.dart';
+import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
+import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
+import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../../../config/app_images.dart';
 import 'package:spacetime/app/widgets/filter_section.dart';
 
 import '../../controllers/add_memories_controller.dart';
 
-class MemoriesFilterOverlay extends StatelessWidget {
-  bool isOpenedFromMap;
-  MemoriesFilterOverlay({super.key, required this.isOpenedFromMap});
+class MemoriesFilterOverlay extends StatefulWidget {
+  final bool isOpenedFromMap;
+  const MemoriesFilterOverlay({super.key, required this.isOpenedFromMap});
+
+  @override
+  State<MemoriesFilterOverlay> createState() => _MemoriesFilterOverlayState();
+}
+
+class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
+  // Focus nodes for each search field
+  final FocusNode _categoryFocusNode = FocusNode();
+  final FocusNode _hashtagFocusNode = FocusNode();
+  final FocusNode _contactFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _categoryFocusNode.dispose();
+    _hashtagFocusNode.dispose();
+    _contactFocusNode.dispose();
+    super.dispose();
+  }
+
+  /// Handle focus shifting when a field loses focus
+  void _handleFocusShift(String fieldName) {
+    // Small delay to ensure focus change is processed
+    Future.delayed(const Duration(milliseconds: 50), () {
+      // Check if any field still has focus
+      if (!_categoryFocusNode.hasFocus &&
+          !_hashtagFocusNode.hasFocus &&
+          !_contactFocusNode.hasFocus) {
+
+        // Shift focus to the next available field
+        switch (fieldName) {
+          case 'category':
+            _hashtagFocusNode.requestFocus();
+            debugPrint('[FilterOverlay] Focus shifted from category to hashtag');
+            break;
+          case 'hashtag':
+            _contactFocusNode.requestFocus();
+            debugPrint('[FilterOverlay] Focus shifted from hashtag to contact');
+            break;
+          case 'contact':
+            _categoryFocusNode.requestFocus();
+            debugPrint('[FilterOverlay] Focus shifted from contact to category');
+            break;
+        }
+      }
+    });
+  }
 
   // Helper method to check if a string contains emoji
   bool _isEmoji(String text) {
@@ -52,13 +99,13 @@ class MemoriesFilterOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<AddMemoriesController>();
     final MapControllerNew? mapController =
-        isOpenedFromMap
+        widget.isOpenedFromMap
             ? (Get.isRegistered<MapControllerNew>()
                 ? Get.find<MapControllerNew>()
                 : Get.put(MapControllerNew()))
             : null;
     final uiController = Get.find<UiController>();
-    controller.isOpenedFromMap = isOpenedFromMap;
+    controller.isOpenedFromMap = widget.isOpenedFromMap;
     return Stack(
       children: [
         Positioned.fill(
@@ -86,7 +133,7 @@ class MemoriesFilterOverlay extends StatelessWidget {
             onApply: () {
               controller.applyFilters();
               controller.closeFilter();
-              if (isOpenedFromMap) {
+              if (widget.isOpenedFromMap) {
                 mapController?.handleFilterApplyFromMap();
               }
             },
@@ -109,293 +156,228 @@ class MemoriesFilterOverlay extends StatelessWidget {
                   ),
                 ],
               ),
-
-              // Location and radius filters
-              const Row(
-                children: [
-                  Expanded(
-                    child: MemoriesFilterTextFieldRow(
-                      imagePath: AppImages.location,
-                      hint: 'Location',
-                    ),
-                  ),
-                  SizedBox(width: 5),
-                  Expanded(
-                    child: MemoriesFilterTextFieldRow(
-                      imagePath: AppImages.location,
-                      hint: 'Radius',
-                    ),
-                  ),
-                ],
+    
+              // Location filter (includes radius)
+              const MemoriesFilterTextFieldRow(
+                imagePath: AppImages.location,
+                hint: 'Location',
               ),
+    
+                  const SizedBox(height: 2),
 
-              // Search Places (Categories dropdown with chips)
-              Obx(() {
-                debugPrint(
-                  'Filter Overlay: Building Category Filter with ${controller.selectedCategories.length} selected categories',
-                );
-                return GestureDetector(
-                  onTap: () async {
-                    // Get all categories from the service
-                    final categoryService = PlaceCategoryService();
-                    final allCategories =
-                        await categoryService.getAllCategoriesFlat();
-
-                    // Convert selected category names to PlaceCategory objects
-                    final selectedCategoryObjects = <PlaceCategory>[];
-                    for (final categoryName in controller.selectedCategories) {
-                      PlaceCategory? categoryObj;
-
-                      // Try matching with combined "emoji name" format
-                      categoryObj = allCategories.firstWhereOrNull((cat) {
-                        final combinedName =
-                            cat.emoji.isNotEmpty
-                                ? '${cat.emoji} ${cat.name}'
-                                : cat.name;
-                        return combinedName.toLowerCase() ==
-                            categoryName.toLowerCase();
-                      });
-
-                      // If no match, try matching just the name part
-                      if (categoryObj == null) {
-                        categoryObj = allCategories.firstWhereOrNull((cat) {
-                          return cat.name.toLowerCase() ==
-                              categoryName.toLowerCase();
-                        });
+              // Search Places Categories - Using Generic SearchableCategoryWidget
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Obx(() => SearchableCategoryWidget(
+                    title: 'Search Places Categories',
+                    onCategorySelected: (category) {
+                      final categoryWithEmoji = category.emoji.isNotEmpty
+                          ? '${category.emoji} ${category.name}'
+                          : category.name;
+                      controller.addCategory(categoryWithEmoji);
+                      debugPrint('[FilterOverlay] Added category: $categoryWithEmoji');
+                    },
+                    onFocusChanged: (isFocused) {
+                      if (!isFocused) {
+                        _handleFocusShift('category');
                       }
-
-                      // If still no match, try flexible matching (extract name parts)
-                      if (categoryObj == null) {
-                        categoryObj = allCategories.firstWhereOrNull((cat) {
-                          String catNamePart = _extractNamePart(cat.name);
-                          String searchNamePart = _extractNamePart(
-                            categoryName,
-                          );
-                          return catNamePart.toLowerCase() ==
-                              searchNamePart.toLowerCase();
-                        });
-                      }
-
-                      if (categoryObj != null) {
-                        selectedCategoryObjects.add(categoryObj);
-                      }
+                    },
+                    saveToRecent: true, // Show recent categories in filter context
+                    showActionButtons: false, // Hide "See all" and "Add new" buttons in filter context
+                    backgroundColor: uiController.darkMode.value
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : Colors.white,
+                  )),
+    
+                  // Selected categories chips
+                  Obx(() {
+                    if (controller.selectedCategories.isEmpty) {
+                      return const SizedBox.shrink();
                     }
-
-                    final result = await Get.to(
-                      () => CategoryPickerWidget(
-                        allowMultipleSelection: true,
-                        selectedCategories: selectedCategoryObjects,
+    
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: controller.selectedCategories.map((categoryName) {
+                          // Extract emoji and name from categoryName using helper method
+                          String emoji = '';
+                          String displayName = _extractNamePart(categoryName);
+    
+                          // Get emoji if present
+                          if (categoryName.contains(' ') && categoryName.length > 2) {
+                            final parts = categoryName.split(' ');
+                            if (parts.isNotEmpty && _isEmoji(parts[0])) {
+                              emoji = parts[0];
+                            }
+                          }
+    
+                          // If no name part extracted, use full category name
+                          if (displayName.isEmpty) {
+                            displayName = categoryName;
+                          }
+    
+                          return Chip(
+                            avatar: emoji.isNotEmpty
+                                ? CircleAvatar(
+                                    backgroundColor: Colors.transparent,
+                                    radius: 10,
+                                    child: Text(
+                                      emoji,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.place,
+                                    size: 14,
+                                    color: uiController.darkMode.value
+                                        ? Colors.white.withValues(alpha: 0.7)
+                                        : Colors.grey[600],
+                                  ),
+                            label: Text(
+                              displayName.isNotEmpty ? displayName : categoryName,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () {
+                              debugPrint('Removing category: $categoryName');
+                              controller.removeCategory(categoryName);
+                            },
+                            backgroundColor: uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.2)
+                                : Colors.blue.withValues(alpha: 0.1),
+                          );
+                        }).toList(),
                       ),
                     );
-
-                    if (result != null && result is List<PlaceCategory>) {
-                      // Clear existing selections and add new ones
-                      controller.selectedCategories.clear();
-                      for (final category in result) {
-                        // Store category in format "emoji name" if emoji exists, otherwise just name
-                        final categoryDisplay =
-                            category.emoji.isNotEmpty
-                                ? '${category.emoji} ${category.name}'
-                                : category.name;
-                        controller.addCategory(categoryDisplay);
+                  }),
+                ],
+              ),
+    
+              // Spacing between Search Place Categories and Search Hashtags
+              const SizedBox(height: 4),
+    
+              // Search Hashtags - Using SearchableHashtagWidget
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Obx(() => SearchableHashtagWidget(
+                    title: 'Search Hashtags',
+                    onHashtagSelected: (hashtag) {
+                      controller.addHashtag(hashtag);
+                      debugPrint('[FilterOverlay] Added hashtag: $hashtag');
+                    },
+                    onGroupSelected: (group) {
+                      controller.addHashtagGroup(group);
+                      debugPrint('[FilterOverlay] Added hashtag group: ${group.name}');
+                    },
+                    onFocusChanged: (isFocused) {
+                      if (!isFocused) {
+                        _handleFocusShift('hashtag');
                       }
+                    },
+                    backgroundColor: uiController.darkMode.value
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : Colors.white,
+                  )),
+    
+                  // Selected hashtags chips
+                  Obx(() {
+                    if (controller.selectedHashtags.isEmpty) {
+                      return const SizedBox.shrink();
                     }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 2.0, bottom: 2),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Main category selector
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                uiController.darkMode.value
-                                    ? Colors.white.withValues(alpha: 0.2)
-                                    : Colors.white,
-                          ),
-                          child: Row(
-                            children: [
-                              Image.asset(
-                                AppImages.category2,
-                                width: 18,
-                                height: 18,
-                                // color:  uiController.darkMode.value
-                                color:
-                                    uiController.darkMode.value
-                                        ? Colors.white
-                                        : Colors.grey[600],
+    
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: controller.selectedHashtags.map((hashtag) {
+                          return Chip(
+                            label: Text(
+                              '#$hashtag',
+                              style: GoogleFonts.kumbhSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Search Places Categories',
-                                  style: TextStyle(
-                                    color:
-                                        uiController.darkMode.value
-                                            ? Colors.white.withValues(
-                                              alpha: 0.5,
-                                            )
-                                            : Colors.grey[600],
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                Icons.arrow_forward_ios,
-                                size: 16,
-                                color:
-                                    uiController.darkMode.value
-                                        ? Colors.white
-                                        : Colors.white,
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Selected categories chips
-                        Obx(() {
-                          if (controller.selectedCategories.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-
-                          return Container(
-                            padding: const EdgeInsets.all(8),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children:
-                                  controller.selectedCategories.map((
-                                    categoryName,
-                                  ) {
-                                    // Extract emoji and name from categoryName using helper method
-                                    String emoji = '';
-                                    String displayName = _extractNamePart(
-                                      categoryName,
-                                    );
-
-                                    // Get emoji if present
-                                    if (categoryName.contains(' ') &&
-                                        categoryName.length > 2) {
-                                      final parts = categoryName.split(' ');
-                                      if (parts.isNotEmpty &&
-                                          _isEmoji(parts[0])) {
-                                        emoji = parts[0];
-                                      }
-                                    }
-
-                                    // If no name part extracted, use full category name
-                                    if (displayName.isEmpty) {
-                                      displayName = categoryName;
-                                    }
-
-                                    return Chip(
-                                      avatar:
-                                          emoji.isNotEmpty
-                                              ? CircleAvatar(
-                                                backgroundColor:
-                                                    Colors.transparent,
-                                                radius: 10,
-                                                child: Text(
-                                                  emoji,
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              )
-                                              : Icon(
-                                                Icons.place,
-                                                size: 14,
-                                                color:
-                                                    Get.find<UiController>()
-                                                            .darkMode
-                                                            .value
-                                                        ? Colors.white
-                                                            .withValues(
-                                                              alpha: 0.7,
-                                                            )
-                                                        : Colors.grey[600],
-                                              ),
-                                      label: Text(
-                                        displayName.isNotEmpty
-                                            ? displayName
-                                            : categoryName,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                      deleteIcon: const Icon(
-                                        Icons.close,
-                                        size: 16,
-                                      ),
-                                      onDeleted: () {
-                                        debugPrint(
-                                          'Removing category: $categoryName',
-                                        );
-                                        controller.removeCategory(categoryName);
-                                      },
-                                      backgroundColor:
-                                          Get.find<UiController>()
-                                                  .darkMode
-                                                  .value
-                                              ? Colors.white.withValues(
-                                                alpha: 0.2,
-                                              )
-                                              : Colors.blue.withValues(
-                                                alpha: 0.1,
-                                              ),
-                                    );
-                                  }).toList(),
                             ),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () {
+                              debugPrint('Removing hashtag: $hashtag');
+                              controller.removeHashtag(hashtag);
+                            },
+                            backgroundColor: uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.2)
+                                : Colors.blue.withValues(alpha: 0.1),
                           );
-                        }),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-
-              // Hashtags dropdown
-              Obx(() {
-                debugPrint(
-                  'Filter Overlay: Building FilterDropdown for hashtags with ${controller.selectedHashtags.length} selected items',
-                );
-                return FilterDropdown(
-                  key: ValueKey(
-                    'hashtags_${controller.selectedHashtags.length}_${controller.selectedHashtags.join(',')}',
-                  ),
-                  imagePath: AppImages.tag,
-                  hint: 'Search Hashtags',
-                  items: controller.getAvailableHashtags,
-                  selectedItems:
-                      controller.selectedHashtags
-                          .toList(), // Convert to regular list
-                  onItemSelected: controller.addHashtag,
-                  onItemRemoved: controller.removeHashtag,
-                );
-              }),
-
-              // Contacts dropdown
-              Obx(() {
-                debugPrint(
-                  'Filter Overlay: Building FilterDropdown for contacts with ${controller.selectedContacts.length} selected items',
-                );
-                return FilterDropdown(
-                  key: ValueKey(
-                    'contacts_${controller.selectedContacts.length}_${controller.selectedContacts.join(',')}',
-                  ),
-                  imagePath: AppImages.mention,
-                  hint: 'Search Contacts',
-                  items: controller.getAvailableContacts,
-                  selectedItems:
-                      controller.selectedContacts
-                          .toList(), // Convert to regular list
-                  onItemSelected: controller.addContact,
-                  onItemRemoved: controller.removeContact,
-                );
-              }),
+                        }).toList(),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+    
+              // Spacing between Search Hashtags and Search Contacts
+              const SizedBox(height: 4),
+    
+              // Search Contacts - Using SearchableContactWidget
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Obx(() => SearchableContactWidget(
+                    title: 'Search Contacts',
+                    onContactSelected: (contact) {
+                      controller.addContact(contact);
+                      debugPrint('[FilterOverlay] Added contact: $contact');
+                    },
+                    onGroupSelected: (group) {
+                      controller.addContactGroup(group);
+                      debugPrint('[FilterOverlay] Added contact group: ${group.name}');
+                    },
+                    onFocusChanged: (isFocused) {
+                      if (!isFocused) {
+                        _handleFocusShift('contact');
+                      }
+                    },
+                    backgroundColor: uiController.darkMode.value
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : Colors.white,
+                  )),
+    
+                  // Selected contacts chips
+                  Obx(() {
+                    if (controller.selectedContacts.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+    
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: controller.selectedContacts.map((contact) {
+                          return Chip(
+                            label: Text(
+                              '@$contact',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () {
+                              debugPrint('Removing contact: $contact');
+                              controller.removeContact(contact);
+                            },
+                            backgroundColor: uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.2)
+                                : Colors.blue.withValues(alpha: 0.1),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ],
           ),
         ),

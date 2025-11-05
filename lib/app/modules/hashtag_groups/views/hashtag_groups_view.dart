@@ -722,7 +722,6 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
   /// Start inline adding for a hashtag group
   void _startInlineAdding(int hashtagGroupId) {
-    // Check if hashtag group is already expanded
     final isCurrentlyExpanded = _expandedHashtagGroups[hashtagGroupId] ?? false;
 
     if (!isCurrentlyExpanded) {
@@ -738,7 +737,21 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       _enableAddingMode(hashtagGroupId);
     }
 
-    debugPrint('[HashtagGroupsView][_startInlineAdding] Started inline adding for hashtag group: $hashtagGroupId, expanded: ${_expandedHashtagGroups[hashtagGroupId]}, adding: ${_addingToHashtagGroup[hashtagGroupId]}');
+    debugPrint('[HashtagGroupsView][_startInlineAdding] Started inline adding for hashtag group: $hashtagGroupId, controller expanded: ${_expansionControllers[hashtagGroupId]?.isExpanded}, tracked expanded: ${_expandedHashtagGroups[hashtagGroupId]}, adding: ${_addingToHashtagGroup[hashtagGroupId]}');
+  }
+
+  /// Force expansion state and trigger UI rebuild
+  void _forceExpansionState(int hashtagGroupId, bool expanded) {
+    setState(() {
+      _expandedHashtagGroups[hashtagGroupId] = expanded;
+    });
+
+    if (expanded) {
+      // Enable adding mode after state is set
+      _enableAddingMode(hashtagGroupId);
+    }
+
+    debugPrint('[HashtagGroupsView][_forceExpansionState] Forced expansion state for hashtag group $hashtagGroupId to: $expanded');
   }
 
   /// Helper method to enable adding mode
@@ -931,26 +944,6 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
   /// Build main content (hierarchical hashtag groups)
   Widget _buildMainContent(UiController uiController) {
-    if (_mainHashtagGroups.isEmpty) {
-      return Container(
-        color: uiController.darkMode.value
-            ? Colors.black
-            : uiController.currentMainColor.withValues(alpha: 0.1),
-        child: Center(
-          child: Text(
-            'No hashtag groups found.\nTap + to add a new group.',
-            textAlign: TextAlign.center,
-            style: gfonts.GoogleFonts.kumbhSans(
-              fontSize: 16,
-              color: uiController.darkMode.value
-                  ? Colors.white.withValues(alpha: 0.6)
-                  : Colors.grey[600],
-            ),
-          ),
-        ),
-      );
-    }
-
     return Container(
       color: uiController.darkMode.value
           ? Colors.black
@@ -966,12 +959,35 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
   /// Build hierarchical hashtag groups
   Widget _buildHierarchicalHashtagGroups() {
+    final uiController = Get.find<UiController>();
+
     return ListView(
       children: [
         // Inline add widget for main hashtag groups (at the top)
         Obx(() => _addingMainHashtagGroup.value
             ? _buildInlineAddMainHashtagGroupWidget()
             : const SizedBox.shrink()),
+
+        // Show empty state message if no groups and not adding
+        if (_mainHashtagGroups.isEmpty)
+          Obx(() => !_addingMainHashtagGroup.value
+              ? Container(
+                  padding: const EdgeInsets.all(40),
+                  child: Center(
+                    child: Text(
+                      'No hashtag groups found.\nTap + to add a new group.',
+                      textAlign: TextAlign.center,
+                      style: gfonts.GoogleFonts.kumbhSans(
+                        fontSize: 16,
+                        color: uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.6)
+                            : Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink()),
+
         // Main hashtag groups
         ..._mainHashtagGroups.map((mainHashtagGroup) =>
             _buildMainHashtagGroupExpansionTile(mainHashtagGroup)),
@@ -1099,7 +1115,9 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
             ),
           // Add subgroup button
           IconButton(
-            onPressed: () => _startInlineAdding(mainHashtagGroup.id!),
+            onPressed: (_addingToHashtagGroup[mainHashtagGroup.id] ?? false)
+                ? null
+                : () => _startInlineAdding(mainHashtagGroup.id!),
             icon: ColorFiltered(
               colorFilter: ColorFilter.mode(
                 uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
@@ -1613,114 +1631,105 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     final nameController = _inlineNameControllers[parentHashtagGroupId]!;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-      padding: const EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), // Match subgroup tile margin
       decoration: BoxDecoration(
         color: uiController.darkMode.value
-            ? Colors.black
-            : uiController.currentMainColor.withValues(alpha: 0.1),
+            ? Colors.grey[900]
+            : Colors.grey[100], // Match subgroup tile background
         borderRadius: BorderRadius.circular(2),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-        //   Text(
-        //     'Add New Subgroup',
-        //     style: gfonts.GoogleFonts.kumbhSans(
-        //       fontSize: 12,
-        //       fontWeight: FontWeight.w600,
-        //       color: uiController.currentMainColor,
-        //     ),
-        //   ),
-        //   const SizedBox(height: 8),
-          Container(
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextSelectionTheme(
-                    data: TextSelectionThemeData(
-                      cursorColor: uiController.currentMainColor,
-                      selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
-                      selectionHandleColor: uiController.currentMainColor,
-                    ),
-                    child: TextField(
-                      controller: nameController,
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: 'add Hashtag',
-                        hintStyle: gfonts.GoogleFonts.kumbhSans(
-                          color: uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.5)
-                              : Colors.grey[500],
-                          fontSize: 18,
-                        ),
-                        // filled: true,
-                        // fillColor: uiController.darkMode.value
-                            // ? Colors.grey[700]
-                            // : Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                      style: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value ? Colors.white : Colors.black,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Save button
-                IconButton(
-                  onPressed: () => _saveInlineSubgroup(parentHashtagGroupId),
-                  icon: ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      Colors.green,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.asset(
-                      'assets/images/ic_tick.png',
-                      width: 20,
-                      height: 20,
-                    ),
-                  ),
-                  tooltip: 'Save',
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
-                  ),
-                ),
-                // Cancel button
-                IconButton(
-                  onPressed: () => _cancelInlineAdding(parentHashtagGroupId),
-                  icon: ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      Colors.red,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.asset(
-                      'assets/images/ic_cross.png',
-                      width: 20,
-                      height: 20,
-                    ),
-                  ),
-                  tooltip: 'Cancel',
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
-                  ),
-                ),
-              ],
+      child: ListTile(
+        contentPadding: EdgeInsets.symmetric(horizontal: 5), // Match subgroup tile padding
+        dense: true, // Match subgroup tile density
+        title: Row(
+          children: [
+            // Hash symbol to match subgroup tiles
+            Text(
+              '#  ',
+              style: gfonts.GoogleFonts.kumbhSans(
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w500,
+                fontSize: 20,
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: TextSelectionTheme(
+                data: TextSelectionThemeData(
+                  cursorColor: uiController.currentMainColor,
+                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionHandleColor: uiController.currentMainColor,
+                ),
+                child: TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'add Hashtag',
+                    hintStyle: gfonts.GoogleFonts.kumbhSans(
+                      color: uiController.darkMode.value
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : Colors.grey[500],
+                      fontSize: 18, // Match subgroup tile font size
+                    ),
+                    border: InputBorder.none, // Remove border to match ListTile style
+                    contentPadding: EdgeInsets.zero, // Remove padding to align with hash symbol
+                  ),
+                  style: gfonts.GoogleFonts.kumbhSans(
+                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                    fontSize: 18, // Match subgroup tile font size
+                    fontWeight: FontWeight.w500, // Match subgroup tile font weight
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Save button
+            IconButton(
+              onPressed: () => _saveInlineSubgroup(parentHashtagGroupId),
+              icon: ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  Colors.green,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  'assets/images/ic_tick.png',
+                  width: 20,
+                  height: 20,
+                ),
+              ),
+              tooltip: 'Save',
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(
+                minWidth: 28,
+                minHeight: 28,
+              ),
+            ),
+            // Cancel button
+            IconButton(
+              onPressed: () => _cancelInlineAdding(parentHashtagGroupId),
+              icon: ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  Colors.red.withValues(alpha: 0.7),
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  'assets/images/ic_cross.png',
+                  width: 20,
+                  height: 20,
+                ),
+              ),
+              tooltip: 'Cancel',
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(
+                minWidth: 28,
+                minHeight: 28,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

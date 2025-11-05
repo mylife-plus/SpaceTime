@@ -6,6 +6,8 @@ import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
+import 'package:spacetime/app/services/hashtag_group_service.dart';
+import 'package:spacetime/app/services/contact_group_service.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
@@ -1022,7 +1024,8 @@ class MemoryController extends GetxController {
 class TagMentionController extends GetxController {
   final RxList<String> existingTags = <String>[].obs;
   final RxList<String> existingMentions = <String>[].obs;
-  final RxList<String> filteredItems = <String>[].obs;
+  final RxList<Map<String, dynamic>> filteredItems = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> allItems = <Map<String, dynamic>>[].obs;
 
   final RxBool isEditing = false.obs;
   final RxString editingItem = ''.obs;
@@ -1040,24 +1043,129 @@ class TagMentionController extends GetxController {
   }
 
   Future<void> loadSavedItems() async {
-    final memoryController = Get.find<MemoryController>();
-    existingTags.value = memoryController.existingTags;
-    existingMentions.value = memoryController.existingMentions;
+    if (isTagMode) {
+      await _loadHashtagGroups();
+    } else {
+      await _loadContactGroups();
+    }
     filterItems('');
+  }
+
+  Future<void> _loadHashtagGroups() async {
+    try {
+      final hashtagGroupService = HashtagGroupService();
+      final hierarchicalGroups = await hashtagGroupService.getAllGroupsHierarchical();
+
+      final List<Map<String, dynamic>> items = [];
+
+      for (final mainGroup in hierarchicalGroups) {
+        // Add main group as an item
+        items.add({
+          'type': 'main_group',
+          'name': mainGroup.name,
+          'parentName': '',
+          'id': mainGroup.id,
+          'parentId': null,
+        });
+
+        // Add all subcategories
+        if (mainGroup.subgroups != null && mainGroup.subgroups!.isNotEmpty) {
+          for (final subgroup in mainGroup.subgroups!) {
+            items.add({
+              'type': 'subgroup',
+              'name': subgroup.name,
+              'parentName': mainGroup.name,
+              'id': subgroup.id,
+              'parentId': mainGroup.id,
+            });
+          }
+        }
+      }
+
+      allItems.value = items;
+      filteredItems.value = items;
+    } catch (e) {
+      debugPrint('[TagMentionController] Error loading hashtag groups: $e');
+      // Fallback to existing tags
+      final memoryController = Get.find<MemoryController>();
+      existingTags.value = memoryController.existingTags;
+      final legacyItems = existingTags.map((tag) => {
+        'type': 'legacy',
+        'name': tag,
+        'parentName': '',
+        'id': null,
+        'parentId': null,
+      }).toList();
+      allItems.value = legacyItems;
+      filteredItems.value = legacyItems;
+    }
+  }
+
+  Future<void> _loadContactGroups() async {
+    try {
+      final contactGroupService = ContactGroupService();
+      final hierarchicalGroups = await contactGroupService.getAllGroupsHierarchical();
+
+      final List<Map<String, dynamic>> items = [];
+
+      for (final mainGroup in hierarchicalGroups) {
+        // Add main group as an item
+        items.add({
+          'type': 'main_group',
+          'name': mainGroup.name,
+          'parentName': '',
+          'id': mainGroup.id,
+          'parentId': null,
+        });
+
+        // Add all subcategories
+        if (mainGroup.subgroups != null && mainGroup.subgroups!.isNotEmpty) {
+          for (final subgroup in mainGroup.subgroups!) {
+            items.add({
+              'type': 'subgroup',
+              'name': subgroup.name,
+              'parentName': mainGroup.name,
+              'id': subgroup.id,
+              'parentId': mainGroup.id,
+            });
+          }
+        }
+      }
+
+      allItems.value = items;
+      filteredItems.value = items;
+    } catch (e) {
+      debugPrint('[TagMentionController] Error loading contact groups: $e');
+      // Fallback to existing mentions
+      final memoryController = Get.find<MemoryController>();
+      existingMentions.value = memoryController.existingMentions;
+      final legacyItems = existingMentions.map((mention) => {
+        'type': 'legacy',
+        'name': mention,
+        'parentName': '',
+        'id': null,
+        'parentId': null,
+      }).toList();
+      allItems.value = legacyItems;
+      filteredItems.value = legacyItems;
+    }
   }
 
   void filterItems(String query) {
     searchQuery.value = query;
-    final list = isTagMode ? existingTags : existingMentions;
-    filteredItems.value =
-        query.isEmpty
-            ? List.from(list)
-            : list
-                .where(
-                  (item) =>
-                      item.toLowerCase().contains(query.trim().toLowerCase()),
-                )
-                .toList();
+
+    if (query.trim().isEmpty) {
+      // Show all items when query is empty
+      filteredItems.value = List<Map<String, dynamic>>.from(allItems);
+      return;
+    }
+
+    final queryLower = query.trim().toLowerCase();
+    filteredItems.value = allItems
+        .where((item) =>
+            item['name'].toString().toLowerCase().contains(queryLower) ||
+            item['parentName'].toString().toLowerCase().contains(queryLower))
+        .toList();
   }
 
   Future<void> addNewItem(String value, Function(String) onItemSelected) async {

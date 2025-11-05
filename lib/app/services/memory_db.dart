@@ -319,11 +319,8 @@ class DatabaseHelper {
     // Insert predefined place categories
     await _insertPredefinedPlaceCategories(db);
 
-    // Insert predefined hashtag groups
-    await _insertPredefinedHashtagGroups(db);
-
-    // Insert predefined contact groups
-    await _insertPredefinedContactGroups(db);
+    // Note: Hashtag groups and contact groups are no longer pre-populated
+    // Users will create their own groups as needed
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -468,10 +465,10 @@ class DatabaseHelper {
         )
       ''');
 
-      // Insert predefined hashtag groups
-      await _insertPredefinedHashtagGroups(db);
+      // Note: Hashtag groups are no longer pre-populated
+      // Users will create their own groups as needed
 
-      debugPrint('✅ Hashtag groups table created and initialized');
+      debugPrint('✅ Hashtag groups table created');
     }
 
     if (oldVersion < 11) {
@@ -489,10 +486,10 @@ class DatabaseHelper {
         )
       ''');
 
-      // Insert predefined contact groups
-      await _insertPredefinedContactGroups(db);
+      // Note: Contact groups are no longer pre-populated
+      // Users will create their own groups as needed
 
-      debugPrint('✅ Contact groups table created and initialized');
+      debugPrint('✅ Contact groups table created');
     }
   }
 
@@ -1711,67 +1708,8 @@ class DatabaseHelper {
 
   // ==================== HASHTAG GROUPS METHODS ====================
 
-  /// Insert predefined hashtag groups
-  Future<void> _insertPredefinedHashtagGroups(Database db) async {
-    debugPrint('[DatabaseHelper][_insertPredefinedHashtagGroups] Starting insertion');
-
-    final currentTime = DateTime.now().toIso8601String();
-    int order = 0;
-
-    // Define predefined hashtag groups structure
-    final Map<String, List<String>> predefinedGroups = {
-      'Sports': ['football', 'basketball', 'tennis', 'swimming', 'running', 'cycling'],
-      'Exercise': ['gym', 'workout', 'fitness', 'yoga', 'pilates', 'cardio'],
-      'Food': ['cooking', 'restaurant', 'recipe', 'healthy', 'dessert', 'breakfast'],
-      'Travel': ['vacation', 'adventure', 'beach', 'mountain', 'city', 'culture'],
-      'Work': ['meeting', 'project', 'deadline', 'presentation', 'conference', 'networking'],
-      'Entertainment': ['movie', 'music', 'concert', 'theater', 'gaming', 'reading'],
-    };
-
-    for (final entry in predefinedGroups.entries) {
-      final categoryName = entry.key;
-      final subgroups = entry.value;
-
-      try {
-        // Insert main group
-        final parentId = await db.insert(tableHashtagGroups, {
-          columnHashtagGroupName: categoryName,
-          columnHashtagGroupParentId: null,
-          columnHashtagGroupOrder: order++,
-          columnHashtagGroupIsCustom: 0,
-          columnHashtagGroupCreatedAt: currentTime,
-          columnHashtagGroupUpdatedAt: currentTime,
-        });
-
-        debugPrint(
-          '[DatabaseHelper][_insertPredefinedHashtagGroups] Inserted main group: $categoryName with ID: $parentId',
-        );
-
-        // Insert subgroups
-        int subOrder = 0;
-        for (final subgroupName in subgroups) {
-          await db.insert(tableHashtagGroups, {
-            columnHashtagGroupName: subgroupName,
-            columnHashtagGroupParentId: parentId,
-            columnHashtagGroupOrder: subOrder++,
-            columnHashtagGroupIsCustom: 0,
-            columnHashtagGroupCreatedAt: currentTime,
-            columnHashtagGroupUpdatedAt: currentTime,
-          });
-
-          debugPrint(
-            '[DatabaseHelper][_insertPredefinedHashtagGroups] Inserted subgroup: $subgroupName under $categoryName',
-          );
-        }
-      } catch (e) {
-        debugPrint(
-          '[DatabaseHelper][_insertPredefinedHashtagGroups] Error inserting group $categoryName: $e',
-        );
-      }
-    }
-
-    debugPrint('[DatabaseHelper][_insertPredefinedHashtagGroups] Completed insertion');
-  }
+  // Note: _insertPredefinedHashtagGroups method removed
+  // Hashtag groups are no longer pre-populated - users create their own groups
 
   /// Insert a new hashtag group
   Future<int> insertHashtagGroup(Map<String, dynamic> group) async {
@@ -1835,17 +1773,14 @@ class DatabaseHelper {
     }
   }
 
-  /// Delete a hashtag group (only custom groups and subgroups)
+  /// Delete a hashtag group
   Future<int> deleteHashtagGroup(int groupId) async {
     final db = await database;
 
-    // Allow deletion of:
-    // 1. Custom groups (both main and sub)
-    // 2. Predefined subgroups (but not predefined main groups)
+    // Allow deletion of all groups since there are no predefined groups when app is installed
     return await db.delete(
       tableHashtagGroups,
-      where:
-          '$columnHashtagGroupId = ? AND ($columnHashtagGroupIsCustom = 1 OR $columnHashtagGroupParentId IS NOT NULL)',
+      where: '$columnHashtagGroupId = ?',
       whereArgs: [groupId],
     );
   }
@@ -1894,99 +1829,23 @@ class DatabaseHelper {
 
   /// Check if hashtag groups are already initialized
   Future<bool> areHashtagGroupsInitialized() async {
-    final db = await database;
-    final result = await db.query(
-      tableHashtagGroups,
-      where: '$columnHashtagGroupIsCustom = 0',
-      limit: 1,
-    );
-    return result.isNotEmpty;
+    // Since there are no predefined groups, always return true to skip initialization
+    return true;
   }
 
   /// Initialize hashtag groups if not already done (for app launch)
   Future<void> initializeHashtagGroupsIfNeeded() async {
     debugPrint(
-      '[DatabaseHelper][initializeHashtagGroupsIfNeeded] Checking if hashtag groups need initialization',
+      '[DatabaseHelper][initializeHashtagGroupsIfNeeded] Hashtag groups initialization skipped - no predefined groups',
     );
-
-    final isInitialized = await areHashtagGroupsInitialized();
-
-    if (!isInitialized) {
-      debugPrint(
-        '[DatabaseHelper][initializeHashtagGroupsIfNeeded] Hashtag groups not initialized, adding them now',
-      );
-      final db = await database;
-      await _insertPredefinedHashtagGroups(db);
-    } else {
-      debugPrint(
-        '[DatabaseHelper][initializeHashtagGroupsIfNeeded] Hashtag groups already initialized',
-      );
-    }
+    // Note: No longer initializing predefined hashtag groups
+    // Users will create their own groups as needed
   }
 
   // ==================== CONTACT GROUPS METHODS ====================
 
-  /// Insert predefined contact groups
-  Future<void> _insertPredefinedContactGroups(Database db) async {
-    debugPrint('[DatabaseHelper][_insertPredefinedContactGroups] Starting insertion');
-
-    final currentTime = DateTime.now().toIso8601String();
-    int order = 0;
-
-    // Define predefined contact groups structure
-    final Map<String, List<String>> predefinedGroups = {
-      'Family': ['mother', 'father', 'brother', 'sister', 'grandparents', 'cousins'],
-      'Friends': ['bestfriend', 'colleague', 'neighbor', 'classmate', 'teammate', 'roommate'],
-      'Work': ['boss', 'manager', 'coworker', 'client', 'partner', 'assistant'],
-      'Social': ['acquaintance', 'mentor', 'student', 'teacher', 'doctor', 'trainer'],
-      'Community': ['volunteer', 'member', 'leader', 'organizer', 'participant', 'supporter'],
-      'Professional': ['consultant', 'advisor', 'expert', 'specialist', 'contractor', 'vendor'],
-    };
-
-    for (final entry in predefinedGroups.entries) {
-      final categoryName = entry.key;
-      final subgroups = entry.value;
-
-      try {
-        // Insert main group
-        final parentId = await db.insert(tableContactGroups, {
-          columnContactGroupName: categoryName,
-          columnContactGroupParentId: null,
-          columnContactGroupOrder: order++,
-          columnContactGroupIsCustom: 0,
-          columnContactGroupCreatedAt: currentTime,
-          columnContactGroupUpdatedAt: currentTime,
-        });
-
-        debugPrint(
-          '[DatabaseHelper][_insertPredefinedContactGroups] Inserted main group: $categoryName with ID: $parentId',
-        );
-
-        // Insert subgroups
-        int subOrder = 0;
-        for (final subgroupName in subgroups) {
-          await db.insert(tableContactGroups, {
-            columnContactGroupName: subgroupName,
-            columnContactGroupParentId: parentId,
-            columnContactGroupOrder: subOrder++,
-            columnContactGroupIsCustom: 0,
-            columnContactGroupCreatedAt: currentTime,
-            columnContactGroupUpdatedAt: currentTime,
-          });
-
-          debugPrint(
-            '[DatabaseHelper][_insertPredefinedContactGroups] Inserted subgroup: $subgroupName under $categoryName',
-          );
-        }
-      } catch (e) {
-        debugPrint(
-          '[DatabaseHelper][_insertPredefinedContactGroups] Error inserting group $categoryName: $e',
-        );
-      }
-    }
-
-    debugPrint('[DatabaseHelper][_insertPredefinedContactGroups] Completed insertion');
-  }
+  // Note: _insertPredefinedContactGroups method removed
+  // Contact groups are no longer pre-populated - users create their own groups
 
   /// Insert a new contact group
   Future<int> insertContactGroup(Map<String, dynamic> group) async {
@@ -2054,13 +1913,10 @@ class DatabaseHelper {
   Future<int> deleteContactGroup(int groupId) async {
     final db = await database;
 
-    // Allow deletion of:
-    // 1. Custom groups (both main and sub)
-    // 2. Predefined subgroups (but not predefined main groups)
+    // Allow deletion of all groups since there are no predefined groups when app is installed
     return await db.delete(
       tableContactGroups,
-      where:
-          '$columnContactGroupId = ? AND ($columnContactGroupIsCustom = 1 OR $columnContactGroupParentId IS NOT NULL)',
+      where: '$columnContactGroupId = ?',
       whereArgs: [groupId],
     );
   }
@@ -2109,33 +1965,16 @@ class DatabaseHelper {
 
   /// Check if contact groups are already initialized
   Future<bool> areContactGroupsInitialized() async {
-    final db = await database;
-    final result = await db.query(
-      tableContactGroups,
-      where: '$columnContactGroupIsCustom = 0',
-      limit: 1,
-    );
-    return result.isNotEmpty;
+    // Since there are no predefined groups, always return true to skip initialization
+    return true;
   }
 
   /// Initialize contact groups if not already done (for app launch)
   Future<void> initializeContactGroupsIfNeeded() async {
     debugPrint(
-      '[DatabaseHelper][initializeContactGroupsIfNeeded] Checking if contact groups need initialization',
+      '[DatabaseHelper][initializeContactGroupsIfNeeded] Contact groups initialization skipped - no predefined groups',
     );
-
-    final isInitialized = await areContactGroupsInitialized();
-
-    if (!isInitialized) {
-      debugPrint(
-        '[DatabaseHelper][initializeContactGroupsIfNeeded] Contact groups not initialized, adding them now',
-      );
-      final db = await database;
-      await _insertPredefinedContactGroups(db);
-    } else {
-      debugPrint(
-        '[DatabaseHelper][initializeContactGroupsIfNeeded] Contact groups already initialized',
-      );
-    }
+    // Note: No longer initializing predefined contact groups
+    // Users will create their own groups as needed
   }
 }

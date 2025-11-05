@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
 
@@ -99,8 +100,9 @@ class _FilterDropdownState extends State<FilterDropdown> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
                         widget.hint,
-                        style: TextStyle(
+                        style: GoogleFonts.kumbhSans(
                           fontSize: 15,
+                          fontWeight: FontWeight.w400,
                           color:
                               uiController.darkMode.value
                                   ? Colors.white.withValues(alpha: 0.5)
@@ -146,7 +148,10 @@ class _FilterDropdownState extends State<FilterDropdown> {
                             widget.hint.contains('Hashtags')
                                 ? '#$item'
                                 : '@$item',
-                            style: const TextStyle(fontSize: 12),
+                            style: GoogleFonts.kumbhSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                           deleteIcon: const Icon(Icons.close, size: 16),
                           onDeleted: () {
@@ -186,21 +191,23 @@ class _FilterDropdownState extends State<FilterDropdown> {
                     padding: const EdgeInsets.all(8),
                     child: TextField(
                       controller: _searchController,
-                      style: TextStyle(
+                      style: GoogleFonts.kumbhSans(
                         color:
                             uiController.darkMode.value
                                 ? Colors.white
                                 : Colors.black,
                         fontSize: 15.5,
+                        fontWeight: FontWeight.w400,
                       ),
 
                       decoration: InputDecoration(
-                        hintStyle: TextStyle(
+                        hintStyle: GoogleFonts.kumbhSans(
                           color:
                               uiController.darkMode.value
                                   ? Colors.white54
                                   : Colors.grey[600],
                           fontSize: 15.5,
+                          fontWeight: FontWeight.w400,
                         ),
                         hintText: '${widget.hint}',
                         prefixIcon: Padding(
@@ -243,12 +250,13 @@ class _FilterDropdownState extends State<FilterDropdown> {
                       padding: const EdgeInsets.all(20.0),
                       child: Text(
                         'No ${widget.hint.replaceAll('Search ', '')} found',
-                        style: TextStyle(
+                        style: GoogleFonts.kumbhSans(
                           color:
                               uiController.darkMode.value
                                   ? Colors.white54
                                   : Colors.grey[600],
                           fontSize: 15.5,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ),
@@ -267,7 +275,7 @@ class _FilterDropdownState extends State<FilterDropdown> {
                             widget.hint.contains('Hashtags')
                                 ? '#$item'
                                 : '@$item',
-                            style: TextStyle(
+                            style: GoogleFonts.kumbhSans(
                               color:
                                   isSelected
                                       ? Colors.blue
@@ -277,7 +285,7 @@ class _FilterDropdownState extends State<FilterDropdown> {
                               fontWeight:
                                   isSelected
                                       ? FontWeight.bold
-                                      : FontWeight.normal,
+                                      : FontWeight.w400,
                             ),
                           ),
                           trailing:

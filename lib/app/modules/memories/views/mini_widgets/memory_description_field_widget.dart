@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import '../../controllers/memory_controller.dart';
@@ -54,6 +55,17 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   void _onMentionAdded(String mention) {
     _mentions.add(mention);
     widget.onMentionAdded(mention);
+  }
+
+  /// Clean up tags and mentions that are no longer present in the text
+  void _cleanupRemovedItems() {
+    final text = widget.controller.text;
+
+    // Remove tags that are no longer in the text
+    _tags.removeWhere((tag) => !text.contains('#$tag'));
+
+    // Remove mentions that are no longer in the text
+    _mentions.removeWhere((mention) => !text.contains('@$mention'));
   }
 
   bool get isPopupOpen => _isPopupOpen;
@@ -160,6 +172,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _onTextChanged() {
+    // Clean up tags and mentions that are no longer in the text
+    _cleanupRemovedItems();
+
     // Always rebuild the widget when text changes (even from external sources)
     if (mounted) {
       setState(() {});
@@ -375,19 +390,29 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       final word = words[i];
 
       if (word.startsWith('#') && word.length > 1) {
-        // This is a tag
+        // Check if this hashtag was actually selected/added from dropdown
+        final tagName = word.substring(1); // Remove # prefix
+        final isValidTag = _tags.contains(tagName);
+
         spans.add(
           TextSpan(
             text: word,
-            style: defaultStyle.copyWith(color: Colors.blue),
+            style: isValidTag
+                ? defaultStyle.copyWith(color: Colors.blue)
+                : defaultStyle, // Show as regular text if not selected
           ),
         );
       } else if (word.startsWith('@') && word.length > 1) {
-        // This is a mention
+        // Check if this mention was actually selected/added from dropdown
+        final mentionName = word.substring(1); // Remove @ prefix
+        final isValidMention = _mentions.contains(mentionName);
+
         spans.add(
           TextSpan(
             text: word,
-            style: defaultStyle.copyWith(color: Colors.green),
+            style: isValidMention
+                ? defaultStyle.copyWith(color: Colors.green)
+                : defaultStyle, // Show as regular text if not selected
           ),
         );
       } else {
@@ -406,7 +431,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   TextStyle _getDefaultStyle() {
     final controller = Get.find<UiController>();
-    return TextStyle(
+    return GoogleFonts.kumbhSans(
       fontSize: 16,
       height: 1.5,
       fontWeight: FontWeight.w500,
@@ -465,7 +490,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   if (widget.controller.text.isEmpty)
                     Text(
                       'my memory... ',
-                      style: TextStyle(
+                      style: GoogleFonts.kumbhSans(
                         fontWeight: FontWeight.w500,
                         color:
                             controller.darkMode.value
@@ -514,7 +539,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                       contentPadding: EdgeInsets.zero,
                       hintText: '', // Empty hint to avoid conflicts
                     ),
-                    style: const TextStyle(
+                    style: GoogleFonts.kumbhSans(
                       fontSize: 16,
                       height: 1.5,
                       color: Colors.transparent,

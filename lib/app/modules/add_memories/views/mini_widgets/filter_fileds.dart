@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../map/controllers/map_controller_new.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/location_picker_widget.dart';
+import 'package:spacetime/app/modules/location_picker/views/new_location_picker_widget.dart';
 
 class MemoriesFilterTextFieldRow extends StatefulWidget {
   final String imagePath;
@@ -48,10 +49,7 @@ class _MemoriesFilterTextFieldRowState
   bool get isRadiusField => widget.hint.toLowerCase().contains('radius');
 
   void _handleTextChanged(String value, dynamic controller) {
-    if (isRadiusField) {
-      controller.setRadius(value);
-      debugPrint('Radius filter set to: $value');
-    } else if (value.contains('@') || value.contains('#')) {
+    if (value.contains('@') || value.contains('#')) {
       controller.onTextChanged(widget.hint, value);
     } else {
       controller.onTextChanged(widget.hint, value);
@@ -203,13 +201,29 @@ class _MemoriesFilterTextFieldRowState
   }
 
   Future<void> _pickLocation(BuildContext context, dynamic controller) async {
-    final result = await Get.to(() => const LocationPickerWidget());
+    final result = await Get.to(() => const NewLocationPickerWidget());
     if (result != null) {
-      controller.setEnhancedLocationData(result);
-      // Set default radius value of 10 miles
-      controller.setRadius('10');
-      // Request focus on radius field after location is set
-      controller.requestRadiusFieldFocus();
+      // Extract location and radius from new location picker result
+      final locationData = result['location'];
+      final radius = result['radius'] ?? 10.0;
+
+      // Convert to format expected by controller
+      final enhancedLocationData = {
+        'name': locationData['address'] ?? 'Selected Location',
+        'address': locationData['address'] ?? '',
+        'latitude': locationData['latitude'],
+        'longitude': locationData['longitude'],
+        'country': locationData['country'] ?? '',
+        'region': locationData['state'] ?? '',
+        'city': locationData['city'] ?? '',
+        'timestamp': locationData['timestamp'] ?? DateTime.now().toIso8601String(),
+        'type': locationData['type'] ?? 'selected',
+        'source': locationData['source'] ?? 'location_picker',
+      };
+
+      controller.setEnhancedLocationData(enhancedLocationData);
+      controller.setRadius(radius.toInt().toString());
+      // No need to focus radius field since it's now concatenated with location
     }
   }
 
@@ -232,18 +246,6 @@ class _MemoriesFilterTextFieldRowState
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Obx(() {
-        // Check validation state for location/radius fields
-        bool hasValidationError = false;
-        if (isLocationField &&
-            controller.selectedLocation.value.isNotEmpty &&
-            controller.selectedRadius.value.isEmpty) {
-          hasValidationError = true;
-        } else if (isRadiusField &&
-            controller.selectedRadius.value.isNotEmpty &&
-            controller.selectedLocation.value.isEmpty) {
-          hasValidationError = true;
-        }
-
         final normalizedHint = widget.hint.trim().toLowerCase();
 
         return Container(
@@ -253,10 +255,6 @@ class _MemoriesFilterTextFieldRowState
                 controller2.darkMode.value
                     ? Colors.white.withValues(alpha: 0.2)
                     : Colors.white,
-            border:
-                hasValidationError
-                    ? Border.all(color: Colors.red.shade400, width: 1.5)
-                    : null,
           ),
           child: Row(
             children: [
@@ -282,10 +280,17 @@ class _MemoriesFilterTextFieldRowState
                       // Update controller text when value changes
                       String currentValue;
                       if (isLocationField) {
-                        currentValue =
-                            controller.selectedLocation.value.isNotEmpty
-                                ? controller.selectedLocation.value
-                                : widget.hint;
+                        // Concatenate location with radius using ' + '
+                        String locationValue = controller.selectedLocation.value;
+                        String radiusValue = controller.selectedRadius.value;
+
+                        if (locationValue.isNotEmpty && radiusValue.isNotEmpty) {
+                          currentValue = '$locationValue + ${radiusValue}km';
+                        } else if (locationValue.isNotEmpty) {
+                          currentValue = locationValue;
+                        } else {
+                          currentValue = widget.hint;
+                        }
                       } else if (isRadiusField) {
                         currentValue = controller.selectedRadius.value;
                       } else {
@@ -308,65 +313,34 @@ class _MemoriesFilterTextFieldRowState
                       // Only update controller text if it's different to avoid cursor issues
 
                       return Obx(() {
-                        // Listen for focus request on radius field
-                        if (isRadiusField &&
-                            controller.shouldFocusRadiusField.value) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _focusNode.requestFocus();
-                          });
-                        }
 
                         return TextField(
-                          style: TextStyle(
+                          style: GoogleFonts.kumbhSans(
                             color:
                                 controller2.darkMode.value
                                     ? Colors.white
                                     : Colors.black,
                             fontSize: 15,
+                            fontWeight: FontWeight.w400,
                           ),
                           decoration: InputDecoration(
                             border: InputBorder.none,
                             hintText: widget.hint,
-                            hintStyle: TextStyle(
+                            hintStyle: GoogleFonts.kumbhSans(
                               color:
                                   controller2.darkMode.value
                                       ? Colors.white54
                                       : Colors.grey[600],
                               fontSize: 15,
+                              fontWeight: FontWeight.w400,
                             ),
 
-                            suffixText: isRadiusField ? 'miles' : null,
-                            suffixStyle: TextStyle(
-                              color:
-                                  controller2.darkMode.value
-                                      ? Colors.white54
-                                      : Colors.grey[600],
-                              fontSize: 12,
-                            ),
+
                           ),
                           controller: _textController,
-                          focusNode: isRadiusField ? _focusNode : null,
                           onChanged:
                               (val) => _handleTextChanged(val, controller),
-                          keyboardType:
-                              isRadiusField
-                                  ? const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  )
-                                  : TextInputType.text,
-                          maxLength:
-                              isRadiusField
-                                  ? 10
-                                  : null, // Allow up to 10 digits for radius
-                          buildCounter: (
-                            context, {
-                            required currentLength,
-                            required isFocused,
-                            maxLength,
-                          }) {
-                            // Hide counter for radius field
-                            return isRadiusField ? null : null;
-                          },
+                          keyboardType: TextInputType.text,
                         );
                       });
                     }),
