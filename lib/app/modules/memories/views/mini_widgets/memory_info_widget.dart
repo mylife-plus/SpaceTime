@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
-import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/location_picker_widget.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/category_picker_widget.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart';
+import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 class MemoryInfoWidget extends StatelessWidget {
@@ -23,8 +22,8 @@ class MemoryInfoWidget extends StatelessWidget {
         // color: Colors.black.withOpacity(0.05),
         color:
             controller2.darkMode.value
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.05),
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.05),
         child: Column(
           children: [
             // Row with Date & Time
@@ -68,7 +67,7 @@ class MemoryInfoWidget extends StatelessWidget {
                         ? '${controller.locationFlag.value} ${controller.locationCity.value}, ${controller.locationCountry.value}'
                         : 'Pick Location *',
                 onTap: () async {
-                  var data = await Get.to(() => const LocationPickerWidget());
+                  var data = await Get.to(() => const MemoryLocationPickerWidget());
                   controller.onAgainInit();
 
                   // Use the new enhanced location method
@@ -81,39 +80,15 @@ class MemoryInfoWidget extends StatelessWidget {
 
             const SizedBox(height: 5),
 
-            // Place Category
-            Obx(
-              () => _InfoContainer(
-                imagePath: AppImages.category2,
-                text:
-                    controller.selectedCategory.value.isNotEmpty
-                        ? controller.selectedCategory.value
-                            .split(' ')
-                            .map(
-                              (word) =>
-                                  word.isNotEmpty
-                                      ? word[0].toUpperCase() +
-                                          word.substring(1)
-                                      : word,
-                            )
-                            .join(' ')
-                        : 'Place Category',
-                onTap: () async {
-                  final selectedCategory = await Get.to(
-                    () => const CategoryPickerWidget(),
-                  );
-                  if (selectedCategory != null &&
-                      selectedCategory is PlaceCategory) {
-                    // Store both emoji and name for the category
-                    final categoryWithEmoji =
-                        selectedCategory.emoji.isNotEmpty
-                            ? '${selectedCategory.emoji} ${selectedCategory.name}'
-                            : selectedCategory.name;
-                    controller.setCategory(categoryWithEmoji);
-                    debugPrint('Selected category: $categoryWithEmoji');
-                  }
-                },
-              ),
+            // Place Category - Searchable
+            SearchableCategoryWidget(
+              selectedCategory: controller.selectedCategory.value,
+              onCategorySelected: (category) {
+                final categoryWithEmoji = category.emoji.isNotEmpty
+                    ? '${category.emoji} ${category.name}'
+                    : category.name;
+                controller.setCategory(categoryWithEmoji);
+              },
             ),
           ],
         ),

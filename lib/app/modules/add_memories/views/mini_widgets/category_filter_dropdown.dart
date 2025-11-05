@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
 
@@ -100,11 +101,12 @@ class _CategoryFilterDropdownState extends State<CategoryFilterDropdown> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
                         widget.hint,
-                        style: TextStyle(
+                        style: GoogleFonts.kumbhSans(
                           color:
                               uiController.darkMode.value
                                   ? Colors.white70
                                   : Colors.grey[600],
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ),
@@ -142,7 +144,10 @@ class _CategoryFilterDropdownState extends State<CategoryFilterDropdown> {
                         return Chip(
                           label: Text(
                             category,
-                            style: const TextStyle(fontSize: 12),
+                            style: GoogleFonts.kumbhSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                           deleteIcon: const Icon(Icons.close, size: 16),
                           onDeleted: () {
@@ -207,7 +212,7 @@ class _CategoryFilterDropdownState extends State<CategoryFilterDropdown> {
                           dense: true,
                           title: Text(
                             category,
-                            style: TextStyle(
+                            style: GoogleFonts.kumbhSans(
                               color:
                                   isSelected
                                       ? Colors.green
@@ -217,7 +222,7 @@ class _CategoryFilterDropdownState extends State<CategoryFilterDropdown> {
                               fontWeight:
                                   isSelected
                                       ? FontWeight.bold
-                                      : FontWeight.normal,
+                                      : FontWeight.w400,
                             ),
                           ),
                           trailing:

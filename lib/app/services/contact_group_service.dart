@@ -258,6 +258,7 @@ class ContactGroupService {
   /// Get groups suitable for dropdown/picker (with display text)
   Future<List<Map<String, dynamic>>> getGroupsForPicker({
     bool includeSubgroups = true,
+    bool includeMainGroups = false, // Categories should not show as list items by default
   }) async {
     try {
       debugPrint(
@@ -271,14 +272,16 @@ class ContactGroupService {
         final hierarchicalGroups = await getAllGroupsHierarchical();
 
         for (final mainGroup in hierarchicalGroups) {
-          // Add main group
-          pickerItems.add({
-            'id': mainGroup.id,
-            'name': mainGroup.name,
-            'displayText': mainGroup.name,
-            'isMainGroup': true,
-            'parentId': null,
-          });
+          // Add main group only if requested (categories should not show as list items by default)
+          if (includeMainGroups) {
+            pickerItems.add({
+              'id': mainGroup.id,
+              'name': mainGroup.name,
+              'displayText': mainGroup.name,
+              'isMainGroup': true,
+              'parentId': null,
+            });
+          }
 
           // Add subgroups
           if (mainGroup.subgroups != null) {
@@ -286,7 +289,7 @@ class ContactGroupService {
               pickerItems.add({
                 'id': subgroup.id,
                 'name': subgroup.name,
-                'displayText': '  ${subgroup.name}', // Indent subgroups
+                'displayText': includeMainGroups ? '  ${subgroup.name}' : subgroup.name, // Indent only if main groups are included
                 'isMainGroup': false,
                 'parentId': subgroup.parentId,
               });

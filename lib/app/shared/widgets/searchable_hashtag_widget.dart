@@ -1,0 +1,529 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:spacetime/app/models/hashtag_group_model.dart';
+import 'package:spacetime/app/services/hashtag_group_service.dart';
+import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/config/app_fonts.dart';
+import 'package:spacetime/app/config/app_images.dart';
+import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
+class SearchableHashtagWidget extends StatefulWidget {
+  final String title;
+  final Function(String) onHashtagSelected;
+  final Function(HashtagGroup)? onGroupSelected;
+  final Function(bool isFocused)? onFocusChanged;
+  final bool showActionButtons;
+  final String? iconPath;
+  final Color? backgroundColor;
+  final bool isCompact;
+
+  const SearchableHashtagWidget({
+    super.key,
+    this.title = 'Search Hashtags',
+    required this.onHashtagSelected,
+    this.onGroupSelected,
+    this.onFocusChanged,
+    this.showActionButtons = false,
+    this.iconPath,
+    this.backgroundColor,
+    this.isCompact = false,
+  });
+
+  @override
+  State<SearchableHashtagWidget> createState() => _SearchableHashtagWidgetState();
+}
+
+class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final HashtagGroupService _hashtagGroupService = HashtagGroupService();
+  
+  final RxBool _showResults = false.obs;
+  final RxList<String> _searchResults = <String>[].obs;
+  final RxList<HashtagGroup> _groupResults = <HashtagGroup>[].obs;
+  final RxList<String> _recentHashtags = <String>[].obs;
+  final RxBool _isLoading = false.obs;
+
+  List<String> _allHashtags = [];
+  List<HashtagGroup> _allGroups = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    final isFocused = _focusNode.hasFocus;
+    if (isFocused) {
+      _showResults.value = true;
+    } else {
+      // If losing focus, collapse the widget
+      _showResults.value = false;
+      debugPrint('[SearchableHashtagWidget] Collapsed due to focus loss');
+    }
+    widget.onFocusChanged?.call(isFocused);
+    debugPrint('[SearchableHashtagWidget] Focus changed: $isFocused');
+  }
+
+  Future<void> _loadData() async {
+    _isLoading.value = true;
+    try {
+      // Load hashtag groups
+      _allGroups = await _hashtagGroupService.getAllGroupsHierarchical();
+
+      // Load actual hashtags from AddMemoriesController if available
+      try {
+        final controller = Get.find<AddMemoriesController>();
+        _allHashtags = List.from(controller.getAvailableHashtags);
+      } catch (e) {
+        debugPrint('[SearchableHashtagWidget] AddMemoriesController not found, using group names: $e');
+        // Fallback: Extract hashtag names from groups (both main groups and subgroups)
+        _allHashtags = [];
+        for (final group in _allGroups) {
+          _allHashtags.add(group.name);
+          if (group.subgroups != null) {
+            for (final subgroup in group.subgroups!) {
+              _allHashtags.add(subgroup.name);
+            }
+          }
+        }
+      }
+
+      // Load recent hashtags from SharedPreferences
+      await _loadRecentHashtags();
+
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error loading data: $e');
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
+  Future<void> _loadRecentHashtags() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentHashtagsJson = prefs.getStringList('recent_hashtags_filter') ?? [];
+
+      // Load recent hashtags (individual hashtags)
+      final recentHashtags = <String>[];
+      for (final hashtagJson in recentHashtagsJson) {
+        try {
+          final hashtagData = json.decode(hashtagJson);
+          if (hashtagData is Map<String, dynamic> && hashtagData.containsKey('name')) {
+            recentHashtags.add(hashtagData['name']);
+          }
+        } catch (e) {
+          debugPrint('[SearchableHashtagWidget] Error parsing recent hashtag: $e');
+        }
+      }
+
+      // Load recent hashtag groups
+      final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
+      final recentGroups = <String>[];
+      for (final groupJson in recentGroupsJson) {
+        try {
+          final groupData = json.decode(groupJson);
+          if (groupData is Map<String, dynamic> && groupData.containsKey('name')) {
+            recentGroups.add(groupData['name']);
+          }
+        } catch (e) {
+          debugPrint('[SearchableHashtagWidget] Error parsing recent hashtag group: $e');
+        }
+      }
+
+      // Combine recent hashtags and groups, prioritizing groups
+      final combinedRecent = <String>[];
+      combinedRecent.addAll(recentGroups.take(3)); // Max 3 groups
+      combinedRecent.addAll(recentHashtags.take(5 - combinedRecent.length)); // Fill remaining with hashtags
+
+      _recentHashtags.value = combinedRecent;
+      debugPrint('[SearchableHashtagWidget] Loaded ${combinedRecent.length} recent items');
+
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error loading recent hashtags: $e');
+      _recentHashtags.value = [];
+    }
+  }
+
+  void _performSearch(String query) {
+    if (query.isEmpty) {
+      _searchResults.clear();
+      _groupResults.clear();
+      return;
+    }
+
+    final lowerQuery = query.toLowerCase();
+    
+    // Search individual hashtags
+    final hashtagResults = _allHashtags
+        .where((hashtag) => hashtag.toLowerCase().contains(lowerQuery))
+        .take(10)
+        .toList();
+    
+    // Search groups (both main groups and subgroups)
+    final groupResults = <HashtagGroup>[];
+    for (final group in _allGroups) {
+      if (group.name.toLowerCase().contains(lowerQuery)) {
+        groupResults.add(group);
+      }
+      if (group.subgroups != null) {
+        for (final subgroup in group.subgroups!) {
+          if (subgroup.name.toLowerCase().contains(lowerQuery)) {
+            groupResults.add(subgroup);
+          }
+        }
+      }
+    }
+    
+    _searchResults.value = hashtagResults;
+    _groupResults.value = groupResults.take(5).toList();
+  }
+
+  void _selectHashtag(String hashtag) {
+    widget.onHashtagSelected(hashtag);
+    _saveRecentHashtag(hashtag);
+    _searchController.clear();
+    _showResults.value = false;
+    _focusNode.unfocus();
+  }
+
+  void _selectGroup(HashtagGroup group) {
+    if (widget.onGroupSelected != null) {
+      widget.onGroupSelected!(group);
+    }
+    _saveRecentHashtagGroup(group);
+    _searchController.clear();
+    _showResults.value = false;
+    _focusNode.unfocus();
+  }
+
+  Future<void> _saveRecentHashtag(String hashtag) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentHashtagsJson = prefs.getStringList('recent_hashtags_filter') ?? [];
+
+      // Create hashtag data
+      final hashtagData = {
+        'name': hashtag,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      // Remove if already exists
+      recentHashtagsJson.removeWhere((item) {
+        try {
+          final data = json.decode(item);
+          return data['name'] == hashtag;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      // Add to beginning
+      recentHashtagsJson.insert(0, json.encode(hashtagData));
+
+      // Keep only last 10 items
+      if (recentHashtagsJson.length > 10) {
+        recentHashtagsJson.removeRange(10, recentHashtagsJson.length);
+      }
+
+      await prefs.setStringList('recent_hashtags_filter', recentHashtagsJson);
+      debugPrint('[SearchableHashtagWidget] Saved recent hashtag: $hashtag');
+
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error saving recent hashtag: $e');
+    }
+  }
+
+  Future<void> _saveRecentHashtagGroup(HashtagGroup group) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
+
+      // Create group data
+      final groupData = {
+        'id': group.id,
+        'name': group.name,
+        'parentId': group.parentId,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      // Remove if already exists
+      recentGroupsJson.removeWhere((item) {
+        try {
+          final data = json.decode(item);
+          return data['id'] == group.id;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      // Add to beginning
+      recentGroupsJson.insert(0, json.encode(groupData));
+
+      // Keep only last 5 items
+      if (recentGroupsJson.length > 5) {
+        recentGroupsJson.removeRange(5, recentGroupsJson.length);
+      }
+
+      await prefs.setStringList('recent_hashtag_groups_filter', recentGroupsJson);
+      debugPrint('[SearchableHashtagWidget] Saved recent hashtag group: ${group.name}');
+
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error saving recent hashtag group: $e');
+    }
+  }
+
+  Widget _buildSearchField(UiController uiController) {
+    return SizedBox(
+      height: 20, // Fixed height to match icon height
+      child: TextField(
+      controller: _searchController,
+      focusNode: _focusNode,
+      style: AppFonts.medium(16, color: uiController.darkMode.value ? Colors.white : Colors.black87),
+      decoration: InputDecoration(
+        hintText: widget.title,
+        hintStyle: AppFonts.regular(16, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 2), // Center text with 20px icon
+        suffixIcon: _searchController.text.isNotEmpty ? GestureDetector(
+          onTap: () {
+            _searchController.clear();
+            _performSearch('');
+          },
+          child: Icon(
+            Icons.clear,
+            size: 18,
+            color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
+          ),
+        ) : null,
+      ),
+      onChanged: _performSearch,
+    ),
+    );
+  }
+
+  Widget _buildDisplayText(UiController uiController) {
+    return Text(
+      widget.title,
+      style: AppFonts.regular(16, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uiController = Get.find<UiController>();
+
+    return Obx(() => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: widget.backgroundColor ?? (uiController.darkMode.value
+            ? Colors.grey[850]
+            : Colors.white),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Main input row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Image.asset(
+                widget.iconPath ?? AppImages.tag,
+                width: 20,
+                height: 20,
+                color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _showResults.value
+                    ? _buildSearchField(uiController)
+                    : GestureDetector(
+                        onTap: () {
+                          _showResults.value = true;
+                          _focusNode.requestFocus();
+                        },
+                        child: _buildDisplayText(uiController),
+                      ),
+              ),
+            ],
+          ),
+
+          // Search results
+          if (_showResults.value) ...[
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(
+                color: uiController.darkMode.value
+                    ? Colors.grey[800]
+                    : Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _isLoading.value
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  : _buildResultsList(uiController),
+            ),
+          ],
+        ],
+      ),
+    ));
+  }
+
+  Widget _buildResultsList(UiController uiController) {
+    final hasSearchQuery = _searchController.text.isNotEmpty;
+    final hasResults = _searchResults.isNotEmpty || _groupResults.isNotEmpty;
+    final hasRecent = _recentHashtags.isNotEmpty;
+
+    if (hasSearchQuery && !hasResults) {
+      return const Padding(
+        padding: EdgeInsets.all(20),
+        child: Text(
+          'No hashtags found',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    if (!hasSearchQuery && !hasRecent) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          'No recent hashtags',
+          style: AppFonts.medium(
+            14,
+            color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+          ),
+        ),
+      );
+    }
+
+    final allItems = <Widget>[];
+
+    // Add search results or recent hashtags
+    if (hasSearchQuery) {
+      // Group results
+      for (int i = 0; i < _groupResults.length; i++) {
+        allItems.add(_buildGroupItem(_groupResults[i], uiController));
+        if (i < _groupResults.length - 1 || _searchResults.isNotEmpty) {
+          allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+        }
+      }
+      // Individual hashtag results
+      for (int i = 0; i < _searchResults.length; i++) {
+        allItems.add(_buildHashtagItem(_searchResults[i], uiController));
+        if (i < _searchResults.length - 1) {
+          allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+        }
+      }
+    } else {
+      // Recent hashtags
+      for (int i = 0; i < _recentHashtags.length; i++) {
+        allItems.add(_buildHashtagItem(_recentHashtags[i], uiController));
+        if (i < _recentHashtags.length - 1) {
+          allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+        }
+      }
+    }
+
+    // Add divider before see all button if there are items
+    if ((hasSearchQuery || hasRecent) && allItems.isNotEmpty) {
+      allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+      allItems.add(_buildSeeAllButton(uiController));
+    }
+
+    return ListView(
+      shrinkWrap: true,
+      children: allItems,
+    );
+  }
+
+  Widget _buildHashtagItem(String hashtag, UiController uiController) {
+    return InkWell(
+      onTap: () => _selectHashtag(hashtag),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              Icons.tag,
+              size: 16,
+              color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '#$hashtag',
+                style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupItem(HashtagGroup group, UiController uiController) {
+    return InkWell(
+      onTap: () => _selectGroup(group),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              Icons.folder,
+              size: 16,
+              color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                group.name,
+                style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
+              ),
+            ),
+            Text(
+              'Group',
+              style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeeAllButton(UiController uiController) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Center(
+        child: TextButton(
+          onPressed: () {
+            // TODO: Navigate to full hashtag picker
+            debugPrint('[SearchableHashtagWidget] See all hashtags tapped');
+          },
+          child: Text(
+            'See all',
+            style: AppFonts.medium(16, color: uiController.currentMainColor),
+          ),
+        ),
+      ),
+    );
+  }
+}

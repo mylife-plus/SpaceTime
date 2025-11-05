@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 class FilterPanel extends StatelessWidget {
@@ -54,9 +55,10 @@ class FilterPanel extends StatelessWidget {
                   onPressed: onReset,
                   child: Text(
                     'reset',
-                    style: TextStyle(
+                    style: GoogleFonts.kumbhSans(
                       color:
                           controller.darkMode.value ? Colors.red : Colors.red,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -70,9 +72,12 @@ class FilterPanel extends StatelessWidget {
                     side: const BorderSide(color: Colors.blue),
                   ),
                   onPressed: onApply,
-                  child: const Text(
+                  child: Text(
                     'filter',
-                    style: TextStyle(color: Colors.blue),
+                    style: GoogleFonts.kumbhSans(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],

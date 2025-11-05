@@ -60,6 +60,10 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   // Multiple selection state
   final RxList<PlaceCategory> _selectedCategories = <PlaceCategory>[].obs;
 
+  // Main category inline adding state
+  final RxBool _addingMainCategory = false.obs;
+  final TextEditingController _mainCategoryNameController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -116,6 +120,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
 
+    // Dispose main category controllers
+    _mainCategoryNameController.dispose();
+
     // Dispose inline controllers
     for (final controller in _inlineNameControllers.values) {
       controller.dispose();
@@ -131,6 +138,23 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     for (final controller in _editEmojiControllers.values) {
       controller.dispose();
     }
+
+    // Close reactive variables to prevent memory leaks and dependency issues
+    _mainCategories.close();
+    _searchResults.close();
+    _isLoading.close();
+    _isSearching.close();
+    _expandedCategories.close();
+    _addingToCategory.close();
+    _inlineNameControllers.close();
+    _inlineEmojiControllers.close();
+    _expansionControllers.close();
+    _pendingAddingMode.close();
+    _editingCategory.close();
+    _editNameControllers.close();
+    _editEmojiControllers.close();
+    _selectedCategories.close();
+    _addingMainCategory.close();
 
     // Clean up global refresh notifier
     try {
@@ -444,6 +468,89 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     _inlineEmojiControllers[categoryId]?.dispose();
     _inlineNameControllers.remove(categoryId);
     _inlineEmojiControllers.remove(categoryId);
+  }
+
+  /// Start inline adding for main category
+  void _startInlineAddingMainCategory() {
+    _addingMainCategory.value = true;
+    _mainCategoryNameController.clear();
+
+    // Auto-focus the text field after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The focus will be handled by the TextField's autofocus property
+    });
+  }
+
+  /// Cancel inline adding for main category
+  void _cancelInlineAddingMainCategory() {
+    _addingMainCategory.value = false;
+    _mainCategoryNameController.clear();
+  }
+
+  /// Save inline added main category
+  Future<void> _saveInlineMainCategory() async {
+    final name = _mainCategoryNameController.text.trim();
+    final emoji = '📍'; // Default emoji for place categories
+
+    // Validate that name is provided
+    if (name.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please enter a category name',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    try {
+      debugPrint(
+        '[CategoryPickerWidget][_saveInlineMainCategory] Adding main category: $name ($emoji)',
+      );
+
+      final newCategory = await _categoryService.addCustomCategory(
+        name: name,
+        emoji: emoji,
+        parentId: null, // Main category has no parent
+      );
+
+      if (newCategory != null) {
+        // Clean up the inline adding state
+        _cancelInlineAddingMainCategory();
+
+        // Refresh categories from database to show the new addition
+        await _refreshCategoriesFromDatabase();
+
+        // Also trigger global refresh for any other category pickers that might be open
+        _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+
+        Get.snackbar(
+          'Success',
+          'Main category "$name" added successfully!',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+
+        debugPrint(
+          '[CategoryPickerWidget][_saveInlineMainCategory] Successfully added main category: ${newCategory.id}',
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to add main category',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      debugPrint('[CategoryPickerWidget][_saveInlineMainCategory] Error: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to add main category: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 
   /// Start inline editing for a subcategory
@@ -1648,30 +1755,31 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           ),
 
           actions: [
-            // Debug button to fix category inconsistencies
-            // IconButton(
-            //   onPressed: _fixCategoryInconsistencies,
-            //   icon: const Icon(Icons.build_circle_outlined),
-            //   tooltip: 'Fix Category Inconsistencies',
-            // ),
-            // if (widget.allowMultipleSelection) ...[
-            //   Obx(() => TextButton(
-            //     onPressed: _selectedCategories.isNotEmpty ? _onDonePressed : null,
-            //     child: Text(
-            //       'Done',
-            //       style: TextStyle(
-            //         color: _selectedCategories.isNotEmpty
-            //             ? Colors.white
-            //             : Colors.white.withValues(alpha: 0.5),
-            //         fontWeight: FontWeight.bold,
-            //       ),
-            //     ),
-            //   )),
-            // ],
+            // Add main category button
+            IconButton(
+              onPressed: _startInlineAddingMainCategory,
+              icon: ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  'assets/images/ic_add.png',
+                  width: 25,
+                  height: 25,
+                ),
+              ),
+              tooltip: 'Add Main Category',
+            ),
           ],
         ),
         body: Column(
           children: [
+            // Inline add main category widget
+            Obx(() => _addingMainCategory.value
+                ? _buildInlineAddMainCategoryWidget()
+                : const SizedBox.shrink()),
+
             // Search Field
             // Container(
             //   color:
@@ -1907,6 +2015,85 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           final mainCategory = _mainCategories[index];
           return _buildMainCategoryExpansionTile(mainCategory);
         },
+      ),
+    );
+  }
+
+  /// Build inline add widget for main categories
+  Widget _buildInlineAddMainCategoryWidget() {
+    final uiController = Get.find<UiController>();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: uiController.darkMode.value
+            ? Colors.black
+            : uiController.currentMainColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          // Text input field
+          Expanded(
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                textSelectionTheme: TextSelectionThemeData(
+                  cursorColor: uiController.currentMainColor,
+                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionHandleColor: uiController.currentMainColor,
+                ),
+              ),
+              child: TextField(
+                controller: _mainCategoryNameController,
+                cursorColor: uiController.currentMainColor,
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                  fontSize: 16,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Category Name',
+                  hintStyle: gfonts.GoogleFonts.kumbhSans(
+                    color: uiController.darkMode.value
+                        ? Colors.white.withValues(alpha: 0.6)
+                        : Colors.grey[600],
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                autofocus: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Cancel button (red cross)
+          GestureDetector(
+            onTap: _cancelInlineAddingMainCategory,
+            child: Container(
+              width: 18,
+              height: 18,
+              child: Image.asset(
+                'assets/images/ic_cross.png',
+                width: 10,
+                height: 10,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Save button (green tick)
+          GestureDetector(
+            onTap: _saveInlineMainCategory,
+            child: Container(
+              width: 18,
+              height: 18,
+              child: Image.asset(
+                'assets/images/ic_tick.png',
+                width: 10,
+                height: 10,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

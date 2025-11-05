@@ -7,6 +7,8 @@ import 'package:spacetime/app/modules/data/bindings/data_binding.dart';
 import 'package:spacetime/app/modules/data/views/data_view.dart';
 import 'package:spacetime/app/modules/feedback/bindings/feedback_binding.dart';
 import 'package:spacetime/app/modules/feedback/views/feedback_view.dart';
+import 'package:spacetime/app/modules/get_started/bindings/get_started_binding.dart';
+import 'package:spacetime/app/modules/get_started/views/get_started_view.dart';
 import 'package:spacetime/app/modules/hashtag_groups/bindings/hashtag_groups_binding.dart';
 import 'package:spacetime/app/modules/hashtag_groups/views/hashtag_groups_view.dart';
 import 'package:spacetime/app/modules/map/bindings/map_binding.dart';
@@ -28,7 +30,7 @@ part 'app_routes.dart';
 class AppPages {
   AppPages._();
 
-  static const INITIAL = Routes.MAP_NEW;
+  static const INITIAL = Routes.GET_STARTED;
 
   static final routes = [
     GetPage(name: _Paths.MAP, page: () => MapView(), binding: MapBinding()),
@@ -67,6 +69,11 @@ class AppPages {
       name: _Paths.FEEDBACK,
       page: () => FeedbackView(),
       binding: FeedbackBinding(),
+    ),
+    GetPage(
+      name: _Paths.GET_STARTED,
+      page: () => const GetStartedView(),
+      binding: GetStartedBinding(),
     ),
     GetPage(
       name: _Paths.MEMORIES,

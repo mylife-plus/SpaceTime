@@ -22,6 +22,8 @@ import 'app/services/memory_db.dart';
 import 'services/background_tile_download_service.dart';
 import 'app/services/offline_map_service.dart';
 import 'app/repositories/offline_map_repository.dart';
+import 'app/services/offline_map_coordinator_service.dart';
+import 'app/modules/get_started/controllers/get_started_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -86,6 +88,7 @@ Future<void> main() async {
   Get.put(BackgroundTileDownloadService(), permanent: true);
   Get.put(OfflineMapService(), permanent: true);
   Get.put(OfflineMapRepository(), permanent: true);
+  Get.put(OfflineMapCoordinatorService(), permanent: true);
   debugPrint('✅ Global services initialized');
 
   // Initialize controllers
@@ -143,6 +146,7 @@ Future<void> _testGeocodingService() async {
 class MyApp extends StatelessWidget {
   MyApp({super.key});
   final UiController uiController = Get.find();
+
   @override
   Widget build(BuildContext context) {
     return Obx(

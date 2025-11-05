@@ -6,6 +6,10 @@ import 'package:intl/intl.dart';
 import '../../../../services/memory_clustering_service.dart';
 import '../../../services/memory_db.dart';
 import '../../memories/controllers/memory_controller.dart';
+import '../../../models/hashtag_group_model.dart';
+import '../../../models/contact_group_model.dart';
+import '../../../services/hashtag_group_service.dart';
+import '../../../services/contact_group_service.dart';
 import 'dart:math';
 
 class AddMemoriesController extends GetxController {
@@ -738,10 +742,15 @@ class AddMemoriesController extends GetxController {
     }
   }
 
-  void removeHashtag(String hashtag) {
+  void removeHashtag(String hashtag) async {
     debugPrint("Attempting to remove hashtag: $hashtag");
     final removed = selectedHashtags.remove(hashtag);
     debugPrint("Hashtag removed successfully: $removed");
+
+    if (removed) {
+      // Check if this was a subcategory and if all subcategories of its main group are now removed
+      await _checkAndRemoveHashtagMainGroupIfNeeded(hashtag);
+    }
 
     _updateFilterStatus();
     selectedHashtags.refresh(); // Force UI refresh
@@ -761,10 +770,15 @@ class AddMemoriesController extends GetxController {
     }
   }
 
-  void removeContact(String contact) {
+  void removeContact(String contact) async {
     debugPrint("Attempting to remove contact: $contact");
     final removed = selectedContacts.remove(contact);
     debugPrint("Contact removed successfully: $removed");
+
+    if (removed) {
+      // Check if this was a subcategory and if all subcategories of its main group are now removed
+      await _checkAndRemoveContactMainGroupIfNeeded(contact);
+    }
 
     _updateFilterStatus();
     selectedContacts.refresh(); // Force UI refresh
@@ -772,6 +786,78 @@ class AddMemoriesController extends GetxController {
     debugPrint(
       "Removed contact: $contact, remaining: ${selectedContacts.length}",
     );
+  }
+
+  void addHashtagGroup(HashtagGroup group) async {
+    final groupName = group.name;
+    if (!selectedHashtags.contains(groupName)) {
+      selectedHashtags.add(groupName);
+
+      // If this is a main group with subgroups, also add all subcategories
+      if (group.isMainGroup && group.hasSubgroups) {
+        debugPrint("Adding main hashtag group with ${group.subgroups!.length} subcategories: $groupName");
+        for (final subgroup in group.subgroups!) {
+          if (!selectedHashtags.contains(subgroup.name)) {
+            selectedHashtags.add(subgroup.name);
+            debugPrint("  - Added subcategory: ${subgroup.name}");
+          }
+        }
+      } else if (group.isMainGroup && group.id != null) {
+        // If main group doesn't have subgroups loaded, fetch them from service
+        try {
+          final hashtagGroupService = Get.find<HashtagGroupService>();
+          final subgroups = await hashtagGroupService.getSubgroups(group.id!);
+          debugPrint("Fetched ${subgroups.length} subcategories for main group: $groupName");
+          for (final subgroup in subgroups) {
+            if (!selectedHashtags.contains(subgroup.name)) {
+              selectedHashtags.add(subgroup.name);
+              debugPrint("  - Added subcategory: ${subgroup.name}");
+            }
+          }
+        } catch (e) {
+          debugPrint("Error fetching subgroups for $groupName: $e");
+        }
+      }
+
+      _updateFilterStatus();
+      debugPrint("Added hashtag group: $groupName (total selected: ${selectedHashtags.length})");
+    }
+  }
+
+  void addContactGroup(ContactGroup group) async {
+    final groupName = group.name;
+    if (!selectedContacts.contains(groupName)) {
+      selectedContacts.add(groupName);
+
+      // If this is a main group with subgroups, also add all subcategories
+      if (group.isMainGroup && group.hasSubgroups) {
+        debugPrint("Adding main contact group with ${group.subgroups!.length} subcategories: $groupName");
+        for (final subgroup in group.subgroups!) {
+          if (!selectedContacts.contains(subgroup.name)) {
+            selectedContacts.add(subgroup.name);
+            debugPrint("  - Added subcategory: ${subgroup.name}");
+          }
+        }
+      } else if (group.isMainGroup && group.id != null) {
+        // If main group doesn't have subgroups loaded, fetch them from service
+        try {
+          final contactGroupService = Get.find<ContactGroupService>();
+          final subgroups = await contactGroupService.getSubgroups(group.id!);
+          debugPrint("Fetched ${subgroups.length} subcategories for main contact group: $groupName");
+          for (final subgroup in subgroups) {
+            if (!selectedContacts.contains(subgroup.name)) {
+              selectedContacts.add(subgroup.name);
+              debugPrint("  - Added subcategory: ${subgroup.name}");
+            }
+          }
+        } catch (e) {
+          debugPrint("Error fetching subgroups for contact group $groupName: $e");
+        }
+      }
+
+      _updateFilterStatus();
+      debugPrint("Added contact group: $groupName (total selected: ${selectedContacts.length})");
+    }
   }
 
   void addCategory(String category) {
@@ -802,6 +888,96 @@ class AddMemoriesController extends GetxController {
 
   void _updateFilterStatus() {
     updateFilterStatus();
+  }
+
+  /// Check if a removed hashtag was a subcategory and remove main group if all subcategories are gone
+  Future<void> _checkAndRemoveHashtagMainGroupIfNeeded(String removedHashtag) async {
+    try {
+      final hashtagGroupService = Get.find<HashtagGroupService>();
+      final allGroups = await hashtagGroupService.getAllGroupsHierarchical();
+
+      // Find which main group this subcategory belongs to
+      HashtagGroup? parentMainGroup;
+      for (final mainGroup in allGroups) {
+        if (mainGroup.subgroups != null) {
+          for (final subgroup in mainGroup.subgroups!) {
+            if (subgroup.name == removedHashtag) {
+              parentMainGroup = mainGroup;
+              break;
+            }
+          }
+        }
+        if (parentMainGroup != null) break;
+      }
+
+      if (parentMainGroup != null) {
+        debugPrint("Found parent main group for removed hashtag '$removedHashtag': ${parentMainGroup.name}");
+
+        // Check if any subcategories of this main group are still selected
+        bool hasRemainingSubcategories = false;
+        if (parentMainGroup.subgroups != null) {
+          for (final subgroup in parentMainGroup.subgroups!) {
+            if (selectedHashtags.contains(subgroup.name)) {
+              hasRemainingSubcategories = true;
+              break;
+            }
+          }
+        }
+
+        // If no subcategories remain and main group is selected, remove it
+        if (!hasRemainingSubcategories && selectedHashtags.contains(parentMainGroup.name)) {
+          selectedHashtags.remove(parentMainGroup.name);
+          debugPrint("Removed main hashtag group '${parentMainGroup.name}' as all its subcategories were removed");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking hashtag main group removal: $e");
+    }
+  }
+
+  /// Check if a removed contact was a subcategory and remove main group if all subcategories are gone
+  Future<void> _checkAndRemoveContactMainGroupIfNeeded(String removedContact) async {
+    try {
+      final contactGroupService = Get.find<ContactGroupService>();
+      final allGroups = await contactGroupService.getAllGroupsHierarchical();
+
+      // Find which main group this subcategory belongs to
+      ContactGroup? parentMainGroup;
+      for (final mainGroup in allGroups) {
+        if (mainGroup.subgroups != null) {
+          for (final subgroup in mainGroup.subgroups!) {
+            if (subgroup.name == removedContact) {
+              parentMainGroup = mainGroup;
+              break;
+            }
+          }
+        }
+        if (parentMainGroup != null) break;
+      }
+
+      if (parentMainGroup != null) {
+        debugPrint("Found parent main group for removed contact '$removedContact': ${parentMainGroup.name}");
+
+        // Check if any subcategories of this main group are still selected
+        bool hasRemainingSubcategories = false;
+        if (parentMainGroup.subgroups != null) {
+          for (final subgroup in parentMainGroup.subgroups!) {
+            if (selectedContacts.contains(subgroup.name)) {
+              hasRemainingSubcategories = true;
+              break;
+            }
+          }
+        }
+
+        // If no subcategories remain and main group is selected, remove it
+        if (!hasRemainingSubcategories && selectedContacts.contains(parentMainGroup.name)) {
+          selectedContacts.remove(parentMainGroup.name);
+          debugPrint("Removed main contact group '${parentMainGroup.name}' as all its subcategories were removed");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking contact main group removal: $e");
+    }
   }
 
   /// Public method to update filter status (can be called from external controllers)

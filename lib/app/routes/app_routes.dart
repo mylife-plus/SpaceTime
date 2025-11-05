@@ -12,6 +12,7 @@ abstract class Routes {
   static const HASHTAG_GROUPS = _Paths.HASHTAG_GROUPS;
   static const CONTACT_GROUPS = _Paths.CONTACT_GROUPS;
   static const FEEDBACK = _Paths.FEEDBACK;
+  static const GET_STARTED = _Paths.GET_STARTED;
   static const ADD_MEMORIES = _Paths.ADD_MEMORIES;
   static const MEMORIES = _Paths.MEMORIES;
 }
@@ -27,6 +28,7 @@ abstract class _Paths {
   static const HASHTAG_GROUPS = '/hashtag-groups';
   static const CONTACT_GROUPS = '/contact-groups';
   static const FEEDBACK = '/feedback';
+  static const GET_STARTED = '/get-started';
   static const ADD_MEMORIES = '/add_memories';
   static const MEMORIES = '/memories';
 }
