@@ -29,4 +29,12 @@ class AppFonts {
       color: color,
     );
   }
+  static TextStyle mediumBold(double size, {Color color = Colors.black}) {
+    return TextStyle(
+      fontFamily: fontFamily,
+      fontWeight: FontWeight.w500,
+      fontSize: size,
+      color: color,
+    );
+  }
 }

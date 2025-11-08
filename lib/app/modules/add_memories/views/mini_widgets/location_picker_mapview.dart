@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/modules/add_memories/controllers/location_picker_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
-import 'package:spacetime/app/modules/map/views/mini_widgets/internet_required_screen_new.dart';
 
 import '../../../../config/app_colors.dart';
 
@@ -17,32 +16,15 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
 
     final uiController = Get.find<UiController>();
 
-    // Debug logging for state tracking
+    // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
     return Obx(() {
-      debugPrint('[LocationPickerWidget][build] State: showInternetRequiredScreen=${controller.showInternetRequiredScreen.value}, isCheckingInternet=${controller.isCheckingInternet.value}, isLoading=${controller.isLoading.value}');
-
-      // Show Internet Required Screen if no internet connectivity
-      if (controller.showInternetRequiredScreen.value) {
-        debugPrint('[LocationPickerWidget][build] Displaying InternetRequiredScreenNew');
-        return const InternetRequiredScreenNew();
-      }
+      debugPrint('[LocationPickerWidget][build] State: isOfflineMode=${controller.isOfflineMode.value}, isLoading=${controller.isLoading.value}');
 
       return Scaffold(
         backgroundColor: uiController.darkMode.value ? Colors.black : Colors.white,
         body: Stack(
           children: [
-            if (controller.isCheckingInternet.value)
-              const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Checking internet connectivity...'),
-                  ],
-                ),
-              )
-            else if (controller.isLoading.value)
+            if (controller.isLoading.value)
               const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -74,7 +56,7 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
               )
             else
               mapbox.MapWidget(
-                key: const ValueKey("mapWidget"),
+                key: const ValueKey("mapbox_map_new"),
                 cameraOptions: mapbox.CameraOptions(
                   center: mapbox.Point(
                     coordinates: mapbox.Position(
@@ -84,7 +66,7 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
                   ),
                   zoom: 1.0,
                 ),
-                styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
+      styleUri: mapbox.MapboxStyles.STANDARD,
                 textureView: true,
                 onMapCreated: controller.onMapCreated,
                 onTapListener: controller.onMapTap,

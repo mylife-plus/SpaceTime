@@ -364,17 +364,7 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                               // debugPrint('🌐 [InternetRequiredScreen] No internet confirmed - showing error message');
                               // debugPrint('🌐 [InternetRequiredScreen] - isConnected: $isConnectedValue, connectionType: $connectionType, realInternet: $hasRealInternet');
 
-                              Get.snackbar(
-                                'No Internet',
-                                'Please check your internet connection and try again.',
-                                backgroundColor: Colors.red.withValues(
-                                  alpha: 0.9,
-                                ),
-                                colorText: Colors.white,
-                                snackPosition: SnackPosition.BOTTOM,
-                                margin: const EdgeInsets.all(16),
-                                borderRadius: 12,
-                              );
+                              // No internet notification removed as requested
                             }
                           } catch (e) {
                             // if (context.mounted) {

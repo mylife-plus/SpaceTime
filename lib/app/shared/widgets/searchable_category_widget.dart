@@ -262,9 +262,24 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
 
   /// Navigate to full category picker
   void _navigateToFullPicker() async {
-    final selectedCategory = await Get.to(() => const CategoryPickerWidget());
-    if (selectedCategory != null && selectedCategory is PlaceCategory) {
-      _selectCategory(selectedCategory);
+    // Navigate to Category Picker in multiple selection mode
+    final result = await Get.to(
+      () => CategoryPickerWidget(
+        allowMultipleSelection: true,
+        onMultipleCategoriesSelected: (selectedCategories) {
+          // Handle selected categories
+          for (final category in selectedCategories) {
+            _selectCategory(category);
+          }
+        },
+      ),
+    );
+
+    // Handle result if returned via Get.back
+    if (result != null && result is List<PlaceCategory>) {
+      for (final category in result) {
+        _selectCategory(category);
+      }
     }
   }
 
@@ -354,12 +369,17 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       },
       child: Text(
         displayText,
-        style: AppFonts.medium(
-          16,
-          color: widget.selectedCategory?.isNotEmpty == true
-              ? (uiController.darkMode.value ? Colors.white : Colors.black87)
-              : (uiController.darkMode.value ? Colors.white70 : Colors.grey[600]!),
-        ),
+        style: widget.selectedCategory?.isNotEmpty == true
+            ? TextStyle(
+                fontFamily: 'KumbhSans',
+                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                color: uiController.darkMode.value ? Colors.white : Colors.grey[700]!,
+              )
+            : AppFonts.mediumBold(
+                16,
+                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[700]!,
+              ),
       ),
     );
   }
@@ -372,14 +392,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       controller: _searchController,
       focusNode: _focusNode,
       style: AppFonts.medium(
-        15,
+        16,
         color: uiController.darkMode.value ? Colors.white : Colors.black87,
       ),
       decoration: InputDecoration(
         hintText: widget.title,
-        hintStyle: AppFonts.regular(
-          15,
-          color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+        hintStyle: AppFonts.medium(
+          16,
+          color: uiController.darkMode.value ? Colors.white54 : Colors.grey[700]!,
         ),
         border: InputBorder.none,
         isDense: true,
@@ -440,6 +460,8 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     }
 
     if (categoriesToShow.isEmpty) {
+      // Show "No recent categories" message but don't return early
+      // This allows the "See List" button to still be shown below
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -540,83 +562,43 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
 
   /// Build bottom action buttons
   Widget _buildBottomButtons(UiController uiController) {
-    return Container(
-      padding: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: uiController.darkMode.value
-                ? Colors.grey[700]!
-                : Colors.grey[300]!,
+    return Column(
+      children: [
+        Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _navigateToFullPicker(),
+                  child: Text(
+                    'See List',
+                    textAlign: TextAlign.left,
+                    style: AppFonts.medium(
+                      18,
+                      color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _showAddCategoryPopup(),
+                  child: Text(
+                    'Add new',
+                    textAlign: TextAlign.right,
+                    style: AppFonts.medium(
+                      18,
+                      color: uiController.currentMainColor,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: _buildActionButton(
-              'See all',
-              () => _navigateToFullPicker(),
-              uiController,
-              isPrimary: false,
-            ),
-          ),
-          Container(
-            height: 30,
-            width: 1,
-            color: uiController.darkMode.value
-                ? Colors.grey[700]!
-                : Colors.grey[300]!,
-            // margin: const EdgeInsets.symmetric(horizontal: 12),
-          ),
-          Expanded(
-            child: _buildActionButton(
-              'Add new',
-              () => _showAddCategoryPopup(),
-              uiController,
-              isPrimary: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Build action button
-  Widget _buildActionButton(
-    String text,
-    VoidCallback onTap,
-    UiController uiController, {
-    required bool isPrimary,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          // padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          // decoration: BoxDecoration(
-          //   border: isPrimary
-          //       ? null
-          //       : Border.all(
-          //           color: uiController.darkMode.value
-          //               ? Colors.grey[600]!
-          //               : Colors.grey[400]!,
-          //         ),
-          // ),
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: AppFonts.medium(
-              14,
-              color: isPrimary
-                  ? (uiController.darkMode.value ? Colors.white : uiController.currentMainColor)
-                  : (uiController.darkMode.value ? Colors.white : Colors.black87),
-            ),
-          ),
-        ),
-      ),
+      ],
     );
   }
 }

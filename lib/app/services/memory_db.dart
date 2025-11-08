@@ -1557,6 +1557,38 @@ class DatabaseHelper {
     return memoryCount == 0;
   }
 
+  /// Check if any memories exist with a specific hashtag group name
+  Future<int> getMemoryCountForHashtagGroup(String groupName) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $tableMemories WHERE $columnTags LIKE ?',
+      ['%$groupName%'],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
+  /// Check if any memories exist with a specific contact group name
+  Future<int> getMemoryCountForContactGroup(String groupName) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $tableMemories WHERE $columnMentions LIKE ?',
+      ['%$groupName%'],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
+  /// Check if a hashtag group can be safely deleted (no memories using it)
+  Future<bool> canDeleteHashtagGroup(String groupName) async {
+    final memoryCount = await getMemoryCountForHashtagGroup(groupName);
+    return memoryCount == 0;
+  }
+
+  /// Check if a contact group can be safely deleted (no memories using it)
+  Future<bool> canDeleteContactGroup(String groupName) async {
+    final memoryCount = await getMemoryCountForContactGroup(groupName);
+    return memoryCount == 0;
+  }
+
   /// Initialize place categories if not already done (for app launch)
   Future<void> initializePlaceCategoriesIfNeeded() async {
     debugPrint(
@@ -1777,6 +1809,20 @@ class DatabaseHelper {
   Future<int> deleteHashtagGroup(int groupId) async {
     final db = await database;
 
+    // First, check if this is a main group with subgroups
+    final subgroupsCount = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $tableHashtagGroups WHERE $columnHashtagGroupParentId = ?',
+      [groupId],
+    );
+    final hasSubgroups = (subgroupsCount.first['count'] as int) > 0;
+
+    if (hasSubgroups) {
+      debugPrint(
+        '[DatabaseHelper][deleteHashtagGroup] Cannot delete group with subgroups',
+      );
+      return 0; // Cannot delete main groups that have subgroups
+    }
+
     // Allow deletion of all groups since there are no predefined groups when app is installed
     return await db.delete(
       tableHashtagGroups,
@@ -1912,6 +1958,20 @@ class DatabaseHelper {
   /// Delete a contact group (only custom groups and subgroups)
   Future<int> deleteContactGroup(int groupId) async {
     final db = await database;
+
+    // First, check if this is a main group with subgroups
+    final subgroupsCount = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $tableContactGroups WHERE $columnContactGroupParentId = ?',
+      [groupId],
+    );
+    final hasSubgroups = (subgroupsCount.first['count'] as int) > 0;
+
+    if (hasSubgroups) {
+      debugPrint(
+        '[DatabaseHelper][deleteContactGroup] Cannot delete group with subgroups',
+      );
+      return 0; // Cannot delete main groups that have subgroups
+    }
 
     // Allow deletion of all groups since there are no predefined groups when app is installed
     return await db.delete(

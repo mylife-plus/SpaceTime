@@ -491,6 +491,24 @@ class PlaceCategoryService {
         return null; // null indicates cannot delete due to memories
       }
 
+      // If this is a main category, check if ANY of its subcategories have associated memories
+      if (category.parentId == null) {
+        final subcategories = await getSubcategories(categoryId);
+        for (final subcategory in subcategories) {
+          final subcategoryMemoryCount = await _databaseHelper
+              .getMemoryCountForCategoryByEmojiAndName(
+                subcategory.emoji,
+                subcategory.name,
+              );
+          if (subcategoryMemoryCount > 0) {
+            debugPrint(
+              '[PlaceCategoryService][deleteCategory] Cannot delete main category "${category.emoji} ${category.name}" - subcategory "${subcategory.emoji} ${subcategory.name}" has $subcategoryMemoryCount memories',
+            );
+            return null; // null indicates cannot delete due to memories in subcategories
+          }
+        }
+      }
+
       final rowsAffected = await _databaseHelper.deletePlaceCategory(
         categoryId,
       );

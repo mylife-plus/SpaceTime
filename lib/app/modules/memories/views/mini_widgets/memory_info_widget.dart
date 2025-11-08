@@ -89,6 +89,9 @@ class MemoryInfoWidget extends StatelessWidget {
                     : category.name;
                 controller.setCategory(categoryWithEmoji);
               },
+              backgroundColor: controller2.darkMode.value
+                  ? Colors.black.withValues(alpha: 0.5)
+                  : Colors.white,
             ),
           ],
         ),

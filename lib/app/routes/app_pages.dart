@@ -22,6 +22,7 @@ import 'package:spacetime/app/modules/settings/bindings/settings_binding.dart';
 import 'package:spacetime/app/modules/settings/views/settings_view.dart';
 import 'package:spacetime/app/modules/ui/bindings/ui_binding.dart';
 import 'package:spacetime/app/modules/ui/views/ui_view.dart';
+import 'package:spacetime/app/widgets/startup_router.dart';
 
 import '../modules/memories/views/memory_view.dart';
 
@@ -30,9 +31,13 @@ part 'app_routes.dart';
 class AppPages {
   AppPages._();
 
-  static const INITIAL = Routes.GET_STARTED;
+  static const INITIAL = Routes.STARTUP;
 
   static final routes = [
+    GetPage(
+      name: _Paths.STARTUP,
+      page: () => const StartupRouter(),
+    ),
     GetPage(name: _Paths.MAP, page: () => MapView(), binding: MapBinding()),
     GetPage(
       name: _Paths.MAP_NEW,

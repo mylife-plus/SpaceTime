@@ -257,17 +257,25 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final popupHeight = screenHeight * 0.4;
     final topOffset = position.dy - popupHeight - 10;
 
+    // Check if we're editing an existing tag
+    final String? oldTag = keyword.isNotEmpty && _tags.contains(keyword) ? keyword : null;
+
     _overlayEntry = OverlayEntry(
       builder:
           (context) => Positioned(
             left: 20,
             right: 20,
-            top: 250,
+            top: 150,
             child: Material(
               elevation: 8,
               color: Colors.transparent,
               child: TagMentionBottomSheet(
                 onItemSelected: (item) {
+                  // Remove old tag if we're replacing
+                  if (oldTag != null) {
+                    _tags.remove(oldTag);
+                  }
+
                   _insertTextAtCursor(item);
                   final clean = item.substring(1);
                   widget.onTagAdded(clean);
@@ -300,17 +308,25 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final popupHeight = screenHeight * 0.4;
     final topOffset = position.dy - popupHeight - 10;
 
+    // Check if we're editing an existing mention
+    final String? oldMention = keyword.isNotEmpty && _mentions.contains(keyword) ? keyword : null;
+
     _overlayEntry = OverlayEntry(
       builder:
           (context) => Positioned(
             left: 20,
             right: 20,
-            top: 250,
+            top: 150,
             child: Material(
               elevation: 8,
               color: Colors.transparent,
               child: TagMentionBottomSheet(
                 onItemSelected: (item) {
+                  // Remove old mention if we're replacing
+                  if (oldMention != null) {
+                    _mentions.remove(oldMention);
+                  }
+
                   _insertTextAtCursor(item);
                   final clean = item.substring(1);
                   widget.onMentionAdded(clean);
@@ -362,9 +378,17 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       );
       if (triggerIndex == -1) return;
 
+      // Find the end of the current word (tag/mention) to replace the entire word
+      int endIndex = selection.baseOffset;
+      while (endIndex < currentText.length &&
+             currentText[endIndex] != ' ' &&
+             currentText[endIndex] != '\n') {
+        endIndex++;
+      }
+
       final newText = currentText.replaceRange(
         triggerIndex,
-        selection.baseOffset,
+        endIndex,
         '$text ',
       );
 

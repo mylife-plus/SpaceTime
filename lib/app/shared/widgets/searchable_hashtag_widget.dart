@@ -6,6 +6,7 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
+import 'package:spacetime/app/modules/hashtag_groups/views/hashtag_groups_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -33,6 +34,87 @@ class SearchableHashtagWidget extends StatefulWidget {
 
   @override
   State<SearchableHashtagWidget> createState() => _SearchableHashtagWidgetState();
+
+  /// Remove deleted hashtag from recent hashtags
+  static Future<void> removeFromRecentHashtags(String hashtagName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentHashtagsJson = prefs.getStringList('recent_hashtags_filter') ?? [];
+
+      // Remove the deleted hashtag from recent list
+      final originalLength = recentHashtagsJson.length;
+      recentHashtagsJson.removeWhere((item) {
+        try {
+          final data = json.decode(item);
+          return data['name'] == hashtagName;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (recentHashtagsJson.length != originalLength) {
+        await prefs.setStringList('recent_hashtags_filter', recentHashtagsJson);
+        debugPrint('[SearchableHashtagWidget] Removed hashtag "$hashtagName" from recent hashtags');
+      }
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error removing hashtag from recent: $e');
+    }
+  }
+
+  /// Remove deleted hashtag group from recent hashtag groups
+  static Future<void> removeFromRecentHashtagGroups(int groupId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
+
+      // Remove the deleted group from recent list
+      final originalLength = recentGroupsJson.length;
+      recentGroupsJson.removeWhere((item) {
+        try {
+          final data = json.decode(item);
+          return data['id'] == groupId;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (recentGroupsJson.length != originalLength) {
+        await prefs.setStringList('recent_hashtag_groups_filter', recentGroupsJson);
+        debugPrint('[SearchableHashtagWidget] Removed group ID $groupId from recent hashtag groups');
+      }
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error removing group from recent: $e');
+    }
+  }
+
+  /// Remove hashtag group and all its subgroups from recent hashtag groups
+  static Future<void> removeGroupAndSubgroupsFromRecentHashtagGroups(int mainGroupId, List<int> subgroupIds) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
+
+      // Remove main group and all its subgroups from recent list
+      final originalLength = recentGroupsJson.length;
+      recentGroupsJson.removeWhere((item) {
+        try {
+          final data = json.decode(item);
+          final itemId = data['id'];
+          // Remove if it's the main group or any of its subgroups
+          if (itemId == mainGroupId) return true;
+          return subgroupIds.contains(itemId);
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (recentGroupsJson.length != originalLength) {
+        await prefs.setStringList('recent_hashtag_groups_filter', recentGroupsJson);
+        debugPrint('[SearchableHashtagWidget] Removed main group ID $mainGroupId and ${subgroupIds.length} subgroups from recent hashtag groups');
+      }
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error removing group and subgroups from recent: $e');
+    }
+  }
 }
 
 class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
@@ -391,18 +473,21 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     final hasResults = _searchResults.isNotEmpty || _groupResults.isNotEmpty;
     final hasRecent = _recentHashtags.isNotEmpty;
 
+    final allItems = <Widget>[];
+
     if (hasSearchQuery && !hasResults) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Text(
+      // Show "No hashtags found" message
+      allItems.add(Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        child: const Text(
           'No hashtags found',
           style: TextStyle(color: Colors.grey),
         ),
-      );
-    }
-
-    if (!hasSearchQuery && !hasRecent) {
-      return Container(
+      ));
+    } else if (!hasSearchQuery && !hasRecent) {
+      // Show "No recent hashtags" message
+      allItems.add(Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         child: Text(
@@ -412,42 +497,40 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
             color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
           ),
         ),
-      );
-    }
-
-    final allItems = <Widget>[];
-
-    // Add search results or recent hashtags
-    if (hasSearchQuery) {
-      // Group results
-      for (int i = 0; i < _groupResults.length; i++) {
-        allItems.add(_buildGroupItem(_groupResults[i], uiController));
-        if (i < _groupResults.length - 1 || _searchResults.isNotEmpty) {
-          allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
-        }
-      }
-      // Individual hashtag results
-      for (int i = 0; i < _searchResults.length; i++) {
-        allItems.add(_buildHashtagItem(_searchResults[i], uiController));
-        if (i < _searchResults.length - 1) {
-          allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
-        }
-      }
+      ));
     } else {
-      // Recent hashtags
-      for (int i = 0; i < _recentHashtags.length; i++) {
-        allItems.add(_buildHashtagItem(_recentHashtags[i], uiController));
-        if (i < _recentHashtags.length - 1) {
-          allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+      // Add search results or recent hashtags
+      if (hasSearchQuery) {
+        // Group results
+        for (int i = 0; i < _groupResults.length; i++) {
+          allItems.add(_buildGroupItem(_groupResults[i], uiController));
+          if (i < _groupResults.length - 1 || _searchResults.isNotEmpty) {
+            allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+          }
+        }
+        // Individual hashtag results
+        for (int i = 0; i < _searchResults.length; i++) {
+          allItems.add(_buildHashtagItem(_searchResults[i], uiController));
+          if (i < _searchResults.length - 1) {
+            allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+          }
+        }
+      } else {
+        // Recent hashtags
+        for (int i = 0; i < _recentHashtags.length; i++) {
+          allItems.add(_buildHashtagItem(_recentHashtags[i], uiController));
+          if (i < _recentHashtags.length - 1) {
+            allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+          }
         }
       }
     }
 
-    // Add divider before see all button if there are items
-    if ((hasSearchQuery || hasRecent) && allItems.isNotEmpty) {
+    // Always show "See List" button (even when no recent hashtags)
+    if (allItems.isNotEmpty) {
       allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
-      allItems.add(_buildSeeAllButton(uiController));
     }
+    allItems.add(_buildSeeListButton(uiController));
 
     return ListView(
       shrinkWrap: true,
@@ -462,15 +545,18 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            Icon(
-              Icons.tag,
-              size: 16,
-              color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+            Text(
+              '#',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '#$hashtag',
+                hashtag,
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
@@ -481,16 +567,22 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   }
 
   Widget _buildGroupItem(HashtagGroup group, UiController uiController) {
+    // Check if this is a main group (parent) or subgroup
+    final isMainGroup = group.parentId == null;
+
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            Icon(
-              Icons.folder,
-              size: 16,
-              color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+            Text(
+              '#',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -499,28 +591,47 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
-            Text(
-              'Group',
-              style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
-            ),
+            // Only show "Group" text for main groups (parent categories)
+            if (isMainGroup)
+              Text(
+                'Group',
+                style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSeeAllButton(UiController uiController) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Center(
-        child: TextButton(
-          onPressed: () {
-            // TODO: Navigate to full hashtag picker
-            debugPrint('[SearchableHashtagWidget] See all hashtags tapped');
-          },
+  Widget _buildSeeListButton(UiController uiController) {
+    return InkWell(
+      onTap: () async {
+        // Navigate to Hashtag Groups page in multiple selection mode
+        final result = await Get.to(
+          () => HashtagGroupsView(
+            allowMultipleSelection: true,
+            onMultipleHashtagGroupsSelected: (selectedGroups) {
+              // Handle selected groups
+              for (final group in selectedGroups) {
+                _selectGroup(group);
+              }
+            },
+          ),
+        );
+
+        // Handle result if returned via Get.back
+        if (result != null && result is List<HashtagGroup>) {
+          for (final group in result) {
+            _selectGroup(group);
+          }
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Center(
           child: Text(
-            'See all',
-            style: AppFonts.medium(16, color: uiController.currentMainColor),
+            'See List',
+            style: AppFonts.medium(18, color: uiController.currentMainColor),
           ),
         ),
       ),

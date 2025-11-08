@@ -6,10 +6,13 @@ import 'package:intl/intl.dart';
 import '../../../../services/memory_clustering_service.dart';
 import '../../../services/memory_db.dart';
 import '../../memories/controllers/memory_controller.dart';
+import '../../map/controllers/map_controller_new.dart';
 import '../../../models/hashtag_group_model.dart';
 import '../../../models/contact_group_model.dart';
+import '../../../models/place_category_model.dart';
 import '../../../services/hashtag_group_service.dart';
 import '../../../services/contact_group_service.dart';
+import '../../../services/place_category_service.dart';
 import 'dart:math';
 
 class AddMemoriesController extends GetxController {
@@ -34,6 +37,16 @@ class AddMemoriesController extends GetxController {
   final RxList<String> selectedContacts = <String>[].obs;
   final RxList<String> selectedCategories = <String>[].obs;
   final RxBool hasActiveFilters = false.obs;
+
+  // Cached hierarchical data for display logic
+  List<HashtagGroup> _cachedHashtagGroups = [];
+  List<ContactGroup> _cachedContactGroups = [];
+  List<PlaceCategory> _cachedCategories = [];
+
+  // Computed getters for display - show only main groups/categories when all subs are selected
+  List<String> get displayHashtags => _getDisplayHashtags();
+  List<String> get displayContacts => _getDisplayContacts();
+  List<String> get displayCategories => _getDisplayCategories();
 
   // Focus request for radius field
   final RxBool shouldFocusRadiusField = false.obs;
@@ -60,6 +73,7 @@ class AddMemoriesController extends GetxController {
     Future.delayed(const Duration(milliseconds: 100), () {
       loadMemoriesFromDatabase();
       loadFilterData(); // Load filter data
+      _loadHierarchicalData(); // Load hierarchical data for display logic
     });
 
     super.onInit();
@@ -616,27 +630,50 @@ class AddMemoriesController extends GetxController {
 
   void performSearch() {
     if (searchQuery.value.isEmpty) {
-      filteredMemories.clear();
-      isSearching.value = false;
+      // If there are active filters, reapply them instead of clearing
+      if (hasActiveFilters.value) {
+        applyFilters();
+      } else {
+        filteredMemories.clear();
+        isSearching.value = false;
+      }
       return;
     }
 
-    // Clear filters when search is applied
-    _clearFiltersWithoutClosing();
+    // Don't clear filters when search is applied - allow both to work together
+    // Filters should persist until manually removed or reset
 
     isSearching.value = true;
     final query = searchQuery.value;
 
-    // Use MemoryCard's filtering capability
+    // Start with all memories or filtered memories if filters are active
+    List<Map<String, dynamic>> memoriesToSearch = allMemories;
+
+    // If filters are active, apply them first
+    if (hasActiveFilters.value) {
+      memoriesToSearch = allMemories.where((memory) {
+        final helper = _MemoryFilterHelper(memory);
+        return helper.matchesAdvancedFilters(
+          filterValues,
+          selectedLocation.value,
+          selectedRadius.value,
+          selectedHashtags,
+          selectedContacts,
+          selectedCategories,
+        );
+      }).toList();
+    }
+
+    // Then apply search on top of filtered results
     filteredMemories.value =
-        allMemories.where((memory) {
+        memoriesToSearch.where((memory) {
           // Create a temporary MemoryCard to use its filtering methods
           final tempCard = _createTempMemoryCard(memory);
           return tempCard.matchesSearchQuery(query);
         }).toList();
 
     debugPrint(
-      'Filtered ${filteredMemories.length} memories for query: $query',
+      'Filtered ${filteredMemories.length} memories for query: $query (with ${hasActiveFilters.value ? "active filters" : "no filters"})',
     );
   }
 
@@ -868,13 +905,62 @@ class AddMemoriesController extends GetxController {
     }
   }
 
-  void removeCategory(String category) {
+  void addCategoryGroup(PlaceCategory category) async {
+    final categoryWithEmoji = category.emoji.isNotEmpty
+        ? '${category.emoji} ${category.name}'
+        : category.name;
+
+    if (!selectedCategories.contains(categoryWithEmoji)) {
+      selectedCategories.add(categoryWithEmoji);
+
+      // If this is a main category with subcategories, also add all subcategories
+      if (category.isMainCategory && category.hasSubcategories) {
+        debugPrint("Adding main category with ${category.subcategories!.length} subcategories: $categoryWithEmoji");
+        for (final subcategory in category.subcategories!) {
+          final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
+              ? '${subcategory.emoji} ${subcategory.name}'
+              : subcategory.name;
+          if (!selectedCategories.contains(subCategoryWithEmoji)) {
+            selectedCategories.add(subCategoryWithEmoji);
+            debugPrint("  - Added subcategory: $subCategoryWithEmoji");
+          }
+        }
+      } else if (category.isMainCategory && category.id != null) {
+        // If main category doesn't have subcategories loaded, fetch them from service
+        try {
+          final placeCategoryService = Get.find<PlaceCategoryService>();
+          final subcategories = await placeCategoryService.getSubcategories(category.id!);
+          debugPrint("Fetched ${subcategories.length} subcategories for main category: $categoryWithEmoji");
+          for (final subcategory in subcategories) {
+            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
+                ? '${subcategory.emoji} ${subcategory.name}'
+                : subcategory.name;
+            if (!selectedCategories.contains(subCategoryWithEmoji)) {
+              selectedCategories.add(subCategoryWithEmoji);
+              debugPrint("  - Added subcategory: $subCategoryWithEmoji");
+            }
+          }
+        } catch (e) {
+          debugPrint("Error fetching subcategories for $categoryWithEmoji: $e");
+        }
+      }
+
+      _updateFilterStatus();
+      debugPrint("Added category group: $categoryWithEmoji (total selected: ${selectedCategories.length})");
+    }
+  }
+
+  void removeCategory(String category) async {
     debugPrint("Attempting to remove category: $category");
     debugPrint("Categories before removal: ${selectedCategories.toList()}");
 
     final removed = selectedCategories.remove(category);
     debugPrint("Category removed successfully: $removed");
-    debugPrint("Categories after removal: ${selectedCategories.toList()}");
+
+    if (removed) {
+      // Check if this was a subcategory and if all subcategories of its main category are now removed
+      await _checkAndRemoveCategoryMainGroupIfNeeded(category);
+    }
 
     _updateFilterStatus();
 
@@ -977,6 +1063,60 @@ class AddMemoriesController extends GetxController {
       }
     } catch (e) {
       debugPrint("Error checking contact main group removal: $e");
+    }
+  }
+
+  /// Check if a removed category was a subcategory and remove main category if all subcategories are gone
+  Future<void> _checkAndRemoveCategoryMainGroupIfNeeded(String removedCategory) async {
+    try {
+      final placeCategoryService = Get.find<PlaceCategoryService>();
+      final allCategories = await placeCategoryService.getAllCategoriesHierarchical();
+
+      // Find which main category this subcategory belongs to
+      PlaceCategory? parentMainCategory;
+      for (final mainCategory in allCategories) {
+        if (mainCategory.subcategories != null) {
+          for (final subcategory in mainCategory.subcategories!) {
+            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
+                ? '${subcategory.emoji} ${subcategory.name}'
+                : subcategory.name;
+            if (subCategoryWithEmoji == removedCategory) {
+              parentMainCategory = mainCategory;
+              break;
+            }
+          }
+        }
+        if (parentMainCategory != null) break;
+      }
+
+      if (parentMainCategory != null) {
+        final mainCategoryWithEmoji = parentMainCategory.emoji.isNotEmpty
+            ? '${parentMainCategory.emoji} ${parentMainCategory.name}'
+            : parentMainCategory.name;
+        debugPrint("Found parent main category for removed category '$removedCategory': $mainCategoryWithEmoji");
+
+        // Check if any subcategories of this main category are still selected
+        bool hasRemainingSubcategories = false;
+        if (parentMainCategory.subcategories != null) {
+          for (final subcategory in parentMainCategory.subcategories!) {
+            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
+                ? '${subcategory.emoji} ${subcategory.name}'
+                : subcategory.name;
+            if (selectedCategories.contains(subCategoryWithEmoji)) {
+              hasRemainingSubcategories = true;
+              break;
+            }
+          }
+        }
+
+        // If no subcategories remain and main category is selected, remove it
+        if (!hasRemainingSubcategories && selectedCategories.contains(mainCategoryWithEmoji)) {
+          selectedCategories.remove(mainCategoryWithEmoji);
+          debugPrint("Removed main category '$mainCategoryWithEmoji' as all its subcategories were removed");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking category main group removal: $e");
     }
   }
 
@@ -1207,7 +1347,35 @@ class AddMemoriesController extends GetxController {
     isSearching.value = false;
     hasActiveFilters.value = false;
     closeFilter();
-    debugPrint('All filters reset');
+
+    // Sync back to MapController if opened from map
+    if (isOpenedFromMap) {
+      _syncFiltersToMapController();
+    }
+
+    debugPrint('All filters reset (isOpenedFromMap: $isOpenedFromMap)');
+  }
+
+  // Helper method to sync filters to MapController
+  void _syncFiltersToMapController() {
+    if (!Get.isRegistered<MapControllerNew>()) {
+      return;
+    }
+
+    try {
+      final mapController = Get.find<MapControllerNew>();
+      mapController.filterValues.clear();
+      mapController.selectedLocation.value = '';
+      mapController.selectedRadius.value = '';
+      mapController.selectedHashtags.clear();
+      mapController.selectedContacts.clear();
+      mapController.selectedCategories.clear();
+      mapController.hasActiveFilters.value = false;
+
+      debugPrint('[AddMemoriesController] Synced reset filters to MapController');
+    } catch (e) {
+      debugPrint('[AddMemoriesController] Failed to sync filters to MapController: $e');
+    }
   }
 
   // Helper method to clear filters without closing the filter panel
@@ -1283,13 +1451,171 @@ class AddMemoriesController extends GetxController {
       var locationLatitude = locationData['latitude']?.toDouble();
       var locationLongitude = locationData['longitude']?.toDouble();
 
-      // Always set selectedLocation as lat,lng coordinates
+      // Always set selectedLocation as lat,lng coordinates with 4 decimal places
       if (locationLatitude != null && locationLongitude != null) {
-        selectedLocation.value = '${locationLatitude},${locationLongitude}';
+        // Format to 4 decimal places
+        final formattedLat = locationLatitude.toStringAsFixed(4);
+        final formattedLng = locationLongitude.toStringAsFixed(4);
+        selectedLocation.value = '$formattedLat,$formattedLng';
       } else {
         selectedLocation.value = '';
       }
     }
+  }
+
+  /// Load hierarchical data for display logic
+  Future<void> _loadHierarchicalData() async {
+    try {
+      final hashtagGroupService = Get.find<HashtagGroupService>();
+      final contactGroupService = Get.find<ContactGroupService>();
+      final placeCategoryService = Get.find<PlaceCategoryService>();
+
+      _cachedHashtagGroups = await hashtagGroupService.getAllGroupsHierarchical();
+      _cachedContactGroups = await contactGroupService.getAllGroupsHierarchical();
+      _cachedCategories = await placeCategoryService.getAllCategoriesHierarchical();
+
+      debugPrint('[AddMemoriesController] Loaded hierarchical data: ${_cachedHashtagGroups.length} hashtag groups, ${_cachedContactGroups.length} contact groups, ${_cachedCategories.length} categories');
+    } catch (e) {
+      debugPrint('[AddMemoriesController][_loadHierarchicalData] Error: $e');
+    }
+  }
+
+  /// Get display list for hashtags - show only main groups when all subgroups are selected
+  List<String> _getDisplayHashtags() {
+    final displayList = <String>[];
+    final processedSubgroups = <String>{};
+
+    for (final mainGroup in _cachedHashtagGroups) {
+      if (mainGroup.hasSubgroups) {
+        // Check if all subgroups are selected
+        final allSubgroupsSelected = mainGroup.subgroups!.every(
+          (subgroup) => selectedHashtags.contains(subgroup.name),
+        );
+
+        if (allSubgroupsSelected && selectedHashtags.contains(mainGroup.name)) {
+          // Show only main group
+          displayList.add(mainGroup.name);
+          // Mark all subgroups as processed
+          for (final subgroup in mainGroup.subgroups!) {
+            processedSubgroups.add(subgroup.name);
+          }
+        } else {
+          // Show individual subgroups that are selected
+          for (final subgroup in mainGroup.subgroups!) {
+            if (selectedHashtags.contains(subgroup.name)) {
+              displayList.add(subgroup.name);
+              processedSubgroups.add(subgroup.name);
+            }
+          }
+        }
+      }
+    }
+
+    // Add any selected hashtags that weren't processed (individual hashtags, not groups)
+    for (final hashtag in selectedHashtags) {
+      if (!processedSubgroups.contains(hashtag) && !displayList.contains(hashtag)) {
+        displayList.add(hashtag);
+      }
+    }
+
+    return displayList;
+  }
+
+  /// Get display list for contacts - show only main groups when all subgroups are selected
+  List<String> _getDisplayContacts() {
+    final displayList = <String>[];
+    final processedSubgroups = <String>{};
+
+    for (final mainGroup in _cachedContactGroups) {
+      if (mainGroup.hasSubgroups) {
+        // Check if all subgroups are selected
+        final allSubgroupsSelected = mainGroup.subgroups!.every(
+          (subgroup) => selectedContacts.contains(subgroup.name),
+        );
+
+        if (allSubgroupsSelected && selectedContacts.contains(mainGroup.name)) {
+          // Show only main group
+          displayList.add(mainGroup.name);
+          // Mark all subgroups as processed
+          for (final subgroup in mainGroup.subgroups!) {
+            processedSubgroups.add(subgroup.name);
+          }
+        } else {
+          // Show individual subgroups that are selected
+          for (final subgroup in mainGroup.subgroups!) {
+            if (selectedContacts.contains(subgroup.name)) {
+              displayList.add(subgroup.name);
+              processedSubgroups.add(subgroup.name);
+            }
+          }
+        }
+      }
+    }
+
+    // Add any selected contacts that weren't processed (individual contacts, not groups)
+    for (final contact in selectedContacts) {
+      if (!processedSubgroups.contains(contact) && !displayList.contains(contact)) {
+        displayList.add(contact);
+      }
+    }
+
+    return displayList;
+  }
+
+  /// Get display list for categories - show only main categories when all subcategories are selected
+  List<String> _getDisplayCategories() {
+    final displayList = <String>[];
+    final processedSubcategories = <String>{};
+
+    for (final mainCategory in _cachedCategories) {
+      final mainCategoryWithEmoji = mainCategory.emoji.isNotEmpty
+          ? '${mainCategory.emoji} ${mainCategory.name}'
+          : mainCategory.name;
+
+      if (mainCategory.hasSubcategories) {
+        // Check if all subcategories are selected
+        final allSubcategoriesSelected = mainCategory.subcategories!.every(
+          (subcategory) {
+            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
+                ? '${subcategory.emoji} ${subcategory.name}'
+                : subcategory.name;
+            return selectedCategories.contains(subCategoryWithEmoji);
+          },
+        );
+
+        if (allSubcategoriesSelected && selectedCategories.contains(mainCategoryWithEmoji)) {
+          // Show only main category
+          displayList.add(mainCategoryWithEmoji);
+          // Mark all subcategories as processed
+          for (final subcategory in mainCategory.subcategories!) {
+            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
+                ? '${subcategory.emoji} ${subcategory.name}'
+                : subcategory.name;
+            processedSubcategories.add(subCategoryWithEmoji);
+          }
+        } else {
+          // Show individual subcategories that are selected
+          for (final subcategory in mainCategory.subcategories!) {
+            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
+                ? '${subcategory.emoji} ${subcategory.name}'
+                : subcategory.name;
+            if (selectedCategories.contains(subCategoryWithEmoji)) {
+              displayList.add(subCategoryWithEmoji);
+              processedSubcategories.add(subCategoryWithEmoji);
+            }
+          }
+        }
+      }
+    }
+
+    // Add any selected categories that weren't processed (individual categories, not groups)
+    for (final category in selectedCategories) {
+      if (!processedSubcategories.contains(category) && !displayList.contains(category)) {
+        displayList.add(category);
+      }
+    }
+
+    return displayList;
   }
 }
 

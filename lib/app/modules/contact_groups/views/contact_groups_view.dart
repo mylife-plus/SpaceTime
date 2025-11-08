@@ -354,6 +354,19 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         // Successfully deleted
         Get.back(); // Close confirmation dialog
 
+        // Remove from recent selections before refreshing
+        final group = await _contactGroupService.getGroupById(contactGroupId);
+        if (group != null) {
+          if (group.parentId == null) {
+            // Main group deleted - remove it and all its subgroups from recent selections
+            final subgroups = await _contactGroupService.getSubgroups(contactGroupId);
+            await removeGroupAndSubgroupsFromRecent(contactGroupId, subgroups);
+          } else {
+            // Subgroup deleted - remove only this subgroup from recent selections
+            await removeFromRecentlySelectedSubgroups(contactGroupId);
+          }
+        }
+
         // Refresh contact groups from database to show the deletion
         debugPrint(
           '[ContactGroupsView][_deleteContactGroup] Refreshing contact groups from database after deletion',
@@ -366,6 +379,17 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
+      } else if (result == null) {
+        // Cannot delete due to memories
+        Get.back(); // Close confirmation dialog
+
+        // Get the group name and memory count for the error dialog
+        final group = await _contactGroupService.getGroupById(contactGroupId);
+        final memoryCount = group != null
+            ? await _contactGroupService.getMemoryCountForGroup(group.name)
+            : 0;
+
+        _showCannotDeleteDialog(group?.name ?? 'Unknown', memoryCount);
       } else {
         // Failed to delete
         Get.snackbar(
@@ -384,6 +408,82 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         colorText: Colors.white,
       );
     }
+  }
+
+  /// Show dialog when contact group cannot be deleted due to existing memories
+  void _showCannotDeleteDialog(String groupName, int memoryCount) {
+    final uiController = Get.find<UiController>();
+
+    Get.dialog(
+      AlertDialog(
+        backgroundColor:
+            uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Cannot Delete Contact Group',
+              style: gfonts.GoogleFonts.kumbhSans(
+                color:
+                    uiController.darkMode.value ? Colors.white : Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The contact group "$groupName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
+              style: gfonts.GoogleFonts.kumbhSans(
+                color:
+                    uiController.darkMode.value
+                        ? Colors.white70
+                        : Colors.grey[700],
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'To delete this contact group, first remove the mentions from all memories that use them, or delete those memories.',
+                      style: gfonts.GoogleFonts.kumbhSans(color: Colors.orange[700], fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'OK',
+              style: gfonts.GoogleFonts.kumbhSans(
+                color: uiController.currentMainColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Show edit contact group dialog - matches category picker styling
@@ -584,7 +684,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       final result = await _contactGroupService.deleteGroup(subgroup.id!);
 
       if (result == true) {
-        // Successfully deleted
+        // Successfully deleted - also remove from recent selections
+        await removeFromRecentlySelectedSubgroups(subgroup.id!);
+
         // Refresh contact groups from database to show the deletion
         debugPrint(
           '[ContactGroupsView][_deleteSubgroup] Refreshing contact groups from database after deletion',
@@ -597,6 +699,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
+      } else if (result == null) {
+        // Cannot delete due to memories
+        final memoryCount = await _contactGroupService.getMemoryCountForGroup(subgroup.name);
+        _showCannotDeleteDialog(subgroup.name, memoryCount);
       } else {
         // Failed to delete
         Get.snackbar(
@@ -680,18 +786,64 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final isSelected = _selectedContactGroups.any((g) => g.id == contactGroup.id);
 
     if (isSelected) {
+      // Deselecting
       _selectedContactGroups.removeWhere((g) => g.id == contactGroup.id);
       debugPrint(
         '[ContactGroupsView][_toggleContactGroupSelection] Removed: ${contactGroup.name}',
       );
+
+      // If this is a main group, also remove all its subgroups
+      if (contactGroup.isMainGroup && contactGroup.hasSubgroups) {
+        for (final subgroup in contactGroup.subgroups!) {
+          _selectedContactGroups.removeWhere((g) => g.id == subgroup.id);
+          debugPrint(
+            '[ContactGroupsView][_toggleContactGroupSelection] Removed subgroup: ${subgroup.name}',
+          );
+        }
+      }
+
+      // If this is a subgroup, check if we should deselect the main group
+      if (contactGroup.isSubgroup) {
+        final mainGroup = _findMainGroupForSubgroup(contactGroup);
+        if (mainGroup != null) {
+          _selectedContactGroups.removeWhere((g) => g.id == mainGroup.id);
+          debugPrint(
+            '[ContactGroupsView][_toggleContactGroupSelection] Removed main group: ${mainGroup.name} (subgroup was deselected)',
+          );
+        }
+      }
     } else {
+      // Selecting
       _selectedContactGroups.add(contactGroup);
       debugPrint(
         '[ContactGroupsView][_toggleContactGroupSelection] Added: ${contactGroup.name}',
       );
 
-      // Save to recent subgroups if it's a subgroup
+      // If this is a main group, also add all its subgroups
+      if (contactGroup.isMainGroup && contactGroup.hasSubgroups) {
+        for (final subgroup in contactGroup.subgroups!) {
+          if (!_selectedContactGroups.any((g) => g.id == subgroup.id)) {
+            _selectedContactGroups.add(subgroup);
+            debugPrint(
+              '[ContactGroupsView][_toggleContactGroupSelection] Added subgroup: ${subgroup.name}',
+            );
+          }
+        }
+      }
+
+      // If this is a subgroup, check if all subgroups of the main group are now selected
       if (contactGroup.isSubgroup) {
+        final mainGroup = _findMainGroupForSubgroup(contactGroup);
+        if (mainGroup != null && _areAllSubgroupsSelected(mainGroup)) {
+          if (!_selectedContactGroups.any((g) => g.id == mainGroup.id)) {
+            _selectedContactGroups.add(mainGroup);
+            debugPrint(
+              '[ContactGroupsView][_toggleContactGroupSelection] Added main group: ${mainGroup.name} (all subgroups selected)',
+            );
+          }
+        }
+
+        // Save to recent subgroups
         _saveRecentlySelectedSubgroup(contactGroup);
       }
     }
@@ -699,6 +851,37 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     debugPrint(
       '[ContactGroupsView][_toggleContactGroupSelection] Total selected: ${_selectedContactGroups.length}',
     );
+  }
+
+  /// Find the main group for a given subgroup
+  ContactGroup? _findMainGroupForSubgroup(ContactGroup subgroup) {
+    for (final mainGroup in _mainContactGroups) {
+      if (mainGroup.subgroups != null) {
+        for (final sub in mainGroup.subgroups!) {
+          if (sub.id == subgroup.id) {
+            return mainGroup;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Check if all subgroups of a main group are selected
+  bool _areAllSubgroupsSelected(ContactGroup mainGroup) {
+    if (!mainGroup.hasSubgroups) return false;
+
+    for (final subgroup in mainGroup.subgroups!) {
+      if (!_selectedContactGroups.any((g) => g.id == subgroup.id)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Check if a main group is selected (meaning all its subgroups are selected)
+  bool _isMainGroupSelected(ContactGroup mainGroup) {
+    return _selectedContactGroups.any((g) => g.id == mainGroup.id);
   }
 
   /// Handle done button press for multiple selection mode
@@ -847,6 +1030,63 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       debugPrint('[ContactGroupsView] Cleared recent subgroups');
     } catch (e) {
       debugPrint('[ContactGroupsView] Error clearing recent subgroups: $e');
+    }
+  }
+
+  /// Remove a specific contact group from recently selected subgroups
+  static Future<void> removeFromRecentlySelectedSubgroups(int groupId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingJson = prefs.getString(_recentSubgroupsKey);
+
+      if (existingJson == null) return;
+
+      final decoded = json.decode(existingJson) as List;
+      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+
+      // Remove the deleted group from recent list
+      final originalLength = recentList.length;
+      recentList.removeWhere((item) => item['id'] == groupId);
+
+      if (recentList.length != originalLength) {
+        // Save updated list back to preferences
+        final updatedJson = json.encode(recentList);
+        await prefs.setString(_recentSubgroupsKey, updatedJson);
+        debugPrint('[ContactGroupsView] Removed group ID $groupId from recent subgroups');
+      }
+    } catch (e) {
+      debugPrint('[ContactGroupsView] Error removing from recent subgroups: $e');
+    }
+  }
+
+  /// Remove contact group and all its subgroups from recently selected subgroups
+  static Future<void> removeGroupAndSubgroupsFromRecent(int mainGroupId, List<ContactGroup> subgroups) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingJson = prefs.getString(_recentSubgroupsKey);
+
+      if (existingJson == null) return;
+
+      final decoded = json.decode(existingJson) as List;
+      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+
+      // Remove main group and all its subgroups from recent list
+      final originalLength = recentList.length;
+      recentList.removeWhere((item) {
+        final itemId = item['id'];
+        // Remove if it's the main group or any of its subgroups
+        if (itemId == mainGroupId) return true;
+        return subgroups.any((subgroup) => subgroup.id == itemId);
+      });
+
+      if (recentList.length != originalLength) {
+        // Save updated list back to preferences
+        final updatedJson = json.encode(recentList);
+        await prefs.setString(_recentSubgroupsKey, updatedJson);
+        debugPrint('[ContactGroupsView] Removed main group ID $mainGroupId and ${subgroups.length} subgroups from recent subgroups');
+      }
+    } catch (e) {
+      debugPrint('[ContactGroupsView] Error removing group and subgroups from recent: $e');
     }
   }
 
@@ -1005,168 +1245,196 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     _expansionControllers[groupId] = ExpansionTileController();
     final controller = _expansionControllers[groupId]!;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-      decoration: BoxDecoration(
-        color: uiController.darkMode.value ? Colors.black : Colors.white,
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(
-          color:
-              uiController.darkMode.value
-                  ? Colors.white.withValues(alpha: 0.2)
-                  : Colors.grey.shade300,
-        ),
-      ),
-      child: ExpansionTile(
-        key: ValueKey('contact_group_${mainContactGroup.id}'),
-        controller: controller,
-        initiallyExpanded: isExpanded,
-        onExpansionChanged: (expanded) {
-          _expandedContactGroups[mainContactGroup.id!] = expanded;
+    return Obx(() {
+      final isMainGroupSelected = widget.allowMultipleSelection &&
+          _selectedContactGroups.any((g) => g.id == mainContactGroup.id);
 
-          // Check if we need to enable adding mode after expansion
-          if (expanded && (_pendingAddingMode[mainContactGroup.id!] ?? false)) {
-            _pendingAddingMode[mainContactGroup.id!] = false;
-            _enableAddingMode(mainContactGroup.id!);
-          }
-        },
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: EdgeInsets.zero,
-        collapsedShape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(2)),
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: BoxDecoration(
+          color: uiController.darkMode.value ? Colors.black : Colors.white,
+          borderRadius: BorderRadius.circular(2),
         ),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(2)),
-        ),
-      title: Padding(
-        padding: const EdgeInsets.only(left: 20.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(
-              child: Text.rich(
-                TextSpan(
+            // Grey container with border for the contact group header
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+              decoration: BoxDecoration(
+                color: uiController.darkMode.value
+                    ? Colors.grey[900]
+                    : Colors.grey[100],
+                borderRadius: BorderRadius.circular(2),
+                border: isMainGroupSelected
+                    ? Border.all(
+                        color: uiController.currentMainColor,
+                        width: 2,
+                      )
+                    : null,
+              ),
+              child: ExpansionTile(
+                key: ValueKey('contact_group_${mainContactGroup.id}'),
+                controller: controller,
+                initiallyExpanded: isExpanded,
+                onExpansionChanged: (expanded) {
+                  _expandedContactGroups[mainContactGroup.id!] = expanded;
+
+                  // Check if we need to enable adding mode after expansion
+                  if (expanded && (_pendingAddingMode[mainContactGroup.id!] ?? false)) {
+                    _pendingAddingMode[mainContactGroup.id!] = false;
+                    _enableAddingMode(mainContactGroup.id!);
+                  }
+                },
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                backgroundColor: Colors.transparent,
+                collapsedBackgroundColor: Colors.transparent,
+                collapsedShape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(2)),
+                ),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(2)),
+                ),
+                title: GestureDetector(
+                  onTap: widget.allowMultipleSelection
+                      ? () => _selectContactGroup(mainContactGroup)
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: mainContactGroup.name,
+                                  style: gfonts.GoogleFonts.kumbhSans(
+                                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                                    fontWeight: isMainGroupSelected ? FontWeight.w600 : FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ' (${mainContactGroup.subgroups?.length ?? 0})',
+                                  style: gfonts.GoogleFonts.kumbhSans(
+                                    color:
+                                        uiController.darkMode.value
+                                            ? Colors.white.withValues(alpha: 0.6)
+                                            : Colors.grey[600],
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            maxLines: null, // Allow unlimited lines
+                            overflow: TextOverflow.visible, // Show all text
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextSpan(
-                      text: mainContactGroup.name,
-                      style: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value ? Colors.white : Colors.black,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
+                    // Edit button for main contact group
+                    IconButton(
+                      icon: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[500] ?? Colors.grey,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/images/ic_edit.png',
+                          width: 25,
+                          height: 25,
+                        ),
+                      ),
+                      onPressed: () => _showEditContactGroupDialog(mainContactGroup),
+                      tooltip: 'Edit Contact Group',
+                    ),
+                    // Delete button for main contact group (only show if no subgroups)
+                    if ((mainContactGroup.subgroups?.isEmpty ?? true))
+                      IconButton(
+                        icon: ColorFiltered(
+                          colorFilter: const ColorFilter.mode(
+                            Colors.red,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/ic_cross.png',
+                            width: 25,
+                            height: 25,
+                          ),
+                        ),
+                        onPressed: () => _showDeleteConfirmation(mainContactGroup),
+                        tooltip: 'Delete Contact Group',
+                      ),
+                    // Add subgroup button
+                    IconButton(
+                      onPressed: (_addingToContactGroup[mainContactGroup.id] ?? false)
+                          ? null
+                          : () => _startInlineAdding(mainContactGroup.id!),
+                      icon: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/images/ic_add.png',
+                          width: 25,
+                          height: 25,
+                        ),
+                      ),
+                      tooltip: 'Add Subgroup',
+                    ),
+                    // Expansion/collapse icon
+                    Obx(
+                      () => ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[600] ?? Colors.grey,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          (_expandedContactGroups[mainContactGroup.id!] ?? false)
+                              ? 'assets/images/ic_expand_close.png'
+                              : 'assets/images/ic_expand_open.png',
+                          width: 25,
+                          height: 25,
+                        ),
                       ),
                     ),
-                    TextSpan(
-                      text: ' (${mainContactGroup.subgroups?.length ?? 0})',
-                      style: gfonts.GoogleFonts.kumbhSans(
-                        color:
-                            uiController.darkMode.value
-                                ? Colors.white.withValues(alpha: 0.6)
-                                : Colors.grey[600],
-                        fontSize: 15,
-                      ),
-                    ),
+                    Container(width: 15),
                   ],
                 ),
-                maxLines: null, // Allow unlimited lines
-                overflow: TextOverflow.visible, // Show all text
+                children: [],
               ),
             ),
+            // Subgroups section (outside the grey container)
+            if (isExpanded) ...[
+              // Subgroups list
+              if (mainContactGroup.subgroups != null && mainContactGroup.subgroups!.isNotEmpty)
+                ..._buildSubgroupsList(mainContactGroup, uiController),
+
+              // Inline adding widget
+              Obx(() {
+                if (_addingToContactGroup[mainContactGroup.id] ?? false) {
+                  return _buildInlineAddWidget(mainContactGroup.id!, uiController);
+                }
+                return const SizedBox.shrink();
+              }),
+            ],
           ],
         ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Edit button for main contact group
-          IconButton(
-            icon: ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                uiController.darkMode.value
-                    ? Colors.white.withValues(alpha: 0.6)
-                    : Colors.grey[500] ?? Colors.grey,
-                BlendMode.srcIn,
-              ),
-              child: Image.asset(
-                'assets/images/ic_edit.png',
-                width: 25,
-                height: 25,
-              ),
-            ),
-            onPressed: () => _showEditContactGroupDialog(mainContactGroup),
-            tooltip: 'Edit Contact Group',
-          ),
-          // Delete button for main contact group (only show if no subgroups)
-          if ((mainContactGroup.subgroups?.isEmpty ?? true))
-            IconButton(
-              icon: ColorFiltered(
-                colorFilter: const ColorFilter.mode(
-                  Colors.red,
-                  BlendMode.srcIn,
-                ),
-                child: Image.asset(
-                  'assets/images/ic_cross.png',
-                  width: 25,
-                  height: 25,
-                ),
-              ),
-              onPressed: () => _showDeleteConfirmation(mainContactGroup),
-              tooltip: 'Delete Contact Group',
-            ),
-          // Add subgroup button
-          IconButton(
-            onPressed: (_addingToContactGroup[mainContactGroup.id] ?? false)
-                ? null
-                : () => _startInlineAdding(mainContactGroup.id!),
-            icon: ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
-                BlendMode.srcIn,
-              ),
-              child: Image.asset(
-                'assets/images/ic_add.png',
-                width: 25,
-                height: 25,
-              ),
-            ),
-            tooltip: 'Add Subgroup',
-          ),
-          // Expansion/collapse icon
-          Obx(
-            () => ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                uiController.darkMode.value
-                    ? Colors.white.withValues(alpha: 0.6)
-                    : Colors.grey[600] ?? Colors.grey,
-                BlendMode.srcIn,
-              ),
-              child: Image.asset(
-                (_expandedContactGroups[mainContactGroup.id!] ?? false)
-                    ? 'assets/images/ic_expand_close.png'
-                    : 'assets/images/ic_expand_open.png',
-                width: 25,
-                height: 25,
-              ),
-            ),
-          ),
-          Container(width: 15),
-        ],
-      ),
-      children: [
-        // Subgroups list
-        if (mainContactGroup.subgroups != null && mainContactGroup.subgroups!.isNotEmpty)
-          ..._buildSubgroupsList(mainContactGroup, uiController),
-
-        // Inline adding widget
-        Obx(() {
-          if (_addingToContactGroup[mainContactGroup.id] ?? false) {
-            return _buildInlineAddWidget(mainContactGroup.id!, uiController);
-          }
-          return const SizedBox.shrink();
-        }),
-      ],
-      ),
-    );
+      );
+    });
   }
 
 
@@ -1193,23 +1461,20 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         decoration: BoxDecoration(
-          color: isSelected
-              ? uiController.currentMainColor.withValues(alpha: 0.2)
-              : (uiController.darkMode.value
-                  ? Colors.grey[900]
-                  : Colors.grey[100]),
+          color: uiController.darkMode.value
+              ? Colors.grey[900]
+              : Colors.grey[100],
           borderRadius: BorderRadius.circular(2),
+          border: isSelected
+              ? Border.all(
+                  color: uiController.currentMainColor,
+                  width: 2,
+                )
+              : null,
         ),
         child: ListTile(
           contentPadding: EdgeInsets.symmetric(horizontal: 5),
           dense: true,
-          // leading: widget.allowMultipleSelection
-          //     ? Checkbox(
-          //         value: isSelected,
-          //         onChanged: (_) => _selectContactGroup(subgroup),
-          //         activeColor: uiController.currentMainColor,
-          //       )
-          //     : Container(),
           title: RichText(
             text: TextSpan(
               children: [

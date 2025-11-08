@@ -90,11 +90,44 @@ class HashtagGroupService {
   }
 
   /// Delete a hashtag group
-  Future<bool> deleteGroup(int groupId) async {
+  /// Returns: true if deleted, false if failed, null if has memories (cannot delete)
+  Future<bool?> deleteGroup(int groupId) async {
     try {
       debugPrint(
         '[HashtagGroupService][deleteGroup] Deleting group ID: $groupId',
       );
+
+      // First, get the group to check its name
+      final group = await getGroupById(groupId);
+      if (group == null) {
+        debugPrint(
+          '[HashtagGroupService][deleteGroup] Group not found for ID: $groupId',
+        );
+        return false;
+      }
+
+      // Check if any memories are using this hashtag group
+      final memoryCount = await _databaseHelper.getMemoryCountForHashtagGroup(group.name);
+      if (memoryCount > 0) {
+        debugPrint(
+          '[HashtagGroupService][deleteGroup] Cannot delete group "${group.name}" - $memoryCount memories are using it',
+        );
+        return null; // null indicates cannot delete due to memories
+      }
+
+      // If this is a main group, check if ANY of its subgroups have associated memories
+      if (group.parentId == null) {
+        final subgroups = await getSubgroups(groupId);
+        for (final subgroup in subgroups) {
+          final subgroupMemoryCount = await _databaseHelper.getMemoryCountForHashtagGroup(subgroup.name);
+          if (subgroupMemoryCount > 0) {
+            debugPrint(
+              '[HashtagGroupService][deleteGroup] Cannot delete main group "${group.name}" - subgroup "${subgroup.name}" has $subgroupMemoryCount memories',
+            );
+            return null; // null indicates cannot delete due to memories in subgroups
+          }
+        }
+      }
 
       final deletedRows = await _databaseHelper.deleteHashtagGroup(groupId);
       final success = deletedRows > 0;
@@ -219,26 +252,31 @@ class HashtagGroupService {
   /// Get a specific hashtag group by ID
   Future<HashtagGroup?> getGroupById(int groupId) async {
     try {
-      debugPrint(
-        '[HashtagGroupService][getGroupById] Fetching group with ID: $groupId',
-      );
+      debugPrint('[HashtagGroupService][getGroupById] Fetching group ID: $groupId');
 
       final groupMap = await _databaseHelper.getHashtagGroupById(groupId);
-      if (groupMap != null) {
-        final group = HashtagGroup.fromMap(groupMap);
-        debugPrint(
-          '[HashtagGroupService][getGroupById] Found group: ${group.name}',
-        );
-        return group;
-      } else {
-        debugPrint(
-          '[HashtagGroupService][getGroupById] Group not found with ID: $groupId',
-        );
+      if (groupMap == null) {
+        debugPrint('[HashtagGroupService][getGroupById] Group not found');
         return null;
       }
+
+      final group = HashtagGroup.fromMap(groupMap);
+      debugPrint('[HashtagGroupService][getGroupById] Retrieved group: ${group.name}');
+
+      return group;
     } catch (e) {
       debugPrint('[HashtagGroupService][getGroupById] Error: $e');
       return null;
+    }
+  }
+
+  /// Get memory count for a specific hashtag group
+  Future<int> getMemoryCountForGroup(String groupName) async {
+    try {
+      return await _databaseHelper.getMemoryCountForHashtagGroup(groupName);
+    } catch (e) {
+      debugPrint('[HashtagGroupService][getMemoryCountForGroup] Error: $e');
+      return 0;
     }
   }
 

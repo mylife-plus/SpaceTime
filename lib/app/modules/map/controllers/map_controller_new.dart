@@ -57,8 +57,7 @@ class MapControllerNew extends GetxController {
   final RxBool hasLocationPermission =
       false.obs; // Start as false until checked
   final RxString locationStatus = 'Checking permissions...'.obs;
-  final RxBool hasInternetConnection = true.obs;
-  final RxBool showInternetRequiredScreen = false.obs;
+  // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
   PermissionStatus permissionStatus = PermissionStatus.denied;
 
   // Current zoom level (matching old controller's zoom levels)
@@ -127,12 +126,9 @@ class MapControllerNew extends GetxController {
       '[MapControllerNew] Initial hasLocationPermission: ${hasLocationPermission.value}',
     );
 
-    // Temporarily bypass connectivity monitoring for debugging
-    hasInternetConnection.value = true;
-    showInternetRequiredScreen.value = false;
-
+    // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
     debugPrint(
-      '[MapControllerNew] 🧪 DEBUGGING: Bypassing internet connectivity check',
+      '[MapControllerNew] 🌐 Skipping internet connectivity check - using offline tiles',
     );
 
     _initializeServices();
@@ -712,57 +708,8 @@ class MapControllerNew extends GetxController {
   /// Handle errors by checking internet connectivity
   Future<void> _handleError(dynamic error) async {}
 
-  /// Check internet connectivity using ping method
-  Future<bool> _checkInternetConnectivity() async {
-    try {
-      if (_connectivityService == null) return false;
-
-      // First check basic connectivity
-      if (!_connectivityService!.isConnected.value) {
-        debugPrint('[MapControllerNew] No basic connectivity detected');
-        return false;
-      }
-
-      // Use the connectivity service's more reliable ping method
-      final hasInternet = await _connectivityService!.hasInternetQuickCheck();
-      debugPrint(
-        '[MapControllerNew] Internet connectivity check result: $hasInternet',
-      );
-
-      return hasInternet;
-    } catch (e) {
-      debugPrint('[MapControllerNew] Error checking internet connectivity: $e');
-      return false;
-    }
-  }
-
-  /// Start monitoring for internet restoration
-  void _startInternetMonitoring() {
-    if (_connectivityService == null) return;
-
-    // Listen for connectivity changes
-    ever(_connectivityService!.isConnected, (bool isConnected) async {
-      if (isConnected && showInternetRequiredScreen.value) {
-        debugPrint(
-          '[MapControllerNew] Connectivity restored, verifying internet access',
-        );
-
-        // Double-check with ping method
-        final hasInternet = await _checkInternetConnectivity();
-
-        if (hasInternet) {
-          debugPrint(
-            '[MapControllerNew] Internet restored, hiding internet required screen',
-          );
-          hasInternetConnection.value = true;
-          showInternetRequiredScreen.value = false;
-
-          // Retry initialization
-          await _initializeMap();
-        }
-      }
-    });
-  }
+  // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
+  // No need to check internet connectivity or monitor for restoration
 
   /// Load all memories from database using MemoryRepository
   Future<void> loadMemoriesFromDB() async {
@@ -1667,7 +1614,20 @@ void _resetTapState() {
 
   /// Set enhanced location data
   void setEnhancedLocationData(Map<String, dynamic> locationData) {
-    if (locationData.containsKey('address')) {
+    // Check if latitude and longitude are provided
+    var locationLatitude = locationData['latitude']?.toDouble();
+    var locationLongitude = locationData['longitude']?.toDouble();
+
+    if (locationLatitude != null && locationLongitude != null) {
+      // Format to 4 decimal places
+      final formattedLat = locationLatitude.toStringAsFixed(4);
+      final formattedLng = locationLongitude.toStringAsFixed(4);
+      selectedLocation.value = '$formattedLat,$formattedLng';
+      _updateFilterStatus();
+      debugPrint(
+        "[MapControllerNew] Enhanced location set: $formattedLat,$formattedLng",
+      );
+    } else if (locationData.containsKey('address')) {
       selectedLocation.value = locationData['address'];
       _updateFilterStatus();
       debugPrint(
@@ -2614,12 +2574,8 @@ void _resetTapState() {
     );
   }
 
-  /// Test method to force show internet required screen
-  void testShowInternetScreen() {
-    debugPrint('[MapControllerNew] Testing internet required screen');
-    hasInternetConnection.value = false;
-    showInternetRequiredScreen.value = true;
-  }
+  /// Test method removed - internet required screen no longer used
+  // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
 
   /// Reset loading states - useful for debugging stuck states
   void resetLoadingStates() {
@@ -2868,11 +2824,10 @@ void _resetTapState() {
       final hasSufficientTiles = await _checkOfflineTileCount();
 
       if (!hasSufficientTiles) {
-        debugPrint('[MapControllerNew] ❌ Insufficient offline tiles available, showing Internet Required Screen');
-        // Skip offline mode attempt and show internet required screen
-        hasInternetConnection.value = false;
-        showInternetRequiredScreen.value = true;
-        _startInternetMonitoring();
+        debugPrint('[MapControllerNew] ❌ Insufficient offline tiles available');
+        // Internet required screen removed - tiles should be downloaded during Get Started flow
+        // If tiles are insufficient, this indicates a problem with the Get Started flow
+        debugPrint('[MapControllerNew] ⚠️ WARNING: Tiles should have been downloaded during Get Started');
         return;
       }
 
@@ -2926,9 +2881,8 @@ void _resetTapState() {
       if (offlineModeEnabled) {
         debugPrint('[MapControllerNew] ✅ Offline mode successfully enabled');
 
-        // Update UI state to reflect offline mode
-        hasInternetConnection.value = false;
-        showInternetRequiredScreen.value = false;
+        // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
+        // No need to update UI state for internet connection
 
         return true;
       } else {

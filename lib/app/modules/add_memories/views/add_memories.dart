@@ -239,7 +239,8 @@ class AddMemoriesView extends GetView<AddMemoriesController>
                     opacity: controller.isUIVisible.value ? 1.0 : 0.0,
                     child: GestureDetector(
                       onTap: () async {
-                        controller.resetFilters();
+                        // Don't reset filters when adding a new memory
+                        // Filters should persist until manually removed or reset
                         Get.put(MemoryController());
 
                         final result = await Get.to(() => MemoryView());

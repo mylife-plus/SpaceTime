@@ -58,12 +58,8 @@ class GetStartedController extends GetxController {
       debugPrint('[GetStartedController] Tiles already downloaded (persistent), navigating to main app');
       tilesDownloadCompleted.value = true;
 
-      // Show welcome for 4 seconds then navigate
-      _startWelcomeSequence();
-      Future.delayed(const Duration(seconds: 4), () {
-        debugPrint('[GetStartedController] 4 seconds elapsed, navigating to main app');
-        navigateToMainApp();
-      });
+      // Navigate directly to main app without showing Get Started screen
+      navigateToMainApp();
       return;
     }
 
@@ -77,14 +73,11 @@ class GetStartedController extends GetxController {
       await _saveTileDownloadCompletionStatus(true);
       tilesDownloadCompleted.value = true;
 
-      _startWelcomeSequence();
-      Future.delayed(const Duration(seconds: 4), () {
-        debugPrint('[GetStartedController] 4 seconds elapsed, navigating to main app');
-        navigateToMainApp();
-      });
+      // Navigate directly to main app without showing Get Started screen
+      navigateToMainApp();
     } else {
-      // Tiles not downloaded - check internet connectivity
-      debugPrint('[GetStartedController] Tiles not downloaded, checking internet connectivity');
+      // Tiles not downloaded - show Get Started screen with appropriate content
+      debugPrint('[GetStartedController] Tiles not downloaded, showing Get Started screen');
       await _checkInternetAndShowAppropriateScreen();
     }
   }
@@ -153,11 +146,9 @@ class GetStartedController extends GetxController {
     Future.delayed(const Duration(seconds: 2), () {
       showWelcomeAnimation.value = false;
       showDownloadSection.value = true;
-      
-      // Auto-start download after showing download section
-      Future.delayed(const Duration(milliseconds: 500), () {
-        startDownload();
-      });
+
+      // Wait for user to manually tap the button to start download
+      // No auto-start - user must explicitly confirm
     });
   }
 
@@ -244,8 +235,13 @@ class GetStartedController extends GetxController {
     // Save persistent download completion status
     await _saveTileDownloadCompletionStatus(true);
 
-    // Don't auto-navigate - let user manually tap "Get Started" button
-    debugPrint('[GetStartedController] Download completed, waiting for user to tap Get Started');
+    // Auto-navigate to main app after download completion
+    debugPrint('[GetStartedController] Download completed, auto-navigating to main app');
+
+    // Add a small delay to show completion message briefly
+    await Future.delayed(const Duration(seconds: 1));
+
+    navigateToMainApp();
   }
 
   /// Mark get started as completed in SharedPreferences
@@ -288,12 +284,33 @@ class GetStartedController extends GetxController {
     startDownload();
   }
 
-  /// Check if get started should be shown
+  /// Check if get started should be shown based on tile download status
   static Future<bool> shouldShowGetStarted() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final completed = prefs.getBool('get_started_completed') ?? false;
-      return !completed;
+
+      // Check if tiles are completely downloaded
+      final tilesDownloaded = prefs.getBool('tiles_download_completed') ?? false;
+
+      if (tilesDownloaded) {
+        debugPrint('[GetStartedController] Tiles already downloaded, skipping Get Started');
+        return false; // Don't show Get Started screen
+      }
+
+      // If not marked as downloaded, check tile count as fallback
+      final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
+      debugPrint('[GetStartedController] Tile count fallback check: $tileCount');
+
+      if (tileCount >= 500) {
+        // Mark as downloaded and don't show Get Started
+        await prefs.setBool('tiles_download_completed', true);
+        debugPrint('[GetStartedController] Marked tiles as downloaded based on count');
+        return false;
+      }
+
+      // Tiles not downloaded - show Get Started screen
+      debugPrint('[GetStartedController] Tiles not downloaded, showing Get Started');
+      return true;
     } catch (e) {
       debugPrint('[GetStartedController] Error checking get started status: $e');
       return true; // Show by default if there's an error

@@ -103,11 +103,7 @@ class OfflineMapController extends GetxController {
       debugPrint('[OfflineMapController] ✅ Download completed successfully');
     } catch (e) {
       debugPrint('[OfflineMapController] ❌ Download failed: $e');
-      Get.snackbar(
-        'Download Failed',
-        'Failed to download offline maps: $e',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      // Download failed notification removed as requested
     }
   }
 
@@ -117,19 +113,11 @@ class OfflineMapController extends GetxController {
       if (isOfflineModeEnabled.value) {
         await offlineMapService.disableOfflineMode();
         isOfflineModeEnabled.value = false;
-        Get.snackbar(
-          'Online Mode',
-          'Map is now using online tiles',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        // Online mode notification removed as requested
       } else {
         await offlineMapService.enableOfflineMode();
         isOfflineModeEnabled.value = true;
-        Get.snackbar(
-          'Offline Mode',
-          'Map is now using offline tiles',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        // Offline mode notification removed as requested
       }
     } catch (e) {
       debugPrint('[OfflineMapController] ❌ Failed to toggle offline mode: $e');
@@ -145,11 +133,7 @@ class OfflineMapController extends GetxController {
       isOfflineModeEnabled.value = false;
       showDownloadOverlay.value = false;
 
-      Get.snackbar(
-        'Data Cleared',
-        'All offline map data has been cleared',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      // Data cleared notification removed as requested
 
       debugPrint('[OfflineMapController] ✅ Offline data cleared');
     } catch (e) {

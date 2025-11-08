@@ -7,7 +7,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/data/models/location_data.dart';
 import 'package:spacetime/app/modules/location_picker/repositories/location_picker_repository.dart';
-import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import 'package:spacetime/services/background_tile_download_service.dart';
 import 'package:spacetime/app/services/offline_map_service.dart';
@@ -126,12 +125,13 @@ class LocationPickerService {
   /// Get optimal style URI for offline mode
   String getOptimalStyleUri() {
     // Use same logic as map controller for consistency
-    return mapbox.MapboxStyles.MAPBOX_STREETS;
+    return mapbox.MapboxStyles.STANDARD;
   }
 
   /// Configure offline map
   Future<void> configureOfflineMap(mapbox.MapboxMap controller) async {
     try {
+
       final hasOfflineTiles = await areOfflineTilesAvailable();
 
       if (hasOfflineTiles) {
@@ -146,8 +146,9 @@ class LocationPickerService {
         debugPrint('[LocationPickerService] Offline mode configured successfully');
       } else {
         debugPrint('[LocationPickerService] Using online mode - insufficient tiles');
-        await controller.style.setStyleURI(getOptimalStyleUri());
-      }
+        
+        await controller.style.setStyleURI(getOptimalStyleUri()); 
+     }
     } catch (e) {
       debugPrint('[LocationPickerService] Error configuring offline map: $e');
       // Fallback to online mode
@@ -465,22 +466,21 @@ class LocationPickerService {
         return;
       }
 
-      var uiController = Get.find<UiController>();
-      // Add FillLayer (for the filled area)
+      // Add FillLayer (for the filled area) - Blue color
       final fillLayer = mapbox.FillLayer(
         id: "radius-fill-layer",
         sourceId: "radius-source",
       );
-      fillLayer.fillColor = uiController.currentMainColor.toARGB32(); // Use toARGB32() instead of .value
+      fillLayer.fillColor = 0xFF2196F3; // Blue color (Material Blue 500)
       fillLayer.fillOpacity = 0.25;
       await _mapController!.style.addLayer(fillLayer);
 
-      // Add outline (stroke) around the circle
+      // Add outline (stroke) around the circle - Blue color
       final lineLayer = mapbox.LineLayer(
         id: "radius-outline-layer",
         sourceId: "radius-source",
       );
-      lineLayer.lineColor = uiController.currentMainColor.toARGB32(); // Use toARGB32() instead of .value
+      lineLayer.lineColor = 0xFF2196F3; // Blue color (Material Blue 500)
       lineLayer.lineWidth = 2.0;
       await _mapController!.style.addLayer(lineLayer);
 
@@ -567,15 +567,17 @@ class LocationPickerService {
       // Zoom levels: 1 = world view, 20 = building level
       double zoom;
 
-      if (radiusKm <= 10) {
-        zoom = 12.0; // City area (minimum radius is now 10km)
+      if (radiusKm <= 5) {
+        zoom = 13.0; // Neighborhood level
+      } else if (radiusKm <= 10) {
+        zoom = 12.0; // City area
       } else if (radiusKm <= 25) {
         zoom = 10.0; // Metropolitan area
       } else if (radiusKm <= 50) {
         zoom = 9.0; // Large city area
       } else if (radiusKm <= 100) {
         zoom = 8.0; // Regional level
-      } else if (radiusKm <= 250) {
+      } else if (radiusKm <= 200) {
         zoom = 7.0; // State/province level
       } else if (radiusKm <= 500) {
         zoom = 6.0; // Large state/small country

@@ -105,16 +105,20 @@ class ContactGroupsController extends GetxController {
   }
 
   /// Delete a contact group
-  Future<bool> deleteGroup(int groupId) async {
+  /// Returns: true if deleted, false if failed, null if has memories (cannot delete)
+  Future<bool?> deleteGroup(int groupId) async {
     try {
       debugPrint('[ContactGroupsController][deleteGroup] Deleting group ID: $groupId');
 
-      final success = await _contactGroupService.deleteGroup(groupId);
+      final result = await _contactGroupService.deleteGroup(groupId);
 
-      if (success) {
+      if (result == true) {
         await loadContactGroups(); // Reload to reflect changes
         debugPrint('[ContactGroupsController][deleteGroup] Successfully deleted group');
         return true;
+      } else if (result == null) {
+        debugPrint('[ContactGroupsController][deleteGroup] Cannot delete group - has associated memories');
+        return null; // Cannot delete due to memories
       } else {
         debugPrint('[ContactGroupsController][deleteGroup] Failed to delete group');
         return false;

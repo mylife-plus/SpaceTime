@@ -391,18 +391,64 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     final isSelected = _selectedCategories.any((c) => c.id == category.id);
 
     if (isSelected) {
+      // Deselecting
       _selectedCategories.removeWhere((c) => c.id == category.id);
       debugPrint(
         '[CategoryPickerWidget][_toggleCategorySelection] Removed: ${category.name}',
       );
+
+      // If this is a main category, also remove all its subcategories
+      if (category.isMainCategory && category.hasSubcategories) {
+        for (final subcategory in category.subcategories!) {
+          _selectedCategories.removeWhere((c) => c.id == subcategory.id);
+          debugPrint(
+            '[CategoryPickerWidget][_toggleCategorySelection] Removed subcategory: ${subcategory.name}',
+          );
+        }
+      }
+
+      // If this is a subcategory, check if we should deselect the main category
+      if (category.isSubcategory) {
+        final mainCategory = _findMainCategoryForSubcategory(category);
+        if (mainCategory != null) {
+          _selectedCategories.removeWhere((c) => c.id == mainCategory.id);
+          debugPrint(
+            '[CategoryPickerWidget][_toggleCategorySelection] Removed main category: ${mainCategory.name} (subcategory was deselected)',
+          );
+        }
+      }
     } else {
+      // Selecting
       _selectedCategories.add(category);
       debugPrint(
         '[CategoryPickerWidget][_toggleCategorySelection] Added: ${category.name}',
       );
 
-      // Save to recent subcategories if it's a subcategory
+      // If this is a main category, also add all its subcategories
+      if (category.isMainCategory && category.hasSubcategories) {
+        for (final subcategory in category.subcategories!) {
+          if (!_selectedCategories.any((c) => c.id == subcategory.id)) {
+            _selectedCategories.add(subcategory);
+            debugPrint(
+              '[CategoryPickerWidget][_toggleCategorySelection] Added subcategory: ${subcategory.name}',
+            );
+          }
+        }
+      }
+
+      // If this is a subcategory, check if all subcategories of the main category are now selected
       if (category.isSubcategory) {
+        final mainCategory = _findMainCategoryForSubcategory(category);
+        if (mainCategory != null && _areAllSubcategoriesSelected(mainCategory)) {
+          if (!_selectedCategories.any((c) => c.id == mainCategory.id)) {
+            _selectedCategories.add(mainCategory);
+            debugPrint(
+              '[CategoryPickerWidget][_toggleCategorySelection] Added main category: ${mainCategory.name} (all subcategories selected)',
+            );
+          }
+        }
+
+        // Save to recent subcategories
         _saveRecentlySelectedSubcategory(category);
       }
     }
@@ -410,6 +456,37 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     debugPrint(
       '[CategoryPickerWidget][_toggleCategorySelection] Total selected: ${_selectedCategories.length}',
     );
+  }
+
+  /// Find the main category for a given subcategory
+  PlaceCategory? _findMainCategoryForSubcategory(PlaceCategory subcategory) {
+    for (final mainCategory in _mainCategories) {
+      if (mainCategory.subcategories != null) {
+        for (final sub in mainCategory.subcategories!) {
+          if (sub.id == subcategory.id) {
+            return mainCategory;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Check if all subcategories of a main category are selected
+  bool _areAllSubcategoriesSelected(PlaceCategory mainCategory) {
+    if (!mainCategory.hasSubcategories) return false;
+
+    for (final subcategory in mainCategory.subcategories!) {
+      if (!_selectedCategories.any((c) => c.id == subcategory.id)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Check if a main category is selected (meaning all its subcategories are selected)
+  bool _isMainCategorySelected(PlaceCategory mainCategory) {
+    return _selectedCategories.any((c) => c.id == mainCategory.id);
   }
 
   /// Handle done button press for multiple selection mode
@@ -1402,10 +1479,11 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
   /// Handle quick add from search
   void _quickAddFromSearch() {
+
     final query = _searchController.text.trim();
+    
     if (query.isEmpty) return;
 
-    // _showAddCategoryDialog();
   }
 
   /// Show emoji picker as bottom sheet
@@ -2376,168 +2454,186 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   /// Build main category expansion tile
   Widget _buildMainCategoryExpansionTile(PlaceCategory mainCategory) {
     final uiController = Get.find<UiController>();
-    final isExpanded = _expandedCategories[mainCategory.id] ?? false;
 
-    // Create or get the expansion controller for this category
+    // Create or get the expansion controller for this category (outside Obx to avoid recreation)
     final categoryId = mainCategory.id!;
     if (_expansionControllers[categoryId] == null) {
       _expansionControllers[categoryId] = ExpansionTileController();
     }
     final controller = _expansionControllers[categoryId]!;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-      decoration: BoxDecoration(
-        color: uiController.darkMode.value ? Colors.black : Colors.white,
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(
-          color:
-              uiController.darkMode.value
-                  ? Colors.white.withValues(alpha: 0.2)
-                  : Colors.grey.shade300,
-        ),
-      ),
-      child: ExpansionTile(
-        key: ValueKey(mainCategory.id),
-        controller: controller,
-        initiallyExpanded: isExpanded,
-        onExpansionChanged:
-            (expanded) => _toggleCategoryExpansion(mainCategory.id!),
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: EdgeInsets.zero,
-        collapsedShape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(2)),
-        ),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(2)),
-        ),
-        // leading: Text(
-        //   ' ',
-        //   style: const TextStyle(fontSize: 12),
-        // ),
-        title: Padding(
-          padding: const EdgeInsets.only(left: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: mainCategory.name,
-                        style: gfonts.GoogleFonts.kumbhSans(
-                          color: uiController.darkMode.value ? Colors.white : Colors.black,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                        ),
-                      ),
-                      TextSpan(
-                        text: ' (${mainCategory.subcategories!.length})',
-                        style: gfonts.GoogleFonts.kumbhSans(
-                          color:
-                              uiController.darkMode.value
-                                  ? Colors.white.withValues(alpha: 0.6)
-                                  : Colors.grey[600],
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                  maxLines: null, // Allow unlimited lines
-                  overflow: TextOverflow.visible, // Show all text
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Show edit button for all categories
-            IconButton(
-              icon: ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  mainCategory.isCustom
-                      ? uiController.currentMainColor
-                      : (uiController.darkMode.value
-                          ? Colors.white.withValues(alpha: 0.6)
-                          : Colors.grey[500] ?? Colors.grey),
-                  BlendMode.srcIn,
-                ),
-                child: Image.asset(
-                  'assets/images/ic_edit.png',
-                  width: 25,
-                  height: 25,
-                ),
-              ),
-              onPressed: () => _showEditCategoryDialog(mainCategory),
-              tooltip:
-                  mainCategory.isCustom
-                      ? 'Edit Custom Category'
-                      : 'Edit Category',
-            ),
-            Obx(
-              () => IconButton(
-                icon: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    (_addingToCategory[mainCategory.id] ?? false)
-                        ? Colors.grey
-                        : uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.6)
-                            : uiController.currentMainColor,
-                    BlendMode.srcIn,
-                  ),
-                  child: Image.asset(
-                    'assets/images/ic_add.png',
-                    width: 25,
-                    height: 25,
-                  ),
-                ),
-                onPressed: (_addingToCategory[mainCategory.id] ?? false)
-                    ? null
-                    : () => _startInlineAdding(mainCategory.id!),
-                tooltip: 'Add Subcategory',
-              ),
-            ),
-            Obx(
-              () => ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  uiController.darkMode.value
-                      ? Colors.white.withValues(alpha: 0.6)
-                      : Colors.grey[600] ?? Colors.grey,
-                  BlendMode.srcIn,
-                ),
-                child: Image.asset(
-                  (_expandedCategories[mainCategory.id] ?? false)
-                      ? 'assets/images/ic_expand_close.png'
-                      : 'assets/images/ic_expand_open.png',
-                  width: 25,
-                  height: 25,
-                ),
-              ),
-            ),
+    return Obx(() {
+      final isExpanded = _expandedCategories[mainCategory.id] ?? false;
+      final isMainCategorySelected = widget.allowMultipleSelection &&
+          _selectedCategories.any((c) => c.id == mainCategory.id);
 
-            Container(width: 15),
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: BoxDecoration(
+          color: uiController.darkMode.value ? Colors.black : Colors.white,
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Column(
+          children: [
+            // Grey container with border for the category header
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+              decoration: BoxDecoration(
+                color: uiController.darkMode.value
+                    ? Colors.grey[900]
+                    : Colors.grey[100],
+                borderRadius: BorderRadius.circular(2),
+                border: isMainCategorySelected
+                    ? Border.all(
+                        color: uiController.currentMainColor,
+                        width: 2,
+                      )
+                    : null,
+              ),
+              child: ExpansionTile(
+                key: ValueKey(mainCategory.id),
+                controller: controller,
+                initiallyExpanded: isExpanded,
+                onExpansionChanged:
+                    (expanded) => _toggleCategoryExpansion(mainCategory.id!),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                backgroundColor: Colors.transparent,
+                collapsedBackgroundColor: Colors.transparent,
+                collapsedShape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(2)),
+                ),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(2)),
+                ),
+                title: GestureDetector(
+                  onTap: widget.allowMultipleSelection
+                      ? () => _selectCategory(mainCategory)
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: mainCategory.name,
+                                  style: gfonts.GoogleFonts.kumbhSans(
+                                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                                    fontWeight: isMainCategorySelected ? FontWeight.w600 : FontWeight.w500,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ' (${mainCategory.subcategories!.length})',
+                                  style: gfonts.GoogleFonts.kumbhSans(
+                                    color:
+                                        uiController.darkMode.value
+                                            ? Colors.white.withValues(alpha: 0.6)
+                                            : Colors.grey[600],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            maxLines: null, // Allow unlimited lines
+                            overflow: TextOverflow.visible, // Show all text
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Show edit button for all categories
+                    IconButton(
+                      icon: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[500] ?? Colors.grey,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/images/ic_edit.png',
+                          width: 25,
+                          height: 25,
+                        ),
+                      ),
+                      onPressed: () => _showEditCategoryDialog(mainCategory),
+                      tooltip:
+                          mainCategory.isCustom
+                              ? 'Edit Custom Category'
+                              : 'Edit Category',
+                    ),
+                    Obx(
+                      () => IconButton(
+                        icon: ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            (_addingToCategory[mainCategory.id] ?? false)
+                                ? Colors.grey
+                                : uiController.darkMode.value
+                                    ? Colors.white.withValues(alpha: 0.6)
+                                    : uiController.currentMainColor,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/ic_add.png',
+                            width: 25,
+                            height: 25,
+                          ),
+                        ),
+                        onPressed: (_addingToCategory[mainCategory.id] ?? false)
+                            ? null
+                            : () => _startInlineAdding(mainCategory.id!),
+                        tooltip: 'Add Subcategory',
+                      ),
+                    ),
+                    Obx(
+                      () => ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[600] ?? Colors.grey,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          (_expandedCategories[mainCategory.id] ?? false)
+                              ? 'assets/images/ic_expand_close.png'
+                              : 'assets/images/ic_expand_open.png',
+                          width: 25,
+                          height: 25,
+                        ),
+                      ),
+                    ),
+                    Container(width: 15),
+                  ],
+                ),
+                children: [],
+              ),
+            ),
+            // Subcategories section (outside the grey container)
+            if (isExpanded) ...[
+              // Inline adding widget at index 0
+              Obx(() => (_addingToCategory[mainCategory.id] ?? false)
+                  ? _buildInlineAddWidget(mainCategory.id!)
+                  : const SizedBox.shrink()),
+              if (mainCategory.hasSubcategories)
+                ...mainCategory.subcategories!.map(
+                  (subCategory) =>
+                      _buildCategoryTile(subCategory, isSubcategory: true),
+                ),
+            ],
           ],
         ),
-        children: [
-          // Inline adding widget at index 0
-          Obx(() => (_addingToCategory[mainCategory.id] ?? false)
-              ? _buildInlineAddWidget(mainCategory.id!)
-              : const SizedBox.shrink()),
-          if (mainCategory.hasSubcategories)
-            ...mainCategory.subcategories!.map(
-              (subCategory) =>
-                  _buildCategoryTile(subCategory, isSubcategory: true),
-            ),
-          // Add subcategory option
-          
-        ],
-      ),
-    );
+      );
+    });
   }
 
   /// Build individual category tile
@@ -2570,14 +2666,16 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           vertical: 2,
         ),
         decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? uiController.currentMainColor.withValues(alpha: 0.2)
-                  : (uiController.darkMode.value
-                      ? Colors.grey[900]
-                      : Colors.grey[100]),
+          color: uiController.darkMode.value
+              ? Colors.grey[900]
+              : Colors.grey[100],
           borderRadius: BorderRadius.circular(2),
-          
+          border: isSelected
+              ? Border.all(
+                  color: uiController.currentMainColor,
+                  width: 2,
+                )
+              : null,
         ),
         child: ListTile(
           dense: isSubcategory,
@@ -2608,19 +2706,23 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                   : null,
           trailing:
               widget.allowMultipleSelection
-                  ? Checkbox(
-                    value: isSelected,
-                    onChanged: (bool? value) => _selectCategory(category),
-                    activeColor: uiController.currentMainColor,
-                  )
+                  ? null
                   : GestureDetector(
                     onTap: () => _startInlineEditing(category),
                     child: Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Image.asset(
-                        'assets/images/ic_edit.png',
-                        width: 20,
-                        height: 20,
+                      child: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[500] ?? Colors.grey,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/images/ic_edit.png',
+                          width: 20,
+                          height: 20,
+                        ),
                       ),
                     ),
                   ),

@@ -1221,14 +1221,7 @@ class BackgroundTileDownloadService extends GetxService {
       '[BackgroundTileDownloadService] ✅ Downloads resumed - current: ${totalTilesDownloaded.value}/${maxTilesLimit.value}, ${resumableRegions} resumable regions, ${totalPendingRegions} total pending',
     );
 
-    Get.snackbar(
-      'Downloads Resumed',
-      'Background tile downloads resumed (${totalTilesDownloaded.value}/${maxTilesLimit.value} tiles). ${resumableRegions > 0 ? '$resumableRegions regions will resume from previous progress.' : ''}',
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
-      duration: const Duration(seconds: 4),
-      snackPosition: SnackPosition.TOP,
-    );
+    // Downloads resumed notification removed as requested
   }
 
   /// Reset offline state (for testing or cache clearing)

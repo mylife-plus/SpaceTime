@@ -131,10 +131,9 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
   /// Build map widget
   Widget _buildMap() {
     return mapbox.MapWidget(
-      key: ValueKey('location_picker_map'),
+      key: const ValueKey("mapbox_map_new"),
       cameraOptions: _getCameraOptions(),
-      styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
-      textureView: true,
+      styleUri: mapbox.MapboxStyles.STANDARD,
       onMapCreated: _onMapCreated,
       onTapListener: _onMapTap,
       onCameraChangeListener: _onCameraChange,
@@ -524,7 +523,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: uiController.darkMode.value 
+        color: uiController.darkMode.value
             ? Colors.black.withOpacity(0.8)
             : Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(2),
@@ -553,31 +552,66 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
                 '${_formatRadius(controller.selectedRadius.value)} km',
                 style: AppFonts.medium(
                   16,
-                  color: uiController.currentMainColor,
+                  color: Colors.blue,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Obx(() => Slider(
-            value: controller.selectedRadius.value,
-            min: 10.0,
-            max: 1000.0,
-            divisions: 990,
-            activeColor: uiController.currentMainColor,
-            inactiveColor: Colors.grey.withOpacity(0.3),
-            onChangeEnd: (value) {
-                final roundedValue = (value * 10).round() / 10.0;
-              controller.updateRadius(roundedValue);
-            },
-            onChanged: controller.isUpdatingRadius.value ? null : (value) {
-            //   // Round to nearest 0.1 for cleaner values
-            
-            },
-          )),
+          Obx(() {
+            // Convert radius to slider value (0-100 scale)
+            final sliderValue = _radiusToSliderValue(controller.selectedRadius.value);
+
+            return Slider(
+              value: sliderValue,
+              min: 0.0,
+              max: 100.0,
+              divisions: 1000,
+              activeColor: Colors.blue,
+              inactiveColor: Colors.grey.withOpacity(0.3),
+              onChanged: (value) {
+                // Convert slider value to radius and update immediately for smooth movement
+                final radius = _sliderValueToRadius(value);
+                controller.selectedRadius.value = radius;
+              },
+              onChangeEnd: (value) {
+                // Save when user releases the slider
+                final radius = _sliderValueToRadius(value);
+                controller.updateRadius(radius);
+              },
+            );
+          }),
         ],
       ),
     );
+  }
+
+  /// Convert radius (km) to slider value (0-100 scale)
+  /// 0-50: 1km to 25km (linear)
+  /// 50-100: 25km to 200km (linear)
+  double _radiusToSliderValue(double radius) {
+    if (radius <= 25.0) {
+      // 0-50% of slider: 1km to 25km
+      return ((radius - 1.0) / 24.0) * 50.0;
+    } else {
+      // 50-100% of slider: 25km to 200km
+      return 50.0 + ((radius - 25.0) / 175.0) * 50.0;
+    }
+  }
+
+  /// Convert slider value (0-100 scale) to radius (km)
+  /// 0-50: 1km to 25km (linear)
+  /// 50-100: 25km to 200km (linear)
+  double _sliderValueToRadius(double sliderValue) {
+    if (sliderValue <= 50.0) {
+      // 0-50% of slider: 1km to 25km
+      final radius = 1.0 + (sliderValue / 50.0) * 24.0;
+      return (radius * 10).round() / 10.0; // Round to 0.1km
+    } else {
+      // 50-100% of slider: 25km to 200km
+      final radius = 25.0 + ((sliderValue - 50.0) / 50.0) * 175.0;
+      return (radius * 10).round() / 10.0; // Round to 0.1km
+    }
   }
 
   /// Build location info

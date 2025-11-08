@@ -6,10 +6,12 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_fab.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/top_buttons.dart';
 import '../../controllers/map_controller_new.dart';
-import 'internet_required_screen_new.dart';
 // Note: Permission-related imports removed as location check is disabled
+// Note: Internet required screen removed - offline tiles are downloaded during Get Started flow
 import '../../../../widgets/offline_download_overlay.dart';
 import '../../../ui/controllers/ui_controller.dart';
+import '../../../add_memories/controllers/add_memories_controller.dart';
+import '../../../add_memories/views/mini_widgets/filter_indicator.dart';
 import 'map_filter_overlay.dart';
 
 class MapViewWidgetNew extends StatefulWidget {
@@ -70,20 +72,20 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                 children: [
                   // MapBox Map
                   _buildMapWidget(controller),
- Obx(() {
-                    if (controller.showOfflineDownloadOverlay.value) {
-                      return Positioned(
-                        top: 100.0,
-                        left: 0,
-                        right: 0,
-                        child: OfflineDownloadOverlay(
-                          onClose: controller.hideOfflineDownloadOverlay,
-                          onStartDownload: controller.startOfflineDownload,
-                        ),
-                      );
-                    }
-                    return Container();
-                  }),
+//  Obx(() {
+                  //   if (controller.showOfflineDownloadOverlay.value) {
+                  //     return Positioned(
+                  //       top: 100.0,
+                  //       left: 0,
+                  //       right: 0,
+                  //       child: OfflineDownloadOverlay(
+                  //         onClose: controller.hideOfflineDownloadOverlay,
+                  //         onStartDownload: controller.startOfflineDownload,
+                  //       ),
+                  //     );
+                  //   }
+                  //   return Container();
+                  // }),
 
                   // Filter overlay backdrop
                   if (controller.isFilterOpen.value)
@@ -94,15 +96,36 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                     ),
 
                   // Top buttons and FAB (hidden when filter is open)
-                  if (!controller.isFilterOpen.value) 
+                  if (!controller.isFilterOpen.value)
                     const MapTopButtons(),
-                  if (!controller.isFilterOpen.value) 
+                  if (!controller.isFilterOpen.value)
                     const MapFab(),
+
+                  // Filter indicator (shown when filters are active and filter is not open)
+                  if (!controller.isFilterOpen.value)
+                    Positioned(
+                      top: 60,
+                      left: 0,
+                      right: 0,
+                      child: Obx(() {
+                        // Only show if AddMemoriesController is registered and has active filters
+                        if (!Get.isRegistered<AddMemoriesController>()) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final addMemoriesController = Get.find<AddMemoriesController>();
+                        if (!addMemoriesController.hasActiveFilters.value) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return const FilterIndicator();
+                      }),
+                    ),
 
                   // Filter overlay
                   if (controller.isFilterOpen.value) const MapFilterOverlay(),
 
-                
+
                   // Permission and Internet screens overlay
                   // _buildPermissionAndInternetScreens(context, controller),
                 ],
@@ -185,34 +208,14 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       debugPrint(
         '[MapViewWidgetNew] - isLoadingLocation: ${controller.isLoadingLocation.value}',
       );
-      debugPrint(
-        '[MapViewWidgetNew] - hasInternetConnection: ${controller.hasInternetConnection.value}',
-      );
-      debugPrint(
-        '[MapViewWidgetNew] - showInternetRequiredScreen: ${controller.showInternetRequiredScreen.value}',
-      );
 
       Widget? overlayContent;
 
       // PRIORITY 1: Location permission check removed - no longer required
       // Note: Current location check has been disabled as requested
 
-      // PRIORITY 2: Show internet-related screens
-      if (controller.showInternetRequiredScreen.value ||
-          !controller.hasInternetConnection.value) {
-        debugPrint(
-          '[MapViewWidgetNew] 🌐 Showing internet required screen - NO INTERNET CONNECTION',
-        );
-        debugPrint(
-          '[MapViewWidgetNew] showInternetRequiredScreen: ${controller.showInternetRequiredScreen.value}',
-        );
-        debugPrint(
-          '[MapViewWidgetNew] hasInternetConnection: ${controller.hasInternetConnection.value}',
-        );
-        // if(controller.hasOfflineTiles.)
-        // if map content tiles downloaded are more than 500 then display map
-        overlayContent = const InternetRequiredScreenNew();
-      }
+      // PRIORITY 2: Internet-related screens removed - offline tiles are downloaded during Get Started flow
+      // No need to check internet connectivity - tiles should already be available
 
       // PRIORITY 3: Show loading during location loading (after permission granted and internet available)
       if (overlayContent == null &&
@@ -231,12 +234,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         debugPrint('[MapViewWidgetNew] No overlay needed - normal state');
         debugPrint(
           '[MapViewWidgetNew] hasLocationPermission: ${controller.hasLocationPermission.value}',
-        );
-        debugPrint(
-          '[MapViewWidgetNew] hasInternetConnection: ${controller.hasInternetConnection.value}',
-        );
-        debugPrint(
-          '[MapViewWidgetNew] showInternetRequiredScreen: ${controller.showInternetRequiredScreen.value}',
         );
         return const SizedBox.shrink();
       }

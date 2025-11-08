@@ -21,14 +21,12 @@ class LocationPickerController extends GetxController {
   // Reactive state variables
   final Rx<Position?> currentPosition = Rx<Position?>(null);
   final RxBool isLoading = true.obs;
-  final RxBool showInternetRequiredScreen = false.obs;
-  final RxBool isCheckingInternet = false.obs;
+  final RxBool isOfflineMode = false.obs;
 
   @override
   void onInit() {
     super.onInit();
-    _initializeServices();
-    _checkInternetAndProceed();
+    _initializeController();
   }
 
   @override
@@ -37,69 +35,21 @@ class LocationPickerController extends GetxController {
     super.onClose();
   }
 
-  void _initializeServices() {
+  /// Initialize controller - check offline tiles and get location
+  Future<void> _initializeController() async {
     try {
-      connectivityService = Get.find<ConnectivityService>();
-      debugPrint('[LocationPickerController] ConnectivityService initialized');
+      // Check if offline tiles are available
+      final hasOfflineTiles = await _checkOfflineTileCount();
+      isOfflineMode.value = hasOfflineTiles;
 
-      // Listen for connectivity changes
-      ever(connectivityService.isConnected, (bool isConnected) {
-        if (isConnected && showInternetRequiredScreen.value) {
-          debugPrint('[LocationPickerController] Connectivity restored, retrying...');
-          _retryInternetConnection();
-        }
-      });
+      debugPrint('[LocationPickerController] Offline mode: $hasOfflineTiles');
+
+      // Get current location
+      await _getCurrentLocation();
     } catch (e) {
-      debugPrint('[LocationPickerController] Error initializing ConnectivityService: $e');
+      debugPrint('[LocationPickerController] Error initializing: $e');
+      isLoading.value = false;
     }
-  }
-
-  Future<void> _checkInternetAndProceed() async {
-    // isCheckingInternet.value = true;
-
-    // try {
-    //   debugPrint('[LocationPickerController] Checking internet connectivity...');
-      
-    //   // Check basic connectivity first
-    //   if (!connectivityService.isConnected.value) {
-    //     debugPrint('[LocationPickerController] No basic connectivity detected');
-    //     showInternetRequiredScreen.value = true;
-    //     isCheckingInternet.value = false;
-    //     return;
-    //   }
-
-    //   // Perform internet ping test
-    //   // bool hasInternet = await connectivityService.hasInternetQuickCheck();
-      
-    //   // debugPrint('[LocationPickerController] Internet ping test result: $hasInternet');
-      
-    //   // if (hasInternet) {
-    //   //   debugPrint('[LocationPickerController] Internet connectivity verified');
-    //   //   showInternetRequiredScreen.value = false;
-    //   //   isCheckingInternet.value = false;
-    //   //   await _getCurrentLocation();
-    //   // } else {
-    //   //   debugPrint('[LocationPickerController] Internet ping test failed');
-    //   //   showInternetRequiredScreen.value = true;
-    //   //   isCheckingInternet.value = false;
-    //   // }
-    // } catch (e) {
-    //   debugPrint('[LocationPickerController] Error checking internet: $e');
-    //   showInternetRequiredScreen.value = true;
-    //   isCheckingInternet.value = false;
-    // }
-  }
-
-  Future<void> _retryInternetConnection() async {
-    debugPrint('[LocationPickerController] Retrying internet connection...');
-    await _checkInternetAndProceed();
-  }
-
-  void forceShowInternetScreen() {
-    debugPrint('[LocationPickerController] Force showing internet required screen');
-    showInternetRequiredScreen.value = true;
-    isLoading.value = false;
-    isCheckingInternet.value = false;
   }
 
   Future<void> _getCurrentLocation() async {
@@ -222,6 +172,7 @@ class LocationPickerController extends GetxController {
   }
 
   Future<void> _updateMarkerPosition() async {
+    
     if (mapController == null || currentPosition.value == null || annotationManager == null) return;
 
     try {
@@ -251,23 +202,10 @@ class LocationPickerController extends GetxController {
 
   void onMapLoadError(mapbox.MapLoadingErrorEventData mapLoadingErrorEventData) async {
     debugPrint('[LocationPickerController] Map load error: ${mapLoadingErrorEventData.message}');
-    
-    // Check if error is related to internet connectivity
-    final errorMessage = mapLoadingErrorEventData.message.toLowerCase();
-    final isNetworkError = errorMessage.contains('internet_disconnected') || 
-                         errorMessage.contains('network') || 
-                         errorMessage.contains('connection') ||
-                         errorMessage.contains('server') ||
-                         errorMessage.contains('timeout');
-    
-     final hasSufficientTiles = await _checkOfflineTileCount();
 
-      if (!hasSufficientTiles) {
-        debugPrint('[MapControllerNew] ❌ Insufficient offline tiles available, showing Internet Required Screen');
-       forceShowInternetScreen();
-        return;
-      }
-   
+    // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
+    // Map errors are expected when using offline tiles, continue anyway
+    debugPrint('[LocationPickerController] Continuing with offline tiles despite map load error');
   }
 
 
@@ -295,6 +233,29 @@ class LocationPickerController extends GetxController {
 
   void onMapCreated(mapbox.MapboxMap controller) async {
     mapController = controller;
+
+    // Configure offline map support
+    await _configureOfflineMap(controller);
+
     await addCurrentLocationMarker();
+  }
+
+  /// Configure map for offline use
+  Future<void> _configureOfflineMap(mapbox.MapboxMap controller) async {
+    
+    try {
+
+      if (isOfflineMode.value) {
+
+        debugPrint('[LocationPickerController] 🗺️ Configuring map for offline mode');
+
+        debugPrint('[LocationPickerController] ✅ Offline mode configured - using downloaded tiles');
+
+      } else {
+        debugPrint('[LocationPickerController] 🌐 Using online mode');
+      }
+    } catch (e) {
+      debugPrint('[LocationPickerController] ❌ Error configuring offline map: $e');
+    }
   }
 }

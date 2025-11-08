@@ -111,8 +111,8 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
         );
 
         // Update map controller state
-        mapController.hasInternetConnection.value = true;
-        mapController.showInternetRequiredScreen.value = false;
+        // mapController.hasInternetConnection.value = true;
+        // mapController.showInternetRequiredScreen.value = false;
 
         // Retry map initialization
         await mapController.retryLocationPermission();

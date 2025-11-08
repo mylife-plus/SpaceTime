@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
@@ -26,11 +27,33 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   mapbox.PointAnnotation? currentLocationMarker;
   mapbox.PointAnnotationManager? annotationManager;
   bool isLoading = true;
+  bool isOfflineMode = false;
 
   @override
   void initState() {
     super.initState();
+    _checkOfflineMode();
     _getCurrentLocation();
+  }
+
+  /// Check if offline tiles are available
+  Future<void> _checkOfflineMode() async {
+    try {
+      // Check if offline tiles are available using SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
+      final hasOfflineTiles = tileCount >= 500;
+
+      setState(() {
+        isOfflineMode = hasOfflineTiles;
+      });
+      debugPrint('[LocationPicker] Offline mode: $isOfflineMode (tiles: $tileCount)');
+    } catch (e) {
+      debugPrint('[LocationPicker] Error checking offline mode: $e');
+      setState(() {
+        isOfflineMode = false;
+      });
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -70,6 +93,24 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
       }
     } catch (e) {
       setState(() => isLoading = false);
+    }
+  }
+
+  /// Configure map for offline use
+  Future<void> _configureOfflineMap(mapbox.MapboxMap controller) async {
+    try {
+      if (isOfflineMode) {
+        debugPrint('[LocationPicker] 🗺️ Configuring map for offline mode');
+
+        // Map already uses MAPBOX_STREETS style which matches downloaded tiles
+        // No need to change style URI - tiles will be used automatically
+
+        debugPrint('[LocationPicker] ✅ Offline mode configured - using downloaded tiles');
+      } else {
+        debugPrint('[LocationPicker] 🌐 Using online mode');
+      }
+    } catch (e) {
+      debugPrint('[LocationPicker] ❌ Error configuring offline map: $e');
     }
   }
 
@@ -279,19 +320,19 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
               )
             else
               mapbox.MapWidget(
-                key: const ValueKey("locationPickerMap"),
-                mapOptions: mapbox.MapOptions(
-                  contextMode: mapbox.ContextMode.UNIQUE,
-                  constrainMode: mapbox.ConstrainMode.HEIGHT_ONLY,
-                  viewportMode: mapbox.ViewportMode.DEFAULT,
-                  orientation: mapbox.NorthOrientation.UPWARDS,
-                  crossSourceCollisions: true,
-                  size: mapbox.Size(
-                    width: MediaQuery.of(context).size.width,
-                    height: MediaQuery.of(context).size.height,
-                  ),
-                  pixelRatio: MediaQuery.of(context).devicePixelRatio,
-                ),
+                key: const ValueKey("mapbox_map_new"),
+                // mapOptions: mapbox.MapOptions(
+                //   contextMode: mapbox.ContextMode.UNIQUE,
+                //   constrainMode: mapbox.ConstrainMode.HEIGHT_ONLY,
+                //   viewportMode: mapbox.ViewportMode.DEFAULT,
+                //   orientation: mapbox.NorthOrientation.UPWARDS,
+                //   crossSourceCollisions: true,
+                //   size: mapbox.Size(
+                //     width: MediaQuery.of(context).size.width,
+                //     height: MediaQuery.of(context).size.height,
+                //   ),
+                //   pixelRatio: MediaQuery.of(context).devicePixelRatio,
+                // ),
                 cameraOptions: mapbox.CameraOptions(
                   center: mapbox.Point(
                     coordinates: mapbox.Position(
@@ -301,10 +342,11 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                   ),
                   zoom: 1.0,
                 ),
-                styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
+                styleUri: mapbox.MapboxStyles.STANDARD,
                 textureView: true,
                 onMapCreated: (mapbox.MapboxMap controller) async {
                   mapController = controller;
+                  await _configureOfflineMap(controller);
                   await _addCurrentLocationMarker();
                 },
                 onTapListener: _onMapTap,

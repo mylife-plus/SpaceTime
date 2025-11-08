@@ -29,60 +29,67 @@ class FilterPanel extends StatelessWidget {
               : controller.mainColor.value == 'blue'
               ? Color(0xFF92C3FF)
               : controller.primaryColor,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...children,
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8, // Max 80% of screen height
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        controller.darkMode.value
-                            ? Colors.white.withOpacity(0.2)
-                            : Colors.white,
-                    side: BorderSide(
-                      color:
-                          controller.darkMode.value
-                              ? Colors.red.withOpacity(0.5)
-                              : Colors.red,
+                ...children,
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            controller.darkMode.value
+                                ? Colors.white.withOpacity(0.2)
+                                : Colors.white,
+                        side: BorderSide(
+                          color:
+                              controller.darkMode.value
+                                  ? Colors.red.withOpacity(0.5)
+                                  : Colors.red,
+                        ),
+                      ),
+                      onPressed: onReset,
+                      child: Text(
+                        'reset',
+                        style: GoogleFonts.kumbhSans(
+                          color:
+                              controller.darkMode.value ? Colors.red : Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
-                  onPressed: onReset,
-                  child: Text(
-                    'reset',
-                    style: GoogleFonts.kumbhSans(
-                      color:
-                          controller.darkMode.value ? Colors.red : Colors.red,
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(width: 20),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            controller.darkMode.value
+                                ? Colors.white.withOpacity(0.2)
+                                : Colors.white,
+                        side: const BorderSide(color: Colors.blue),
+                      ),
+                      onPressed: onApply,
+                      child: Text(
+                        'filter',
+                        style: GoogleFonts.kumbhSans(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        controller.darkMode.value
-                            ? Colors.white.withOpacity(0.2)
-                            : Colors.white,
-                    side: const BorderSide(color: Colors.blue),
-                  ),
-                  onPressed: onApply,
-                  child: Text(
-                    'filter',
-                    style: GoogleFonts.kumbhSans(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

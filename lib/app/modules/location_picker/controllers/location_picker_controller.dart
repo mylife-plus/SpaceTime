@@ -25,7 +25,7 @@ class LocationPickerController extends GetxController {
   // Location data
   final Rxn<LocationData> selectedLocation = Rxn<LocationData>();
   final RxDouble selectedRadius = 10.0.obs; // Default 10km
-  final RxBool isUpdatingRadius = false.obs; // Flag to track radius update process
+  final RxBool isUpdatingRadius = false.obs; // Flag to track radius update process (deprecated - no longer used)
   final RxList<LocationData> recentLocations = <LocationData>[].obs;
 
   // Map state
@@ -84,10 +84,10 @@ class LocationPickerController extends GetxController {
       if (savedLocation != null) {
         selectedLocation.value = savedLocation;
       }
-      
+
       final savedRadius = await _service.getSavedRadius();
-      // Clamp the saved radius to the valid range (10km - 1000km)
-      selectedRadius.value = savedRadius.clamp(10.0, 1000.0);
+      // Clamp the saved radius to the valid range (1km - 200km)
+      selectedRadius.value = savedRadius.clamp(1.0, 200.0);
     } catch (e) {
       debugPrint('[LocationPickerController] Error loading saved data: $e');
     }
@@ -206,13 +206,10 @@ class LocationPickerController extends GetxController {
   /// Update radius
   Future<void> updateRadius(double radius) async {
     try {
-      // Set updating flag to disable slider
-      isUpdatingRadius.value = true;
-
       // Round to nearest 0.1 to avoid floating point precision issues
       final roundedRadius = (radius * 10).round() / 10.0;
-      // Clamp to valid range (10km - 1000km)
-      final clampedRadius = roundedRadius.clamp(10.0, 1000.0);
+      // Clamp to valid range (1km - 200km)
+      final clampedRadius = roundedRadius.clamp(1.0, 200.0);
       selectedRadius.value = clampedRadius;
 
       debugPrint('[LocationPickerController] Radius updated: original=$radius, rounded=$roundedRadius, clamped=$clampedRadius');
@@ -230,9 +227,6 @@ class LocationPickerController extends GetxController {
       await _service.saveRadius(clampedRadius);
     } catch (e) {
       debugPrint('[LocationPickerController] Error updating radius: $e');
-    } finally {
-      // Re-enable slider after update is complete
-      isUpdatingRadius.value = false;
     }
   }
 

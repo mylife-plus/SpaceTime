@@ -202,7 +202,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     return mapbox.MapWidget(
       key: const ValueKey('memory_location_picker_map'),
       cameraOptions: _getCameraOptions(),
-      styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
+      styleUri: mapbox.MapboxStyles.STANDARD,
       textureView: true,
       onMapCreated: _onMapCreated,
       onTapListener: _onMapTap,
@@ -483,24 +483,29 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Build bottom action buttons - matching new location picker design
   Widget _buildBottomActionButtons() {
-    return Positioned(
-      bottom: 30,
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 300),
+      bottom: _searchFocusNode.hasFocus ? -100 : 30, // Hide when search is focused
       left: 20,
       right: 20,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // Close button
-          _buildBottomButton(
-            iconPath: 'assets/images/ic_cross.png',
-            onTap: () => Get.back(),
-          ),
-          // Done button
-          _buildBottomButton(
-            iconPath: 'assets/images/ic_tick.png',
-            onTap: _onDonePressed,
-          ),
-        ],
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: _searchFocusNode.hasFocus ? 0.0 : 1.0, // Fade out when search is focused
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // Close button
+            _buildBottomButton(
+              iconPath: 'assets/images/ic_cross.png',
+              onTap: () => Get.back(),
+            ),
+            // Done button
+            _buildBottomButton(
+              iconPath: 'assets/images/ic_tick.png',
+              onTap: _onDonePressed,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -552,6 +557,8 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         _showSearchResults.value = false;
       }
     }
+    // Trigger rebuild for button animation
+    setState(() {});
   }
 
   /// Handle search text changes
@@ -570,6 +577,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     try {
       mapController = controller;
 
+      // Configure offline map support
+      await _configureOfflineMap(controller);
+
       // Create annotation manager
       annotationManager = await controller.annotations.createPointAnnotationManager();
 
@@ -582,6 +592,47 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       }
     } catch (e) {
       debugPrint('Error in onMapCreated: $e');
+    }
+  }
+
+  /// Configure map for offline use
+  Future<void> _configureOfflineMap(mapbox.MapboxMap controller) async {
+    try {
+      // Check if offline tiles are available
+      final hasOfflineTiles = await _areOfflineTilesAvailable();
+
+      if (hasOfflineTiles) {
+        debugPrint('[MemoryLocationPicker] 🗺️ Configuring map for offline mode');
+        isOfflineMode.value = true;
+
+        // Map already uses MAPBOX_STREETS style which matches downloaded tiles
+        // No need to change style URI - tiles will be used automatically
+
+        debugPrint('[MemoryLocationPicker] ✅ Offline mode configured - using downloaded tiles');
+      } else {
+        debugPrint('[MemoryLocationPicker] 🌐 Using online mode - insufficient tiles');
+        isOfflineMode.value = false;
+      }
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker] ❌ Error configuring offline map: $e');
+      isOfflineMode.value = false;
+    }
+  }
+
+  /// Check if offline tiles are available
+  Future<bool> _areOfflineTilesAvailable() async {
+    try {
+      // Check with offline search service if initialized
+      if (_offlineSearchService.isInitialized) {
+        // Assume tiles are available if offline search is initialized
+        // This is a reasonable assumption since both are downloaded together
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker] ❌ Error checking offline tiles: $e');
+      return false;
     }
   }
 

@@ -151,16 +151,7 @@ class OfflineMapCoordinatorService extends GetxService {
           await _enableOfflineModeIfAllowed();
           // Note: Banner hiding is handled by _hideDownloadOverlayAfterCompletion()
 
-          // Show success notification
-          Get.snackbar(
-            '🔌 Offline Mode Ready',
-            'Map is now ready for offline use ($tileCount tiles)',
-            backgroundColor: Colors.green.withValues(alpha: 0.9),
-            colorText: Colors.white,
-            duration: const Duration(seconds: 3),
-            snackPosition: SnackPosition.TOP,
-            margin: const EdgeInsets.all(16),
-          );
+          // Success notification removed as requested
         } else if (isDownloading) {
           debugPrint('[OfflineMapCoordinator] 📥 Download in progress - keeping overlay visible');
           // Keep overlay visible during download - don't hide it
@@ -181,16 +172,7 @@ class OfflineMapCoordinatorService extends GetxService {
 
       showOfflineDownloadOverlay.value = false;
 
-      // Show completion notification
-      Get.snackbar(
-        '✅ Download Complete',
-        'Successfully downloaded $tileCount tiles for offline use',
-        backgroundColor: Colors.green.withValues(alpha: 0.9),
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-        snackPosition: SnackPosition.TOP,
-        margin: const EdgeInsets.all(16),
-      );
+      // Download completion notification removed as requested
     } catch (e) {
       debugPrint('[OfflineMapCoordinator] ❌ Error hiding overlay: $e');
     }

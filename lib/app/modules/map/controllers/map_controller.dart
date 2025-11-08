@@ -1750,37 +1750,14 @@ class MapController extends GetxController with WidgetsBindingObserver {
   }
 
   /// Check if internet screen should be shown due to connectivity loss
+  /// DISABLED - Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
   Future<void> _checkIfInternetScreenNeeded() async {
     try {
-      final connectivityService = Get.find<ConnectivityService>();
-      final hasInternetForMapbox =
-          await connectivityService.hasInternetForMapbox();
-
-      if (!hasInternetForMapbox) {
-        // Check tile count - show internet widget if < 25,000 tiles
-        final backgroundService = Get.find<BackgroundTileDownloadService>();
-        final tileCount = backgroundService.totalTilesDownloaded.value;
-        final hasSufficientTiles = tileCount >= 25000;
-
-        debugPrint(
-          '🌐 No internet access - tile count: $tileCount, sufficient: $hasSufficientTiles',
-        );
-
-        if (!hasSufficientTiles) {
-          debugPrint(
-            '🌐 No internet and insufficient tiles (< 25,000) - setting internetRequired state',
-          );
-          _setState(MapInitializationState.internetRequired);
-        } else {
-          debugPrint(
-            '🌐 No internet but sufficient tiles (≥ 25,000) - staying in ready state',
-          );
-        }
-      } else {
-        debugPrint(
-          '🌐 Internet access available - no need for internet screen',
-        );
-      }
+      // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
+      // No need to check internet or show internet required screen
+      debugPrint(
+        '🌐 Internet check skipped - using offline tiles from Get Started flow',
+      );
     } catch (e) {
       debugPrint('❌ Error checking if internet screen needed: $e');
     }
@@ -1798,21 +1775,11 @@ class MapController extends GetxController with WidgetsBindingObserver {
         '🗺 Confirmed Mapbox connectivity error - checking current state',
       );
 
-      // If we're in ready state, we might need to show internet screen
-      if (currentInitializationState.value == MapInitializationState.ready) {
-        debugPrint(
-          '🗺 Map was ready but Mapbox reports connectivity issues - checking internet',
-        );
-        _checkIfInternetScreenNeeded();
-      } else if (currentInitializationState.value ==
-              MapInitializationState.loadingMap ||
-          currentInitializationState.value ==
-              MapInitializationState.downloadingTiles) {
-        debugPrint(
-          '🗺 Mapbox connectivity error during loading - setting internetRequired state',
-        );
-        _setState(MapInitializationState.internetRequired);
-      }
+      // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
+      // Mapbox connectivity errors are expected when using offline tiles
+      debugPrint(
+        '🗺 Mapbox connectivity error detected - continuing with offline tiles',
+      );
 
       // Notify connectivity service
       connectivityService.handleMapboxConnectivityError(errorMessage);
@@ -1891,11 +1858,21 @@ class MapController extends GetxController with WidgetsBindingObserver {
           break;
 
         case MapInitializationState.checkingInternet:
-          await _checkInternetAndAdvance();
+          // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
+          // Skip directly to checking offline tiles
+          final hasOfflineTiles = await isOfflineDataAvailable();
+          if (hasOfflineTiles) {
+            _setState(MapInitializationState.loadingMap);
+          } else {
+            _setState(MapInitializationState.downloadingTiles);
+          }
           break;
 
         case MapInitializationState.internetRequired:
-          // Stay in this state until internet is available
+          // Internet required state removed - offline tiles are downloaded during Get Started flow
+          // This state should never be reached
+          debugPrint('⚠️ WARNING: internetRequired state reached - this should not happen');
+          _setState(MapInitializationState.loadingMap);
           break;
 
         case MapInitializationState.downloadingTiles:
@@ -1925,57 +1902,24 @@ class MapController extends GetxController with WidgetsBindingObserver {
   }
 
   /// Check internet connectivity and advance state accordingly
+  /// DISABLED - Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
   Future<void> _checkInternetAndAdvance() async {
-    try {
-      debugPrint('🌐 Starting internet check for Mapbox...');
-      final connectivityService = Get.find<ConnectivityService>();
+    // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
+    // Skip directly to checking offline tiles
+    debugPrint('🌐 Internet check skipped - using offline tiles from Get Started flow');
 
-      // Use Mapbox-specific internet check for better reliability
-      final hasInternetForMapbox =
-          await connectivityService.hasInternetQuickCheck();
-
-      debugPrint('🌐 Mapbox internet check result: $hasInternetForMapbox');
-
-      if (hasInternetForMapbox) {
-        // Internet available for Mapbox, check if we need to download tiles
-        final hasOfflineTiles = await isOfflineDataAvailable();
-
-        if (hasOfflineTiles) {
-          // We have tiles, go straight to loading map
-          debugPrint('🗺 Offline tiles available, loading map directly');
-          _setState(MapInitializationState.loadingMap);
-        } else {
-          // Need to download tiles
-          debugPrint('🗺 No offline tiles, need to download');
-          _setState(MapInitializationState.downloadingTiles);
-        }
-      } else {
-        _setState(MapInitializationState.internetRequired);
-        // No internet for Mapbox, check if we have offline tiles
-        debugPrint(
-          '🌐 No internet for Mapbox detected, checking offline tiles',
-        );
-        await _checkOfflineTilesAndSetState();
-      }
-    } catch (e) {
-      _setState(MapInitializationState.internetRequired);
-
-      debugPrint('❌ Error checking internet: $e');
-
-      // Check if the error itself indicates connectivity issues
-      final connectivityService = Get.find<ConnectivityService>();
-      if (connectivityService.isMapboxConnectivityError(e.toString())) {
-        debugPrint(
-          '🌐 Internet check failed with connectivity error - setting internetRequired state',
-        );
-        _setState(MapInitializationState.internetRequired);
-      } else {
-        _setState(MapInitializationState.internetRequired);
-      }
+    final hasOfflineTiles = await isOfflineDataAvailable();
+    if (hasOfflineTiles) {
+      debugPrint('🗺 Offline tiles available, loading map directly');
+      _setState(MapInitializationState.loadingMap);
+    } else {
+      debugPrint('🗺 No offline tiles found - this should not happen after Get Started');
+      _setState(MapInitializationState.downloadingTiles);
     }
   }
 
   /// Check offline tiles and set appropriate state
+  /// MODIFIED - Internet required state removed - offline tiles are downloaded during Get Started flow
   Future<void> _checkOfflineTilesAndSetState() async {
     try {
       debugPrint('🗺 Checking offline tiles and setting state');
@@ -1988,20 +1932,21 @@ class MapController extends GetxController with WidgetsBindingObserver {
         '🗺 Tile count: $tileCount, hasOfflineTiles: $hasOfflineTiles',
       );
 
-      if (hasOfflineTiles && tileCount >= 25000) {
-        // Sufficient offline tiles available
-        debugPrint('🗺 Sufficient offline tiles - proceeding to load map');
+      if (hasOfflineTiles) {
+        // Offline tiles available - proceed to load map
+        debugPrint('🗺 Offline tiles available - proceeding to load map');
         _setState(MapInitializationState.loadingMap);
       } else {
-        // Insufficient tiles - need internet
+        // No tiles found - this should not happen after Get Started flow
         debugPrint(
-          '🌐 Insufficient offline tiles ($tileCount < 25,000) - requiring internet',
+          '⚠️ WARNING: No offline tiles found - this should not happen after Get Started',
         );
-        _setState(MapInitializationState.internetRequired);
+        _setState(MapInitializationState.downloadingTiles);
       }
     } catch (e) {
       debugPrint('❌ Error checking offline tiles: $e');
-      _setState(MapInitializationState.internetRequired);
+      // Don't set internetRequired - proceed to loading anyway
+      _setState(MapInitializationState.loadingMap);
     }
   }
 
@@ -2033,8 +1978,12 @@ class MapController extends GetxController with WidgetsBindingObserver {
         break;
 
       case MapInitializationState.internetRequired:
-        stateChangeMessage.value = 'Internet connection required';
-        shouldShowInternetScreen.value = true;
+        // Internet required state removed - offline tiles are downloaded during Get Started flow
+        // This state should never be reached - if it is, proceed to loading map
+        debugPrint('⚠️ WARNING: internetRequired state reached - proceeding to load map');
+        stateChangeMessage.value = 'Loading map...';
+        shouldShowInternetScreen.value = false;
+        _setState(MapInitializationState.loadingMap);
         break;
 
       case MapInitializationState.downloadingTiles:
@@ -8579,9 +8528,12 @@ class MapController extends GetxController with WidgetsBindingObserver {
       var locationLatitude = locationData['latitude']?.toDouble();
       var locationLongitude = locationData['longitude']?.toDouble();
 
-      // Always set selectedLocation as lat,lng coordinates
+      // Always set selectedLocation as lat,lng coordinates with 4 decimal places
       if (locationLatitude != null && locationLongitude != null) {
-        selectedLocation.value = '${locationLatitude},${locationLongitude}';
+        // Format to 4 decimal places
+        final formattedLat = locationLatitude.toStringAsFixed(4);
+        final formattedLng = locationLongitude.toStringAsFixed(4);
+        selectedLocation.value = '$formattedLat,$formattedLng';
       } else {
         selectedLocation.value = '';
       }

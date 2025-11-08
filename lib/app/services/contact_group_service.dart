@@ -89,11 +89,44 @@ class ContactGroupService {
   }
 
   /// Delete a contact group
-  Future<bool> deleteGroup(int groupId) async {
+  /// Returns: true if deleted, false if failed, null if has memories (cannot delete)
+  Future<bool?> deleteGroup(int groupId) async {
     try {
       debugPrint(
         '[ContactGroupService][deleteGroup] Deleting group ID: $groupId',
       );
+
+      // First, get the group to check its name
+      final group = await getGroupById(groupId);
+      if (group == null) {
+        debugPrint(
+          '[ContactGroupService][deleteGroup] Group not found for ID: $groupId',
+        );
+        return false;
+      }
+
+      // Check if any memories are using this contact group
+      final memoryCount = await _databaseHelper.getMemoryCountForContactGroup(group.name);
+      if (memoryCount > 0) {
+        debugPrint(
+          '[ContactGroupService][deleteGroup] Cannot delete group "${group.name}" - $memoryCount memories are using it',
+        );
+        return null; // null indicates cannot delete due to memories
+      }
+
+      // If this is a main group, check if ANY of its subgroups have associated memories
+      if (group.parentId == null) {
+        final subgroups = await getSubgroups(groupId);
+        for (final subgroup in subgroups) {
+          final subgroupMemoryCount = await _databaseHelper.getMemoryCountForContactGroup(subgroup.name);
+          if (subgroupMemoryCount > 0) {
+            debugPrint(
+              '[ContactGroupService][deleteGroup] Cannot delete main group "${group.name}" - subgroup "${subgroup.name}" has $subgroupMemoryCount memories',
+            );
+            return null; // null indicates cannot delete due to memories in subgroups
+          }
+        }
+      }
 
       final deletedRows = await _databaseHelper.deleteContactGroup(groupId);
       final success = deletedRows > 0;
@@ -238,6 +271,16 @@ class ContactGroupService {
     } catch (e) {
       debugPrint('[ContactGroupService][getGroupById] Error: $e');
       return null;
+    }
+  }
+
+  /// Get memory count for a specific contact group
+  Future<int> getMemoryCountForGroup(String groupName) async {
+    try {
+      return await _databaseHelper.getMemoryCountForContactGroup(groupName);
+    } catch (e) {
+      debugPrint('[ContactGroupService][getMemoryCountForGroup] Error: $e');
+      return 0;
     }
   }
 

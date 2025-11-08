@@ -105,16 +105,20 @@ class HashtagGroupsController extends GetxController {
   }
 
   /// Delete a hashtag group
-  Future<bool> deleteGroup(int groupId) async {
+  /// Returns: true if deleted, false if failed, null if has memories (cannot delete)
+  Future<bool?> deleteGroup(int groupId) async {
     try {
       debugPrint('[HashtagGroupsController][deleteGroup] Deleting group ID: $groupId');
 
-      final success = await _hashtagGroupService.deleteGroup(groupId);
+      final result = await _hashtagGroupService.deleteGroup(groupId);
 
-      if (success) {
+      if (result == true) {
         await loadHashtagGroups(); // Reload to reflect changes
         debugPrint('[HashtagGroupsController][deleteGroup] Successfully deleted group');
         return true;
+      } else if (result == null) {
+        debugPrint('[HashtagGroupsController][deleteGroup] Cannot delete group - has associated memories');
+        return null; // Cannot delete due to memories
       } else {
         debugPrint('[HashtagGroupsController][deleteGroup] Failed to delete group');
         return false;

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_images.dart';
-import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/modules/add_memories/views/add_memories.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/bottom_info.dart';
 
@@ -50,18 +49,14 @@ class MapTopButtons extends StatelessWidget {
 
             onTap: () async {
 
-              var c = Get.find<AddMemoriesController>();
-
               await controller.clearAllLines();
               controller.refreshMapView();
 
-              c.filteredMemories.clear();
-              
-              c.hasActiveFilters.value = false; 
-              c.selectedCategories.clear(); 
-        
+              // Don't clear filters when navigating to AddMemoriesView
+              // Filters should persist until manually removed or reset
+
               var result = await Get.to(() => AddMemoriesView());
-              
+
               if (result == true) {
                 controller.refreshLocation();
               }

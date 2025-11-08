@@ -67,14 +67,6 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
   bool _isEmoji(String text) {
     if (text.isEmpty) return false;
 
-    // Check if the string contains emoji characters
-    // Emojis are typically in Unicode ranges like:
-    // U+1F600–U+1F64F (emoticons)
-    // U+1F300–U+1F5FF (misc symbols)
-    // U+1F680–U+1F6FF (transport)
-    // U+1F1E0–U+1F1FF (flags)
-    // U+2600–U+26FF (misc symbols)
-    // U+2700–U+27BF (dingbats)
     final emojiRegex = RegExp(
       r'[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]',
       unicode: true,
@@ -87,7 +79,6 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
     if (categoryName.contains(' ') && categoryName.length > 2) {
       final parts = categoryName.split(' ');
       if (parts.length > 1 && _isEmoji(parts[0])) {
-        // Return name without emoji
         return parts.skip(1).join(' ');
       }
     }
@@ -111,9 +102,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
         Positioned.fill(
           child: GestureDetector(
             onTap: () {
-              controller.resetFilters();
+              // Just close the filter overlay without resetting filters
+              // Filters should persist until manually removed or reset
               controller.closeFilter();
-              mapController?.resetFilters();
               mapController?.isFilterOpen.value = false;
             },
             child: Container(color: Colors.black.withValues(alpha: 0.5)),
@@ -172,10 +163,11 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                   Obx(() => SearchableCategoryWidget(
                     title: 'Search Places Categories',
                     onCategorySelected: (category) {
+                      // Use addCategoryGroup to handle both main categories and subcategories properly
+                      controller.addCategoryGroup(category);
                       final categoryWithEmoji = category.emoji.isNotEmpty
                           ? '${category.emoji} ${category.name}'
                           : category.name;
-                      controller.addCategory(categoryWithEmoji);
                       debugPrint('[FilterOverlay] Added category: $categoryWithEmoji');
                     },
                     onFocusChanged: (isFocused) {
@@ -184,7 +176,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                       }
                     },
                     saveToRecent: true, // Show recent categories in filter context
-                    showActionButtons: false, // Hide "See all" and "Add new" buttons in filter context
+                    showActionButtons: true, // Show "See List" and "Add new" buttons in filter context
                     backgroundColor: uiController.darkMode.value
                         ? Colors.white.withValues(alpha: 0.2)
                         : Colors.white,
@@ -195,13 +187,13 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                     if (controller.selectedCategories.isEmpty) {
                       return const SizedBox.shrink();
                     }
-    
+
                     return Container(
                       padding: const EdgeInsets.all(8),
                       child: Wrap(
                         spacing: 8,
                         runSpacing: 4,
-                        children: controller.selectedCategories.map((categoryName) {
+                        children: controller.displayCategories.map((categoryName) {
                           // Extract emoji and name from categoryName using helper method
                           String emoji = '';
                           String displayName = _extractNamePart(categoryName);
@@ -288,13 +280,13 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                     if (controller.selectedHashtags.isEmpty) {
                       return const SizedBox.shrink();
                     }
-    
+
                     return Container(
                       padding: const EdgeInsets.all(8),
                       child: Wrap(
                         spacing: 8,
                         runSpacing: 4,
-                        children: controller.selectedHashtags.map((hashtag) {
+                        children: controller.displayHashtags.map((hashtag) {
                           return Chip(
                             label: Text(
                               '#$hashtag',
@@ -351,13 +343,13 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                     if (controller.selectedContacts.isEmpty) {
                       return const SizedBox.shrink();
                     }
-    
+
                     return Container(
                       padding: const EdgeInsets.all(8),
                       child: Wrap(
                         spacing: 8,
                         runSpacing: 4,
-                        children: controller.selectedContacts.map((contact) {
+                        children: controller.displayContacts.map((contact) {
                           return Chip(
                             label: Text(
                               '@$contact',

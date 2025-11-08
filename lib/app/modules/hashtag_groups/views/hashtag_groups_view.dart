@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
 import 'package:spacetime/app/models/hashtag_group_model.dart';
+import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
 import '../../../config/app_text.dart';
 
 class HashtagGroupsView extends StatefulWidget {
@@ -354,6 +355,33 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         // Successfully deleted
         Get.back(); // Close confirmation dialog
 
+        // Remove from recent selections before refreshing
+        final group = await _hashtagGroupService.getGroupById(hashtagGroupId);
+        if (group != null) {
+          if (group.parentId == null) {
+            // Main group deleted - remove it and all its subgroups from recent selections
+            final subgroups = await _hashtagGroupService.getSubgroups(hashtagGroupId);
+            await removeGroupAndSubgroupsFromRecent(hashtagGroupId, subgroups);
+
+            // Also remove from searchable hashtag widget recent lists
+            final subgroupIds = subgroups.map((s) => s.id!).toList();
+            await SearchableHashtagWidget.removeGroupAndSubgroupsFromRecentHashtagGroups(hashtagGroupId, subgroupIds);
+
+            // Remove hashtag names from recent hashtags
+            await SearchableHashtagWidget.removeFromRecentHashtags(group.name);
+            for (final subgroup in subgroups) {
+              await SearchableHashtagWidget.removeFromRecentHashtags(subgroup.name);
+            }
+          } else {
+            // Subgroup deleted - remove only this subgroup from recent selections
+            await removeFromRecentlySelectedSubgroups(hashtagGroupId);
+
+            // Also remove from searchable hashtag widget recent lists
+            await SearchableHashtagWidget.removeFromRecentHashtagGroups(hashtagGroupId);
+            await SearchableHashtagWidget.removeFromRecentHashtags(group.name);
+          }
+        }
+
         // Refresh hashtag groups from database to show the deletion
         debugPrint(
           '[HashtagGroupsView][_deleteHashtagGroup] Refreshing hashtag groups from database after deletion',
@@ -366,6 +394,17 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
+      } else if (result == null) {
+        // Cannot delete due to memories
+        Get.back(); // Close confirmation dialog
+
+        // Get the group name and memory count for the error dialog
+        final group = await _hashtagGroupService.getGroupById(hashtagGroupId);
+        final memoryCount = group != null
+            ? await _hashtagGroupService.getMemoryCountForGroup(group.name)
+            : 0;
+
+        _showCannotDeleteDialog(group?.name ?? 'Unknown', memoryCount);
       } else {
         // Failed to delete
         Get.snackbar(
@@ -384,6 +423,82 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         colorText: Colors.white,
       );
     }
+  }
+
+  /// Show dialog when hashtag group cannot be deleted due to existing memories
+  void _showCannotDeleteDialog(String groupName, int memoryCount) {
+    final uiController = Get.find<UiController>();
+
+    Get.dialog(
+      AlertDialog(
+        backgroundColor:
+            uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Cannot Delete Hashtag Group',
+              style: gfonts.GoogleFonts.kumbhSans(
+                color:
+                    uiController.darkMode.value ? Colors.white : Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The hashtag group "$groupName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
+              style: gfonts.GoogleFonts.kumbhSans(
+                color:
+                    uiController.darkMode.value
+                        ? Colors.white70
+                        : Colors.grey[700],
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'To delete this hashtag group, first remove the hashtags from all memories that use them, or delete those memories.',
+                      style: gfonts.GoogleFonts.kumbhSans(color: Colors.orange[700], fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'OK',
+              style: gfonts.GoogleFonts.kumbhSans(
+                color: uiController.currentMainColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Show edit hashtag group dialog - matches category picker styling
@@ -467,7 +582,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
               // Cancel button (red cross)
               GestureDetector(
                 onTap: () => Get.back(),
-                child: Container(
+                child: SizedBox(
                   width: 18,
                   height: 18,
                   child: ColorFiltered(
@@ -557,7 +672,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                     );
                   }
                 },
-                child: Container(
+                child: SizedBox(
                   width: 18,
                   height: 18,
                   child: Image.asset(
@@ -584,7 +699,13 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       final result = await _hashtagGroupService.deleteGroup(subgroup.id!);
 
       if (result == true) {
-        // Successfully deleted
+        // Successfully deleted - also remove from recent selections
+        await removeFromRecentlySelectedSubgroups(subgroup.id!);
+
+        // Also remove from searchable hashtag widget recent lists
+        await SearchableHashtagWidget.removeFromRecentHashtagGroups(subgroup.id!);
+        await SearchableHashtagWidget.removeFromRecentHashtags(subgroup.name);
+
         // Refresh hashtag groups from database to show the deletion
         debugPrint(
           '[HashtagGroupsView][_deleteSubgroup] Refreshing hashtag groups from database after deletion',
@@ -597,6 +718,10 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
+      } else if (result == null) {
+        // Cannot delete due to memories
+        final memoryCount = await _hashtagGroupService.getMemoryCountForGroup(subgroup.name);
+        _showCannotDeleteDialog(subgroup.name, memoryCount);
       } else {
         // Failed to delete
         Get.snackbar(
@@ -680,18 +805,64 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     final isSelected = _selectedHashtagGroups.any((g) => g.id == hashtagGroup.id);
 
     if (isSelected) {
+      // Deselecting
       _selectedHashtagGroups.removeWhere((g) => g.id == hashtagGroup.id);
       debugPrint(
         '[HashtagGroupsView][_toggleHashtagGroupSelection] Removed: ${hashtagGroup.name}',
       );
+
+      // If this is a main group, also remove all its subgroups
+      if (hashtagGroup.isMainGroup && hashtagGroup.hasSubgroups) {
+        for (final subgroup in hashtagGroup.subgroups!) {
+          _selectedHashtagGroups.removeWhere((g) => g.id == subgroup.id);
+          debugPrint(
+            '[HashtagGroupsView][_toggleHashtagGroupSelection] Removed subgroup: ${subgroup.name}',
+          );
+        }
+      }
+
+      // If this is a subgroup, check if we should deselect the main group
+      if (hashtagGroup.isSubgroup) {
+        final mainGroup = _findMainGroupForSubgroup(hashtagGroup);
+        if (mainGroup != null) {
+          _selectedHashtagGroups.removeWhere((g) => g.id == mainGroup.id);
+          debugPrint(
+            '[HashtagGroupsView][_toggleHashtagGroupSelection] Removed main group: ${mainGroup.name} (subgroup was deselected)',
+          );
+        }
+      }
     } else {
+      // Selecting
       _selectedHashtagGroups.add(hashtagGroup);
       debugPrint(
         '[HashtagGroupsView][_toggleHashtagGroupSelection] Added: ${hashtagGroup.name}',
       );
 
-      // Save to recent subgroups if it's a subgroup
+      // If this is a main group, also add all its subgroups
+      if (hashtagGroup.isMainGroup && hashtagGroup.hasSubgroups) {
+        for (final subgroup in hashtagGroup.subgroups!) {
+          if (!_selectedHashtagGroups.any((g) => g.id == subgroup.id)) {
+            _selectedHashtagGroups.add(subgroup);
+            debugPrint(
+              '[HashtagGroupsView][_toggleHashtagGroupSelection] Added subgroup: ${subgroup.name}',
+            );
+          }
+        }
+      }
+
+      // If this is a subgroup, check if all subgroups of the main group are now selected
       if (hashtagGroup.isSubgroup) {
+        final mainGroup = _findMainGroupForSubgroup(hashtagGroup);
+        if (mainGroup != null && _areAllSubgroupsSelected(mainGroup)) {
+          if (!_selectedHashtagGroups.any((g) => g.id == mainGroup.id)) {
+            _selectedHashtagGroups.add(mainGroup);
+            debugPrint(
+              '[HashtagGroupsView][_toggleHashtagGroupSelection] Added main group: ${mainGroup.name} (all subgroups selected)',
+            );
+          }
+        }
+
+        // Save to recent subgroups
         _saveRecentlySelectedSubgroup(hashtagGroup);
       }
     }
@@ -699,6 +870,37 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     debugPrint(
       '[HashtagGroupsView][_toggleHashtagGroupSelection] Total selected: ${_selectedHashtagGroups.length}',
     );
+  }
+
+  /// Find the main group for a given subgroup
+  HashtagGroup? _findMainGroupForSubgroup(HashtagGroup subgroup) {
+    for (final mainGroup in _mainHashtagGroups) {
+      if (mainGroup.subgroups != null) {
+        for (final sub in mainGroup.subgroups!) {
+          if (sub.id == subgroup.id) {
+            return mainGroup;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Check if all subgroups of a main group are selected
+  bool _areAllSubgroupsSelected(HashtagGroup mainGroup) {
+    if (!mainGroup.hasSubgroups) return false;
+
+    for (final subgroup in mainGroup.subgroups!) {
+      if (!_selectedHashtagGroups.any((g) => g.id == subgroup.id)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Check if a main group is selected (meaning all its subgroups are selected)
+  bool _isMainGroupSelected(HashtagGroup mainGroup) {
+    return _selectedHashtagGroups.any((g) => g.id == mainGroup.id);
   }
 
   /// Handle done button press for multiple selection mode
@@ -712,12 +914,6 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     }
 
     Get.back(result: _selectedHashtagGroups.toList());
-  }
-
-  /// Toggle expansion state of a main hashtag group
-  void _toggleHashtagGroupExpansion(int hashtagGroupId) {
-    _expandedHashtagGroups[hashtagGroupId] =
-        !(_expandedHashtagGroups[hashtagGroupId] ?? false);
   }
 
   /// Start inline adding for a hashtag group
@@ -738,20 +934,6 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     }
 
     debugPrint('[HashtagGroupsView][_startInlineAdding] Started inline adding for hashtag group: $hashtagGroupId, controller expanded: ${_expansionControllers[hashtagGroupId]?.isExpanded}, tracked expanded: ${_expandedHashtagGroups[hashtagGroupId]}, adding: ${_addingToHashtagGroup[hashtagGroupId]}');
-  }
-
-  /// Force expansion state and trigger UI rebuild
-  void _forceExpansionState(int hashtagGroupId, bool expanded) {
-    setState(() {
-      _expandedHashtagGroups[hashtagGroupId] = expanded;
-    });
-
-    if (expanded) {
-      // Enable adding mode after state is set
-      _enableAddingMode(hashtagGroupId);
-    }
-
-    debugPrint('[HashtagGroupsView][_forceExpansionState] Forced expansion state for hashtag group $hashtagGroupId to: $expanded');
   }
 
   /// Helper method to enable adding mode
@@ -839,24 +1021,60 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     }
   }
 
-  /// Clear recently selected subgroups
-  static Future<void> clearRecentlySelectedSubgroups() async {
+  /// Remove a specific hashtag group from recently selected subgroups
+  static Future<void> removeFromRecentlySelectedSubgroups(int groupId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_recentSubgroupsKey);
-      debugPrint('[HashtagGroupsView] Cleared recent subgroups');
+      final existingJson = prefs.getString(_recentSubgroupsKey);
+
+      if (existingJson == null) return;
+
+      final decoded = json.decode(existingJson) as List;
+      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+
+      // Remove the deleted group from recent list
+      final originalLength = recentList.length;
+      recentList.removeWhere((item) => item['id'] == groupId);
+
+      if (recentList.length != originalLength) {
+        // Save updated list back to preferences
+        final updatedJson = json.encode(recentList);
+        await prefs.setString(_recentSubgroupsKey, updatedJson);
+        debugPrint('[HashtagGroupsView] Removed group ID $groupId from recent subgroups');
+      }
     } catch (e) {
-      debugPrint('[HashtagGroupsView] Error clearing recent subgroups: $e');
+      debugPrint('[HashtagGroupsView] Error removing from recent subgroups: $e');
     }
   }
 
-  /// Example method to demonstrate how to use recent subgroups
-  /// Call this from other screens to get and display recent subgroups
-  static Future<void> printRecentSubgroups() async {
-    final recentSubgroups = await getRecentlySelectedSubgroups();
-    debugPrint('[HashtagGroupsView] Recent subgroups (${recentSubgroups.length}):');
-    for (final subgroup in recentSubgroups) {
-      debugPrint('  - ${subgroup.name} (ID: ${subgroup.id}, Parent: ${subgroup.parentId})');
+  /// Remove hashtag group and all its subgroups from recently selected subgroups
+  static Future<void> removeGroupAndSubgroupsFromRecent(int mainGroupId, List<HashtagGroup> subgroups) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingJson = prefs.getString(_recentSubgroupsKey);
+
+      if (existingJson == null) return;
+
+      final decoded = json.decode(existingJson) as List;
+      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+
+      // Remove main group and all its subgroups from recent list
+      final originalLength = recentList.length;
+      recentList.removeWhere((item) {
+        final itemId = item['id'];
+        // Remove if it's the main group or any of its subgroups
+        if (itemId == mainGroupId) return true;
+        return subgroups.any((subgroup) => subgroup.id == itemId);
+      });
+
+      if (recentList.length != originalLength) {
+        // Save updated list back to preferences
+        final updatedJson = json.encode(recentList);
+        await prefs.setString(_recentSubgroupsKey, updatedJson);
+        debugPrint('[HashtagGroupsView] Removed main group ID $mainGroupId and ${subgroups.length} subgroups from recent subgroups');
+      }
+    } catch (e) {
+      debugPrint('[HashtagGroupsView] Error removing group and subgroups from recent: $e');
     }
   }
 
@@ -1005,168 +1223,196 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     _expansionControllers[groupId] = ExpansionTileController();
     final controller = _expansionControllers[groupId]!;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-      decoration: BoxDecoration(
-        color: uiController.darkMode.value ? Colors.black : Colors.white,
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(
-          color:
-              uiController.darkMode.value
-                  ? Colors.white.withValues(alpha: 0.2)
-                  : Colors.grey.shade300,
-        ),
-      ),
-      child: ExpansionTile(
-        key: ValueKey('hashtag_group_${mainHashtagGroup.id}'),
-        controller: controller,
-        initiallyExpanded: isExpanded,
-        onExpansionChanged: (expanded) {
-          _expandedHashtagGroups[mainHashtagGroup.id!] = expanded;
+    return Obx(() {
+      final isMainGroupSelected = widget.allowMultipleSelection &&
+          _selectedHashtagGroups.any((g) => g.id == mainHashtagGroup.id);
 
-          // Check if we need to enable adding mode after expansion
-          if (expanded && (_pendingAddingMode[mainHashtagGroup.id!] ?? false)) {
-            _pendingAddingMode[mainHashtagGroup.id!] = false;
-            _enableAddingMode(mainHashtagGroup.id!);
-          }
-        },
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: EdgeInsets.zero,
-        collapsedShape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(2)),
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: BoxDecoration(
+          color: uiController.darkMode.value ? Colors.black : Colors.white,
+          borderRadius: BorderRadius.circular(2),
         ),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(2)),
-        ),
-      title: Padding(
-        padding: const EdgeInsets.only(left: 20.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(
-              child: Text.rich(
-                TextSpan(
+            // Grey container with border for the hashtag group header
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+              decoration: BoxDecoration(
+                color: uiController.darkMode.value
+                    ? Colors.grey[900]
+                    : Colors.grey[100],
+                borderRadius: BorderRadius.circular(2),
+                border: isMainGroupSelected
+                    ? Border.all(
+                        color: uiController.currentMainColor,
+                        width: 2,
+                      )
+                    : null,
+              ),
+              child: ExpansionTile(
+                key: ValueKey('hashtag_group_${mainHashtagGroup.id}'),
+                controller: controller,
+                initiallyExpanded: isExpanded,
+                onExpansionChanged: (expanded) {
+                  _expandedHashtagGroups[mainHashtagGroup.id!] = expanded;
+
+                  // Check if we need to enable adding mode after expansion
+                  if (expanded && (_pendingAddingMode[mainHashtagGroup.id!] ?? false)) {
+                    _pendingAddingMode[mainHashtagGroup.id!] = false;
+                    _enableAddingMode(mainHashtagGroup.id!);
+                  }
+                },
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                backgroundColor: Colors.transparent,
+                collapsedBackgroundColor: Colors.transparent,
+                collapsedShape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(2)),
+                ),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(2)),
+                ),
+                title: GestureDetector(
+                  onTap: widget.allowMultipleSelection
+                      ? () => _selectHashtagGroup(mainHashtagGroup)
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: mainHashtagGroup.name,
+                                  style: gfonts.GoogleFonts.kumbhSans(
+                                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                                    fontWeight: isMainGroupSelected ? FontWeight.w600 : FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ' (${mainHashtagGroup.subgroups?.length ?? 0})',
+                                  style: gfonts.GoogleFonts.kumbhSans(
+                                    color:
+                                        uiController.darkMode.value
+                                            ? Colors.white.withValues(alpha: 0.6)
+                                            : Colors.grey[600],
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            maxLines: null, // Allow unlimited lines
+                            overflow: TextOverflow.visible, // Show all text
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextSpan(
-                      text: mainHashtagGroup.name,
-                      style: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value ? Colors.white : Colors.black,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
+                    // Edit button for main hashtag group
+                    IconButton(
+                      icon: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[500] ?? Colors.grey,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/images/ic_edit.png',
+                          width: 25,
+                          height: 25,
+                        ),
+                      ),
+                      onPressed: () => _showEditHashtagGroupDialog(mainHashtagGroup),
+                      tooltip: 'Edit Hashtag Group',
+                    ),
+                    // Delete button for main hashtag group (only show if no subgroups)
+                    if ((mainHashtagGroup.subgroups?.isEmpty ?? true))
+                      IconButton(
+                        icon: ColorFiltered(
+                          colorFilter: const ColorFilter.mode(
+                            Colors.red,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/ic_cross.png',
+                            width: 25,
+                            height: 25,
+                          ),
+                        ),
+                        onPressed: () => _showDeleteConfirmation(mainHashtagGroup),
+                        tooltip: 'Delete Hashtag Group',
+                      ),
+                    // Add subgroup button
+                    IconButton(
+                      onPressed: (_addingToHashtagGroup[mainHashtagGroup.id] ?? false)
+                          ? null
+                          : () => _startInlineAdding(mainHashtagGroup.id!),
+                      icon: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/images/ic_add.png',
+                          width: 25,
+                          height: 25,
+                        ),
+                      ),
+                      tooltip: 'Add Subgroup',
+                    ),
+                    // Expansion/collapse icon
+                    Obx(
+                      () => ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[600] ?? Colors.grey,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          (_expandedHashtagGroups[mainHashtagGroup.id!] ?? false)
+                              ? 'assets/images/ic_expand_close.png'
+                              : 'assets/images/ic_expand_open.png',
+                          width: 25,
+                          height: 25,
+                        ),
                       ),
                     ),
-                    TextSpan(
-                      text: ' (${mainHashtagGroup.subgroups?.length ?? 0})',
-                      style: gfonts.GoogleFonts.kumbhSans(
-                        color:
-                            uiController.darkMode.value
-                                ? Colors.white.withValues(alpha: 0.6)
-                                : Colors.grey[600],
-                        fontSize: 15,
-                      ),
-                    ),
+                    Container(width: 15),
                   ],
                 ),
-                maxLines: null, // Allow unlimited lines
-                overflow: TextOverflow.visible, // Show all text
+                children: [],
               ),
             ),
+            // Subgroups section (outside the grey container)
+            if (isExpanded) ...[
+              // Subgroups list
+              if (mainHashtagGroup.subgroups != null && mainHashtagGroup.subgroups!.isNotEmpty)
+                ..._buildSubgroupsList(mainHashtagGroup, uiController),
+
+              // Inline adding widget
+              Obx(() {
+                if (_addingToHashtagGroup[mainHashtagGroup.id] ?? false) {
+                  return _buildInlineAddWidget(mainHashtagGroup.id!, uiController);
+                }
+                return const SizedBox.shrink();
+              }),
+            ],
           ],
         ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Edit button for main hashtag group
-          IconButton(
-            icon: ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                uiController.darkMode.value
-                    ? Colors.white.withValues(alpha: 0.6)
-                    : Colors.grey[500] ?? Colors.grey,
-                BlendMode.srcIn,
-              ),
-              child: Image.asset(
-                'assets/images/ic_edit.png',
-                width: 25,
-                height: 25,
-              ),
-            ),
-            onPressed: () => _showEditHashtagGroupDialog(mainHashtagGroup),
-            tooltip: 'Edit Hashtag Group',
-          ),
-          // Delete button for main hashtag group (only show if no subgroups)
-          if ((mainHashtagGroup.subgroups?.isEmpty ?? true))
-            IconButton(
-              icon: ColorFiltered(
-                colorFilter: const ColorFilter.mode(
-                  Colors.red,
-                  BlendMode.srcIn,
-                ),
-                child: Image.asset(
-                  'assets/images/ic_cross.png',
-                  width: 25,
-                  height: 25,
-                ),
-              ),
-              onPressed: () => _showDeleteConfirmation(mainHashtagGroup),
-              tooltip: 'Delete Hashtag Group',
-            ),
-          // Add subgroup button
-          IconButton(
-            onPressed: (_addingToHashtagGroup[mainHashtagGroup.id] ?? false)
-                ? null
-                : () => _startInlineAdding(mainHashtagGroup.id!),
-            icon: ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
-                BlendMode.srcIn,
-              ),
-              child: Image.asset(
-                'assets/images/ic_add.png',
-                width: 25,
-                height: 25,
-              ),
-            ),
-            tooltip: 'Add Subgroup',
-          ),
-          // Expansion/collapse icon
-          Obx(
-            () => ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                uiController.darkMode.value
-                    ? Colors.white.withValues(alpha: 0.6)
-                    : Colors.grey[600] ?? Colors.grey,
-                BlendMode.srcIn,
-              ),
-              child: Image.asset(
-                (_expandedHashtagGroups[mainHashtagGroup.id!] ?? false)
-                    ? 'assets/images/ic_expand_close.png'
-                    : 'assets/images/ic_expand_open.png',
-                width: 25,
-                height: 25,
-              ),
-            ),
-          ),
-          Container(width: 15),
-        ],
-      ),
-      children: [
-        // Subgroups list
-        if (mainHashtagGroup.subgroups != null && mainHashtagGroup.subgroups!.isNotEmpty)
-          ..._buildSubgroupsList(mainHashtagGroup, uiController),
-
-        // Inline adding widget
-        Obx(() {
-          if (_addingToHashtagGroup[mainHashtagGroup.id] ?? false) {
-            return _buildInlineAddWidget(mainHashtagGroup.id!, uiController);
-          }
-          return const SizedBox.shrink();
-        }),
-      ],
-      ),
-    );
+      );
+    });
   }
 
 
@@ -1193,23 +1439,20 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         decoration: BoxDecoration(
-          color: isSelected
-              ? uiController.currentMainColor.withValues(alpha: 0.2)
-              : (uiController.darkMode.value
-                  ? Colors.grey[900]
-                  : Colors.grey[100]),
+          color: uiController.darkMode.value
+              ? Colors.grey[900]
+              : Colors.grey[100],
           borderRadius: BorderRadius.circular(2),
+          border: isSelected
+              ? Border.all(
+                  color: uiController.currentMainColor,
+                  width: 2,
+                )
+              : null,
         ),
         child: ListTile(
           contentPadding: EdgeInsets.symmetric(horizontal: 5),
           dense: true,
-          // leading: widget.allowMultipleSelection
-          //     ? Checkbox(
-          //         value: isSelected,
-          //         onChanged: (_) => _selectHashtagGroup(subgroup),
-          //         activeColor: uiController.currentMainColor,
-          //       )
-          //     : Container(),
           title: RichText(
             text: TextSpan(
               children: [

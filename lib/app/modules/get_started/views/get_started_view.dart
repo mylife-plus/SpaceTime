@@ -16,7 +16,7 @@ class GetStartedView extends GetView<GetStartedController> {
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage('assets/images/Start.jpg'),
-            fit: BoxFit.fill,
+            fit: BoxFit.fitWidth,
           ),
         ),
         child: SafeArea(
@@ -707,7 +707,7 @@ class GetStartedView extends GetView<GetStartedController> {
                         ),
                       )
                     : Text(
-                        'Start',
+                        'Download Tiles',
                         style: TextStyle(
                           fontFamily: 'KumbhSans',
                           fontSize: 18,

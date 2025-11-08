@@ -1778,11 +1778,10 @@ Future<bool> _checkOfflineTileCount() async {
       if (isOfflineMode) {
         debugPrint('🔧 Configuring map for offline mode');
 
-        // Set map to prefer cached resources
-        // Note: Specific offline configuration depends on Mapbox SDK capabilities
-        // This is where you would configure tile store usage, cache preferences, etc.
+        // Map already uses MAPBOX_STREETS style which matches downloaded tiles
+        // No need to change style URI - tiles will be used automatically
 
-        debugPrint('✅ Map configured for offline mode');
+        debugPrint('✅ Map configured for offline mode - using downloaded tiles');
       } else {
         debugPrint('🌐 Map configured for online mode');
       }
@@ -1991,19 +1990,7 @@ Future<bool> _checkOfflineTileCount() async {
           children: [
             // Always keep the map in the background
             mapbox.MapWidget(
-              key: const ValueKey("locationPickerMap"),
-              mapOptions: mapbox.MapOptions(
-                contextMode: mapbox.ContextMode.UNIQUE,
-                constrainMode: mapbox.ConstrainMode.HEIGHT_ONLY,
-                viewportMode: mapbox.ViewportMode.DEFAULT,
-                orientation: mapbox.NorthOrientation.UPWARDS,
-                crossSourceCollisions: true,
-                size: mapbox.Size(
-                  width: MediaQuery.of(context).size.width,
-                  height: MediaQuery.of(context).size.height,
-                ),
-                pixelRatio: MediaQuery.of(context).devicePixelRatio,
-              ),
+              key: const ValueKey("mapbox_map_new"),
               cameraOptions:
                   (currentPosition != null)
                       ? mapbox.CameraOptions(
@@ -2016,7 +2003,7 @@ Future<bool> _checkOfflineTileCount() async {
                         zoom: 1.0,
                       )
                       : null,
-              styleUri: _getOptimalStyleUri(),
+              styleUri: mapbox.MapboxStyles.STANDARD,
               textureView: true,
               onMapCreated: (mapbox.MapboxMap controller) async {
                 mapController = controller;

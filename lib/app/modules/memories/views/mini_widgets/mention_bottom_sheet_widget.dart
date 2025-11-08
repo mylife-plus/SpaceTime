@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/config/app_colors.dart';
-import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
 import 'package:spacetime/app/services/contact_group_service.dart';
+import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/app/models/hashtag_group_model.dart';
 import 'package:spacetime/app/models/contact_group_model.dart';
 
@@ -34,6 +34,7 @@ class TagMentionBottomSheet extends StatefulWidget {
 
 class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   final TextEditingController editController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
   late TagMentionController controller;
 
   @override
@@ -41,6 +42,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     super.initState();
     controller = Get.put(TagMentionController(isTagMode: widget.isTagMode));
     controller.loadSavedItems();
+
+    // Set initial search text
+    searchController.text = widget.initialKeyword;
 
     // Filter items based on initial keyword
     controller.filterItems(widget.initialKeyword);
@@ -63,7 +67,13 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   }
 
   void _onSearchChanged() {
-    controller.filterItems(widget.searchNotifier.value);
+    final searchText = widget.searchNotifier.value;
+    controller.filterItems(searchText);
+
+    // Update search controller if needed
+    if (searchController.text != searchText) {
+      searchController.text = searchText;
+    }
   }
 
   void _showAddGroupPopup(BuildContext context, String searchText) {
@@ -76,6 +86,23 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
           initialName: searchText,
           onItemSelected: widget.onItemSelected,
           onComplete: widget.onEditingComplete,
+        );
+      },
+    );
+  }
+
+  void _showEditGroupPopup(BuildContext context, Map<String, dynamic> item) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return _AddGroupPopupDialog(
+          isTagMode: widget.isTagMode,
+          initialName: item['name'],
+          onItemSelected: widget.onItemSelected,
+          onComplete: widget.onEditingComplete,
+          editItemId: item['id'],
+          editParentId: item['parentId']?.toString(),
         );
       },
     );
@@ -97,6 +124,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   void dispose() {
     widget.searchNotifier.removeListener(_onSearchChanged);
     editController.dispose();
+    searchController.dispose();
     super.dispose();
   }
 
@@ -148,29 +176,59 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               ),
               child: Row(
                 children: [
-                  ValueListenableBuilder<String>(
-                    valueListenable: widget.searchNotifier,
-                    builder: (context, searchText, child) {
-                      final displayText =
-                          searchText.trim().isEmpty
-                              ? '${widget.isTagMode ? '#' : '@'}${widget.initialKeyword}'
-                              : '${widget.isTagMode ? '#' : '@'}${searchText.trim()}';
-
-                      return Text(
-                        displayText,
+                  Text(
+                    widget.isTagMode ? '#' : '@',
+                    style: GoogleFonts.kumbhSans(
+                      color:
+                          (uiController.secondaryColor != null &&
+                                  uiController.darkMode.value)
+                              ? Colors.white
+                              : Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: TextSelectionTheme(
+                      data: TextSelectionThemeData(
+                        cursorColor: widget.isTagMode ? AppColors.blue : AppColors.green,
+                        selectionColor: (widget.isTagMode ? AppColors.blue : AppColors.green).withValues(alpha: 0.3),
+                        selectionHandleColor: widget.isTagMode ? AppColors.blue : AppColors.green,
+                      ),
+                      child: TextField(
+                        controller: searchController,
+                        autofocus: true,
                         style: GoogleFonts.kumbhSans(
                           color:
                               (uiController.secondaryColor != null &&
                                       uiController.darkMode.value)
-                                  ? Colors
-                                      .white // White text for both @ and # in dark mode with color
-                                  : Colors.black, // Black text otherwise
-
+                                  ? Colors.white
+                                  : Colors.black,
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                         ),
-                      );
-                    },
+                        decoration: InputDecoration(
+                          hintText: 'Search...',
+                          hintStyle: GoogleFonts.kumbhSans(
+                            color:
+                                (uiController.secondaryColor != null &&
+                                        uiController.darkMode.value)
+                                    ? Colors.white.withValues(alpha: 0.5)
+                                    : Colors.black.withValues(alpha: 0.5),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: (value) {
+                          widget.searchNotifier.value = value;
+                          controller.filterItems(value);
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -386,8 +444,8 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                     style: GoogleFonts.kumbhSans(
                                                       color:
                                                           widget.isTagMode
-                                                              ? AppColors.green
-                                                              : AppColors.blue,
+                                                              ? AppColors.blue
+                                                              : AppColors.green,
                                                       fontSize: 16,
                                                       fontWeight: item['type'] == 'main_group'
                                                           ? FontWeight.w600
@@ -420,21 +478,36 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                     ),
                                                     decoration: BoxDecoration(
                                                       color: (widget.isTagMode
-                                                          ? AppColors.green
-                                                          : AppColors.blue).withValues(alpha: 0.1),
+                                                          ? AppColors.blue
+                                                          : AppColors.green).withValues(alpha: 0.1),
                                                       borderRadius: BorderRadius.circular(8),
                                                     ),
                                                     child: Text(
                                                       'Group',
                                                       style: GoogleFonts.kumbhSans(
                                                         color: widget.isTagMode
-                                                            ? AppColors.green
-                                                            : AppColors.blue,
+                                                            ? AppColors.blue
+                                                            : AppColors.green,
                                                         fontSize: 12,
                                                         fontWeight: FontWeight.w500,
                                                       ),
                                                     ),
                                                   ),
+                                                // Edit icon
+                                                const SizedBox(width: 8),
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    _showEditGroupPopup(context, item);
+                                                  },
+                                                  child: Image.asset(
+                                                    'assets/images/edit_pencil_1.png',
+                                                    width: 18,
+                                                    height: 18,
+                                                    color: uiController.darkMode.value
+                                                        ? Colors.white.withValues(alpha: 0.7)
+                                                        : Colors.grey[600],
+                                                  ),
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -446,6 +519,63 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                           },
                         ),
                       ),
+            ),
+
+            // See List button at bottom
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade300, width: 1),
+                ),
+              ),
+              child: GestureDetector(
+                onTap: () async {
+                  // Close the current popup
+                  widget.onEditingComplete?.call();
+
+                  // Navigate to the appropriate groups screen
+                  final result = widget.isTagMode
+                      ? await Get.toNamed('/hashtag-groups')
+                      : await Get.toNamed('/contact-groups');
+
+                  // Handle the returned result
+                  if (result != null) {
+                    final prefixChar = widget.isTagMode ? '#' : '@';
+                    String itemName = '';
+
+                    if (widget.isTagMode && result is HashtagGroup) {
+                      itemName = result.name;
+                    } else if (!widget.isTagMode && result is ContactGroup) {
+                      itemName = result.name;
+                    }
+
+                    if (itemName.isNotEmpty) {
+                      widget.onItemSelected('$prefixChar$itemName');
+                    }
+                  }
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'See List',
+                      style: GoogleFonts.kumbhSans(
+                        color: widget.isTagMode ? AppColors.blue : AppColors.green,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: widget.isTagMode ? AppColors.blue : AppColors.green,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -459,12 +589,16 @@ class _AddGroupPopupDialog extends StatefulWidget {
   final String initialName;
   final Function(String) onItemSelected;
   final VoidCallback? onComplete;
+  final int? editItemId;
+  final String? editParentId;
 
   const _AddGroupPopupDialog({
     required this.isTagMode,
     required this.initialName,
     required this.onItemSelected,
     this.onComplete,
+    this.editItemId,
+    this.editParentId,
   });
 
   @override
@@ -483,6 +617,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
   void initState() {
     super.initState();
     _nameController.text = widget.initialName;
+    _selectedCategoryId = widget.editParentId;
     _loadCategories();
   }
 
@@ -530,6 +665,110 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         );
       }
       return;
+    }
+
+    // If editing, update the name and parent category
+    if (widget.editItemId != null) {
+      // Validation: Check if category is selected when editing
+      if (_selectedCategoryId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Please select a category',
+                style: GoogleFonts.kumbhSans(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (_selectedCategoryId == 'add_new_category' && _newCategoryController.text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Please enter a new category name',
+                style: GoogleFonts.kumbhSans(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      try {
+        final newName = _nameController.text.trim();
+        int parentId;
+
+        // Handle creating new category if "Add New Category" was selected
+        if (_selectedCategoryId == 'add_new_category') {
+          final newCategoryName = _newCategoryController.text.trim();
+
+          if (widget.isTagMode) {
+            final hashtagGroupService = HashtagGroupService();
+            final newGroup = await hashtagGroupService.addCustomGroup(newCategoryName);
+            if (newGroup?.id == null) {
+              throw Exception('Failed to create new hashtag category');
+            }
+            parentId = newGroup!.id!;
+          } else {
+            final contactGroupService = ContactGroupService();
+            final newGroup = await contactGroupService.addCustomGroup(newCategoryName);
+            if (newGroup?.id == null) {
+              throw Exception('Failed to create new contact category');
+            }
+            parentId = newGroup!.id!;
+          }
+        } else {
+          parentId = int.parse(_selectedCategoryId!);
+        }
+
+        // Update the item with new name and parent category
+        if (widget.isTagMode) {
+          final databaseHelper = DatabaseHelper.instance;
+          await databaseHelper.updateHashtagGroup(widget.editItemId!, {
+            'name': newName,
+            'parent_id': parentId,
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+        } else {
+          final databaseHelper = DatabaseHelper.instance;
+          await databaseHelper.updateContactGroup(widget.editItemId!, {
+            'contact_group_name': newName,
+            'contact_group_parent_id': parentId,
+            'contact_group_updated_at': DateTime.now().toIso8601String(),
+          });
+        }
+
+        // Call the onItemSelected callback with the updated item
+        final prefixChar = widget.isTagMode ? '#' : '@';
+        widget.onItemSelected('$prefixChar$newName');
+
+        // Close the dialog
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        widget.onComplete?.call();
+        return;
+      } catch (e) {
+        debugPrint('Error updating item: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to update ${widget.isTagMode ? 'hashtag' : 'contact'}',
+                style: GoogleFonts.kumbhSans(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
     }
 
     // Validation: Check if category is selected or new category name is provided
@@ -636,8 +875,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
 
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 10),
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.98,
+        width: double.infinity,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: uiController.darkMode.value ? Colors.grey[900] : Colors.white,
@@ -664,7 +904,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 ),
                 // Title
                 Text(
-                  '$prefixChar new ${widget.isTagMode ? 'Hashtag' : 'Mention'}',
+                  widget.editItemId != null
+                      ? '$prefixChar edit ${widget.isTagMode ? 'Hashtag' : 'Mention'}'
+                      : '$prefixChar new ${widget.isTagMode ? 'Hashtag' : 'Mention'}',
                   style: GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 18,
@@ -768,23 +1010,30 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
-                child: TextField(
-                  controller: _newCategoryController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter new category name',
-                    hintStyle: GoogleFonts.kumbhSans(
-                      color: Colors.grey.shade600,
+                child: TextSelectionTheme(
+                  data: TextSelectionThemeData(
+                    cursorColor: uiController.currentMainColor,
+                    selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                    selectionHandleColor: uiController.currentMainColor,
+                  ),
+                  child: TextField(
+                    controller: _newCategoryController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter new category name',
+                      hintStyle: GoogleFonts.kumbhSans(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                    ),
+                    style: GoogleFonts.kumbhSans(
+                      color: Colors.black,
                       fontSize: 16,
                     ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 12,
-                    ),
-                  ),
-                  style: GoogleFonts.kumbhSans(
-                    color: Colors.black,
-                    fontSize: 16,
                   ),
                 ),
               ),
@@ -801,19 +1050,26 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: TextField(
-                controller: _nameController,
-                style: GoogleFonts.kumbhSans(
-                  color: Colors.grey.shade600,
-                  fontSize: 16,
+              child: TextSelectionTheme(
+                data: TextSelectionThemeData(
+                  cursorColor: uiController.currentMainColor,
+                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionHandleColor: uiController.currentMainColor,
                 ),
-                decoration: InputDecoration(
-                  hintText: '$prefixChar Name',
-                  hintStyle: GoogleFonts.kumbhSans(
-                    color: Colors.grey.shade400,
+                child: TextField(
+                  controller: _nameController,
+                  style: GoogleFonts.kumbhSans(
+                    color: Colors.grey.shade600,
                     fontSize: 16,
                   ),
-                  border: InputBorder.none,
+                  decoration: InputDecoration(
+                    hintText: '$prefixChar Name',
+                    hintStyle: GoogleFonts.kumbhSans(
+                      color: Colors.grey.shade400,
+                      fontSize: 16,
+                    ),
+                    border: InputBorder.none,
+                  ),
                 ),
               ),
             ),

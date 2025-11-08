@@ -320,7 +320,7 @@ class _MemoriesFilterTextFieldRowState
                                 controller2.darkMode.value
                                     ? Colors.white
                                     : Colors.black,
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.w400,
                           ),
                           decoration: InputDecoration(
@@ -330,8 +330,8 @@ class _MemoriesFilterTextFieldRowState
                               color:
                                   controller2.darkMode.value
                                       ? Colors.white54
-                                      : Colors.grey[600],
-                              fontSize: 15,
+                                      : Colors.grey[700],
+                              fontSize: 16,
                               fontWeight: FontWeight.w400,
                             ),
 
