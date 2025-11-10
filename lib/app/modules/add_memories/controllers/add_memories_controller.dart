@@ -587,6 +587,7 @@ class AddMemoriesController extends GetxController {
     final seenHashtags = <String>{};
     final seenMentions = <String>{};
     final seenLocations = <String>{};
+    final seenCategories = <String>{};
 
     for (final memory in allMemories) {
       final text = memory['text'] ?? '';
@@ -725,6 +726,40 @@ class AddMemoriesController extends GetxController {
             'location_flag': locationFlag,
             'type': 'location',
           });
+        }
+
+        // 5. Add place category matches - works with or without emoji
+        if (category.isNotEmpty && !seenCategories.contains(category)) {
+          // Category is stored as "emoji name" (e.g., "🍽️ Restaurant")
+          // Search should match the name part without requiring emoji
+
+          // Extract category name without emoji
+          String categoryName = category;
+          if (category.contains(' ')) {
+            // If category has emoji, get the name part after the emoji
+            final parts = category.split(' ');
+            if (parts.length > 1) {
+              categoryName = parts.sublist(1).join(' '); // Join in case name has spaces
+            }
+          }
+
+          // Match against category name (without emoji) or full category (with emoji)
+          if (categoryName.toLowerCase().contains(lowerQuery) ||
+              category.toLowerCase().contains(lowerQuery)) {
+            seenCategories.add(category);
+            suggestionsWithMetadata.add({
+              'text': category, // Keep full category with emoji for display
+              'date': date,
+              'year': year,
+              'time': time,
+              'category': category,
+              'location': location,
+              'location_city': locationCity,
+              'location_country': locationCountry,
+              'location_flag': locationFlag,
+              'type': 'category',
+            });
+          }
         }
       }
     }
