@@ -1833,26 +1833,50 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           ),
 
           actions: [
-            // Add main category button
-            IconButton(
-              onPressed: _startInlineAddingMainCategory,
-              icon: ColorFiltered(
-                colorFilter: const ColorFilter.mode(
-                  Colors.white,
-                  BlendMode.srcIn,
+            // Hide add button when in filter mode
+            if (!widget.allowMultipleSelection)
+              // Add main category button
+              IconButton(
+                onPressed: _startInlineAddingMainCategory,
+                icon: ColorFiltered(
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset(
+                    'assets/images/ic_add.png',
+                    width: 25,
+                    height: 25,
+                  ),
                 ),
-                child: Image.asset(
-                  'assets/images/ic_add.png',
-                  width: 25,
-                  height: 25,
-                ),
+                tooltip: 'Add Main Category',
               ),
-              tooltip: 'Add Main Category',
-            ),
           ],
         ),
         body: Column(
           children: [
+            // Selection indicator when in filter mode
+            if (widget.allowMultipleSelection)
+              Obx(() {
+                return Center(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      _selectedCategories.isEmpty
+                          ? 'Select categories to filter'
+                          : '${_selectedCategories.length} ${_selectedCategories.length == 1 ? 'category' : 'categories'} selected',
+                      textAlign: TextAlign.center,
+                      style: gfonts.GoogleFonts.kumbhSans(
+                        color: uiController.currentMainColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+
             // Inline add main category widget
             Obx(() => _addingMainCategory.value
                 ? _buildInlineAddMainCategoryWidget()
@@ -2467,11 +2491,32 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       final isMainCategorySelected = widget.allowMultipleSelection &&
           _selectedCategories.any((c) => c.id == mainCategory.id);
 
+      // Check if all subcategories are selected (for filter mode)
+      final allSubcategoriesSelected = widget.allowMultipleSelection &&
+          mainCategory.subcategories != null &&
+          mainCategory.subcategories!.isNotEmpty &&
+          mainCategory.subcategories!.every((subcategory) =>
+              _selectedCategories.any((c) => c.id == subcategory.id));
+
+      // Count selected subcategories
+      final selectedSubcategoriesCount = widget.allowMultipleSelection &&
+          mainCategory.subcategories != null
+          ? mainCategory.subcategories!.where((subcategory) =>
+              _selectedCategories.any((c) => c.id == subcategory.id)).length
+          : 0;
+
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         decoration: BoxDecoration(
           color: uiController.darkMode.value ? Colors.black : Colors.white,
           borderRadius: BorderRadius.circular(2),
+          // Add border to entire container when all subcategories are selected (filter mode only)
+          border: widget.allowMultipleSelection && allSubcategoriesSelected
+              ? Border.all(
+                  color: uiController.currentMainColor,
+                  width: 2,
+                )
+              : null,
         ),
         child: Column(
           children: [
@@ -2479,11 +2524,13 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               decoration: BoxDecoration(
+                // Changed background color: white in light mode, grey in dark mode
                 color: uiController.darkMode.value
                     ? Colors.grey[900]
-                    : Colors.grey[100],
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(2),
-                border: isMainCategorySelected
+                // Show border on category only when it's selected individually (not when all subcategories selected)
+                border: isMainCategorySelected && !allSubcategoriesSelected
                     ? Border.all(
                         color: uiController.currentMainColor,
                         width: 2,
@@ -2525,19 +2572,32 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                                   style: gfonts.GoogleFonts.kumbhSans(
                                     color: uiController.darkMode.value ? Colors.white : Colors.black,
                                     fontWeight: isMainCategorySelected ? FontWeight.w600 : FontWeight.w500,
-                                    fontSize: 16,
+                                    fontSize: 14,
                                   ),
                                 ),
-                                TextSpan(
-                                  text: ' (${mainCategory.subcategories!.length})',
-                                  style: gfonts.GoogleFonts.kumbhSans(
-                                    color:
-                                        uiController.darkMode.value
-                                            ? Colors.white.withValues(alpha: 0.6)
-                                            : Colors.grey[600],
-                                    fontSize: 16,
+                                // Show selection count when in filter mode and subcategories are selected
+                                if (widget.allowMultipleSelection && selectedSubcategoriesCount > 0)
+                                  TextSpan(
+                                    text: ' ($selectedSubcategoriesCount/${mainCategory.subcategories?.length ?? 0})',
+                                    style: gfonts.GoogleFonts.kumbhSans(
+                                      color:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(alpha: 0.6)
+                                              : Colors.grey[600],
+                                      fontSize: 15,
+                                    ),
+                                  )
+                                else
+                                  TextSpan(
+                                    text: ' (${mainCategory.subcategories?.length ?? 0})',
+                                    style: gfonts.GoogleFonts.kumbhSans(
+                                      color:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(alpha: 0.6)
+                                              : Colors.grey[600],
+                                      fontSize: 15,
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                             maxLines: null, // Allow unlimited lines
@@ -2551,50 +2611,53 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Show edit button for all categories
-                    IconButton(
-                      icon: ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.grey[500] ?? Colors.grey,
-                          BlendMode.srcIn,
-                        ),
-                        child: Image.asset(
-                          'assets/images/ic_edit.png',
-                          width: 25,
-                          height: 25,
-                        ),
-                      ),
-                      onPressed: () => _showEditCategoryDialog(mainCategory),
-                      tooltip:
-                          mainCategory.isCustom
-                              ? 'Edit Custom Category'
-                              : 'Edit Category',
-                    ),
-                    Obx(
-                      () => IconButton(
+                    // Hide edit/delete/add buttons when in filter mode
+                    if (!widget.allowMultipleSelection) ...[
+                      // Show edit button for all categories
+                      IconButton(
                         icon: ColorFiltered(
                           colorFilter: ColorFilter.mode(
-                            (_addingToCategory[mainCategory.id] ?? false)
-                                ? Colors.grey
-                                : uiController.darkMode.value
-                                    ? Colors.white.withValues(alpha: 0.6)
-                                    : uiController.currentMainColor,
+                            uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.6)
+                                : Colors.grey[500] ?? Colors.grey,
                             BlendMode.srcIn,
                           ),
                           child: Image.asset(
-                            'assets/images/ic_add.png',
+                            'assets/images/ic_edit.png',
                             width: 25,
                             height: 25,
                           ),
                         ),
-                        onPressed: (_addingToCategory[mainCategory.id] ?? false)
-                            ? null
-                            : () => _startInlineAdding(mainCategory.id!),
-                        tooltip: 'Add Subcategory',
+                        onPressed: () => _showEditCategoryDialog(mainCategory),
+                        tooltip:
+                            mainCategory.isCustom
+                                ? 'Edit Custom Category'
+                                : 'Edit Category',
                       ),
-                    ),
+                      Obx(
+                        () => IconButton(
+                          icon: ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              (_addingToCategory[mainCategory.id] ?? false)
+                                  ? Colors.grey
+                                  : uiController.darkMode.value
+                                      ? Colors.white.withValues(alpha: 0.6)
+                                      : uiController.currentMainColor,
+                              BlendMode.srcIn,
+                            ),
+                            child: Image.asset(
+                              'assets/images/ic_add.png',
+                              width: 25,
+                              height: 25,
+                            ),
+                          ),
+                          onPressed: (_addingToCategory[mainCategory.id] ?? false)
+                              ? null
+                              : () => _startInlineAdding(mainCategory.id!),
+                          tooltip: 'Add Subcategory',
+                        ),
+                      ),
+                    ],
                     Obx(
                       () => ColorFiltered(
                         colorFilter: ColorFilter.mode(
@@ -2662,13 +2725,14 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
       return Container(
         margin: EdgeInsets.symmetric(
-          horizontal: isSubcategory ? 16 : 16,
+          horizontal: isSubcategory ? 10 : 16,
           vertical: 2,
         ),
         decoration: BoxDecoration(
+          // Changed background color to #F1F1F1 in light mode
           color: uiController.darkMode.value
               ? Colors.grey[900]
-              : Colors.grey[100],
+              : const Color(0xFFF1F1F1),
           borderRadius: BorderRadius.circular(2),
           border: isSelected
               ? Border.all(
@@ -2678,32 +2742,39 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               : null,
         ),
         child: ListTile(
-          dense: isSubcategory,
-          leading: Text(
-            !isSubcategory ? '' : category.emoji,
-            style: gfonts.GoogleFonts.kumbhSans(fontSize: isSubcategory ? 20 : 24),
-          ),
-          title: Text(
-            category.name,
-            style: gfonts.GoogleFonts.kumbhSans(
-              color: uiController.darkMode.value ? Colors.white : Colors.black,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              fontSize: isSubcategory ? 14 : 16,
+          contentPadding: EdgeInsets.symmetric(horizontal: 5),
+          dense: true,
+          title: RichText(
+            text: TextSpan(
+              children: [
+                if (isSubcategory)
+                  TextSpan(
+                    text: '${category.emoji} ',
+                    style: gfonts.GoogleFonts.kumbhSans(fontSize: 18),
+                  ),
+                TextSpan(
+                  text: category.name,
+                  style: gfonts.GoogleFonts.kumbhSans(
+                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
             ),
           ),
-          subtitle:
-              isSearchResult && category.isSubcategory
-                  ? Text(
-                    'in ${_getParentCategoryName(category.parentId!)}',
-                    style: gfonts.GoogleFonts.kumbhSans(
-                      color:
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.5)
-                              : Colors.grey[500],
-                      fontSize: 12,
-                    ),
-                  )
-                  : null,
+          subtitle: isSearchResult && category.isSubcategory
+              ? Text(
+                  'in ${_getParentCategoryName(category.parentId!)}',
+                  style: gfonts.GoogleFonts.kumbhSans(
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.5)
+                            : Colors.grey[500],
+                    fontSize: 15,
+                  ),
+                )
+              : null,
           trailing:
               widget.allowMultipleSelection
                   ? null
