@@ -423,7 +423,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
               constraints: const BoxConstraints(maxHeight: 200),
               decoration: BoxDecoration(
                 color: uiController.darkMode.value
-                    ? Colors.grey[800]
+                    ? Colors.transparent 
                     : Colors.grey[50],
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -508,6 +508,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
 
     return ListView(
       shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: allItems,
     );
   }
