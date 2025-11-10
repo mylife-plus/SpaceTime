@@ -12,19 +12,23 @@ import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/shared/widgets/add_place_category_popup.dart';
 
 /// Generic searchable category widget that can be used across the app
-/// 
+///
 /// Usage examples:
 /// 1. Memory creation: SearchableCategoryWidget(onCategorySelected: (category) => controller.setCategory(category))
 /// 2. Filter popup: SearchableCategoryWidget(title: "Search Place Categories", onCategorySelected: (category) => addToFilter(category))
 class SearchableCategoryWidget extends StatefulWidget {
   /// Title/placeholder text to display when no category is selected
   final String title;
-  
+
   /// Current selected category text (optional)
   final String? selectedCategory;
-  
+
   /// Callback when a category is selected
   final Function(PlaceCategory category) onCategorySelected;
+
+  /// Whether to allow multiple selection in the full category picker (default: true)
+  /// Set to false when opening from Memory Info Widget for single selection
+  final bool allowMultipleSelectionInPicker;
 
   /// Callback when focus state changes (optional)
   final Function(bool isFocused)? onFocusChanged;
@@ -55,6 +59,7 @@ class SearchableCategoryWidget extends StatefulWidget {
     this.saveToRecent = true,
     this.backgroundColor,
     this.isCompact = false,
+    this.allowMultipleSelectionInPicker = true,
   });
 
   @override
@@ -262,23 +267,40 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
 
   /// Navigate to full category picker
   void _navigateToFullPicker() async {
-    // Navigate to Category Picker in multiple selection mode
-    final result = await Get.to(
-      () => CategoryPickerWidget(
-        allowMultipleSelection: true,
-        onMultipleCategoriesSelected: (selectedCategories) {
-          // Handle selected categories
-          for (final category in selectedCategories) {
-            _selectCategory(category);
-          }
-        },
-      ),
-    );
+    if (widget.allowMultipleSelectionInPicker) {
+      // Navigate to Category Picker in multiple selection mode
+      final result = await Get.to(
+        () => CategoryPickerWidget(
+          allowMultipleSelection: true,
+          onMultipleCategoriesSelected: (selectedCategories) {
+            // Handle selected categories
+            for (final category in selectedCategories) {
+              _selectCategory(category);
+            }
+          },
+        ),
+      );
 
-    // Handle result if returned via Get.back
-    if (result != null && result is List<PlaceCategory>) {
-      for (final category in result) {
-        _selectCategory(category);
+      // Handle result if returned via Get.back
+      if (result != null && result is List<PlaceCategory>) {
+        for (final category in result) {
+          _selectCategory(category);
+        }
+      }
+    } else {
+      // Navigate to Category Picker in single selection mode
+      final result = await Get.to(
+        () => CategoryPickerWidget(
+          allowMultipleSelection: false,
+          onCategorySelected: (category) {
+            _selectCategory(category);
+          },
+        ),
+      );
+
+      // Handle result if returned via Get.back
+      if (result != null && result is PlaceCategory) {
+        _selectCategory(result);
       }
     }
   }

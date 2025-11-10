@@ -92,6 +92,7 @@ class MemoryInfoWidget extends StatelessWidget {
               backgroundColor: controller2.darkMode.value
                   ? Colors.black.withValues(alpha: 0.5)
                   : Colors.white,
+              allowMultipleSelectionInPicker: false, // Single selection mode for Memory Info Widget
             ),
           ],
         ),

@@ -38,6 +38,9 @@ class _MemoryViewState extends State<MemoryView> {
   final RxList<String> _selectedImagePaths = <String>[].obs;
   int? _editingMemoryId;
 
+  // Track keyboard visibility
+  final RxBool _isKeyboardVisible = false.obs;
+
   // Track original database images and audio for edit mode
   List<Map<String, dynamic>> _originalImages = [];
   List<Map<String, dynamic>> _originalAudios = [];
@@ -1323,22 +1326,27 @@ class _MemoryViewState extends State<MemoryView> {
         }
       },
       child: Obx(
-        () => Scaffold(
-          resizeToAvoidBottomInset: true,
-          backgroundColor:
-              controller.darkMode.value
-                  ? Colors.white.withOpacity(0.03)
-                  : Colors.white,
-          body: GestureDetector(
-            // Dismiss keyboard when tapping outside text fields
-            onTap: () {
-              FocusScope.of(context).unfocus();
-            },
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
+        () {
+          // Detect keyboard visibility
+          final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+          _isKeyboardVisible.value = keyboardHeight > 0;
+
+          return Scaffold(
+            resizeToAvoidBottomInset: true,
+            backgroundColor:
+                controller.darkMode.value
+                    ? Colors.white.withOpacity(0.03)
+                    : Colors.white,
+            body: GestureDetector(
+              // Dismiss keyboard when tapping outside text fields
+              onTap: () {
+                FocusScope.of(context).unfocus();
+              },
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1478,19 +1486,23 @@ class _MemoryViewState extends State<MemoryView> {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        InkWell(
-                          onTap: () {
-                            _handleCancel(
-                              memoryController.recordedAudioPaths.value,
-                              _selectedImagePaths.value,
-                              memoryController.recordedAudios.value,
-                            );
-                          },
+                  // Bottom action buttons - hide when keyboard is visible
+                  Obx(
+                    () => _isKeyboardVisible.value
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(bottom: 20.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                InkWell(
+                                  onTap: () {
+                                    _handleCancel(
+                                      memoryController.recordedAudioPaths,
+                                      _selectedImagePaths,
+                                      memoryController.recordedAudios,
+                                    );
+                                  },
                           child: Container(
                             width: 60,
                             height: 60,
@@ -1649,6 +1661,7 @@ class _MemoryViewState extends State<MemoryView> {
                       ],
                     ),
                   ),
+                  ), // Close Obx for bottom buttons
                 ],
               ),
             ),
@@ -1660,7 +1673,8 @@ class _MemoryViewState extends State<MemoryView> {
           //   mini: true,
           //   child: const Icon(Icons.bug_report, size: 20),
           // ),
-        ),
+          );
+        },
       ),
     );
   }
