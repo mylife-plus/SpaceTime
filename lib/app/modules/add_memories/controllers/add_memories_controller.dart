@@ -686,10 +686,20 @@ class AddMemoriesController extends GetxController {
           }
         }
 
-        // 4. Add location matches (city/country)
+        // 4. Add location matches (city/country) - works with or without flag
         String locationDisplay = '';
         if (locationCity.isNotEmpty && locationCountry.isNotEmpty) {
           locationDisplay = '$locationCity, $locationCountry';
+          if (locationFlag.isNotEmpty) {
+            locationDisplay += ' $locationFlag';
+          }
+        } else if (locationCity.isNotEmpty) {
+          locationDisplay = locationCity;
+          if (locationFlag.isNotEmpty) {
+            locationDisplay += ' $locationFlag';
+          }
+        } else if (locationCountry.isNotEmpty) {
+          locationDisplay = locationCountry;
           if (locationFlag.isNotEmpty) {
             locationDisplay += ' $locationFlag';
           }
