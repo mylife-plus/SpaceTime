@@ -508,7 +508,6 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
 
     return ListView(
       shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
       children: allItems,
     );
   }

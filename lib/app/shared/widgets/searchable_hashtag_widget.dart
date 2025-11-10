@@ -449,7 +449,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
               constraints: const BoxConstraints(maxHeight: 200),
               decoration: BoxDecoration(
                 color: uiController.darkMode.value
-                    ? Colors.grey[800]
+                    ? Colors.transparent 
                     : Colors.grey[50],
                 borderRadius: BorderRadius.circular(8),
               ),
