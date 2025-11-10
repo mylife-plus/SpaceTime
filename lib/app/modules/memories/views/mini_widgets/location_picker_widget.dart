@@ -1984,10 +1984,10 @@ Future<bool> _checkOfflineTileCount() async {
 
     return Obx(
       () => Scaffold(
-        backgroundColor:
-            uiController.darkMode.value ? Colors.black : Colors.white,
-        body: Stack(
-          children: [
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
             // Always keep the map in the background
             mapbox.MapWidget(
               key: const ValueKey("mapbox_map_new"),
@@ -2118,7 +2118,8 @@ Future<bool> _checkOfflineTileCount() async {
             // Error overlay
             // if (currentState  == LocationPickerState.error)
             // _buildErrorScreen(),
-          ],
+            ],
+          ),
         ),
       ),
     );

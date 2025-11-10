@@ -41,8 +41,10 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: uiController.darkMode.value ? Colors.black : Colors.white,
-      body: Obx(() => _buildBody()),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Obx(() => _buildBody()),
+      ),
     );
   }
 
@@ -319,9 +321,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _showSearchResults.value
-                ? _buildSearchField()
-                : _buildSearchPlaceholder(),
+            child: _buildSearchField(),
           ),
           if (_searchController.text.isNotEmpty)
             GestureDetector(
@@ -364,29 +364,6 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
       controller.searchResults.clear();
       controller.searchQuery.value = '';
     }
-  }
-
-  /// Build search placeholder text
-  Widget _buildSearchPlaceholder() {
-    return GestureDetector(
-      onTap: () {
-        _showSearchResults.value = true;
-        Future.delayed(const Duration(milliseconds: 100), () {
-          _searchFocusNode.requestFocus();
-        });
-      },
-      child: Container(
-        width: double.infinity,
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Search locations...',
-          style: AppFonts.medium(
-            16,
-            color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600]!,
-          ),
-        ),
-      ),
-    );
   }
 
   /// Build search text field

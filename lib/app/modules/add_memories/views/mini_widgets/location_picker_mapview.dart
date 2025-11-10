@@ -21,9 +21,10 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
       debugPrint('[LocationPickerWidget][build] State: isOfflineMode=${controller.isOfflineMode.value}, isLoading=${controller.isLoading.value}');
 
       return Scaffold(
-        backgroundColor: uiController.darkMode.value ? Colors.black : Colors.white,
-        body: Stack(
-          children: [
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
             if (controller.isLoading.value)
               const Center(
                 child: Column(
@@ -102,7 +103,8 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
                   ),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       );
     });

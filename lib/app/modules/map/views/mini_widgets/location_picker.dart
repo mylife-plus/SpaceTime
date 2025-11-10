@@ -284,10 +284,10 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
     final controller = Get.find<UiController>();
     return Obx(
       () => Scaffold(
-        backgroundColor:
-            uiController.darkMode.value ? Colors.black : Colors.white,
-        body: Stack(
-          children: [
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
             if (isLoading)
               const Center(
                 child: Column(
@@ -430,7 +430,8 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -116,8 +116,10 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: uiController.darkMode.value ? Colors.black : Colors.white,
-      body: Obx(() => _buildBody()),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Obx(() => _buildBody()),
+      ),
     );
   }
 
@@ -231,77 +233,50 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       top: 50,
       left: 4,
       right: hasLocationPermission.value && currentPosition.value != null ? 60 : 4,
-      child: GestureDetector(
-        onTap: () {
-          if (!_showSearchResults.value) {
-            _showSearchResults.value = true;
-          }
-          Future.delayed(const Duration(milliseconds: 100), () {
-            _searchFocusNode.requestFocus();
-          });
-        },
-        child: Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: uiController.darkMode.value
-                ? Colors.black.withValues(alpha: 0.8)
-                : Colors.white.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Obx(() => Row(
-            children: [
-              Image.asset(
-                AppImages.searchNormal,
-                width: 20,
-                height: 20,
-                color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _showSearchResults.value
-                    ? _buildSearchField()
-                    : _buildSearchPlaceholder(),
-              ),
-              if (_searchController.text.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    _searchController.clear();
-                    searchResults.clear();
-                    _showSearchResults.value = false;
-                    _searchFocusNode.unfocus();
-                  },
-                  child: Icon(
-                    Icons.clear,
-                    size: 20,
-                    color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
-                  ),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: uiController.darkMode.value
+              ? Colors.black.withValues(alpha: 0.8)
+              : Colors.white.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Obx(() => Row(
+          children: [
+            Image.asset(
+              AppImages.searchNormal,
+              width: 20,
+              height: 20,
+              color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildSearchField(),
+            ),
+            if (_searchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchController.clear();
+                  searchResults.clear();
+                  _showSearchResults.value = false;
+                  _searchFocusNode.unfocus();
+                },
+                child: Icon(
+                  Icons.clear,
+                  size: 20,
+                  color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
                 ),
-            ],
-          )),
-        ),
-      ),
-    );
-  }
-
-  /// Build search placeholder text
-  Widget _buildSearchPlaceholder() {
-    return Container(
-      width: double.infinity,
-      alignment: Alignment.centerLeft,
-      child: Text(
-        'Search locations...',
-        style: AppFonts.medium(
-          16,
-          color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600]!,
-        ),
+              ),
+          ],
+        )),
       ),
     );
   }
