@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../ui/controllers/ui_controller.dart';
 import '../controllers/get_started_controller.dart';
 
@@ -73,7 +74,7 @@ class GetStartedView extends GetView<GetStartedController> {
               textAlign: TextAlign.center,
             ),
 
-            const SizedBox(height: 8),
+            // const SizedBox(height: 8),
 
             // SpaceTime text
             Text(
@@ -111,7 +112,7 @@ class GetStartedView extends GetView<GetStartedController> {
               style: TextStyle(
                 fontFamily: 'KumbhSans',
                 fontSize: 28,
-                fontWeight: FontWeight.w300,
+                fontWeight: FontWeight.w200,
                 color: Colors.white,
                 shadows: [
                   Shadow(
@@ -129,18 +130,17 @@ class GetStartedView extends GetView<GetStartedController> {
             // "100% offline" text
             Text(
               '100% offline',
-              style: TextStyle(
-                fontFamily: 'KumbhSans',
+              style: GoogleFonts.mako(
                 fontSize: 32,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
                 color: Colors.white,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withValues(alpha: 0.8),
-                    blurRadius: 8,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+                // shadows: [
+                //   Shadow(
+                //     color: Colors.black.withValues(alpha: 0.8),
+                //     blurRadius: 8,
+                //     offset: const Offset(0, 1),
+                //   ),
+                // ],
               ),
               textAlign: TextAlign.center,
             ),
@@ -150,8 +150,7 @@ class GetStartedView extends GetView<GetStartedController> {
             // "100% open source" text
             Text(
               '100% open source',
-              style: TextStyle(
-                fontFamily: 'KumbhSans',
+              style: GoogleFonts.mako(
                 fontSize: 32,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
@@ -174,7 +173,7 @@ class GetStartedView extends GetView<GetStartedController> {
               style: TextStyle(
                 fontFamily: 'KumbhSans',
                 fontSize: 28,
-                fontWeight: FontWeight.w300,
+                fontWeight: FontWeight.w200,
                 color: Colors.white,
                 shadows: [
                   Shadow(
@@ -294,8 +293,7 @@ class GetStartedView extends GetView<GetStartedController> {
                   // "100% offline" text
                   Text(
                     '100% offline',
-                    style: TextStyle(
-                      fontFamily: 'KumbhSans',
+                    style: GoogleFonts.mako(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
@@ -315,8 +313,7 @@ class GetStartedView extends GetView<GetStartedController> {
                   // "100% open source" text
                   Text(
                     '100% open source',
-                    style: TextStyle(
-                      fontFamily: 'KumbhSans',
+                    style: GoogleFonts.mako(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
