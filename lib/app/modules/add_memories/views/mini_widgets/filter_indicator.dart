@@ -34,15 +34,14 @@ class FilterIndicator extends StatelessWidget {
         }
       }
 
-      // Location and radius are treated as a single filter
       if (controller.selectedLocation.value.isNotEmpty) {
         activeFilterCount++;
-        // Show both location and radius info if radius is set
-        if (controller.selectedRadius.value.isNotEmpty) {
-          activeFilters.add('Location (${controller.selectedRadius.value})');
-        } else {
-          activeFilters.add('Location');
-        }
+        activeFilters.add('Location');
+      }
+
+      if (controller.selectedRadius.value.isNotEmpty) {
+        activeFilterCount++;
+        activeFilters.add('Radius');
       }
 
       if (controller.selectedHashtags.isNotEmpty) {
