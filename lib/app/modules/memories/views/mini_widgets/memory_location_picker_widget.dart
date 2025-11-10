@@ -10,7 +10,7 @@ import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
-import 'package:spacetime/services/offline_location_search_service.dart';
+import 'package:spacetime/app/modules/location_picker/services/location_picker_service.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
 
 enum MemoryLocationPickerState {
@@ -31,7 +31,7 @@ class MemoryLocationPickerWidget extends StatefulWidget {
 class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget> {
   final MemoryController memoryController = Get.find<MemoryController>();
   final UiController uiController = Get.find<UiController>();
-  final OfflineLocationSearchService _offlineSearchService = OfflineLocationSearchService.instance;
+  final LocationPickerService _locationPickerService = LocationPickerService();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final RxBool _showSearchResults = false.obs;
@@ -405,10 +405,10 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              if (result['displayName'] != null) ...[
+              if (result['address'] != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  result['displayName'],
+                  result['address'],
                   style: AppFonts.regular(
                     14,
                     color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600]!,
@@ -597,14 +597,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   /// Check if offline tiles are available
   Future<bool> _areOfflineTilesAvailable() async {
     try {
-      // Check with offline search service if initialized
-      if (_offlineSearchService.isInitialized) {
-        // Assume tiles are available if offline search is initialized
-        // This is a reasonable assumption since both are downloaded together
-        return true;
-      }
-
-      return false;
+      // Check if offline mode is enabled
+      // This is managed by the offline map service
+      return isOfflineMode.value;
     } catch (e) {
       debugPrint('[MemoryLocationPicker] ❌ Error checking offline tiles: $e');
       return false;
@@ -825,7 +820,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
 
 
-  /// Perform location search using world locations service
+  /// Perform location search using LocationPickerService (same as new_location_picker_widget)
   Future<void> _performLocationSearch(String query) async {
     if (query.trim().isEmpty) return;
 
@@ -833,28 +828,14 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     searchResults.clear();
 
     try {
-      // Initialize offline search service if needed
-      if (!_offlineSearchService.isInitialized) {
-        await _offlineSearchService.initialize();
-      }
-
-      // Search for locations using offline service
-      final results = await _offlineSearchService.searchLocations(
+      // Use LocationPickerService for searching (same database as new_location_picker_widget)
+      final results = await _locationPickerService.searchLocations(
         query,
-        limit: 10,
-        forceOffline: isOfflineMode.value,
+        isOfflineMode: isOfflineMode.value,
       );
 
-      // Convert to our format
-      searchResults.addAll(results.map((result) => {
-        'name': result.displayName,
-        'displayName': result.shortDisplayName,
-        'latitude': result.latitude,
-        'longitude': result.longitude,
-        'country': result.country,
-        'city': result.city,
-        'type': result.type.toString(),
-      }));
+      // Results are already in the correct format from LocationPickerService
+      searchResults.addAll(results);
 
     } catch (e) {
       debugPrint('Error performing location search: $e');

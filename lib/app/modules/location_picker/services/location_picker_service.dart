@@ -568,25 +568,25 @@ class LocationPickerService {
       double zoom;
 
       if (radiusKm <= 5) {
-        zoom = 13.0; // Neighborhood level
+        zoom = 10.5; // Neighborhood level
       } else if (radiusKm <= 10) {
-        zoom = 12.0; // City area
+        zoom = 9.5; // City area
       } else if (radiusKm <= 25) {
-        zoom = 10.0; // Metropolitan area
+        zoom = 8.5; // Metropolitan area
       } else if (radiusKm <= 50) {
-        zoom = 9.0; // Large city area
+        zoom =7.5; // Large city area
       } else if (radiusKm <= 100) {
-        zoom = 8.0; // Regional level
+        zoom = 6.5; // Regional level
       } else if (radiusKm <= 200) {
-        zoom = 7.0; // State/province level
+        zoom = 5.5; // State/province level
       } else if (radiusKm <= 500) {
-        zoom = 6.0; // Large state/small country
+        zoom = 5.5; // Large state/small country
       } else if (radiusKm <= 1000) {
-        zoom = 5.0; // Country level
+        zoom = 4.0; // Country level
       } else if (radiusKm <= 2000) {
-        zoom = 4.0; // Large country/continent
+        zoom = .0; // Large country/continent
       } else {
-        zoom = 3.0; // Continental/global view
+        zoom = 2.0; // Continental/global view
       }
 
       debugPrint('[LocationPickerService] Calculated zoom level: $zoom for radius: ${radiusKm}km');
