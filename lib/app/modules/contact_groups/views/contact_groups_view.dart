@@ -1219,30 +1219,66 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             color: uiController.darkMode.value ? Colors.white : Colors.white,
           ),
           actions: [
-            // Add button in title bar
-            IconButton(
-              onPressed: () => _startInlineAddingMainContactGroup(),
-              icon: ColorFiltered(
-                colorFilter: const ColorFilter.mode(
-                  Colors.white,
-                  BlendMode.srcIn,
+            // Hide add button in filter mode
+            if (!widget.allowMultipleSelection)
+              IconButton(
+                onPressed: () => _startInlineAddingMainContactGroup(),
+                icon: ColorFiltered(
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset(
+                    'assets/images/ic_add.png',
+                    width: 25,
+                    height: 25,
+                  ),
                 ),
-                child: Image.asset(
-                  'assets/images/ic_add.png',
-                  width: 25,
-                  height: 25,
-                ),
+                tooltip: 'Add New Contact Group',
               ),
-              tooltip: 'Add New Contact Group',
+          ],
+        ),
+        body: Column(
+          children: [
+            // Selection indicator when in filter mode
+            if (widget.allowMultipleSelection)
+              Obx(() {
+                if (_selectedContactGroups.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: uiController.currentMainColor.withValues(alpha: 0.1),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: uiController.currentMainColor.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    '${_selectedContactGroups.length} selected',
+                    style: gfonts.GoogleFonts.kumbhSans(
+                      color: uiController.currentMainColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }),
+            // Main content
+            Expanded(
+              child: Obx(() {
+                if (_isLoading.value) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                return _buildMainContent(uiController);
+              }),
             ),
           ],
         ),
-        body: Obx(() {
-          if (_isLoading.value) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return _buildMainContent(uiController);
-        }),
 
       ),
     );
@@ -1315,11 +1351,32 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       final isMainGroupSelected = widget.allowMultipleSelection &&
           _selectedContactGroups.any((g) => g.id == mainContactGroup.id);
 
+      // Check if all subgroups are selected (for filter mode)
+      final allSubgroupsSelected = widget.allowMultipleSelection &&
+          mainContactGroup.subgroups != null &&
+          mainContactGroup.subgroups!.isNotEmpty &&
+          mainContactGroup.subgroups!.every((subgroup) =>
+              _selectedContactGroups.any((g) => g.id == subgroup.id));
+
+      // Count selected subgroups
+      final selectedSubgroupsCount = widget.allowMultipleSelection &&
+          mainContactGroup.subgroups != null
+          ? mainContactGroup.subgroups!.where((subgroup) =>
+              _selectedContactGroups.any((g) => g.id == subgroup.id)).length
+          : 0;
+
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         decoration: BoxDecoration(
           color: uiController.darkMode.value ? Colors.black : Colors.white,
           borderRadius: BorderRadius.circular(2),
+          // Add border to entire container when all subgroups are selected (filter mode only)
+          border: widget.allowMultipleSelection && allSubgroupsSelected
+              ? Border.all(
+                  color: uiController.currentMainColor,
+                  width: 2,
+                )
+              : null,
         ),
         child: Column(
           children: [
@@ -1327,11 +1384,13 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               decoration: BoxDecoration(
+                // Changed background color: white in light mode, grey in dark mode
                 color: uiController.darkMode.value
                     ? Colors.grey[900]
-                    : Colors.grey[100],
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(2),
-                border: isMainGroupSelected
+                // Show border on category only when it's selected individually (not when all subgroups selected)
+                border: isMainGroupSelected && !allSubgroupsSelected
                     ? Border.all(
                         color: uiController.currentMainColor,
                         width: 2,
@@ -1383,16 +1442,29 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                                     fontSize: 14,
                                   ),
                                 ),
-                                TextSpan(
-                                  text: ' (${mainContactGroup.subgroups?.length ?? 0})',
-                                  style: gfonts.GoogleFonts.kumbhSans(
-                                    color:
-                                        uiController.darkMode.value
-                                            ? Colors.white.withValues(alpha: 0.6)
-                                            : Colors.grey[600],
-                                    fontSize: 15,
+                                // Show selection count when in filter mode and subgroups are selected
+                                if (widget.allowMultipleSelection && selectedSubgroupsCount > 0)
+                                  TextSpan(
+                                    text: ' ($selectedSubgroupsCount/${mainContactGroup.subgroups?.length ?? 0})',
+                                    style: gfonts.GoogleFonts.kumbhSans(
+                                      color:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(alpha: 0.6)
+                                              : Colors.grey[600],
+                                      fontSize: 15,
+                                    ),
+                                  )
+                                else
+                                  TextSpan(
+                                    text: ' (${mainContactGroup.subgroups?.length ?? 0})',
+                                    style: gfonts.GoogleFonts.kumbhSans(
+                                      color:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(alpha: 0.6)
+                                              : Colors.grey[600],
+                                      fontSize: 15,
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                             maxLines: null, // Allow unlimited lines
@@ -1406,59 +1478,62 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Edit button for main contact group
-                    IconButton(
-                      icon: ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.grey[500] ?? Colors.grey,
-                          BlendMode.srcIn,
-                        ),
-                        child: Image.asset(
-                          'assets/images/ic_edit.png',
-                          width: 25,
-                          height: 25,
-                        ),
-                      ),
-                      onPressed: () => _showEditContactGroupDialog(mainContactGroup),
-                      tooltip: 'Edit Contact Group',
-                    ),
-                    // Delete button for main contact group (only show if no subgroups)
-                    if ((mainContactGroup.subgroups?.isEmpty ?? true))
+                    // Hide edit/delete/add buttons when in filter mode
+                    if (!widget.allowMultipleSelection) ...[
+                      // Edit button for main contact group
                       IconButton(
                         icon: ColorFiltered(
-                          colorFilter: const ColorFilter.mode(
-                            Colors.red,
+                          colorFilter: ColorFilter.mode(
+                            uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.6)
+                                : Colors.grey[500] ?? Colors.grey,
                             BlendMode.srcIn,
                           ),
                           child: Image.asset(
-                            'assets/images/ic_cross.png',
+                            'assets/images/ic_edit.png',
                             width: 25,
                             height: 25,
                           ),
                         ),
-                        onPressed: () => _showDeleteConfirmation(mainContactGroup),
-                        tooltip: 'Delete Contact Group',
+                        onPressed: () => _showEditContactGroupDialog(mainContactGroup),
+                        tooltip: 'Edit Contact Group',
                       ),
-                    // Add subgroup button
-                    IconButton(
-                      onPressed: (_addingToContactGroup[mainContactGroup.id] ?? false)
-                          ? null
-                          : () => _startInlineAdding(mainContactGroup.id!),
-                      icon: ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
-                          BlendMode.srcIn,
+                      // Delete button for main contact group (only show if no subgroups)
+                      if ((mainContactGroup.subgroups?.isEmpty ?? true))
+                        IconButton(
+                          icon: ColorFiltered(
+                            colorFilter: const ColorFilter.mode(
+                              Colors.red,
+                              BlendMode.srcIn,
+                            ),
+                            child: Image.asset(
+                              'assets/images/ic_cross.png',
+                              width: 25,
+                              height: 25,
+                            ),
+                          ),
+                          onPressed: () => _showDeleteConfirmation(mainContactGroup),
+                          tooltip: 'Delete Contact Group',
                         ),
-                        child: Image.asset(
-                          'assets/images/ic_add.png',
-                          width: 25,
-                          height: 25,
+                      // Add subgroup button
+                      IconButton(
+                        onPressed: (_addingToContactGroup[mainContactGroup.id] ?? false)
+                            ? null
+                            : () => _startInlineAdding(mainContactGroup.id!),
+                        icon: ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/ic_add.png',
+                            width: 25,
+                            height: 25,
+                          ),
                         ),
+                        tooltip: 'Add Subgroup',
                       ),
-                      tooltip: 'Add Subgroup',
-                    ),
+                    ],
                     // Expansion/collapse icon
                     Obx(
                       () => ColorFiltered(
@@ -1527,9 +1602,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         decoration: BoxDecoration(
+          // Changed background color to #F1F1F1 in light mode
           color: uiController.darkMode.value
               ? Colors.grey[900]
-              : Colors.grey[100],
+              : const Color(0xFFF1F1F1),
           borderRadius: BorderRadius.circular(2),
           border: isSelected
               ? Border.all(
@@ -1563,53 +1639,55 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               ],
             ),
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Edit button
-              IconButton(
-                onPressed: () => _startInlineEditing(subgroup),
-                icon: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    uiController.darkMode.value ? Colors.white70 : Colors.black54,
-                    BlendMode.srcIn,
-                  ),
-                  child: Image.asset(
-                    'assets/images/ic_edit.png',
-                    width: 20,
-                    height: 20,
-                  ),
+          trailing: widget.allowMultipleSelection
+              ? null // Hide edit/delete buttons in filter mode
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Edit button
+                    IconButton(
+                      onPressed: () => _startInlineEditing(subgroup),
+                      icon: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          uiController.darkMode.value ? Colors.white70 : Colors.black54,
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/images/ic_edit.png',
+                          width: 20,
+                          height: 20,
+                        ),
+                      ),
+                      tooltip: 'Edit',
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                    ),
+                    // Delete button
+                    IconButton(
+                      onPressed: () => _deleteSubgroup(subgroup),
+                      icon: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          Colors.red.withValues(alpha: 0.7),
+                          BlendMode.srcIn,
+                        ),
+                        child: Image.asset(
+                          'assets/images/ic_cross.png',
+                          width: 20,
+                          height: 20,
+                        ),
+                      ),
+                      tooltip: 'Delete',
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                    ),
+                  ],
                 ),
-                tooltip: 'Edit',
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(
-                  minWidth: 28,
-                  minHeight: 28,
-                ),
-              ),
-              // Delete button
-              IconButton(
-                onPressed: () => _deleteSubgroup(subgroup),
-                icon: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    Colors.red.withValues(alpha: 0.7),
-                    BlendMode.srcIn,
-                  ),
-                  child: Image.asset(
-                    'assets/images/ic_cross.png',
-                    width: 20,
-                    height: 20,
-                  ),
-                ),
-                tooltip: 'Delete',
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(
-                  minWidth: 28,
-                  minHeight: 28,
-                ),
-              ),
-            ],
-          ),
           onTap: widget.allowMultipleSelection
               ? () => _selectContactGroup(subgroup)
               : () => _selectContactGroup(subgroup),
