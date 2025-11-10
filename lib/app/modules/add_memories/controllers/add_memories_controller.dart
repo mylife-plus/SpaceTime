@@ -1522,6 +1522,9 @@ class AddMemoriesController extends GetxController {
       'Applied filters, found ${filteredMemories.length} memories out of ${allMemories.length}',
     );
 
+    // Sync filters to MapController to keep both controllers in sync
+    _syncFiltersToMapController();
+
     closeFilter();
   }
 
@@ -1549,20 +1552,31 @@ class AddMemoriesController extends GetxController {
   // Helper method to sync filters to MapController
   void _syncFiltersToMapController() {
     if (!Get.isRegistered<MapControllerNew>()) {
+      debugPrint('[AddMemoriesController] MapController not registered, skipping sync');
       return;
     }
 
     try {
       final mapController = Get.find<MapControllerNew>();
-      mapController.filterValues.clear();
-      mapController.selectedLocation.value = '';
-      mapController.selectedRadius.value = '';
-      mapController.selectedHashtags.clear();
-      mapController.selectedContacts.clear();
-      mapController.selectedCategories.clear();
-      mapController.hasActiveFilters.value = false;
 
-      debugPrint('[AddMemoriesController] Synced reset filters to MapController');
+      // Sync all filter values from AddMemoriesController to MapController
+      mapController.filterValues
+        ..clear()
+        ..addAll(filterValues);
+      mapController.selectedLocation.value = selectedLocation.value;
+      mapController.selectedRadius.value = selectedRadius.value;
+      mapController.selectedHashtags
+        ..clear()
+        ..addAll(selectedHashtags);
+      mapController.selectedContacts
+        ..clear()
+        ..addAll(selectedContacts);
+      mapController.selectedCategories
+        ..clear()
+        ..addAll(selectedCategories);
+      mapController.hasActiveFilters.value = hasActiveFilters.value;
+
+      debugPrint('[AddMemoriesController] Synced filters to MapController - Categories: ${selectedCategories.length}, Hashtags: ${selectedHashtags.length}, Contacts: ${selectedContacts.length}');
     } catch (e) {
       debugPrint('[AddMemoriesController] Failed to sync filters to MapController: $e');
     }

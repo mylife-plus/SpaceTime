@@ -30,52 +30,77 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
   @override
   void initState() {
     super.initState();
-    // Sync filters when opening from add memories view if MapController has filters
-    if (!widget.isOpenedFromMap) {
-      _syncFiltersFromMapIfNeeded();
-    }
+    // Always sync filters bidirectionally when opening filter overlay
+    _syncFiltersBidirectionally();
   }
 
-  void _syncFiltersFromMapIfNeeded() {
-    // Check if MapController exists and has filters
-    if (Get.isRegistered<MapControllerNew>()) {
-      final mapController = Get.find<MapControllerNew>();
-      final addMemoriesController = Get.find<AddMemoriesController>();
+  void _syncFiltersBidirectionally() {
+    final addMemoriesController = Get.find<AddMemoriesController>();
 
-      // Check if MapController has any filters that AddMemoriesController doesn't have
-      final mapHasFilters = mapController.filterValues.isNotEmpty ||
-          mapController.selectedLocation.value.isNotEmpty ||
-          mapController.selectedRadius.value.isNotEmpty ||
-          mapController.selectedHashtags.isNotEmpty ||
-          mapController.selectedContacts.isNotEmpty ||
-          mapController.selectedCategories.isNotEmpty;
-
-      if (mapHasFilters) {
-        debugPrint('[FilterOverlay] Syncing filters from MapController to AddMemoriesController');
-
-        // Sync filters from map to add memories controller
-        addMemoriesController.filterValues
-          ..clear()
-          ..addAll(mapController.filterValues);
-        addMemoriesController.selectedLocation.value =
-            mapController.selectedLocation.value;
-        addMemoriesController.selectedRadius.value =
-            mapController.selectedRadius.value;
-        addMemoriesController.selectedHashtags
-          ..clear()
-          ..addAll(mapController.selectedHashtags);
-        addMemoriesController.selectedContacts
-          ..clear()
-          ..addAll(mapController.selectedContacts);
-        addMemoriesController.selectedCategories
-          ..clear()
-          ..addAll(mapController.selectedCategories);
-
-        addMemoriesController.updateFilterStatus();
-
-        debugPrint('[FilterOverlay] Sync complete - Categories: ${addMemoriesController.selectedCategories.length}, Hashtags: ${addMemoriesController.selectedHashtags.length}, Contacts: ${addMemoriesController.selectedContacts.length}');
-      }
+    // Check if MapController exists
+    if (!Get.isRegistered<MapControllerNew>()) {
+      debugPrint('[FilterOverlay] MapController not registered, using AddMemoriesController filters only');
+      return;
     }
+
+    final mapController = Get.find<MapControllerNew>();
+
+    // Determine which controller has filters (or more recent filters)
+    final addMemoriesHasFilters = addMemoriesController.filterValues.isNotEmpty ||
+        addMemoriesController.selectedLocation.value.isNotEmpty ||
+        addMemoriesController.selectedRadius.value.isNotEmpty ||
+        addMemoriesController.selectedHashtags.isNotEmpty ||
+        addMemoriesController.selectedContacts.isNotEmpty ||
+        addMemoriesController.selectedCategories.isNotEmpty;
+
+    final mapHasFilters = mapController.filterValues.isNotEmpty ||
+        mapController.selectedLocation.value.isNotEmpty ||
+        mapController.selectedRadius.value.isNotEmpty ||
+        mapController.selectedHashtags.isNotEmpty ||
+        mapController.selectedContacts.isNotEmpty ||
+        mapController.selectedCategories.isNotEmpty;
+
+    debugPrint('[FilterOverlay] Syncing filters - AddMemories has filters: $addMemoriesHasFilters, Map has filters: $mapHasFilters, Opened from map: ${widget.isOpenedFromMap}');
+
+    if (widget.isOpenedFromMap) {
+      // Opened from map view - sync MapController → AddMemoriesController
+      debugPrint('[FilterOverlay] Syncing MapController → AddMemoriesController');
+      addMemoriesController.filterValues
+        ..clear()
+        ..addAll(mapController.filterValues);
+      addMemoriesController.selectedLocation.value = mapController.selectedLocation.value;
+      addMemoriesController.selectedRadius.value = mapController.selectedRadius.value;
+      addMemoriesController.selectedHashtags
+        ..clear()
+        ..addAll(mapController.selectedHashtags);
+      addMemoriesController.selectedContacts
+        ..clear()
+        ..addAll(mapController.selectedContacts);
+      addMemoriesController.selectedCategories
+        ..clear()
+        ..addAll(mapController.selectedCategories);
+      addMemoriesController.updateFilterStatus();
+    } else {
+      // Opened from add memories view - sync AddMemoriesController → MapController
+      debugPrint('[FilterOverlay] Syncing AddMemoriesController → MapController');
+      mapController.filterValues
+        ..clear()
+        ..addAll(addMemoriesController.filterValues);
+      mapController.selectedLocation.value = addMemoriesController.selectedLocation.value;
+      mapController.selectedRadius.value = addMemoriesController.selectedRadius.value;
+      mapController.selectedHashtags
+        ..clear()
+        ..addAll(addMemoriesController.selectedHashtags);
+      mapController.selectedContacts
+        ..clear()
+        ..addAll(addMemoriesController.selectedContacts);
+      mapController.selectedCategories
+        ..clear()
+        ..addAll(addMemoriesController.selectedCategories);
+      mapController.hasActiveFilters.value = addMemoriesController.hasActiveFilters.value;
+    }
+
+    debugPrint('[FilterOverlay] Sync complete - Categories: ${addMemoriesController.selectedCategories.length}, Hashtags: ${addMemoriesController.selectedHashtags.length}, Contacts: ${addMemoriesController.selectedContacts.length}');
   }
 
   @override
