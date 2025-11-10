@@ -573,12 +573,20 @@ class AddMemoriesController extends GetxController {
     } else if (query.startsWith('@')) {
       searchType.value = 'mention';
     } else {
-      searchType.value = 'description';
+      searchType.value = 'mixed'; // Changed from 'description' to 'mixed' for all types
     }
 
-    final suggestions = <String>{};
     final suggestionsWithMetadata = <Map<String, dynamic>>[];
     final lowerQuery = query.toLowerCase();
+    final queryWithoutPrefix = query.startsWith('#') || query.startsWith('@')
+        ? query.substring(1).toLowerCase()
+        : lowerQuery;
+
+    // Track unique suggestions to avoid duplicates
+    final seenDescriptions = <String>{};
+    final seenHashtags = <String>{};
+    final seenMentions = <String>{};
+    final seenLocations = <String>{};
 
     for (final memory in allMemories) {
       final text = memory['text'] ?? '';
@@ -593,10 +601,45 @@ class AddMemoriesController extends GetxController {
       final locationCountry = memory['location_country'] ?? '';
       final locationFlag = memory['location_flag'] ?? '';
 
-      // For description-based search (plain text, no # or @)
-      if (searchType.value == 'description') {
-        if (text.toLowerCase().contains(lowerQuery)) {
-          // Store full memory metadata for description matches
+      // For hashtag search (starts with #)
+      if (searchType.value == 'hashtag') {
+        if (tags.isNotEmpty) {
+          final tagList = tags.split(',');
+          for (final tag in tagList) {
+            final trimmedTag = tag.trim();
+            if (trimmedTag.toLowerCase().contains(queryWithoutPrefix) &&
+                !seenHashtags.contains(trimmedTag)) {
+              seenHashtags.add(trimmedTag);
+              suggestionsWithMetadata.add({
+                'text': '#$trimmedTag',
+                'type': 'hashtag',
+              });
+            }
+          }
+        }
+      }
+      // For mention search (starts with @)
+      else if (searchType.value == 'mention') {
+        if (mentions.isNotEmpty) {
+          final mentionList = mentions.split(',');
+          for (final mention in mentionList) {
+            final trimmedMention = mention.trim();
+            if (trimmedMention.toLowerCase().contains(queryWithoutPrefix) &&
+                !seenMentions.contains(trimmedMention)) {
+              seenMentions.add(trimmedMention);
+              suggestionsWithMetadata.add({
+                'text': '@$trimmedMention',
+                'type': 'mention',
+              });
+            }
+          }
+        }
+      }
+      // For mixed search (plain text - show all types)
+      else {
+        // 1. Add description matches
+        if (text.toLowerCase().contains(lowerQuery) && !seenDescriptions.contains(text)) {
+          seenDescriptions.add(text);
           suggestionsWithMetadata.add({
             'text': text,
             'date': date,
@@ -610,62 +653,74 @@ class AddMemoriesController extends GetxController {
             'type': 'description',
           });
         }
-      } else {
-        // For hashtag and mention searches, use existing logic
-        // Add matching text phrases
-        if (text.toLowerCase().contains(lowerQuery)) {
-          suggestions.add(text);
-        }
 
-        // Add matching locations
-        if (location.toLowerCase().contains(lowerQuery)) {
-          suggestions.add(location);
-        }
-
-        // Add matching categories
-        if (category.toLowerCase().contains(lowerQuery)) {
-          suggestions.add(category);
-        }
-
-        // Add matching tags (split by comma and check each tag)
+        // 2. Add hashtag matches
         if (tags.isNotEmpty) {
           final tagList = tags.split(',');
           for (final tag in tagList) {
-            if (tag.trim().toLowerCase().contains(lowerQuery)) {
-              suggestions.add('#${tag.trim()}');
+            final trimmedTag = tag.trim();
+            if (trimmedTag.toLowerCase().contains(lowerQuery) &&
+                !seenHashtags.contains(trimmedTag)) {
+              seenHashtags.add(trimmedTag);
+              suggestionsWithMetadata.add({
+                'text': '#$trimmedTag',
+                'type': 'hashtag',
+              });
             }
           }
         }
 
-        // Add matching mentions (split by comma and check each mention)
+        // 3. Add mention matches
         if (mentions.isNotEmpty) {
           final mentionList = mentions.split(',');
           for (final mention in mentionList) {
-            if (mention.trim().toLowerCase().contains(lowerQuery)) {
-              suggestions.add('@${mention.trim()}');
+            final trimmedMention = mention.trim();
+            if (trimmedMention.toLowerCase().contains(lowerQuery) &&
+                !seenMentions.contains(trimmedMention)) {
+              seenMentions.add(trimmedMention);
+              suggestionsWithMetadata.add({
+                'text': '@$trimmedMention',
+                'type': 'mention',
+              });
             }
           }
         }
 
-        // Add matching dates
-        if (date.toLowerCase().contains(lowerQuery)) {
-          suggestions.add(date);
+        // 4. Add location matches (city/country)
+        String locationDisplay = '';
+        if (locationCity.isNotEmpty && locationCountry.isNotEmpty) {
+          locationDisplay = '$locationCity, $locationCountry';
+          if (locationFlag.isNotEmpty) {
+            locationDisplay += ' $locationFlag';
+          }
+        } else if (location.isNotEmpty) {
+          locationDisplay = location;
         }
 
-        // Add matching years
-        if (year.toLowerCase().contains(lowerQuery)) {
-          suggestions.add(year);
+        if (locationDisplay.isNotEmpty &&
+            (locationCity.toLowerCase().contains(lowerQuery) ||
+             locationCountry.toLowerCase().contains(lowerQuery) ||
+             location.toLowerCase().contains(lowerQuery)) &&
+            !seenLocations.contains(locationDisplay)) {
+          seenLocations.add(locationDisplay);
+          suggestionsWithMetadata.add({
+            'text': locationDisplay,
+            'date': date,
+            'year': year,
+            'time': time,
+            'category': category,
+            'location': location,
+            'location_city': locationCity,
+            'location_country': locationCountry,
+            'location_flag': locationFlag,
+            'type': 'location',
+          });
         }
       }
     }
 
-    if (searchType.value == 'description') {
-      searchSuggestionsWithMetadata.value = suggestionsWithMetadata.take(8).toList();
-      showSuggestions.value = suggestionsWithMetadata.isNotEmpty;
-    } else {
-      searchSuggestions.value = suggestions.take(8).toList();
-      showSuggestions.value = suggestions.isNotEmpty;
-    }
+    searchSuggestionsWithMetadata.value = suggestionsWithMetadata.take(10).toList();
+    showSuggestions.value = suggestionsWithMetadata.isNotEmpty;
   }
 
   void selectSuggestion(String suggestion) {

@@ -57,14 +57,13 @@ class SearchOverlay extends StatelessWidget {
                           controller: textController,
                           textAlign: TextAlign.start,
                           autofocus: true,
+                          textInputAction: TextInputAction.search,
                           onChanged: (val) {
                             controller.searchQuery.value = val;
                             controller.generateSearchSuggestions(val);
                           },
                           onSubmitted: (val) {
-                            // Remove automatic search on keyboard submit
-                            controller.searchQuery.value = val;
-                            controller.showSuggestions.value = false;
+                            // Only hide keyboard, don't trigger search
                             FocusScope.of(context).unfocus();
                           },
                           decoration: InputDecoration(
@@ -103,33 +102,30 @@ class SearchOverlay extends StatelessWidget {
             ),
             // Search suggestions popup
             Obx(() {
-              if (!controller.showSuggestions.value) {
+              if (!controller.showSuggestions.value ||
+                  controller.searchSuggestionsWithMetadata.isEmpty) {
                 return const SizedBox.shrink();
               }
 
-              // Check if we have description-based search results
-              final isDescriptionSearch = controller.searchType.value == 'description';
-              final hasResults = isDescriptionSearch
-                  ? controller.searchSuggestionsWithMetadata.isNotEmpty
-                  : controller.searchSuggestions.isNotEmpty;
-
-              if (!hasResults) {
-                return const SizedBox.shrink();
-              }
+              // Calculate max height to prevent keyboard overlap
+              final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+              final screenHeight = MediaQuery.of(context).size.height;
+              final maxHeight = screenHeight - 61 - keyboardHeight - 20; // 61 for search bar, 20 for padding
 
               return Positioned(
                 top: 61,
                 left: 0,
                 right: 0,
                 child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: maxHeight > 0 ? maxHeight : 200,
+                  ),
                   width: MediaQuery.sizeOf(context).width,
-                  // margin: const EdgeInsets.symmetric(horizontal: 20),
                   decoration: BoxDecoration(
                     color:
                         controller2.darkMode.value
                             ? Colors.black
                             : Colors.white,
-                    // borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.11),
@@ -140,23 +136,46 @@ class SearchOverlay extends StatelessWidget {
                   ),
                   child: ListView.separated(
                     shrinkWrap: true,
-                    itemCount: isDescriptionSearch
-                        ? controller.searchSuggestionsWithMetadata.length
-                        : controller.searchSuggestions.length,
+                    itemCount: controller.searchSuggestionsWithMetadata.length,
                     separatorBuilder:
                         (context, index) => const Divider(height: 1),
                     itemBuilder: (context, index) {
-                      if (isDescriptionSearch) {
-                        // Description-based search: show custom layout
-                        final memoryData = controller.searchSuggestionsWithMetadata[index];
-                        final date = memoryData['date'] ?? '';
-                        final year = memoryData['year'] ?? '';
-                        final time = memoryData['time'] ?? '';
-                        final category = memoryData['category'] ?? '';
-                        final locationCity = memoryData['location_city'] ?? '';
-                        final locationCountry = memoryData['location_country'] ?? '';
-                        final locationFlag = memoryData['location_flag'] ?? '';
-                        final text = memoryData['text'] ?? '';
+                      final suggestionData = controller.searchSuggestionsWithMetadata[index];
+                      final type = suggestionData['type'] ?? '';
+                      final text = suggestionData['text'] ?? '';
+
+                      // For hashtag and mention types, show simple layout
+                      if (type == 'hashtag' || type == 'mention') {
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          title: Text(
+                            text,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.kumbhSans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color:
+                                  controller2.darkMode.value
+                                      ? Colors.white
+                                      : Colors.black,
+                            ),
+                          ),
+                          onTap: () => controller.selectSuggestion(text),
+                        );
+                      }
+                      // For description and location types, show detailed layout
+                      else {
+                        final date = suggestionData['date'] ?? '';
+                        final year = suggestionData['year'] ?? '';
+                        final time = suggestionData['time'] ?? '';
+                        final category = suggestionData['category'] ?? '';
+                        final locationCity = suggestionData['location_city'] ?? '';
+                        final locationCountry = suggestionData['location_country'] ?? '';
+                        final locationFlag = suggestionData['location_flag'] ?? '';
 
                         // Format location display
                         String locationDisplay = '';
@@ -164,9 +183,9 @@ class SearchOverlay extends StatelessWidget {
                             locationCity.isNotEmpty &&
                             locationCountry.isNotEmpty) {
                           locationDisplay = '$locationCity, $locationCountry $locationFlag';
-                        } else if (memoryData['location'] != null &&
-                            memoryData['location'].toString().isNotEmpty) {
-                          locationDisplay = memoryData['location'];
+                        } else if (suggestionData['location'] != null &&
+                            suggestionData['location'].toString().isNotEmpty) {
+                          locationDisplay = suggestionData['location'];
                         }
 
                         return ListTile(
@@ -247,23 +266,6 @@ class SearchOverlay extends StatelessWidget {
                             ],
                           ),
                           onTap: () => controller.selectSuggestion(text),
-                        );
-                      } else {
-                        // Hashtag/mention/other searches: show existing simple layout
-                        final suggestion = controller.searchSuggestions[index];
-                        return ListTile(
-                          title: Text(
-                            suggestion,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color:
-                                  controller2.darkMode.value
-                                      ? Colors.white
-                                      : Colors.black,
-                            ),
-                          ),
-                          onTap: () => controller.selectSuggestion(suggestion),
                         );
                       }
                     },
