@@ -5,18 +5,29 @@ import 'package:spacetime/app/modules/add_memories/views/mini_widgets/filter_ove
 
 import '../../controllers/map_controller_new.dart';
 
-class MapFilterOverlay extends StatelessWidget {
+class MapFilterOverlay extends StatefulWidget {
   const MapFilterOverlay({super.key});
 
+  @override
+  State<MapFilterOverlay> createState() => _MapFilterOverlayState();
+}
+
+class _MapFilterOverlayState extends State<MapFilterOverlay> {
+  bool _isInitialized = false;
+
   void _ensureControllersSynced() {
+    // Only sync once when first opened, not on every rebuild
+    if (_isInitialized) return;
+
     final mapController = Get.find<MapControllerNew>();
     final addMemoriesController =
         Get.isRegistered<AddMemoriesController>()
             ? Get.find<AddMemoriesController>()
-            : Get.put(AddMemoriesController());
+            : Get.put(AddMemoriesController(), permanent: true);
 
     addMemoriesController.isOpenedFromMap = true;
 
+    // Sync filters from map to add memories controller
     addMemoriesController.filterValues
       ..clear()
       ..addAll(mapController.filterValues);
@@ -35,6 +46,8 @@ class MapFilterOverlay extends StatelessWidget {
       ..addAll(mapController.selectedCategories);
 
     addMemoriesController.updateFilterStatus();
+
+    _isInitialized = true;
   }
 
   @override

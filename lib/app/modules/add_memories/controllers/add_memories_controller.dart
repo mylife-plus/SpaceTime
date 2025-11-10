@@ -1299,6 +1299,47 @@ class AddMemoriesController extends GetxController {
   // Get available categories (cached)
   List<String> get getAvailableCategories => availableCategories.toList();
 
+  // Get active filter count for badge display
+  int get activeFilterCount {
+    int count = 0;
+
+    // Count date filters
+    if (filterValues.isNotEmpty) {
+      for (final entry in filterValues.entries) {
+        if (entry.value.isNotEmpty) {
+          count++;
+        }
+      }
+    }
+
+    // Count location filter
+    if (selectedLocation.value.isNotEmpty) {
+      count++;
+    }
+
+    // Count radius filter
+    if (selectedRadius.value.isNotEmpty) {
+      count++;
+    }
+
+    // Count hashtags filter
+    if (selectedHashtags.isNotEmpty) {
+      count++;
+    }
+
+    // Count contacts filter
+    if (selectedContacts.isNotEmpty) {
+      count++;
+    }
+
+    // Count categories filter
+    if (selectedCategories.isNotEmpty) {
+      count++;
+    }
+
+    return count;
+  }
+
   void toggleFilter() => isFilterOpen.toggle();
   void openFilter() => isFilterOpen.value = true;
   void closeFilter() => isFilterOpen.value = false;

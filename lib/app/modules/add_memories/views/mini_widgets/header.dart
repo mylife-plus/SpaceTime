@@ -202,35 +202,42 @@ class Header extends StatelessWidget {
                     child: Image.asset(AppImages.filter, fit: BoxFit.contain),
                   ),
 
-                  // Filter indicator
-                  Obx(() => controller.hasActiveFilters.value
-                      ? Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 1,
+                  // Filter badge indicator with count
+                  Obx(() {
+                    final filterCount = controller.activeFilterCount;
+                    return filterCount > 0
+                        ? Positioned(
+                            right: -4,
+                            top: -4,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: controller2.darkMode.value ? Colors.black : Colors.white,
+                                  width: 1.5,
+                                ),
                               ),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                '!',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  filterCount > 9 ? '9+' : filterCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.0,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        )
-                      : const SizedBox.shrink()),
+                          )
+                        : const SizedBox.shrink();
+                  }),
                 ],
               ),
             ),
