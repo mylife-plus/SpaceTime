@@ -13,12 +13,14 @@ class MapFilterOverlay extends StatefulWidget {
 }
 
 class _MapFilterOverlayState extends State<MapFilterOverlay> {
-  bool _isInitialized = false;
+  @override
+  void initState() {
+    super.initState();
+    // Sync filters every time the overlay is opened
+    _syncFiltersFromMapToAddMemories();
+  }
 
-  void _ensureControllersSynced() {
-    // Only sync once when first opened, not on every rebuild
-    if (_isInitialized) return;
-
+  void _syncFiltersFromMapToAddMemories() {
     final mapController = Get.find<MapControllerNew>();
     final addMemoriesController =
         Get.isRegistered<AddMemoriesController>()
@@ -26,6 +28,8 @@ class _MapFilterOverlayState extends State<MapFilterOverlay> {
             : Get.put(AddMemoriesController(), permanent: true);
 
     addMemoriesController.isOpenedFromMap = true;
+
+    debugPrint('[MapFilterOverlay] Syncing filters from MapController to AddMemoriesController');
 
     // Sync filters from map to add memories controller
     addMemoriesController.filterValues
@@ -47,12 +51,11 @@ class _MapFilterOverlayState extends State<MapFilterOverlay> {
 
     addMemoriesController.updateFilterStatus();
 
-    _isInitialized = true;
+    debugPrint('[MapFilterOverlay] Sync complete - Categories: ${addMemoriesController.selectedCategories.length}, Hashtags: ${addMemoriesController.selectedHashtags.length}, Contacts: ${addMemoriesController.selectedContacts.length}');
   }
 
   @override
   Widget build(BuildContext context) {
-    _ensureControllersSynced();
     return MemoriesFilterOverlay(isOpenedFromMap: true);
   }
 }

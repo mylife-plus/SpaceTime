@@ -28,6 +28,57 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
   final FocusNode _contactFocusNode = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    // Sync filters when opening from add memories view if MapController has filters
+    if (!widget.isOpenedFromMap) {
+      _syncFiltersFromMapIfNeeded();
+    }
+  }
+
+  void _syncFiltersFromMapIfNeeded() {
+    // Check if MapController exists and has filters
+    if (Get.isRegistered<MapControllerNew>()) {
+      final mapController = Get.find<MapControllerNew>();
+      final addMemoriesController = Get.find<AddMemoriesController>();
+
+      // Check if MapController has any filters that AddMemoriesController doesn't have
+      final mapHasFilters = mapController.filterValues.isNotEmpty ||
+          mapController.selectedLocation.value.isNotEmpty ||
+          mapController.selectedRadius.value.isNotEmpty ||
+          mapController.selectedHashtags.isNotEmpty ||
+          mapController.selectedContacts.isNotEmpty ||
+          mapController.selectedCategories.isNotEmpty;
+
+      if (mapHasFilters) {
+        debugPrint('[FilterOverlay] Syncing filters from MapController to AddMemoriesController');
+
+        // Sync filters from map to add memories controller
+        addMemoriesController.filterValues
+          ..clear()
+          ..addAll(mapController.filterValues);
+        addMemoriesController.selectedLocation.value =
+            mapController.selectedLocation.value;
+        addMemoriesController.selectedRadius.value =
+            mapController.selectedRadius.value;
+        addMemoriesController.selectedHashtags
+          ..clear()
+          ..addAll(mapController.selectedHashtags);
+        addMemoriesController.selectedContacts
+          ..clear()
+          ..addAll(mapController.selectedContacts);
+        addMemoriesController.selectedCategories
+          ..clear()
+          ..addAll(mapController.selectedCategories);
+
+        addMemoriesController.updateFilterStatus();
+
+        debugPrint('[FilterOverlay] Sync complete - Categories: ${addMemoriesController.selectedCategories.length}, Hashtags: ${addMemoriesController.selectedHashtags.length}, Contacts: ${addMemoriesController.selectedContacts.length}');
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _categoryFocusNode.dispose();
     _hashtagFocusNode.dispose();
