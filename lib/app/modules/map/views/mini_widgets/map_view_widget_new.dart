@@ -29,16 +29,11 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
-    // Use Get.find() first, only create if doesn't exist
-    try {
-      controller = Get.find<MapControllerNew>();
-      debugPrint('[MapViewWidgetNew] Using existing MapControllerNew instance: ${controller.hashCode}');
-    } catch (e) {
-      debugPrint('[MapViewWidgetNew] MapControllerNew not found, creating new instance');
-      controller = Get.put(MapControllerNew(), permanent: true);
-      debugPrint('[MapViewWidgetNew] Created new MapControllerNew instance: ${controller.hashCode}');
-    }
+
+    // MapControllerNew is initialized in main.dart as permanent singleton
+    // Always use Get.find() - never create new instance
+    controller = Get.find<MapControllerNew>();
+    debugPrint('[MapViewWidgetNew] Using MapControllerNew instance: ${controller.hashCode}');
   }
 
   @override

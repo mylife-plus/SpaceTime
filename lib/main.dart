@@ -91,11 +91,13 @@ Future<void> main() async {
   Get.put(OfflineMapCoordinatorService(), permanent: true);
   debugPrint('✅ Global services initialized');
 
-  // Initialize controllers
-  Get.put(UiController());
-  Get.put(MemoryController());
-  Get.put(AddMemoriesController());
-  Get.put(MapControllerNew());
+  // Initialize controllers as permanent singletons
+  debugPrint('🎮 Initializing controllers...');
+  Get.put(UiController(), permanent: true);
+  Get.put(MemoryController(), permanent: true);
+  Get.put(AddMemoriesController(), permanent: true);
+  Get.put(MapControllerNew(), permanent: true);
+  debugPrint('✅ Controllers initialized as permanent singletons');
 
   // Test the geocoding service
   _testGeocodingService();

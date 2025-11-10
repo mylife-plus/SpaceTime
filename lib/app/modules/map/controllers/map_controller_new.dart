@@ -1177,17 +1177,8 @@ void _resetTapState() {
         debugPrint('[MapControllerNew] Memory data: ${cluster.memories.first}');
 
         try {
-          // Ensure AddMemoriesController exists
-          AddMemoriesController controller;
-          try {
-            controller = Get.find<AddMemoriesController>();
-          } catch (controllerError) {
-            debugPrint(
-              '[MapControllerNew] AddMemoriesController not found, creating new instance',
-            );
-            // If controller doesn't exist, put a new one
-            controller = Get.put(AddMemoriesController());
-          }
+          // AddMemoriesController is initialized in main.dart as permanent singleton
+          final controller = Get.find<AddMemoriesController>();
 
           final normalizedMemory = _normalizeMemoryForNavigation(
             cluster.memories.first,
@@ -1455,16 +1446,8 @@ void _resetTapState() {
         '  🎵 Has Audio: ${normalizedMemory['audio_path']?.isNotEmpty ?? false}',
       );
 
-      // Set up AddMemoriesController with the specific memory
-      AddMemoriesController controller;
-      try {
-        controller = Get.find<AddMemoriesController>();
-      } catch (controllerError) {
-        debugPrint(
-          '[MapControllerNew] AddMemoriesController not found in _handleMemoryTap, creating new instance',
-        );
-        controller = Get.put(AddMemoriesController());
-      }
+      // AddMemoriesController is initialized in main.dart as permanent singleton
+      final controller = Get.find<AddMemoriesController>();
 
       final memoryLocation = clustering.MemoryLocation.fromMap(
         normalizedMemory,
@@ -1801,8 +1784,8 @@ void _resetTapState() {
 
   /// Handle filter apply action when overlay is launched from the map
   Future<void> handleFilterApplyFromMap() async {
-    final AddMemoriesController addMemoriesController =
-        _getAddMemoriesControllerOrNull() ?? Get.put(AddMemoriesController());
+    // AddMemoriesController is initialized in main.dart as permanent singleton
+    final addMemoriesController = Get.find<AddMemoriesController>();
 
     addMemoriesController.isOpenedFromMap = true;
     addMemoriesController.applyFilters();

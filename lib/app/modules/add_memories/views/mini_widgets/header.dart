@@ -290,14 +290,12 @@ class Header extends StatelessWidget {
             GestureDetector(
               onTap: () async {
                 try {
-                  // Use MapControllerNew instead of old MapController
-                  if (Get.isRegistered<MapControllerNew>()) {
-                    final mapController = Get.find<MapControllerNew>();
-                    await mapController.refreshMapView();
-                    debugPrint(
-                      '🌍 HEADER - Earth tapped: Refreshed map view',
-                    );
-                  }
+                  // MapControllerNew is initialized in main.dart as permanent singleton
+                  final mapController = Get.find<MapControllerNew>();
+                  await mapController.refreshMapView();
+                  debugPrint(
+                    '🌍 HEADER - Earth tapped: Refreshed map view',
+                  );
 
                   Get.back(result: true);
 
