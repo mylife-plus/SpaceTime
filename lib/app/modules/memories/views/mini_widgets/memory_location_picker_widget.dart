@@ -186,7 +186,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         // Map
         _buildMap(),
         // Top search bar
-        _buildTopSearchBar(),
+        // _buildTopSearchBar(),
         // Search results dropdown
         _buildSearchResultsOverlay(),
         // Current location button

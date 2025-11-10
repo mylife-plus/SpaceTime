@@ -192,6 +192,36 @@ class _MemoryViewState extends State<MemoryView> {
     // Set the controller text
     _descriptionController.text = fullDescription.trim();
 
+    // ✅ IMPORTANT: Initialize the tags and mentions in the description field widget
+    // This ensures they are recognized as valid and displayed with correct colors
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_descriptionFieldKey.currentState != null) {
+        // Parse and add existing tags to the widget state
+        if (tagsString != null && tagsString.isNotEmpty) {
+          final tags = tagsString
+              .split(',')
+              .where((tag) => tag.trim().isNotEmpty)
+              .map((tag) => tag.trim())
+              .toList();
+          _descriptionFieldKey.currentState!.initializeTags(tags);
+          debugPrint('Initialized ${tags.length} tags in description field');
+        }
+
+        // Parse and add existing mentions to the widget state
+        if (mentionsString != null && mentionsString.isNotEmpty) {
+          final mentions = mentionsString
+              .split(',')
+              .where((mention) => mention.trim().isNotEmpty)
+              .map((mention) => mention.trim())
+              .toList();
+          _descriptionFieldKey.currentState!.initializeMentions(mentions);
+          debugPrint(
+            'Initialized ${mentions.length} mentions in description field',
+          );
+        }
+      }
+    });
+
     debugPrint(
       'Controller text after setting: "${_descriptionController.text}"',
     );

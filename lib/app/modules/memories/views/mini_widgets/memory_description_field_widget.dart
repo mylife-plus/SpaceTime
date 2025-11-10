@@ -47,6 +47,20 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   List<String> getTags() => _tags;
   List<String> getMentions() => _mentions;
 
+  /// Initialize tags from existing data (for edit mode)
+  void initializeTags(List<String> tags) {
+    _tags.clear();
+    _tags.addAll(tags);
+    setState(() {}); // Trigger rebuild to show colors
+  }
+
+  /// Initialize mentions from existing data (for edit mode)
+  void initializeMentions(List<String> mentions) {
+    _mentions.clear();
+    _mentions.addAll(mentions);
+    setState(() {}); // Trigger rebuild to show colors
+  }
+
   void _onTagAdded(String tag) {
     _tags.add(tag);
     widget.onTagAdded(tag);
