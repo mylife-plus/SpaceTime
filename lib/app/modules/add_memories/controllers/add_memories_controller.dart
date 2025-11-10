@@ -25,6 +25,10 @@ class AddMemoriesController extends GetxController {
   var showSuggestions = false.obs;
   final RxBool isUIVisible = true.obs;
 
+  // Track search type and memory data for description-based searches
+  var searchType = 'general'.obs; // 'general', 'hashtag', 'mention', 'description'
+  var searchSuggestionsWithMetadata = <Map<String, dynamic>>[].obs;
+
   late ScrollController scrollController;
 
   double _lastScrollOffset = 0.0;
@@ -157,7 +161,9 @@ class AddMemoriesController extends GetxController {
     searchQuery.value = '';
     filteredMemories.clear();
     searchSuggestions.clear();
+    searchSuggestionsWithMetadata.clear();
     showSuggestions.value = false;
+    searchType.value = 'general';
     filterValues.clear();
     selectedLocation.value = '';
 
@@ -555,11 +561,23 @@ class AddMemoriesController extends GetxController {
   void generateSearchSuggestions(String query) {
     if (query.isEmpty) {
       searchSuggestions.clear();
+      searchSuggestionsWithMetadata.clear();
       showSuggestions.value = false;
+      searchType.value = 'general';
       return;
     }
 
+    // Detect search type based on query prefix
+    if (query.startsWith('#')) {
+      searchType.value = 'hashtag';
+    } else if (query.startsWith('@')) {
+      searchType.value = 'mention';
+    } else {
+      searchType.value = 'description';
+    }
+
     final suggestions = <String>{};
+    final suggestionsWithMetadata = <Map<String, dynamic>>[];
     final lowerQuery = query.toLowerCase();
 
     for (final memory in allMemories) {
@@ -570,55 +588,84 @@ class AddMemoriesController extends GetxController {
       final category = memory['category'] ?? '';
       final tags = memory['tags'] ?? '';
       final mentions = memory['mentions'] ?? '';
+      final time = memory['time'] ?? '';
+      final locationCity = memory['location_city'] ?? '';
+      final locationCountry = memory['location_country'] ?? '';
+      final locationFlag = memory['location_flag'] ?? '';
 
-      // Add matching text phrases
-      if (text.toLowerCase().contains(lowerQuery)) {
-        suggestions.add(text);
-      }
+      // For description-based search (plain text, no # or @)
+      if (searchType.value == 'description') {
+        if (text.toLowerCase().contains(lowerQuery)) {
+          // Store full memory metadata for description matches
+          suggestionsWithMetadata.add({
+            'text': text,
+            'date': date,
+            'year': year,
+            'time': time,
+            'category': category,
+            'location': location,
+            'location_city': locationCity,
+            'location_country': locationCountry,
+            'location_flag': locationFlag,
+            'type': 'description',
+          });
+        }
+      } else {
+        // For hashtag and mention searches, use existing logic
+        // Add matching text phrases
+        if (text.toLowerCase().contains(lowerQuery)) {
+          suggestions.add(text);
+        }
 
-      // Add matching locations
-      if (location.toLowerCase().contains(lowerQuery)) {
-        suggestions.add(location);
-      }
+        // Add matching locations
+        if (location.toLowerCase().contains(lowerQuery)) {
+          suggestions.add(location);
+        }
 
-      // Add matching categories
-      if (category.toLowerCase().contains(lowerQuery)) {
-        suggestions.add(category);
-      }
+        // Add matching categories
+        if (category.toLowerCase().contains(lowerQuery)) {
+          suggestions.add(category);
+        }
 
-      // Add matching tags (split by comma and check each tag)
-      if (tags.isNotEmpty) {
-        final tagList = tags.split(',');
-        for (final tag in tagList) {
-          if (tag.trim().toLowerCase().contains(lowerQuery)) {
-            suggestions.add('#${tag.trim()}');
+        // Add matching tags (split by comma and check each tag)
+        if (tags.isNotEmpty) {
+          final tagList = tags.split(',');
+          for (final tag in tagList) {
+            if (tag.trim().toLowerCase().contains(lowerQuery)) {
+              suggestions.add('#${tag.trim()}');
+            }
           }
         }
-      }
 
-      // Add matching mentions (split by comma and check each mention)
-      if (mentions.isNotEmpty) {
-        final mentionList = mentions.split(',');
-        for (final mention in mentionList) {
-          if (mention.trim().toLowerCase().contains(lowerQuery)) {
-            suggestions.add('@${mention.trim()}');
+        // Add matching mentions (split by comma and check each mention)
+        if (mentions.isNotEmpty) {
+          final mentionList = mentions.split(',');
+          for (final mention in mentionList) {
+            if (mention.trim().toLowerCase().contains(lowerQuery)) {
+              suggestions.add('@${mention.trim()}');
+            }
           }
         }
-      }
 
-      // Add matching dates
-      if (date.toLowerCase().contains(lowerQuery)) {
-        suggestions.add(date);
-      }
+        // Add matching dates
+        if (date.toLowerCase().contains(lowerQuery)) {
+          suggestions.add(date);
+        }
 
-      // Add matching years
-      if (year.toLowerCase().contains(lowerQuery)) {
-        suggestions.add(year);
+        // Add matching years
+        if (year.toLowerCase().contains(lowerQuery)) {
+          suggestions.add(year);
+        }
       }
     }
 
-    searchSuggestions.value = suggestions.take(8).toList();
-    showSuggestions.value = suggestions.isNotEmpty;
+    if (searchType.value == 'description') {
+      searchSuggestionsWithMetadata.value = suggestionsWithMetadata.take(8).toList();
+      showSuggestions.value = suggestionsWithMetadata.isNotEmpty;
+    } else {
+      searchSuggestions.value = suggestions.take(8).toList();
+      showSuggestions.value = suggestions.isNotEmpty;
+    }
   }
 
   void selectSuggestion(String suggestion) {
@@ -686,9 +733,11 @@ class AddMemoriesController extends GetxController {
     isSearchActive.value = false;
     searchQuery.value = '';
     isSearching.value = false;
-    
+
     searchSuggestions.clear();
+    searchSuggestionsWithMetadata.clear();
     showSuggestions.value = false;
+    searchType.value = 'general';
   }
 
   void seeAllMemories() {
@@ -1393,7 +1442,9 @@ class AddMemoriesController extends GetxController {
   void _clearSearchWithoutClosing() {
     searchQuery.value = '';
     searchSuggestions.clear();
+    searchSuggestionsWithMetadata.clear();
     showSuggestions.value = false;
+    searchType.value = 'general';
   }
 
   void handleScrollUpdate(double currentOffset, double maxScrollExtent) {

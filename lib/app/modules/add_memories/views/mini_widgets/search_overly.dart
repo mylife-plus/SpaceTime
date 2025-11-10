@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -104,8 +103,17 @@ class SearchOverlay extends StatelessWidget {
             ),
             // Search suggestions popup
             Obx(() {
-              if (!controller.showSuggestions.value ||
-                  controller.searchSuggestions.isEmpty) {
+              if (!controller.showSuggestions.value) {
+                return const SizedBox.shrink();
+              }
+
+              // Check if we have description-based search results
+              final isDescriptionSearch = controller.searchType.value == 'description';
+              final hasResults = isDescriptionSearch
+                  ? controller.searchSuggestionsWithMetadata.isNotEmpty
+                  : controller.searchSuggestions.isNotEmpty;
+
+              if (!hasResults) {
                 return const SizedBox.shrink();
               }
 
@@ -124,7 +132,7 @@ class SearchOverlay extends StatelessWidget {
                     // borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.11),
+                        color: Colors.black.withValues(alpha: 0.11),
                         blurRadius: 10,
                         offset: const Offset(0, 2),
                       ),
@@ -132,26 +140,132 @@ class SearchOverlay extends StatelessWidget {
                   ),
                   child: ListView.separated(
                     shrinkWrap: true,
-
-                    itemCount: controller.searchSuggestions.length,
+                    itemCount: isDescriptionSearch
+                        ? controller.searchSuggestionsWithMetadata.length
+                        : controller.searchSuggestions.length,
                     separatorBuilder:
                         (context, index) => const Divider(height: 1),
                     itemBuilder: (context, index) {
-                      final suggestion = controller.searchSuggestions[index];
-                      return ListTile(
-                        title: Text(
-                          suggestion,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color:
-                                controller2.darkMode.value
-                                    ? Colors.white
-                                    : Colors.black,
+                      if (isDescriptionSearch) {
+                        // Description-based search: show custom layout
+                        final memoryData = controller.searchSuggestionsWithMetadata[index];
+                        final date = memoryData['date'] ?? '';
+                        final year = memoryData['year'] ?? '';
+                        final time = memoryData['time'] ?? '';
+                        final category = memoryData['category'] ?? '';
+                        final locationCity = memoryData['location_city'] ?? '';
+                        final locationCountry = memoryData['location_country'] ?? '';
+                        final locationFlag = memoryData['location_flag'] ?? '';
+                        final text = memoryData['text'] ?? '';
+
+                        // Format location display
+                        String locationDisplay = '';
+                        if (locationFlag.isNotEmpty &&
+                            locationCity.isNotEmpty &&
+                            locationCountry.isNotEmpty) {
+                          locationDisplay = '$locationCity, $locationCountry $locationFlag';
+                        } else if (memoryData['location'] != null &&
+                            memoryData['location'].toString().isNotEmpty) {
+                          locationDisplay = memoryData['location'];
+                        }
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
-                        ),
-                        onTap: () => controller.selectSuggestion(suggestion),
-                      );
+                          title: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Top row: Date (left) and Time (right)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '$date $year',
+                                    style: GoogleFonts.kumbhSans(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          controller2.darkMode.value
+                                              ? Colors.white
+                                              : Colors.black,
+                                    ),
+                                  ),
+                                  Text(
+                                    time,
+                                    style: GoogleFonts.kumbhSans(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          controller2.darkMode.value
+                                              ? Colors.white
+                                              : Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Bottom row: Category (left) and Location (right)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      category,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.kumbhSans(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        color:
+                                            controller2.darkMode.value
+                                                ? Colors.white70
+                                                : Colors.black54,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      locationDisplay,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.right,
+                                      style: GoogleFonts.kumbhSans(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        color:
+                                            controller2.darkMode.value
+                                                ? Colors.white70
+                                                : Colors.black54,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          onTap: () => controller.selectSuggestion(text),
+                        );
+                      } else {
+                        // Hashtag/mention/other searches: show existing simple layout
+                        final suggestion = controller.searchSuggestions[index];
+                        return ListTile(
+                          title: Text(
+                            suggestion,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color:
+                                  controller2.darkMode.value
+                                      ? Colors.white
+                                      : Colors.black,
+                            ),
+                          ),
+                          onTap: () => controller.selectSuggestion(suggestion),
+                        );
+                      }
                     },
                   ),
                 ),
