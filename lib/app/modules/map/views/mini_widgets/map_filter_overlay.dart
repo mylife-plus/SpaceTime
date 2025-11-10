@@ -22,10 +22,9 @@ class _MapFilterOverlayState extends State<MapFilterOverlay> {
 
   void _syncFiltersFromMapToAddMemories() {
     final mapController = Get.find<MapControllerNew>();
-    final addMemoriesController =
-        Get.isRegistered<AddMemoriesController>()
-            ? Get.find<AddMemoriesController>()
-            : Get.put(AddMemoriesController(), permanent: true);
+    // AddMemoriesController is initialized in main.dart as permanent singleton
+    // Always use Get.find() - it should always be available
+    final addMemoriesController = Get.find<AddMemoriesController>();
 
     addMemoriesController.isOpenedFromMap = true;
 
