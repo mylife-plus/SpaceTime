@@ -95,11 +95,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_colors.dart';
-import 'package:spacetime/app/modules/map/controllers/map_controller.dart';
+import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/settings/views/settings_view.dart';
 
 import '../../../../config/app_images.dart';
-import '../../../map/controllers/map_controller.dart';
 
 import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
@@ -207,8 +206,8 @@ class Header extends StatelessWidget {
                     final filterCount = controller.activeFilterCount;
                     return filterCount > 0
                         ? Positioned(
-                            right: -4,
-                            top: -4,
+                            right: 0,
+                            top: 0,
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
@@ -291,19 +290,24 @@ class Header extends StatelessWidget {
             GestureDetector(
               onTap: () async {
                 try {
-                  final mapController = Get.find<MapController>();
+                  // Use MapControllerNew instead of old MapController
+                  if (Get.isRegistered<MapControllerNew>()) {
+                    final mapController = Get.find<MapControllerNew>();
+                    await mapController.refreshMapView();
+                    debugPrint(
+                      '🌍 HEADER - Earth tapped: Refreshed map view',
+                    );
+                  }
 
-                  await mapController.resetToOriginalLocations();
-
-                 Navigator.of(context).pop(true); 
+                  Get.back(result: true);
 
                   debugPrint(
-                    '🌍 HEADER - Earth tapped: Reset to original locations completed',
+                    '🌍 HEADER - Earth tapped: Navigating back to map',
                   );
                 } catch (e) {
                   debugPrint('Error navigating to map: $e');
 
-                 Navigator.of(context).pop(true); 
+                  Get.back(result: true);
                 }
               },
               child: Container(
