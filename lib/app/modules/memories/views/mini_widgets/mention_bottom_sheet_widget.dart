@@ -156,12 +156,12 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color:
-                    widget.isTagMode
-                        ? (uiController.secondaryColor ??
+                    
+                        // ? (
                             (uiController.darkMode.value
-                                ? Color(0xFFF4FFF5)
-                                : Color(0xFFF4FFF5)))
-                        : uiController.getPopUpColors(widget.isTagMode),
+                                ? Colors.black
+                                : Color(0xFFF4FFF5)),
+                        // : Colors.black,
 
                 // color:
                 //     widget.isTagMode
@@ -181,7 +181,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                     widget.isTagMode ? '#' : '@',
                     style: GoogleFonts.kumbhSans(
                       color:
-                          (uiController.secondaryColor != null &&
+                          (
                                   uiController.darkMode.value)
                               ? Colors.white
                               : Colors.black,
@@ -202,7 +202,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                         autofocus: true,
                         style: GoogleFonts.kumbhSans(
                           color:
-                              (uiController.secondaryColor != null &&
+                              (
                                       uiController.darkMode.value)
                                   ? Colors.white
                                   : Colors.black,
@@ -213,9 +213,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                           hintText: 'Search...',
                           hintStyle: GoogleFonts.kumbhSans(
                             color:
-                                (uiController.secondaryColor != null &&
+                                (
                                         uiController.darkMode.value)
-                                    ? Colors.white.withValues(alpha: 0.5)
+                                    ? Colors.grey
                                     : Colors.black.withValues(alpha: 0.5),
                             fontSize: 16,
                             fontWeight: FontWeight.w400,
@@ -393,7 +393,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                       'add',
                                                       style: GoogleFonts.kumbhSans(
                                                         color:
-                                                            widget.isTagMode
+                                                            !widget.isTagMode
                                                                 ? Colors.green
                                                                 : Colors.blue,
                                                         fontSize: 14,
@@ -965,7 +965,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                         hint: Text(
                           'select $prefixChar Category',
                           style: GoogleFonts.kumbhSans(
-                            color: Colors.black,
+                            color: (uiController.darkMode.value) ?  Colors.white :  Colors.black,
                             fontSize: 16,
                           ),
                         ),
@@ -981,7 +981,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                               child: Text(
                                 category['name'],
                                 style: GoogleFonts.kumbhSans(
-                                  color: Colors.black,
+                            color: (uiController.darkMode.value) ?  Colors.white :  Colors.black,
                                   fontSize: 16,
                                 ),
                               ),
@@ -1018,7 +1018,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               const SizedBox(height: 6),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  // color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
@@ -1043,7 +1043,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                       ),
                     ),
                     style: GoogleFonts.kumbhSans(
-                      color: Colors.black,
+                            color: (uiController.darkMode.value) ?  Colors.white :  Colors.black,
                       fontSize: 16,
                     ),
                   ),
@@ -1071,7 +1071,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 child: TextField(
                   controller: _nameController,
                   style: GoogleFonts.kumbhSans(
-                    color: Colors.grey.shade600,
+                            color: (uiController.darkMode.value) ?  Colors.white :  Colors.black,
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
