@@ -150,22 +150,31 @@ class AddMemoriesController extends GetxController {
   void onAgainInit() {
     debugPrint('AddMemoriesController: onAgainInit called - refreshing data');
 
-    // Reset all states
+    // Reset UI states
     isLoading.value = false;
-    isSearching.value = false;
-    isSearchActive.value = false;
     isFilterOpen.value = false;
     isUIVisible.value = true;
 
-    // Clear search and filter states
+    // Clear search states (but keep filters - they should persist)
     searchQuery.value = '';
-    filteredMemories.clear();
     searchSuggestions.clear();
     searchSuggestionsWithMetadata.clear();
     showSuggestions.value = false;
     searchType.value = 'general';
-    filterValues.clear();
-    selectedLocation.value = '';
+
+    // Don't clear filters - they should persist until manually removed or reset
+    // filterValues.clear();  // REMOVED - filters should persist
+    // selectedLocation.value = '';  // REMOVED - location filter should persist
+
+    // If filters are active, keep isSearching true to show filtered results
+    if (hasActiveFilters.value) {
+      isSearching.value = true;
+      isSearchActive.value = false;
+    } else {
+      isSearching.value = false;
+      isSearchActive.value = false;
+      filteredMemories.clear();
+    }
 
     // Reload memories from database
     loadMemoriesFromDatabase();
@@ -173,7 +182,12 @@ class AddMemoriesController extends GetxController {
     // Reload filter data
     loadFilterData();
 
-    debugPrint('AddMemoriesController: onAgainInit completed');
+    // Reapply filters if they were active
+    if (hasActiveFilters.value) {
+      applyFilters();
+    }
+
+    debugPrint('AddMemoriesController: onAgainInit completed - filters preserved: ${hasActiveFilters.value}');
   }
 
   // Load memories from database
