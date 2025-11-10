@@ -347,9 +347,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   /// Build search results content - matching new location picker design
   Widget _buildSearchResultsContent() {
     if (isSearching.value) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Center(child: CircularProgressIndicator()),
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: CircularProgressIndicator(
+            color: uiController.primaryColor,
+          ),
+        ),
       );
     }
 

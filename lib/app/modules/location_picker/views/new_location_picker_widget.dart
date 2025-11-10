@@ -662,9 +662,13 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
       ),
       child: Obx(() {
         if (controller.isSearching.value) {
-          return const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator()),
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: uiController.primaryColor,
+              ),
+            ),
           );
         }
 
