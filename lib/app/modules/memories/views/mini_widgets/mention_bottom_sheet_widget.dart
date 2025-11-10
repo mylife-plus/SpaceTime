@@ -733,9 +733,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         if (widget.isTagMode) {
           final databaseHelper = DatabaseHelper.instance;
           await databaseHelper.updateHashtagGroup(widget.editItemId!, {
-            'name': newName,
-            'parent_id': parentId,
-            'updated_at': DateTime.now().toIso8601String(),
+            'hashtag_group_name': newName,
+            'hashtag_group_parent_id': parentId,
+            'hashtag_group_updated_at': DateTime.now().toIso8601String(),
           });
 
           // ✅ Update all memories that use this hashtag
@@ -1094,39 +1094,76 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
   /// Update all memories that contain the old mention with the new mention
   Future<void> _updateMemoriesWithMention(String oldMention, String newMention) async {
     try {
-      debugPrint('🔄 Updating memories: replacing mention "$oldMention" with "$newMention"');
+      debugPrint('🔄 ========================================');
+      debugPrint('🔄 UPDATING MEMORIES WITH MENTION');
+      debugPrint('🔄 Old mention: "$oldMention"');
+      debugPrint('🔄 New mention: "$newMention"');
+      debugPrint('🔄 ========================================');
 
       final databaseHelper = DatabaseHelper.instance;
       final allMemories = await databaseHelper.queryAllMemories();
 
+      debugPrint('📊 Total memories in database: ${allMemories.length}');
+
       int updatedCount = 0;
+      int checkedCount = 0;
 
       for (final memory in allMemories) {
         final memoryId = memory['id'] as int;
         final mentionsString = memory['mentions'] as String?;
+        final descriptionText = memory['description'] as String?;  // ✅ FIXED: Read from 'description' not 'text'
+
+        debugPrint('🔍 Checking memory #$memoryId');
+        debugPrint('   mentions field: "$mentionsString"');
+        debugPrint('   description: "$descriptionText"');
 
         if (mentionsString != null && mentionsString.isNotEmpty) {
           // Split mentions by comma
           final mentions = mentionsString.split(',').map((m) => m.trim()).toList();
 
+          debugPrint('   📝 Parsed mentions: $mentions');
+          debugPrint('   🔎 Looking for: "$oldMention"');
+          debugPrint('   ❓ Contains old mention: ${mentions.contains(oldMention)}');
+
           // Check if this memory contains the old mention
           if (mentions.contains(oldMention)) {
-            // Replace old mention with new mention
+            checkedCount++;
+
+            // Replace old mention with new mention in the mentions field
             final updatedMentions = mentions.map((m) => m == oldMention ? newMention : m).toList();
 
-            // Update the memory
+            // Also replace in the description text
+            String updatedDescription = descriptionText ?? '';
+            if (updatedDescription.isNotEmpty) {
+              // Replace @oldMention with @newMention in the description text
+              // Use word boundary to avoid partial replacements
+              updatedDescription = updatedDescription.replaceAll('@$oldMention', '@$newMention');
+            }
+
+            debugPrint('   🔄 Updating mentions from: $mentions');
+            debugPrint('   🔄 Updating mentions to: $updatedMentions');
+            debugPrint('   🔄 Old description: "$descriptionText"');
+            debugPrint('   🔄 New description: "$updatedDescription"');
+
+            // Update the memory with both mentions field AND description text
             await databaseHelper.updateMemory({
               'id': memoryId,
               'mentions': updatedMentions.join(','),
+              'description': updatedDescription,  // ✅ FIXED: Use 'description' not 'text'
             });
 
             updatedCount++;
-            debugPrint('✅ Updated memory #$memoryId');
+            debugPrint('   ✅ Updated memory #$memoryId');
           }
         }
       }
 
-      debugPrint('✅ Updated $updatedCount memories with new mention "$newMention"');
+      debugPrint('🔄 ========================================');
+      debugPrint('✅ SUMMARY:');
+      debugPrint('   Total memories checked: ${allMemories.length}');
+      debugPrint('   Memories with mentions: $checkedCount');
+      debugPrint('   Memories updated: $updatedCount');
+      debugPrint('🔄 ========================================');
 
       // Update recently selected mentions
       await _updateRecentMentions(oldMention, newMention);
@@ -1148,30 +1185,62 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
   /// Update all memories that contain the old tag with the new tag
   Future<void> _updateMemoriesWithTag(String oldTag, String newTag) async {
     try {
-      debugPrint('🔄 Updating memories: replacing tag "$oldTag" with "$newTag"');
+      debugPrint('🔄 ========================================');
+      debugPrint('🔄 UPDATING MEMORIES WITH TAG');
+      debugPrint('🔄 Old tag: "$oldTag"');
+      debugPrint('🔄 New tag: "$newTag"');
+      debugPrint('🔄 ========================================');
 
       final databaseHelper = DatabaseHelper.instance;
       final allMemories = await databaseHelper.queryAllMemories();
 
+      debugPrint('📊 Total memories in database: ${allMemories.length}');
+
       int updatedCount = 0;
+      int checkedCount = 0;
 
       for (final memory in allMemories) {
         final memoryId = memory['id'] as int;
         final tagsString = memory['tags'] as String?;
+        final descriptionText = memory['description'] as String?;  // ✅ FIXED: Read from 'description' not 'text'
+
+        debugPrint('🔍 Checking memory #$memoryId');
+        debugPrint('   tags field: "$tagsString"');
+        debugPrint('   description: "$descriptionText"');
 
         if (tagsString != null && tagsString.isNotEmpty) {
           // Split tags by comma
           final tags = tagsString.split(',').map((t) => t.trim()).toList();
 
+          debugPrint('   📝 Parsed tags: $tags');
+          debugPrint('   🔎 Looking for: "$oldTag"');
+          debugPrint('   ❓ Contains old tag: ${tags.contains(oldTag)}');
+
           // Check if this memory contains the old tag
           if (tags.contains(oldTag)) {
-            // Replace old tag with new tag
+            checkedCount++;
+
+            // Replace old tag with new tag in the tags field
             final updatedTags = tags.map((t) => t == oldTag ? newTag : t).toList();
 
-            // Update the memory
+            // Also replace in the description text
+            String updatedDescription = descriptionText ?? '';
+            if (updatedDescription.isNotEmpty) {
+              // Replace #oldTag with #newTag in the description text
+              // Use word boundary to avoid partial replacements
+              updatedDescription = updatedDescription.replaceAll('#$oldTag', '#$newTag');
+            }
+
+            debugPrint('   🔄 Updating tags from: $tags');
+            debugPrint('   🔄 Updating tags to: $updatedTags');
+            debugPrint('   🔄 Old description: "$descriptionText"');
+            debugPrint('   🔄 New description: "$updatedDescription"');
+
+            // Update the memory with both tags field AND description text
             await databaseHelper.updateMemory({
               'id': memoryId,
               'tags': updatedTags.join(','),
+              'description': updatedDescription,  // ✅ FIXED: Use 'description' not 'text'
             });
 
             updatedCount++;
@@ -1180,7 +1249,12 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         }
       }
 
-      debugPrint('✅ Updated $updatedCount memories with new tag "$newTag"');
+      debugPrint('🔄 ========================================');
+      debugPrint('✅ SUMMARY:');
+      debugPrint('   Total memories checked: ${allMemories.length}');
+      debugPrint('   Memories with tags: $checkedCount');
+      debugPrint('   Memories updated: $updatedCount');
+      debugPrint('🔄 ========================================');
 
       // Update recently selected tags
       await _updateRecentTags(oldTag, newTag);

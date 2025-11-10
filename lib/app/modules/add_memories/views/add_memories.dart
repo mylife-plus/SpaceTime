@@ -201,10 +201,8 @@ class AddMemoriesView extends GetView<AddMemoriesController>
         //           uiController.mainColor.value,
         //         ),
         body: SafeArea(
-          child: Container(
-            color: uiController.darkMode.value ? Colors.black : Colors.white,
-            child: Stack(
-              children: [
+          child: Stack(
+            children: [
                 Column(
                   children: [
                     AnimatedContainer(
@@ -318,8 +316,7 @@ class AddMemoriesView extends GetView<AddMemoriesController>
               ],
             ),
           ),
-        ),
-      );
+        );
     });
   }
 }

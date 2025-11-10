@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 import '../models/contact_group_model.dart';
 import '../services/memory_db.dart';
+import '../modules/add_memories/controllers/add_memories_controller.dart';
+import '../modules/memories/helpers/tagmention_helper.dart';
 
 class ContactGroupService {
   static final ContactGroupService _instance = ContactGroupService._internal();
@@ -62,8 +65,16 @@ class ContactGroupService {
       debugPrint('  - Name trimmed: "${name.trim()}"');
       debugPrint('  - Name trimmed length: ${name.trim().length}');
 
+      // Get the old name before updating
+      final oldGroup = await getGroupById(groupId);
+      final oldName = oldGroup?.name;
+      final newName = name.trim();
+
+      debugPrint('[ContactGroupService][updateGroup] Old name: "$oldName"');
+      debugPrint('[ContactGroupService][updateGroup] New name: "$newName"');
+
       final updateData = {
-        'contact_group_name': name.trim(),
+        'contact_group_name': newName,
         'contact_group_updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -79,12 +90,94 @@ class ContactGroupService {
       final success = updatedRows > 0;
       debugPrint('[ContactGroupService][updateGroup] Final result: ${success ? '✅ SUCCESS' : '❌ FAILED'}');
 
+      // ✅ Update all memories that use this mention
+      if (success && oldName != null && oldName != newName) {
+        debugPrint('[ContactGroupService][updateGroup] 🔄 Updating memories with mention...');
+        await _updateMemoriesWithMention(oldName, newName);
+      }
+
       return success;
     } catch (e) {
       debugPrint('[ContactGroupService][updateGroup] ❌ EXCEPTION CAUGHT: $e');
       debugPrint('[ContactGroupService][updateGroup] Exception type: ${e.runtimeType}');
       debugPrint('[ContactGroupService][updateGroup] Stack trace: ${StackTrace.current}');
       return false;
+    }
+  }
+
+  /// Update all memories that contain the old mention with the new mention
+  Future<void> _updateMemoriesWithMention(String oldMention, String newMention) async {
+    try {
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] 🔄 ========================================');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] 🔄 UPDATING MEMORIES WITH MENTION');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] 🔄 Old mention: "$oldMention"');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] 🔄 New mention: "$newMention"');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] 🔄 ========================================');
+
+      final allMemories = await _databaseHelper.queryAllMemories();
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] 📊 Total memories in database: ${allMemories.length}');
+
+      int updatedCount = 0;
+      int checkedCount = 0;
+
+      for (final memory in allMemories) {
+        final memoryId = memory['id'] as int;
+        final mentionsString = memory['mentions'] as String?;
+        final descriptionText = memory['description'] as String?;
+
+        if (mentionsString != null && mentionsString.isNotEmpty) {
+          final mentions = mentionsString.split(',').map((m) => m.trim()).toList();
+
+          if (mentions.contains(oldMention)) {
+            checkedCount++;
+
+            // Replace old mention with new mention in the mentions field
+            final updatedMentions = mentions.map((m) => m == oldMention ? newMention : m).toList();
+
+            // Also replace in the description text
+            String updatedDescription = descriptionText ?? '';
+            if (updatedDescription.isNotEmpty) {
+              updatedDescription = updatedDescription.replaceAll('@$oldMention', '@$newMention');
+            }
+
+            debugPrint('[ContactGroupService][_updateMemoriesWithMention]    🔄 Updating memory #$memoryId');
+            debugPrint('[ContactGroupService][_updateMemoriesWithMention]       Old mentions: $mentions');
+            debugPrint('[ContactGroupService][_updateMemoriesWithMention]       New mentions: $updatedMentions');
+
+            // Update the memory with both mentions field AND description text
+            await _databaseHelper.updateMemory({
+              'id': memoryId,
+              'mentions': updatedMentions.join(','),
+              'description': updatedDescription,
+            });
+
+            updatedCount++;
+          }
+        }
+      }
+
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] 🔄 ========================================');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] ✅ SUMMARY:');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention]    Total memories checked: ${allMemories.length}');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention]    Memories with mentions: $checkedCount');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention]    Memories updated: $updatedCount');
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] 🔄 ========================================');
+
+      // Update recently selected mentions
+      await TagMentionStorage.editMention(oldMention, newMention);
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] ✅ Updated recent mentions');
+
+      // Refresh the memories list in AddMemoriesController
+      try {
+        final addMemoriesController = Get.find<AddMemoriesController>();
+        addMemoriesController.onAgainInit();
+        debugPrint('[ContactGroupService][_updateMemoriesWithMention] ✅ Refreshed AddMemoriesController');
+      } catch (e) {
+        debugPrint('[ContactGroupService][_updateMemoriesWithMention] ⚠️ Could not refresh AddMemoriesController: $e');
+      }
+    } catch (e) {
+      debugPrint('[ContactGroupService][_updateMemoriesWithMention] ❌ Error updating memories with mention: $e');
+      rethrow;
     }
   }
 

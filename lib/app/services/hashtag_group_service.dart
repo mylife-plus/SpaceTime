@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../models/hashtag_group_model.dart';
 import '../services/memory_db.dart';
+import '../modules/add_memories/controllers/add_memories_controller.dart';
+import '../modules/memories/helpers/tagmention_helper.dart';
 
 class HashtagGroupService {
   static final HashtagGroupService _instance = HashtagGroupService._internal();
@@ -63,9 +65,17 @@ class HashtagGroupService {
       debugPrint('  - Name trimmed: "${name.trim()}"');
       debugPrint('  - Name trimmed length: ${name.trim().length}');
 
+      // Get the old name before updating
+      final oldGroup = await getGroupById(groupId);
+      final oldName = oldGroup?.name;
+      final newName = name.trim();
+
+      debugPrint('[HashtagGroupService][updateGroup] Old name: "$oldName"');
+      debugPrint('[HashtagGroupService][updateGroup] New name: "$newName"');
+
       final updateData = {
-        'name': name.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'hashtag_group_name': newName,
+        'hashtag_group_updated_at': DateTime.now().toIso8601String(),
       };
 
       debugPrint('[HashtagGroupService][updateGroup] Update data: $updateData');
@@ -80,12 +90,94 @@ class HashtagGroupService {
       final success = updatedRows > 0;
       debugPrint('[HashtagGroupService][updateGroup] Final result: ${success ? '✅ SUCCESS' : '❌ FAILED'}');
 
+      // ✅ Update all memories that use this hashtag
+      if (success && oldName != null && oldName != newName) {
+        debugPrint('[HashtagGroupService][updateGroup] 🔄 Updating memories with hashtag...');
+        await _updateMemoriesWithTag(oldName, newName);
+      }
+
       return success;
     } catch (e) {
       debugPrint('[HashtagGroupService][updateGroup] ❌ EXCEPTION CAUGHT: $e');
       debugPrint('[HashtagGroupService][updateGroup] Exception type: ${e.runtimeType}');
       debugPrint('[HashtagGroupService][updateGroup] Stack trace: ${StackTrace.current}');
       return false;
+    }
+  }
+
+  /// Update all memories that contain the old tag with the new tag
+  Future<void> _updateMemoriesWithTag(String oldTag, String newTag) async {
+    try {
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] 🔄 ========================================');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] 🔄 UPDATING MEMORIES WITH TAG');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] 🔄 Old tag: "$oldTag"');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] 🔄 New tag: "$newTag"');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] 🔄 ========================================');
+
+      final allMemories = await _databaseHelper.queryAllMemories();
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] 📊 Total memories in database: ${allMemories.length}');
+
+      int updatedCount = 0;
+      int checkedCount = 0;
+
+      for (final memory in allMemories) {
+        final memoryId = memory['id'] as int;
+        final tagsString = memory['tags'] as String?;
+        final descriptionText = memory['description'] as String?;
+
+        if (tagsString != null && tagsString.isNotEmpty) {
+          final tags = tagsString.split(',').map((t) => t.trim()).toList();
+
+          if (tags.contains(oldTag)) {
+            checkedCount++;
+
+            // Replace old tag with new tag in the tags field
+            final updatedTags = tags.map((t) => t == oldTag ? newTag : t).toList();
+
+            // Also replace in the description text
+            String updatedDescription = descriptionText ?? '';
+            if (updatedDescription.isNotEmpty) {
+              updatedDescription = updatedDescription.replaceAll('#$oldTag', '#$newTag');
+            }
+
+            debugPrint('[HashtagGroupService][_updateMemoriesWithTag]    🔄 Updating memory #$memoryId');
+            debugPrint('[HashtagGroupService][_updateMemoriesWithTag]       Old tags: $tags');
+            debugPrint('[HashtagGroupService][_updateMemoriesWithTag]       New tags: $updatedTags');
+
+            // Update the memory with both tags field AND description text
+            await _databaseHelper.updateMemory({
+              'id': memoryId,
+              'tags': updatedTags.join(','),
+              'description': updatedDescription,
+            });
+
+            updatedCount++;
+          }
+        }
+      }
+
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] 🔄 ========================================');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] ✅ SUMMARY:');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag]    Total memories checked: ${allMemories.length}');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag]    Memories with tags: $checkedCount');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag]    Memories updated: $updatedCount');
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] 🔄 ========================================');
+
+      // Update recently selected tags
+      await TagMentionStorage.editTag(oldTag, newTag);
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] ✅ Updated recent tags');
+
+      // Refresh the memories list in AddMemoriesController
+      try {
+        final addMemoriesController = Get.find<AddMemoriesController>();
+        addMemoriesController.onAgainInit();
+        debugPrint('[HashtagGroupService][_updateMemoriesWithTag] ✅ Refreshed AddMemoriesController');
+      } catch (e) {
+        debugPrint('[HashtagGroupService][_updateMemoriesWithTag] ⚠️ Could not refresh AddMemoriesController: $e');
+      }
+    } catch (e) {
+      debugPrint('[HashtagGroupService][_updateMemoriesWithTag] ❌ Error updating memories with tag: $e');
+      rethrow;
     }
   }
 

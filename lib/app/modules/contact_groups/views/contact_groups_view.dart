@@ -266,77 +266,112 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final uiController = Get.find<UiController>();
 
     Get.dialog(
-      AlertDialog(
-        backgroundColor:
-            uiController.darkMode.value ? Colors.grey[900] : Colors.white,
-        title: Text(
-          'Delete Contact Group',
-          style: gfonts.GoogleFonts.kumbhSans(
-            color: uiController.darkMode.value ? Colors.white : Colors.black,
-            fontWeight: FontWeight.bold,
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Are you sure you want to delete "${contactGroup.name}"?',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white70
-                        : Colors.grey[700],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title
+              Text(
+                'Delete Contact Group',
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              const SizedBox(height: 16),
+
+              // Message
+              Text(
+                'Are you sure you want to delete "${contactGroup.name}"?',
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                  fontSize: 16,
+                ),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning, color: Colors.orange, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'This action cannot be undone.',
-                      style: gfonts.GoogleFonts.kumbhSans(
-                        color: Colors.orange[700],
-                        fontSize: 14,
+              const SizedBox(height: 16),
+
+              // Warning box
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This action cannot be undone.',
+                        style: gfonts.GoogleFonts.kumbhSans(
+                          color: Colors.orange[700],
+                          fontSize: 14,
+                        ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Get.back(),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: gfonts.GoogleFonts.kumbhSans(
+                        color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () => _deleteContactGroup(contactGroup.id!),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: Text(
+                      'Delete',
+                      style: gfonts.GoogleFonts.kumbhSans(fontSize: 16),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(
-              'Cancel',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white70
-                        : Colors.grey[600],
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => _deleteContactGroup(contactGroup.id!),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: Text('Delete', style: gfonts.GoogleFonts.kumbhSans()),
-          ),
-        ],
       ),
     );
   }
@@ -415,73 +450,103 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final uiController = Get.find<UiController>();
 
     Get.dialog(
-      AlertDialog(
-        backgroundColor:
-            uiController.darkMode.value ? Colors.grey[900] : Colors.white,
-        title: Row(
-          children: [
-            Icon(Icons.warning, color: Colors.orange, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'Cannot Delete Contact Group',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value ? Colors.white : Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
+      Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'The contact group "$groupName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white70
-                        : Colors.grey[700],
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-              ),
-              child: Row(
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title with icon
+              Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  Icon(Icons.warning, color: Colors.orange, size: 24),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'To delete this contact group, first remove the mentions from all memories that use them, or delete those memories.',
-                      style: gfonts.GoogleFonts.kumbhSans(color: Colors.orange[700], fontSize: 14),
+                      'Cannot Delete The Contact',
+                      style: gfonts.GoogleFonts.kumbhSans(
+                        color: uiController.darkMode.value ? Colors.white : Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(
-              'OK',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color: uiController.currentMainColor,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 16),
+
+              // Message
+              Text(
+                'The contact "$groupName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                  fontSize: 16,
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+
+              // Info box
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'To delete this contact group, first remove the mentions from all memories that use them, or delete those memories.',
+                        style: gfonts.GoogleFonts.kumbhSans(
+                          color: Colors.orange[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // OK button
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Get.back(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: Text(
+                    'OK',
+                    style: gfonts.GoogleFonts.kumbhSans(
+                      color: uiController.currentMainColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -512,14 +577,15 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     Get.dialog(
       Dialog(
         backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 10),
         child: Container(
-          margin: const EdgeInsets.all(20),
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: uiController.darkMode.value
                 ? Colors.grey[900]
                 : Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.2),

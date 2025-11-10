@@ -67,6 +67,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       builder: (controller) {
         return Obx(() {
           return Scaffold(
+            backgroundColor: Colors.black,
             body: SafeArea(
               child: Stack(
                 children: [
