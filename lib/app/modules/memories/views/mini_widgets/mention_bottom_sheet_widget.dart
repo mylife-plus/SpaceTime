@@ -8,7 +8,8 @@ import 'package:spacetime/app/services/contact_group_service.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/app/models/hashtag_group_model.dart';
 import 'package:spacetime/app/models/contact_group_model.dart';
-
+import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
+import 'package:spacetime/app/modules/memories/helpers/tagmention_helper.dart';
 
 import '../../controllers/memory_controller.dart';
 
@@ -702,6 +703,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
 
       try {
         final newName = _nameController.text.trim();
+        final oldName = widget.initialName; // Store old name for memory updates
         int parentId;
 
         // Handle creating new category if "Add New Category" was selected
@@ -735,6 +737,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             'parent_id': parentId,
             'updated_at': DateTime.now().toIso8601String(),
           });
+
+          // ✅ Update all memories that use this hashtag
+          if (oldName != newName) {
+            await _updateMemoriesWithTag(oldName, newName);
+          }
         } else {
           final databaseHelper = DatabaseHelper.instance;
           await databaseHelper.updateContactGroup(widget.editItemId!, {
@@ -742,6 +749,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             'contact_group_parent_id': parentId,
             'contact_group_updated_at': DateTime.now().toIso8601String(),
           });
+
+          // ✅ Update all memories that use this mention
+          if (oldName != newName) {
+            await _updateMemoriesWithMention(oldName, newName);
+          }
         }
 
         // Call the onItemSelected callback with the updated item
@@ -1077,6 +1089,134 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         ),
       ),
     );
+  }
+
+  /// Update all memories that contain the old mention with the new mention
+  Future<void> _updateMemoriesWithMention(String oldMention, String newMention) async {
+    try {
+      debugPrint('🔄 Updating memories: replacing mention "$oldMention" with "$newMention"');
+
+      final databaseHelper = DatabaseHelper.instance;
+      final allMemories = await databaseHelper.queryAllMemories();
+
+      int updatedCount = 0;
+
+      for (final memory in allMemories) {
+        final memoryId = memory['id'] as int;
+        final mentionsString = memory['mentions'] as String?;
+
+        if (mentionsString != null && mentionsString.isNotEmpty) {
+          // Split mentions by comma
+          final mentions = mentionsString.split(',').map((m) => m.trim()).toList();
+
+          // Check if this memory contains the old mention
+          if (mentions.contains(oldMention)) {
+            // Replace old mention with new mention
+            final updatedMentions = mentions.map((m) => m == oldMention ? newMention : m).toList();
+
+            // Update the memory
+            await databaseHelper.updateMemory({
+              'id': memoryId,
+              'mentions': updatedMentions.join(','),
+            });
+
+            updatedCount++;
+            debugPrint('✅ Updated memory #$memoryId');
+          }
+        }
+      }
+
+      debugPrint('✅ Updated $updatedCount memories with new mention "$newMention"');
+
+      // Update recently selected mentions
+      await _updateRecentMentions(oldMention, newMention);
+
+      // Refresh the memories list in AddMemoriesController
+      try {
+        final addMemoriesController = Get.find<AddMemoriesController>();
+        addMemoriesController.onAgainInit();
+        debugPrint('✅ Refreshed AddMemoriesController');
+      } catch (e) {
+        debugPrint('⚠️ Could not refresh AddMemoriesController: $e');
+      }
+    } catch (e) {
+      debugPrint('❌ Error updating memories with mention: $e');
+      rethrow;
+    }
+  }
+
+  /// Update all memories that contain the old tag with the new tag
+  Future<void> _updateMemoriesWithTag(String oldTag, String newTag) async {
+    try {
+      debugPrint('🔄 Updating memories: replacing tag "$oldTag" with "$newTag"');
+
+      final databaseHelper = DatabaseHelper.instance;
+      final allMemories = await databaseHelper.queryAllMemories();
+
+      int updatedCount = 0;
+
+      for (final memory in allMemories) {
+        final memoryId = memory['id'] as int;
+        final tagsString = memory['tags'] as String?;
+
+        if (tagsString != null && tagsString.isNotEmpty) {
+          // Split tags by comma
+          final tags = tagsString.split(',').map((t) => t.trim()).toList();
+
+          // Check if this memory contains the old tag
+          if (tags.contains(oldTag)) {
+            // Replace old tag with new tag
+            final updatedTags = tags.map((t) => t == oldTag ? newTag : t).toList();
+
+            // Update the memory
+            await databaseHelper.updateMemory({
+              'id': memoryId,
+              'tags': updatedTags.join(','),
+            });
+
+            updatedCount++;
+            debugPrint('✅ Updated memory #$memoryId');
+          }
+        }
+      }
+
+      debugPrint('✅ Updated $updatedCount memories with new tag "$newTag"');
+
+      // Update recently selected tags
+      await _updateRecentTags(oldTag, newTag);
+
+      // Refresh the memories list in AddMemoriesController
+      try {
+        final addMemoriesController = Get.find<AddMemoriesController>();
+        addMemoriesController.onAgainInit();
+        debugPrint('✅ Refreshed AddMemoriesController');
+      } catch (e) {
+        debugPrint('⚠️ Could not refresh AddMemoriesController: $e');
+      }
+    } catch (e) {
+      debugPrint('❌ Error updating memories with tag: $e');
+      rethrow;
+    }
+  }
+
+  /// Update recently selected mentions in SharedPreferences
+  Future<void> _updateRecentMentions(String oldMention, String newMention) async {
+    try {
+      await TagMentionStorage.editMention(oldMention, newMention);
+      debugPrint('✅ Updated recent mentions');
+    } catch (e) {
+      debugPrint('⚠️ Error updating recent mentions: $e');
+    }
+  }
+
+  /// Update recently selected tags in SharedPreferences
+  Future<void> _updateRecentTags(String oldTag, String newTag) async {
+    try {
+      await TagMentionStorage.editTag(oldTag, newTag);
+      debugPrint('✅ Updated recent tags');
+    } catch (e) {
+      debugPrint('⚠️ Error updating recent tags: $e');
+    }
   }
 
   @override
