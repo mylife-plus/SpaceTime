@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UiController extends GetxController {
   RxBool darkMode = false.obs;
@@ -20,6 +21,56 @@ class UiController extends GetxController {
 
   void setMainColor(String color) {
     mainColor.value = color;
+    _saveMainColor(color);
+  }
+
+  void setDarkMode(bool isDark) {
+    darkMode.value = isDark;
+    _saveDarkMode(isDark);
+  }
+
+  // Save dark mode preference
+  Future<void> _saveDarkMode(bool isDark) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('dark_mode', isDark);
+      debugPrint('[UiController] Dark mode saved: $isDark');
+    } catch (e) {
+      debugPrint('[UiController] Error saving dark mode: $e');
+    }
+  }
+
+  // Save main color preference
+  Future<void> _saveMainColor(String color) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('main_color', color);
+      debugPrint('[UiController] Main color saved: $color');
+    } catch (e) {
+      debugPrint('[UiController] Error saving main color: $e');
+    }
+  }
+
+  // Load preferences from SharedPreferences
+  Future<void> _loadPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Load dark mode (default: false)
+      final savedDarkMode = prefs.getBool('dark_mode') ?? false;
+      darkMode.value = savedDarkMode;
+
+      // Load main color (default: 'blue')
+      final savedMainColor = prefs.getString('main_color') ?? 'blue';
+      mainColor.value = savedMainColor;
+
+      debugPrint('[UiController] Preferences loaded - Dark mode: $savedDarkMode, Main color: $savedMainColor');
+    } catch (e) {
+      debugPrint('[UiController] Error loading preferences: $e');
+      // Use defaults if loading fails
+      darkMode.value = false;
+      mainColor.value = 'blue';
+    }
   }
 
   Color get currentMainColor {
@@ -129,6 +180,8 @@ class UiController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Load saved preferences at app launch
+    _loadPreferences();
   }
 
   @override

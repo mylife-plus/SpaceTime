@@ -45,7 +45,7 @@ class UiView extends GetView<UiController> {
                     () => UiTile(
                       title: AppTexts.darkMode,
                       isActive: controller.darkMode.value,
-                      onChanged: (val) => controller.darkMode.value = val,
+                      onChanged: (val) => controller.setDarkMode(val),
                       showDivider: true,
                     ),
                   ),
