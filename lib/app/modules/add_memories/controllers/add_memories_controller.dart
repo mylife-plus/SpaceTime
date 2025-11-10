@@ -1318,9 +1318,9 @@ class AddMemoriesController extends GetxController {
     }
 
     // Count radius filter
-    if (selectedRadius.value.isNotEmpty) {
-      count++;
-    }
+    // if (selectedRadius.value.isNotEmpty) {
+    //   count++;
+    // }
 
     // Count hashtags filter
     if (selectedHashtags.isNotEmpty) {

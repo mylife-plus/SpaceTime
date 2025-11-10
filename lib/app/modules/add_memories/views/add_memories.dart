@@ -185,23 +185,23 @@ class AddMemoriesView extends GetView<AddMemoriesController>
     return Obx(() {
       final mainColor = uiController.mainColor.value;
       final useOriginalImage = mainColor == 'blue';
-      return Scaffold(
-        backgroundColor:
-            uiController.darkMode.value
-                ? uiController.mainColor.value == 'blue'
-                    ? Colors.black
-                    : uiController.primaryColorDark
-                : uiController.mainColor.value == 'blue'
-                ? Color(0xFFE6F0FF)
-                : uiController.primaryColor,
-        // backgroundColor:
-        //     uiController.darkMode.value
-        //         ? Colors.black
-        //         : uiController.getLightModeBackgroundColor(
-        //           uiController.mainColor.value,
-        //         ),
-        body: SafeArea(
-          child: Stack(
+      return SafeArea(
+        child: Scaffold(
+          backgroundColor:
+              uiController.darkMode.value
+                  ? uiController.mainColor.value == 'blue'
+                      ? Colors.black
+                      : uiController.primaryColorDark
+                  : uiController.mainColor.value == 'blue'
+                  ?uiController.primaryColor
+                  : uiController.primaryColor,
+          // backgroundColor:
+          //     uiController.darkMode.value
+          //         ? Colors.black
+          //         : uiController.getLightModeBackgroundColor(
+          //           uiController.mainColor.value,
+          //         ),
+          body: Stack(
             children: [
                 Column(
                   children: [
@@ -217,13 +217,13 @@ class AddMemoriesView extends GetView<AddMemoriesController>
                                 : const SizedBox.shrink(),
                       ),
                     ),
-
+          
                     // Search indicator
                     const SearchIndicator(),
-
+          
                     // Filter indicator
                     const FilterIndicator(),
-
+          
                     Expanded(child: _buildMemoryList()),
                   ],
                 ),
@@ -240,14 +240,14 @@ class AddMemoriesView extends GetView<AddMemoriesController>
                         // Don't reset filters when adding a new memory
                         // Filters should persist until manually removed or reset
                         Get.put(MemoryController());
-
+          
                         final result = await Get.to(() => MemoryView());
                         // Always refresh memories when returning from memory creation
                         debugPrint(
                           'Returned from memory creation, refreshing add memories screen',
                         );
                         controller.onAgainInit();
-
+          
                         // Show success message if memory was saved
                         if (result == true) {
                           Get.snackbar(
@@ -316,7 +316,7 @@ class AddMemoriesView extends GetView<AddMemoriesController>
               ],
             ),
           ),
-        );
+      );
     });
   }
 }

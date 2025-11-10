@@ -1864,12 +1864,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
                       _selectedCategories.isEmpty
-                          ? 'Select categories to filter'
+                          ? '0 categories selected'
                           : '${_selectedCategories.length} ${_selectedCategories.length == 1 ? 'category' : 'categories'} selected',
                       textAlign: TextAlign.center,
                       style: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.currentMainColor,
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -2576,7 +2576,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                                   ),
                                 ),
                                 // Show selection count when in filter mode and subcategories are selected
-                                if (widget.allowMultipleSelection && selectedSubcategoriesCount > 0)
+                                if (widget.allowMultipleSelection)
                                   TextSpan(
                                     text: ' ($selectedSubcategoriesCount/${mainCategory.subcategories?.length ?? 0})',
                                     style: gfonts.GoogleFonts.kumbhSans(

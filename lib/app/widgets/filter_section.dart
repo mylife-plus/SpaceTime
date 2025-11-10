@@ -26,14 +26,28 @@ class FilterPanel extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(0),
           child: Container(
-             color:
-          controller.darkMode.value
+            decoration: BoxDecoration(
+    color: controller.darkMode.value
               ? controller.mainColor.value == 'blue'
                   ? Color(0xFF001937)
                   : controller.iconColor2
               : controller.mainColor.value == 'blue'
               ? Color(0xFF92C3FF)
               : controller.primaryColor,
+    borderRadius: const BorderRadius.only(
+      bottomLeft: Radius.circular(10),
+      bottomRight: Radius.circular(10),
+    ),
+    // boxShadow: [
+    //   BoxShadow(
+    //     color: Colors.black.withOpacity(0.11),
+    //     blurRadius: 10,
+    //     offset: const Offset(0, 2),
+    //   ),
+    // ],
+  ),
+            //  color:
+          
             child: Padding(
               padding: EdgeInsets.all(8),
               child: Column(
@@ -44,7 +58,7 @@ class FilterPanel extends StatelessWidget {
                     children: [
                       ColorFiltered(
                         colorFilter: ColorFilter.mode(
-                          controller.darkMode.value ? Colors.white : Colors.black,
+                          controller.darkMode.value ? Colors.white : Colors.white,
                           BlendMode.srcIn,
                         ),
                         child: Image.asset(

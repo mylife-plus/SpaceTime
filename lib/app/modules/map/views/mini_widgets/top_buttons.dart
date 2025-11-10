@@ -53,8 +53,8 @@ class MapTopButtons extends StatelessWidget {
 
             onTap: () async {
 
-              await controller.clearAllLines();
-              controller.refreshMapView();
+              // await controller.clearAllLines();
+              // controller.refreshMapView();
 
               // Don't clear filters when navigating to AddMemoriesView
               // Filters should persist until manually removed or reset
@@ -62,7 +62,7 @@ class MapTopButtons extends StatelessWidget {
               var result = await Get.to(() => AddMemoriesView());
 
               if (result == true) {
-                controller.refreshLocation();
+                // controller.refreshLocation();
               }
             },
           ),

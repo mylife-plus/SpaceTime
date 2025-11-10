@@ -1197,7 +1197,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           title: Obx(
             () => Text(
               widget.allowMultipleSelection
-                  ? AppTexts.contactGroups
+                  ? 'Contacts'
                   : AppTexts.contactGroups,
               style: gfonts.GoogleFonts.kumbhSans(
                 color:
@@ -1243,27 +1243,36 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             // Selection indicator when in filter mode
             if (widget.allowMultipleSelection)
               Obx(() {
-                if (_selectedContactGroups.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: uiController.currentMainColor.withValues(alpha: 0.1),
-                    border: Border(
-                      bottom: BorderSide(
-                        color: uiController.currentMainColor.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    '${_selectedContactGroups.length} selected',
-                    style: gfonts.GoogleFonts.kumbhSans(
-                      color: uiController.currentMainColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                // if (_selectedContactGroups.isEmpty) {
+                //   return const SizedBox.shrink();
+                // }
+                return Center(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    // decoration: BoxDecoration(
+                    //   color: uiController.currentMainColor.withValues(alpha: 0.1),
+                    //   border: Border(
+                    //     bottom: BorderSide(
+                    //       color: uiController.currentMainColor.withValues(alpha: 0.3),
+                    //       width: 1,
+                    //     ),
+                    //   ),
+                    // ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Center(
+                          child: Text(
+                            '${_selectedContactGroups.length} selected',
+                            style: gfonts.GoogleFonts.kumbhSans(
+                              color: uiController.currentMainColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );

@@ -191,6 +191,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
           top: 0,
           left: 0,
           right: 0,
+          bottom: 0,
           child: FilterPanel(
             onReset: () {
               controller.resetFilters();

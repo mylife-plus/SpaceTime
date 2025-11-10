@@ -1175,7 +1175,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           title: Obx(
             () => Text(
               widget.allowMultipleSelection
-                  ? AppTexts.hashTagGroups
+                  ? 'Hashtags'
                   : AppTexts.hashTagGroups,
               style: gfonts.GoogleFonts.kumbhSans(
                 color:
@@ -1221,27 +1221,34 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
             // Selection indicator when in filter mode
             if (widget.allowMultipleSelection)
               Obx(() {
-                if (_selectedHashtagGroups.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: uiController.currentMainColor.withValues(alpha: 0.1),
-                    border: Border(
-                      bottom: BorderSide(
-                        color: uiController.currentMainColor.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    '${_selectedHashtagGroups.length} selected',
-                    style: gfonts.GoogleFonts.kumbhSans(
-                      color: uiController.currentMainColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                // if (_selectedHashtagGroups.isEmpty) {
+                //   return const SizedBox.shrink();
+                // }
+                return Center(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    // decoration: BoxDecoration(
+                    //   color: uiController.currentMainColor.withValues(alpha: 0.1),
+                    //   border: Border(
+                    //     bottom: BorderSide(
+                    //       color: uiController.currentMainColor.withValues(alpha: 0.3),
+                    //       width: 1,
+                    //     ),
+                    //   ),
+                    // ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${(_selectedHashtagGroups.isEmpty) ? 0 :_selectedHashtagGroups.length} selected',
+                          style: gfonts.GoogleFonts.kumbhSans(
+                            color: uiController.currentMainColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
