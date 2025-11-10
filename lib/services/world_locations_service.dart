@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 
@@ -13,26 +12,79 @@ class WorldLocationsService {
   List<LocationResult> _allLocations = [];
   bool _isLoaded = false;
 
-  /// Initialize the service by loading the world locations data
+  /// Initialize the service by loading the world locations data from CSV
   Future<bool> initialize() async {
     if (_isLoaded) return true;
 
     try {
-      final String jsonString = await rootBundle.loadString(
-        'assets/data/world_locations.json',
+      debugPrint('📂 Loading cities from assets/geonames_cities.csv...');
+
+      final String csvString = await rootBundle.loadString(
+        'assets/geonames_cities.csv',
       );
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
 
-      _countries =
-          (jsonData['countries'] as List)
-              .map((countryData) => Country.fromJson(countryData))
-              .toList();
+      // Parse CSV
+      final lines = csvString.split('\n');
+      if (lines.isEmpty) {
+        debugPrint('❌ CSV file is empty');
+        return false;
+      }
 
-      // Create a flat list of all locations for easier searching
+      // Skip header line (name,country_code,country_name,latitude,longitude,population)
       _allLocations = [];
+      final Map<String, Country> countriesMap = {};
 
+      for (int i = 1; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.isEmpty) continue;
+
+        try {
+          final parts = _parseCsvLine(line);
+          if (parts.length < 6) continue;
+
+          final name = parts[0];
+          final countryCode = parts[1];
+          final countryName = parts[2];
+          final latitude = double.tryParse(parts[3]) ?? 0.0;
+          final longitude = double.tryParse(parts[4]) ?? 0.0;
+          final population = int.tryParse(parts[5]) ?? 0;
+
+          // Add city to locations
+          _allLocations.add(
+            LocationResult(
+              name: name,
+              type: LocationType.city,
+              latitude: latitude,
+              longitude: longitude,
+              country: countryName,
+              countryCode: countryCode,
+              city: name,
+              state: null,
+              population: population,
+            ),
+          );
+
+          // Track unique countries
+          if (!countriesMap.containsKey(countryCode)) {
+            countriesMap[countryCode] = Country(
+              name: countryName,
+              code: countryCode,
+              latitude: latitude,
+              longitude: longitude,
+              cities: [],
+            );
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error parsing line $i: $e');
+          continue;
+        }
+      }
+
+      // Convert countries map to list
+      _countries = countriesMap.values.toList();
+
+      // Add countries as searchable locations
       for (final country in _countries) {
-        // Add country as a location
         _allLocations.add(
           LocationResult(
             name: country.name,
@@ -43,35 +95,45 @@ class WorldLocationsService {
             countryCode: country.code,
             city: null,
             state: null,
+            population: null,
           ),
         );
-
-        // Add all cities
-        for (final city in country.cities) {
-          _allLocations.add(
-            LocationResult(
-              name: city.name,
-              type: LocationType.city,
-              latitude: city.latitude,
-              longitude: city.longitude,
-              country: country.name,
-              countryCode: country.code,
-              city: city.name,
-              state: city.state,
-            ),
-          );
-        }
       }
 
       _isLoaded = true;
       debugPrint(
-        'World locations loaded: ${_countries.length} countries, ${_allLocations.length} total locations',
+        '✅ World locations loaded: ${_countries.length} countries, ${_allLocations.length} total locations',
       );
       return true;
     } catch (e) {
-      debugPrint('Error loading world locations: $e');
+      debugPrint('❌ Error loading world locations: $e');
       return false;
     }
+  }
+
+  /// Parse a CSV line handling quoted fields
+  List<String> _parseCsvLine(String line) {
+    final List<String> result = [];
+    final buffer = StringBuffer();
+    bool inQuotes = false;
+
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
+
+      if (char == '"') {
+        inQuotes = !inQuotes;
+      } else if (char == ',' && !inQuotes) {
+        result.add(buffer.toString().trim());
+        buffer.clear();
+      } else {
+        buffer.write(char);
+      }
+    }
+
+    // Add the last field
+    result.add(buffer.toString().trim());
+
+    return result;
   }
 
   /// Search for locations by query
@@ -93,6 +155,16 @@ class WorldLocationsService {
             )
             .toList();
 
+    // Sort exact matches by population (highest first)
+    exactMatches.sort((a, b) {
+      // Prioritize cities over countries
+      if (a.type != b.type) {
+        return a.type == LocationType.city ? -1 : 1;
+      }
+      // Then sort by population
+      return (b.population ?? 0).compareTo(a.population ?? 0);
+    });
+
     results.addAll(exactMatches);
 
     // Starts with matches
@@ -110,6 +182,14 @@ class WorldLocationsService {
                             false)),
               )
               .toList();
+
+      // Sort by population
+      startsWithMatches.sort((a, b) {
+        if (a.type != b.type) {
+          return a.type == LocationType.city ? -1 : 1;
+        }
+        return (b.population ?? 0).compareTo(a.population ?? 0);
+      });
 
       results.addAll(startsWithMatches.take(limit - results.length));
     }
@@ -130,6 +210,14 @@ class WorldLocationsService {
                             false)),
               )
               .toList();
+
+      // Sort by population
+      containsMatches.sort((a, b) {
+        if (a.type != b.type) {
+          return a.type == LocationType.city ? -1 : 1;
+        }
+        return (b.population ?? 0).compareTo(a.population ?? 0);
+      });
 
       results.addAll(containsMatches.take(limit - results.length));
     }
@@ -227,6 +315,7 @@ class LocationResult {
   final String countryCode;
   final String? city;
   final String? state;
+  final int? population;
 
   LocationResult({
     required this.name,
@@ -237,6 +326,7 @@ class LocationResult {
     required this.countryCode,
     this.city,
     this.state,
+    this.population,
   });
 
   String get displayName {
@@ -267,12 +357,13 @@ class LocationResult {
       'countryCode': countryCode,
       'city': city,
       'state': state,
+      'population': population,
     };
   }
 
   @override
   String toString() {
-    return 'LocationResult(name: $name, type: $type, country: $country, lat: $latitude, lng: $longitude)';
+    return 'LocationResult(name: $name, type: $type, country: $country, lat: $latitude, lng: $longitude, pop: $population)';
   }
 }
 

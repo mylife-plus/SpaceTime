@@ -243,24 +243,26 @@ class LocationPickerController extends GetxController {
   Future<void> searchLocations(String query) async {
     try {
       searchQuery.value = query;
-      
+
       if (query.isEmpty) {
         searchResults.clear();
         isSearching.value = false;
         return;
       }
-      
+
       isSearching.value = true;
-      
+
       final results = await _service.searchLocations(
-        query, 
+        query,
         isOfflineMode: isOfflineMode.value,
       );
-      
+
       searchResults.value = results;
       isSearching.value = false;
     } catch (e) {
       debugPrint('[LocationPickerController] Error searching locations: $e');
+      // Clear results on error to show "No locations found" message
+      searchResults.clear();
       isSearching.value = false;
     }
   }

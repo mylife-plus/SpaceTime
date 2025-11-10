@@ -152,15 +152,15 @@ class GetStartedView extends GetView<GetStartedController> {
               '100% open source',
               style: GoogleFonts.mako(
                 fontSize: 32,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w400,
                 color: Colors.white,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withValues(alpha: 0.8),
-                    blurRadius: 8,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+                // shadows: [
+                //   Shadow(
+                //     color: Colors.black.withValues(alpha: 0.8),
+                //     blurRadius: 8,
+                //     offset: const Offset(0, 1),
+                //   ),
+                // ],
               ),
               textAlign: TextAlign.center,
             ),

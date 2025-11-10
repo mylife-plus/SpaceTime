@@ -1,8 +1,6 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:spacetime/services/world_locations_service.dart' as world;
 
 /// Comprehensive offline location search service with native integrations
 class OfflineLocationSearchService {
@@ -21,7 +19,6 @@ class OfflineLocationSearchService {
   // Local database of locations
   List<LocationSearchResult> _locations = [];
   bool _isInitialized = false;
-  bool _useNativeSearch = false;
 
   /// Initialize the offline search service
   Future<void> initialize() async {
@@ -31,242 +28,120 @@ class OfflineLocationSearchService {
       debugPrint('🔍 Initializing OfflineLocationSearchService...');
 
       // Check if native search is available
-      await _checkNativeSearchAvailability();
-
       // Load offline location database
       await _loadOfflineDatabase();
 
       _isInitialized = true;
       debugPrint('✅ OfflineLocationSearchService initialized successfully');
-      debugPrint('   Native search: $_useNativeSearch');
       debugPrint('   Offline locations: ${_locations.length}');
     } catch (e) {
       debugPrint('❌ Error initializing OfflineLocationSearchService: $e');
       _isInitialized = false;
     }
   }
-
-  /// Check if native search capabilities are available
-  Future<void> _checkNativeSearchAvailability() async {
-    try {
-      if (Platform.isAndroid || Platform.isIOS) {
-        debugPrint(
-          '🔍 Checking native search availability on ${Platform.operatingSystem}...',
-        );
-
-        final result = await _channel.invokeMethod('isNativeSearchAvailable');
-        _useNativeSearch = result == true;
-
-        debugPrint('🔍 Native search availability: $_useNativeSearch');
-        if (_useNativeSearch) {
-          debugPrint('✅ Native search is available and will be used');
-        } else {
-          debugPrint(
-            '⚠️ Native search is not available, using offline-only mode',
-          );
-        }
-      } else {
-        debugPrint(
-          '⚠️ Platform ${Platform.operatingSystem} not supported for native search',
-        );
-        _useNativeSearch = false;
-      }
-    } catch (e) {
-      debugPrint('❌ Error checking native search availability: $e');
-      debugPrint('   Error type: ${e.runtimeType}');
-      if (e.toString().contains('MissingPluginException')) {
-        debugPrint(
-          '   This means the native platform channel is not properly set up',
-        );
-        debugPrint('   Falling back to offline-only search');
-      }
-      _useNativeSearch = false;
-    }
-  }
-
-  /// Load offline location database
+/// Load offline location database
   Future<void> _loadOfflineDatabase() async {
     try {
-      // Load from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final locationsJson = prefs.getString('offline_locations_db') ?? '[]';
-      final List<dynamic> locationsList = json.decode(locationsJson);
+      // First try to load from CSV assets
+      try {
+        debugPrint('📂 Loading offline locations from CSV...');
+        final String csvString = await rootBundle.loadString(
+          'assets/geonames_cities.csv',
+        );
 
-      _locations =
-          locationsList
-              .map((json) => LocationSearchResult.fromJson(json))
-              .toList();
+        // Parse CSV
+        final lines = csvString.split('\n');
+        if (lines.isEmpty) {
+          debugPrint('❌ CSV file is empty');
+          throw Exception('CSV file is empty');
+        }
 
-      // If no locations exist, create initial database
-      if (_locations.isEmpty) {
-        await _createInitialDatabase();
+        // Skip header line (name,country_code,country_name,latitude,longitude,population)
+        _locations = [];
+
+        for (int i = 1; i < lines.length; i++) {
+          final line = lines[i].trim();
+          if (line.isEmpty) continue;
+
+          try {
+            final parts = _parseCsvLine(line);
+            if (parts.length < 6) continue;
+
+            final name = parts[0];
+            final countryCode = parts[1];
+            final countryName = parts[2];
+            final latitude = double.tryParse(parts[3]) ?? 0.0;
+            final longitude = double.tryParse(parts[4]) ?? 0.0;
+            final population = int.tryParse(parts[5]) ?? 0;
+
+            // Add city to locations
+            _locations.add(
+              LocationSearchResult(
+                name: name,
+                displayName: '$name, $countryName',
+                shortDisplayName: '$name, $countryCode',
+                latitude: latitude,
+                longitude: longitude,
+                country: countryName,
+                state: null,
+                city: name,
+                type: LocationType.city,
+                population: population,
+              ),
+            );
+          } catch (e) {
+            debugPrint('⚠️ Error parsing CSV line $i: $e');
+            continue;
+          }
+        }
+
+        debugPrint('✅ Loaded ${_locations.length} offline locations from CSV');
+        return;
+      } catch (assetError) {
+        debugPrint('⚠️ Could not load from CSV assets: $assetError');
       }
 
-      debugPrint('📍 Loaded ${_locations.length} offline locations');
+      // If CSV loading failed, initialize with empty list
+      _locations = [];
+      debugPrint('⚠️ No locations loaded');
     } catch (e) {
       debugPrint('❌ Error loading offline database: $e');
-      await _createInitialDatabase();
+      _locations = [];
     }
   }
 
-  /// Create initial offline location database
-  Future<void> _createInitialDatabase() async {
-    try {
-      debugPrint('🏗️ Creating initial offline location database...');
+  /// Parse a CSV line handling quoted fields
+  List<String> _parseCsvLine(String line) {
+    final List<String> result = [];
+    final buffer = StringBuffer();
+    bool inQuotes = false;
 
-      // _locations = [
-      //   // Major world cities
-      //   LocationSearchResult(
-      //     name: 'New York City',
-      //     displayName: 'New York City, NY, USA',
-      //     shortDisplayName: 'New York, USA',
-      //     latitude: 40.7128,
-      //     longitude: -74.0060,
-      //     country: 'United States',
-      //     state: 'New York',
-      //     city: 'New York City',
-      //     type: LocationType.city,
-      //     population: 8336817,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'London',
-      //     displayName: 'London, England, UK',
-      //     shortDisplayName: 'London, UK',
-      //     latitude: 51.5074,
-      //     longitude: -0.1278,
-      //     country: 'United Kingdom',
-      //     state: 'England',
-      //     city: 'London',
-      //     type: LocationType.city,
-      //     population: 9648110,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'Tokyo',
-      //     displayName: 'Tokyo, Japan',
-      //     shortDisplayName: 'Tokyo, Japan',
-      //     latitude: 35.6762,
-      //     longitude: 139.6503,
-      //     country: 'Japan',
-      //     state: 'Tokyo',
-      //     city: 'Tokyo',
-      //     type: LocationType.city,
-      //     population: 37400068,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'Paris',
-      //     displayName: 'Paris, Île-de-France, France',
-      //     shortDisplayName: 'Paris, France',
-      //     latitude: 48.8566,
-      //     longitude: 2.3522,
-      //     country: 'France',
-      //     state: 'Île-de-France',
-      //     city: 'Paris',
-      //     type: LocationType.city,
-      //     population: 2161000,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'Sydney',
-      //     displayName: 'Sydney, NSW, Australia',
-      //     shortDisplayName: 'Sydney, Australia',
-      //     latitude: -33.8688,
-      //     longitude: 151.2093,
-      //     country: 'Australia',
-      //     state: 'New South Wales',
-      //     city: 'Sydney',
-      //     type: LocationType.city,
-      //     population: 5312163,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'Dubai',
-      //     displayName: 'Dubai, UAE',
-      //     shortDisplayName: 'Dubai, UAE',
-      //     latitude: 25.2048,
-      //     longitude: 55.2708,
-      //     country: 'United Arab Emirates',
-      //     state: 'Dubai',
-      //     city: 'Dubai',
-      //     type: LocationType.city,
-      //     population: 3331420,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'Singapore',
-      //     displayName: 'Singapore',
-      //     shortDisplayName: 'Singapore',
-      //     latitude: 1.3521,
-      //     longitude: 103.8198,
-      //     country: 'Singapore',
-      //     state: 'Singapore',
-      //     city: 'Singapore',
-      //     type: LocationType.city,
-      //     population: 5850342,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'Mumbai',
-      //     displayName: 'Mumbai, Maharashtra, India',
-      //     shortDisplayName: 'Mumbai, India',
-      //     latitude: 19.0760,
-      //     longitude: 72.8777,
-      //     country: 'India',
-      //     state: 'Maharashtra',
-      //     city: 'Mumbai',
-      //     type: LocationType.city,
-      //     population: 20411274,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'São Paulo',
-      //     displayName: 'São Paulo, SP, Brazil',
-      //     shortDisplayName: 'São Paulo, Brazil',
-      //     latitude: -23.5505,
-      //     longitude: -46.6333,
-      //     country: 'Brazil',
-      //     state: 'São Paulo',
-      //     city: 'São Paulo',
-      //     type: LocationType.city,
-      //     population: 12325232,
-      //   ),
-      //   LocationSearchResult(
-      //     name: 'Cairo',
-      //     displayName: 'Cairo, Egypt',
-      //     shortDisplayName: 'Cairo, Egypt',
-      //     latitude: 30.0444,
-      //     longitude: 31.2357,
-      //     country: 'Egypt',
-      //     state: 'Cairo Governorate',
-      //     city: 'Cairo',
-      //     type: LocationType.city,
-      //     population: 10230350,
-      //   ),
-      // ];
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
 
-      // // Save to SharedPreferences
-      await _saveOfflineDatabase();
-
-      debugPrint(
-        '✅ Created initial database with ${_locations.length} locations',
-      );
-    } catch (e) {
-      debugPrint('❌ Error creating initial database: $e');
+      if (char == '"') {
+        inQuotes = !inQuotes;
+      } else if (char == ',' && !inQuotes) {
+        result.add(buffer.toString().trim());
+        buffer.clear();
+      } else {
+        buffer.write(char);
+      }
     }
+
+    // Add the last field
+    result.add(buffer.toString().trim());
+
+    return result;
   }
 
-  /// Save offline database to SharedPreferences
-  Future<void> _saveOfflineDatabase() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final locationsJson = json.encode(
-        _locations.map((l) => l.toJson()).toList(),
-      );
-      await prefs.setString('offline_locations_db', locationsJson);
-    } catch (e) {
-      debugPrint('❌ Error saving offline database: $e');
-    }
-  }
+
 
   /// Search locations using hybrid approach (native + offline)
   Future<List<LocationSearchResult>> searchLocations(
     String query, {
-    int limit = 10,
-    bool forceOffline = false,
+    int limit = 50,
+    bool forceOffline = true,
   }) async {
     if (!_isInitialized) {
       await initialize();
@@ -280,14 +155,6 @@ class OfflineLocationSearchService {
       List<LocationSearchResult> results = [];
 
       // Try native search first if available and not forced offline
-      if (_useNativeSearch && !forceOffline) {
-        try {
-          final nativeResults = await _searchNative(query, limit: limit ~/ 2);
-          results.addAll(nativeResults);
-        } catch (e) {
-          debugPrint('⚠️ Native search failed, falling back to offline: $e');
-        }
-      }
 
       // Always include offline search results
       final offlineResults = _searchOffline(
@@ -295,6 +162,7 @@ class OfflineLocationSearchService {
         limit: limit - results.length,
       );
       results.addAll(offlineResults);
+      debugPrint('🔍 Offline search returned ${offlineResults.length} results');
 
       // Remove duplicates and limit results
       results = _removeDuplicates(results);
@@ -302,91 +170,81 @@ class OfflineLocationSearchService {
         results = results.take(limit).toList();
       }
 
-      debugPrint('🔍 Search "$query" returned ${results.length} results');
+      debugPrint('🔍 Search "$query" returned ${results.length} total results');
       return results;
     } catch (e) {
       debugPrint('❌ Error searching locations: $e');
       return _searchOffline(query, limit: limit);
     }
   }
+  /// Search using offline database
+  List<LocationSearchResult> _searchOffline(String query, {int limit = 50}) {
+    // Use WorldLocationsService for offline search
+    final worldLocationsService = world.WorldLocationsService.instance;
 
-  /// Search using native platform capabilities
-  Future<List<LocationSearchResult>> _searchNative(
-    String query, {
-    int limit = 10,
-  }) async {
-    try {
-      debugPrint('🔍 Attempting native search for: "$query"');
+    if (!worldLocationsService.isLoaded) {
+      debugPrint('⚠️ WorldLocationsService not loaded, using fallback search');
+      // Fallback to local database search
+      final lowerQuery = query.toLowerCase().trim();
+      final results = _locations.where((location) {
+        return location.name.toLowerCase().contains(lowerQuery) ||
+            location.city.toLowerCase().contains(lowerQuery) ||
+            location.country.toLowerCase().contains(lowerQuery) ||
+            (location.state?.toLowerCase().contains(lowerQuery) ?? false) ||
+            location.displayName.toLowerCase().contains(lowerQuery);
+      }).toList();
 
-      final result = await _channel.invokeMethod('searchLocations', {
-        'query': query,
-        'limit': limit,
+      // Sort by relevance (exact matches first, then by population)
+      results.sort((a, b) {
+        final aExact = a.name.toLowerCase() == lowerQuery ? 1 : 0;
+        final bExact = b.name.toLowerCase() == lowerQuery ? 1 : 0;
+        if (aExact != bExact) return bExact - aExact;
+        return (b.population ?? 0).compareTo(a.population ?? 0);
       });
 
-      debugPrint('🔍 Native search raw result: $result');
-
-      if (result is List) {
-        final locations = <LocationSearchResult>[];
-
-        for (final item in result) {
-          try {
-            if (item is Map) {
-              final json = Map<String, dynamic>.from(item);
-              final location = LocationSearchResult.fromJson(json);
-              locations.add(location);
-              debugPrint('✅ Parsed native location: ${location.displayName}');
-            }
-          } catch (e) {
-            debugPrint('⚠️ Error parsing native location item: $e');
-            debugPrint('   Item: $item');
-          }
-        }
-
-        debugPrint(
-          '🔍 Native search returned ${locations.length} valid locations',
-        );
-        return locations;
-      } else {
-        debugPrint(
-          '⚠️ Native search returned unexpected type: ${result.runtimeType}',
-        );
-      }
-    } catch (e) {
-      debugPrint('❌ Native search error: $e');
-      debugPrint('   Error type: ${e.runtimeType}');
-      if (e.toString().contains('MissingPluginException')) {
-        debugPrint(
-          '   This is likely because the native implementation is not properly registered',
-        );
-      }
+      return results.take(limit).toList();
     }
-    return [];
+
+    // Use WorldLocationsService search method
+    final worldResults = worldLocationsService.searchLocations(query, limit: limit);
+
+    // Convert WorldLocationsService results to LocationSearchResult
+    final convertedResults = worldResults.map((result) {
+      return LocationSearchResult(
+        name: result.name,
+        displayName: _buildDisplayName(result),
+        shortDisplayName: _buildShortDisplayName(result),
+        latitude: result.latitude,
+        longitude: result.longitude,
+        country: result.country,
+        state: result.state,
+        city: result.city ?? result.name,
+        type: result.type == world.LocationType.city ? LocationType.city : LocationType.country,
+        population: result.population,
+      );
+    }).toList();
+
+    debugPrint('🌍 WorldLocationsService returned ${convertedResults.length} results');
+    return convertedResults;
   }
 
-  /// Search using offline database
-  List<LocationSearchResult> _searchOffline(String query, {int limit = 10}) {
-    final lowerQuery = query.toLowerCase().trim();
+  /// Build display name from location result
+  String _buildDisplayName(world.LocationResult result) {
+    if (result.type == world.LocationType.city) {
+      if (result.state != null && result.state!.isNotEmpty) {
+        return '${result.name}, ${result.state}, ${result.country}';
+      }
+      return '${result.name}, ${result.country}';
+    }
+    return result.name;
+  }
 
-    final results =
-        _locations.where((location) {
-          return location.name.toLowerCase().contains(lowerQuery) ||
-              location.city.toLowerCase().contains(lowerQuery) ||
-              location.country.toLowerCase().contains(lowerQuery) ||
-              (location.state?.toLowerCase().contains(lowerQuery) ?? false) ||
-              location.displayName.toLowerCase().contains(lowerQuery);
-        }).toList();
-
-    // Sort by relevance (exact matches first, then by population)
-    results.sort((a, b) {
-      final aExact = a.name.toLowerCase() == lowerQuery ? 1 : 0;
-      final bExact = b.name.toLowerCase() == lowerQuery ? 1 : 0;
-
-      if (aExact != bExact) return bExact - aExact;
-
-      return (b.population ?? 0).compareTo(a.population ?? 0);
-    });
-
-    return results.take(limit).toList();
+  /// Build short display name from location result
+  String _buildShortDisplayName(world.LocationResult result) {
+    if (result.type == world.LocationType.city) {
+      return '${result.name}, ${result.countryCode}';
+    }
+    return result.name;
   }
 
   /// Remove duplicate locations from results
@@ -413,7 +271,6 @@ class OfflineLocationSearchService {
 
       if (!exists) {
         _locations.add(location);
-        await _saveOfflineDatabase();
         debugPrint('📍 Added new location: ${location.displayName}');
       }
     } catch (e) {
@@ -428,42 +285,7 @@ class OfflineLocationSearchService {
   bool get isInitialized => _isInitialized;
 
   /// Check if native search is available
-  bool get hasNativeSearch => _useNativeSearch;
-
-  /// Test native search functionality
-  Future<void> testNativeSearch() async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-
-    debugPrint('🧪 Testing native search functionality...');
-
-    if (!_useNativeSearch) {
-      debugPrint('❌ Native search is not available for testing');
-      return;
-    }
-
-    try {
-      // Test with a simple query
-      final testResults = await _searchNative('New York', limit: 3);
-
-      if (testResults.isNotEmpty) {
-        debugPrint('✅ Native search test PASSED');
-        debugPrint('   Found ${testResults.length} results for "New York"');
-        for (final result in testResults) {
-          debugPrint(
-            '   - ${result.displayName} (${result.latitude}, ${result.longitude})',
-          );
-        }
-      } else {
-        debugPrint('⚠️ Native search test returned no results');
-        debugPrint('   This might be normal if no results were found');
-      }
-    } catch (e) {
-      debugPrint('❌ Native search test FAILED: $e');
-    }
   }
-}
 
 /// Location search result model
 class LocationSearchResult {

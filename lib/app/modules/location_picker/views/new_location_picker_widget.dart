@@ -672,17 +672,33 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
           );
         }
 
-        if (controller.searchResults.isEmpty) {
+        if (controller.searchResults.isEmpty && _searchController.text.isNotEmpty) {
           return Padding(
             padding: const EdgeInsets.all(20),
-            child: Text(
-              'No locations found',
-              style: AppFonts.medium(
-                14,
-                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.search_off,
+                  size: 32,
+                  color: uiController.darkMode.value ? Colors.white38 : Colors.grey[400]!,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'No locations found',
+                  style: AppFonts.medium(
+                    14,
+                    color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+                  ),
+                ),
+              
+              ],
             ),
           );
+        }
+
+        if (controller.searchResults.isEmpty) {
+          return const SizedBox.shrink();
         }
 
         return ListView.separated(

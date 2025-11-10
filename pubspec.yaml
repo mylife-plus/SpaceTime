@@ -87,6 +87,7 @@ flutter:
     - assets/data/
     - .env
     - assets/cities_names_1.csv
+    - assets/geonames_cities.csv
 
     # - images/a_dot_ham.jpeg
 

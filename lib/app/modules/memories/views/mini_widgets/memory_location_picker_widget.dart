@@ -826,10 +826,20 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Perform location search using LocationPickerService (same as new_location_picker_widget)
   Future<void> _performLocationSearch(String query) async {
-    if (query.trim().isEmpty) return;
+
+    
+    if (query.trim().isEmpty) {
+                _showSearchResults.value = false;
+
+      return;
+      }
+
+                _showSearchResults.value = true;
+
 
     isSearching.value = true;
     searchResults.clear();
+
 
     try {
       // Use LocationPickerService for searching (same database as new_location_picker_widget)

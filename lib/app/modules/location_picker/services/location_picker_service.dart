@@ -34,17 +34,28 @@ class LocationPickerService {
   Future<void> initialize() async {
     try {
       debugPrint('[LocationPickerService] Initializing service...');
-      
-      // Initialize offline services
-      await _initializeOfflineServices();
-      
-      // Initialize search services
-      await _initializeSearchServices();
-      
+
+      // Initialize offline services (non-critical)
+      try {
+        await _initializeOfflineServices();
+      } catch (e) {
+        debugPrint('[LocationPickerService] Warning: Offline services initialization failed: $e');
+        // Continue anyway - offline services are optional
+      }
+
+      // Initialize search services (critical for search functionality)
+      try {
+        await _initializeSearchServices();
+      } catch (e) {
+        debugPrint('[LocationPickerService] Warning: Search services initialization failed: $e');
+        // Continue anyway - will try to initialize on first search
+      }
+
       debugPrint('[LocationPickerService] Service initialized successfully');
     } catch (e) {
       debugPrint('[LocationPickerService] Failed to initialize: $e');
-      throw Exception('Service initialization failed: $e');
+      // Don't throw - allow the service to continue with limited functionality
+      debugPrint('[LocationPickerService] Continuing with limited functionality');
     }
   }
 
@@ -211,6 +222,7 @@ class LocationPickerService {
   Future<bool> requestLocationPermission() async {
     return await _repository.requestLocationPermission();
   }
+  
 
   /// Search locations
   Future<List<Map<String, dynamic>>> searchLocations(String query, {bool isOfflineMode = false}) async {
@@ -219,11 +231,22 @@ class LocationPickerService {
 
       List<Map<String, dynamic>> results = [];
 
+      // Ensure offline search service is initialized
+      if (!_offlineSearchService.isInitialized) {
+        debugPrint('[LocationPickerService] Offline search service not initialized, initializing now...');
+        try {
+          await _offlineSearchService.initialize();
+        } catch (e) {
+          debugPrint('[LocationPickerService] Failed to initialize offline search service: $e');
+          // Continue anyway - might still work
+        }
+      }
+
       // Use offline search service
       if (_offlineSearchService.isInitialized) {
         final offlineResults = await _offlineSearchService.searchLocations(
           query,
-          limit: 15,
+          limit: 50,
           forceOffline: isOfflineMode,
         );
 
@@ -240,6 +263,8 @@ class LocationPickerService {
           'type': result.type.toString(),
           'source': 'offline_search',
         }).toList();
+      } else {
+        debugPrint('[LocationPickerService] Offline search service still not initialized after retry');
       }
 
       return results;
