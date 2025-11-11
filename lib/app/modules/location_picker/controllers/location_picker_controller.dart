@@ -182,19 +182,16 @@ class LocationPickerController extends GetxController {
   Future<void> onMapTap(double latitude, double longitude) async {
     try {
       state.value = LocationPickerState.movingToLocation;
-      
-      // Add marker at tapped location
+
+      // Add marker at tapped location (this also adjusts camera zoom based on radius)
       await _service.addMarker(latitude, longitude, radius: selectedRadius.value);
-      
-      // Move camera to tapped location
-      await _service.moveCameraToLocation(latitude, longitude);
-      
+
       // Get location info
       final locationData = await _service.getLocationInfo(latitude, longitude);
       if (locationData != null) {
         selectedLocation.value = locationData;
       }
-      
+
       state.value = LocationPickerState.ready;
     } catch (e) {
       debugPrint('[LocationPickerController] Error handling map tap: $e');

@@ -26,6 +26,10 @@ class SearchableCategoryWidget extends StatefulWidget {
   /// Callback when a category is selected
   final Function(PlaceCategory category) onCategorySelected;
 
+  /// Callback when multiple categories are selected from the picker (for filter mode)
+  /// This is called when user returns from the picker with a new selection
+  final Function(List<PlaceCategory> categories)? onMultipleCategoriesSelectedFromPicker;
+
   /// Whether to allow multiple selection in the full category picker (default: true)
   /// Set to false when opening from Memory Info Widget for single selection
   final bool allowMultipleSelectionInPicker;
@@ -35,31 +39,40 @@ class SearchableCategoryWidget extends StatefulWidget {
 
   /// Whether to show the "See all" and "Add new" buttons (default: true)
   final bool showActionButtons;
-  
+
+  /// Whether to show the "Add new" button (default: true)
+  final bool showAddNewButton;
+
   /// Custom icon to display (optional, defaults to category2 icon)
   final String? iconPath;
-  
+
   /// Whether to save selected categories to recent preferences (default: true)
   final bool saveToRecent;
-  
+
   /// Custom background color (optional, defaults to theme-based)
   final Color? backgroundColor;
-  
+
   /// Whether to show as a compact version (smaller padding, no background)
   final bool isCompact;
+
+  /// Previously selected categories to pass to the picker (for filter mode)
+  final List<String>? previouslySelectedCategories;
 
   const SearchableCategoryWidget({
     super.key,
     this.title = 'Place Categories',
     this.selectedCategory,
     required this.onCategorySelected,
+    this.onMultipleCategoriesSelectedFromPicker,
     this.onFocusChanged,
     this.showActionButtons = true,
+    this.showAddNewButton = true,
     this.iconPath,
     this.saveToRecent = true,
     this.backgroundColor,
     this.isCompact = false,
     this.allowMultipleSelectionInPicker = true,
+    this.previouslySelectedCategories,
   });
 
   @override
@@ -268,14 +281,27 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
   /// Navigate to full category picker
   void _navigateToFullPicker() async {
     if (widget.allowMultipleSelectionInPicker) {
+      // Convert previously selected category strings to PlaceCategory objects
+      List<PlaceCategory>? previouslySelected;
+      if (widget.previouslySelectedCategories != null && widget.previouslySelectedCategories!.isNotEmpty) {
+        previouslySelected = await _convertCategoryStringsToObjects(widget.previouslySelectedCategories!);
+        debugPrint('[SearchableCategoryWidget] Passing ${previouslySelected.length} previously selected categories to picker');
+      }
+
       // Navigate to Category Picker in multiple selection mode
       final result = await Get.to(
         () => CategoryPickerWidget(
           allowMultipleSelection: true,
+          selectedCategories: previouslySelected,
           onMultipleCategoriesSelected: (selectedCategories) {
-            // Handle selected categories
-            for (final category in selectedCategories) {
-              _selectCategory(category);
+            // If we have a callback for replacing selection (filter mode), use it
+            if (widget.onMultipleCategoriesSelectedFromPicker != null) {
+              widget.onMultipleCategoriesSelectedFromPicker!(selectedCategories);
+            } else {
+              // Otherwise, add categories individually (normal mode)
+              for (final category in selectedCategories) {
+                _selectCategory(category);
+              }
             }
           },
         ),
@@ -283,8 +309,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
 
       // Handle result if returned via Get.back
       if (result != null && result is List<PlaceCategory>) {
-        for (final category in result) {
-          _selectCategory(category);
+        // If we have a callback for replacing selection (filter mode), use it
+        if (widget.onMultipleCategoriesSelectedFromPicker != null) {
+          widget.onMultipleCategoriesSelectedFromPicker!(result);
+        } else {
+          // Otherwise, add categories individually (normal mode)
+          for (final category in result) {
+            _selectCategory(category);
+          }
         }
       }
     } else {
@@ -303,6 +335,60 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         _selectCategory(result);
       }
     }
+  }
+
+  /// Convert category strings (with emoji) to PlaceCategory objects
+  Future<List<PlaceCategory>> _convertCategoryStringsToObjects(List<String> categoryStrings) async {
+    final List<PlaceCategory> categories = [];
+
+    try {
+      // Get all categories from the service
+      final allCategories = await _categoryService.getAllCategoriesHierarchical();
+
+      for (final categoryString in categoryStrings) {
+        // Extract name from "emoji name" format
+        String categoryName = categoryString;
+        if (categoryString.contains(' ')) {
+          final parts = categoryString.split(' ');
+          if (parts.length >= 2) {
+            // Remove emoji (first part) and get the name
+            categoryName = parts.sublist(1).join(' ');
+          }
+        }
+
+        // Find matching category in all categories (including subcategories)
+        PlaceCategory? matchedCategory = _findCategoryByName(allCategories, categoryName);
+
+        if (matchedCategory != null) {
+          categories.add(matchedCategory);
+          debugPrint('[SearchableCategoryWidget] Matched category: ${matchedCategory.name}');
+        } else {
+          debugPrint('[SearchableCategoryWidget] Could not find category for: $categoryString');
+        }
+      }
+    } catch (e) {
+      debugPrint('[SearchableCategoryWidget] Error converting category strings: $e');
+    }
+
+    return categories;
+  }
+
+  /// Recursively find a category by name in the hierarchical structure
+  PlaceCategory? _findCategoryByName(List<PlaceCategory> categories, String name) {
+    for (final category in categories) {
+      if (category.name == name) {
+        return category;
+      }
+
+      // Check subcategories
+      if (category.subcategories != null) {
+        final found = _findCategoryByName(category.subcategories!, name);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
   }
 
   /// Show add category popup
@@ -588,37 +674,49 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       children: [
         Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
+          padding:  EdgeInsets.only(left: 12, right: 12, bottom: !(widget.showAddNewButton) ?4: 8, top: !(widget.showAddNewButton) ? 8:  8),
+          child: widget.showAddNewButton
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _navigateToFullPicker(),
+                        child: Text(
+                          'See List',
+                          textAlign: TextAlign.left,
+                          style: AppFonts.medium(
+                            18,
+                            color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _showAddCategoryPopup(),
+                        child: Text(
+                          'Add new',
+                          textAlign: TextAlign.right,
+                          style: AppFonts.medium(
+                            18,
+                            color: uiController.currentMainColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : InkWell(
                   onTap: () => _navigateToFullPicker(),
                   child: Text(
                     'See List',
-                    textAlign: TextAlign.left,
-                    style: AppFonts.medium(
-                      18,
-                      color: uiController.darkMode.value ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: InkWell(
-                  onTap: () => _showAddCategoryPopup(),
-                  child: Text(
-                    'Add new',
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.center,
                     style: AppFonts.medium(
                       18,
                       color: uiController.currentMainColor,
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
         ),
       ],
     );

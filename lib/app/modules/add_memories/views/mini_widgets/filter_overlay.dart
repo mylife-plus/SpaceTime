@@ -180,7 +180,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
 
         child: SingleChildScrollView(
           child: Container(
-            height: MediaQuery.of(context).size.height - 30,
+            height: MediaQuery.of(context).size.height,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -254,13 +254,20 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                   : category.name;
                               debugPrint('[FilterOverlay] Added category: $categoryWithEmoji');
                             },
+                            onMultipleCategoriesSelectedFromPicker: (categories) {
+                              // Replace entire selection when coming back from picker
+                              controller.replaceSelectedCategories(categories);
+                              debugPrint('[FilterOverlay] Replaced categories with ${categories.length} new categories');
+                            },
                             onFocusChanged: (isFocused) {
                               if (!isFocused) {
                                 _handleFocusShift('category');
                               }
                             },
                             saveToRecent: true, // Show recent categories in filter context
-                            showActionButtons: true, // Show "See List" and "Add new" buttons in filter context
+                            showActionButtons: true, // Show "See List" button in filter context
+                            showAddNewButton: false, // Hide "Add new" button in filter context
+                            previouslySelectedCategories: controller.selectedCategories.toList(), // Pass previously selected categories
                             backgroundColor: uiController.darkMode.value
                                 ? Colors.white.withValues(alpha: 0.2)
                                 : Colors.white,
@@ -349,11 +356,17 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               controller.addHashtagGroup(group);
                               debugPrint('[FilterOverlay] Added hashtag group: ${group.name}');
                             },
+                            onMultipleGroupsSelectedFromPicker: (groups) {
+                              // Replace entire selection when coming back from picker
+                              controller.replaceSelectedHashtags(groups);
+                              debugPrint('[FilterOverlay] Replaced hashtags with ${groups.length} new groups');
+                            },
                             onFocusChanged: (isFocused) {
                               if (!isFocused) {
                                 _handleFocusShift('hashtag');
                               }
                             },
+                            previouslySelectedHashtags: controller.selectedHashtags.toList(), // Pass previously selected hashtags
                             backgroundColor: uiController.darkMode.value
                                 ? Colors.white.withValues(alpha: 0.2)
                                 : Colors.white,
@@ -412,11 +425,17 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               controller.addContactGroup(group);
                               debugPrint('[FilterOverlay] Added contact group: ${group.name}');
                             },
+                            onMultipleGroupsSelectedFromPicker: (groups) {
+                              // Replace entire selection when coming back from picker
+                              controller.replaceSelectedContacts(groups);
+                              debugPrint('[FilterOverlay] Replaced contacts with ${groups.length} new groups');
+                            },
                             onFocusChanged: (isFocused) {
                               if (!isFocused) {
                                 _handleFocusShift('contact');
                               }
                             },
+                            previouslySelectedContacts: controller.selectedContacts.toList(), // Pass previously selected contacts
                             backgroundColor: uiController.darkMode.value
                                 ? Colors.white.withValues(alpha: 0.2)
                                 : Colors.white,

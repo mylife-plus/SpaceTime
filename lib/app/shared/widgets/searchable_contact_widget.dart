@@ -20,16 +20,25 @@ class SearchableContactWidget extends StatefulWidget {
   final Color? backgroundColor;
   final bool isCompact;
 
+  /// Previously selected contacts to pass to the picker (for filter mode)
+  final List<String>? previouslySelectedContacts;
+
+  /// Callback when multiple contact groups are selected from the picker (for filter mode)
+  /// This is called when user returns from the picker with a new selection
+  final Function(List<ContactGroup> groups)? onMultipleGroupsSelectedFromPicker;
+
   const SearchableContactWidget({
     super.key,
     this.title = 'Search Contacts',
     required this.onContactSelected,
     this.onGroupSelected,
+    this.onMultipleGroupsSelectedFromPicker,
     this.onFocusChanged,
     this.showActionButtons = false,
     this.iconPath,
     this.backgroundColor,
     this.isCompact = false,
+    this.previouslySelectedContacts,
   });
 
   @override
@@ -580,14 +589,27 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   Widget _buildSeeListButton(UiController uiController) {
     return InkWell(
       onTap: () async {
+        // Convert previously selected contact strings to ContactGroup objects
+        List<ContactGroup>? previouslySelected;
+        if (widget.previouslySelectedContacts != null && widget.previouslySelectedContacts!.isNotEmpty) {
+          previouslySelected = await _convertContactStringsToGroups(widget.previouslySelectedContacts!);
+          debugPrint('[SearchableContactWidget] Passing ${previouslySelected.length} previously selected contact groups to picker');
+        }
+
         // Navigate to Contact Groups page in multiple selection mode
         final result = await Get.to(
           () => ContactGroupsView(
             allowMultipleSelection: true,
+            selectedContactGroups: previouslySelected,
             onMultipleContactGroupsSelected: (selectedGroups) {
-              // Handle selected groups
-              for (final group in selectedGroups) {
-                _selectGroup(group);
+              // If we have a callback for replacing selection (filter mode), use it
+              if (widget.onMultipleGroupsSelectedFromPicker != null) {
+                widget.onMultipleGroupsSelectedFromPicker!(selectedGroups);
+              } else {
+                // Otherwise, add groups individually (normal mode)
+                for (final group in selectedGroups) {
+                  _selectGroup(group);
+                }
               }
             },
           ),
@@ -595,8 +617,14 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
 
         // Handle result if returned via Get.back
         if (result != null && result is List<ContactGroup>) {
-          for (final group in result) {
-            _selectGroup(group);
+          // If we have a callback for replacing selection (filter mode), use it
+          if (widget.onMultipleGroupsSelectedFromPicker != null) {
+            widget.onMultipleGroupsSelectedFromPicker!(result);
+          } else {
+            // Otherwise, add groups individually (normal mode)
+            for (final group in result) {
+              _selectGroup(group);
+            }
           }
         }
       },
@@ -610,5 +638,49 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         ),
       ),
     );
+  }
+
+  /// Convert contact strings to ContactGroup objects
+  Future<List<ContactGroup>> _convertContactStringsToGroups(List<String> contactStrings) async {
+    final List<ContactGroup> groups = [];
+
+    try {
+      // Get all contact groups from the service
+      final allGroups = await _contactGroupService.getAllGroupsHierarchical();
+
+      for (final contactString in contactStrings) {
+        // Find matching group in all groups (including subgroups)
+        ContactGroup? matchedGroup = _findGroupByName(allGroups, contactString);
+
+        if (matchedGroup != null) {
+          groups.add(matchedGroup);
+          debugPrint('[SearchableContactWidget] Matched contact group: ${matchedGroup.name}');
+        } else {
+          debugPrint('[SearchableContactWidget] Could not find contact group for: $contactString');
+        }
+      }
+    } catch (e) {
+      debugPrint('[SearchableContactWidget] Error converting contact strings: $e');
+    }
+
+    return groups;
+  }
+
+  /// Recursively find a contact group by name in the hierarchical structure
+  ContactGroup? _findGroupByName(List<ContactGroup> groups, String name) {
+    for (final group in groups) {
+      if (group.name == name) {
+        return group;
+      }
+
+      // Check subgroups
+      if (group.subgroups != null) {
+        final found = _findGroupByName(group.subgroups!, name);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
   }
 }

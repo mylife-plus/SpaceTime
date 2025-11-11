@@ -260,8 +260,8 @@ class _MemoriesFilterTextFieldRowState
             children: [
               Image.asset(
                 widget.imagePath,
-                width: 18,
-                height: 18,
+                width: 22,
+                height: 22,
                 color: controller2.darkMode.value ? Colors.white : Colors.grey,
               ),
               const SizedBox(width: 10),
@@ -313,6 +313,41 @@ class _MemoriesFilterTextFieldRowState
                       // Only update controller text if it's different to avoid cursor issues
 
                       return Obx(() {
+                        // For location field with radius, use RichText for colored radius
+                        if (isLocationField && controller.selectedLocation.value.isNotEmpty && controller.selectedRadius.value.isNotEmpty) {
+                          String locationValue = controller.selectedLocation.value;
+                          String radiusValue = controller.selectedRadius.value;
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            alignment: Alignment.centerLeft,
+                            child: RichText(
+                              text: TextSpan(
+                                text: '$locationValue + ',
+                                style: GoogleFonts.kumbhSans(
+                                  color:
+                                      controller2.darkMode.value
+                                          ? Colors.white
+                                          : Colors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.2,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: '${radiusValue}km',
+                                    style: GoogleFonts.kumbhSans(
+                                      color: controller2.currentMainColor,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
 
                         return TextField(
                           style: GoogleFonts.kumbhSans(

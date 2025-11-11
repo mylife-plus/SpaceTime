@@ -1135,6 +1135,48 @@ class AddMemoriesController extends GetxController {
     );
   }
 
+  /// Replace all selected categories with new selection from picker
+  void replaceSelectedCategories(List<PlaceCategory> categories) {
+    debugPrint('[AddMemoriesController] Replacing selected categories with ${categories.length} new categories');
+    selectedCategories.clear();
+
+    for (final category in categories) {
+      final categoryWithEmoji = category.emoji.isNotEmpty
+          ? '${category.emoji} ${category.name}'
+          : category.name;
+      selectedCategories.add(categoryWithEmoji);
+    }
+
+    _updateFilterStatus();
+    debugPrint('[AddMemoriesController] Categories replaced. Total: ${selectedCategories.length}');
+  }
+
+  /// Replace all selected hashtags with new selection from picker
+  void replaceSelectedHashtags(List<HashtagGroup> groups) {
+    debugPrint('[AddMemoriesController] Replacing selected hashtags with ${groups.length} new groups');
+    selectedHashtags.clear();
+
+    for (final group in groups) {
+      selectedHashtags.add(group.name);
+    }
+
+    _updateFilterStatus();
+    debugPrint('[AddMemoriesController] Hashtags replaced. Total: ${selectedHashtags.length}');
+  }
+
+  /// Replace all selected contacts with new selection from picker
+  void replaceSelectedContacts(List<ContactGroup> groups) {
+    debugPrint('[AddMemoriesController] Replacing selected contacts with ${groups.length} new groups');
+    selectedContacts.clear();
+
+    for (final group in groups) {
+      selectedContacts.add(group.name);
+    }
+
+    _updateFilterStatus();
+    debugPrint('[AddMemoriesController] Contacts replaced. Total: ${selectedContacts.length}');
+  }
+
   void _updateFilterStatus() {
     updateFilterStatus();
   }

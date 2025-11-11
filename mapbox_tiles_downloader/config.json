@@ -1,0 +1,35 @@
+{
+  "mapbox": {
+    "accessToken": "pk.eyJ1IjoibW9vc2lhc2QiLCJhIjoiY21jZTV6MzFzMG9wMjJqcXdmY3VjZWV1biJ9.3FMDFTkqzcRTEVBIxyuXeA",
+    "style": "mapbox/streets-v12",
+    "tileSize": 512,
+    "retina": "@2x"
+  },
+  "download": {
+    "bounds": {
+      "north": 37.8324,
+      "south": 37.7049,
+      "east": -122.3482,
+      "west": -122.5270
+    },
+    "zoomLevels": [8, 9, 10, 11, 12, 13, 14],
+    "maxConcurrentDownloads": 5,
+    "retryAttempts": 3,
+    "retryDelay": 1000
+  },
+  "quota": {
+    "maxTilesPerDownload": 750,
+    "fallbackTileSize": 256,
+    "fallbackRetina": ""
+  },
+  "cron": {
+    "enabled": true,
+    "schedule": "0 */6 * * *",
+    "scheduleDescription": "Every 6 hours"
+  },
+  "output": {
+    "directory": "./tiles",
+    "stateFile": "./state.json"
+  }
+}
+

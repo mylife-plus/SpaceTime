@@ -515,24 +515,24 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Radius: ',
-                style: AppFonts.medium(
-                  16,
-                  color: uiController.darkMode.value ? Colors.white : Colors.black,
-                ),
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              text: 'Radius: ',
+              style: AppFonts.medium(
+                16,
+                color: uiController.darkMode.value ? Colors.white : Colors.black,
               ),
-              Text(
-                '${_formatRadius(controller.selectedRadius.value)} km',
-                style: AppFonts.medium(
-                  16,
-                  color: Colors.blue,
+              children: [
+                TextSpan(
+                  text: '${_formatRadius(controller.selectedRadius.value)} km',
+                  style: AppFonts.medium(
+                    16,
+                    color: uiController.currentMainColor,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           Obx(() {
@@ -544,7 +544,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
               min: 0.0,
               max: 100.0,
               divisions: 1000,
-              activeColor: Colors.blue,
+              activeColor: uiController.currentMainColor,
               inactiveColor: Colors.grey.withOpacity(0.3),
               onChanged: (value) {
                 // Convert slider value to radius and update immediately for smooth movement

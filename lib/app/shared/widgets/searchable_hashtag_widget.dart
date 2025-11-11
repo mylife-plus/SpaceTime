@@ -20,16 +20,25 @@ class SearchableHashtagWidget extends StatefulWidget {
   final Color? backgroundColor;
   final bool isCompact;
 
+  /// Previously selected hashtags to pass to the picker (for filter mode)
+  final List<String>? previouslySelectedHashtags;
+
+  /// Callback when multiple hashtag groups are selected from the picker (for filter mode)
+  /// This is called when user returns from the picker with a new selection
+  final Function(List<HashtagGroup> groups)? onMultipleGroupsSelectedFromPicker;
+
   const SearchableHashtagWidget({
     super.key,
     this.title = 'Search Hashtags',
     required this.onHashtagSelected,
     this.onGroupSelected,
+    this.onMultipleGroupsSelectedFromPicker,
     this.onFocusChanged,
     this.showActionButtons = false,
     this.iconPath,
     this.backgroundColor,
     this.isCompact = false,
+    this.previouslySelectedHashtags,
   });
 
   @override
@@ -606,14 +615,27 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   Widget _buildSeeListButton(UiController uiController) {
     return InkWell(
       onTap: () async {
+        // Convert previously selected hashtag strings to HashtagGroup objects
+        List<HashtagGroup>? previouslySelected;
+        if (widget.previouslySelectedHashtags != null && widget.previouslySelectedHashtags!.isNotEmpty) {
+          previouslySelected = await _convertHashtagStringsToGroups(widget.previouslySelectedHashtags!);
+          debugPrint('[SearchableHashtagWidget] Passing ${previouslySelected.length} previously selected hashtag groups to picker');
+        }
+
         // Navigate to Hashtag Groups page in multiple selection mode
         final result = await Get.to(
           () => HashtagGroupsView(
             allowMultipleSelection: true,
+            selectedHashtagGroups: previouslySelected,
             onMultipleHashtagGroupsSelected: (selectedGroups) {
-              // Handle selected groups
-              for (final group in selectedGroups) {
-                _selectGroup(group);
+              // If we have a callback for replacing selection (filter mode), use it
+              if (widget.onMultipleGroupsSelectedFromPicker != null) {
+                widget.onMultipleGroupsSelectedFromPicker!(selectedGroups);
+              } else {
+                // Otherwise, add groups individually (normal mode)
+                for (final group in selectedGroups) {
+                  _selectGroup(group);
+                }
               }
             },
           ),
@@ -621,8 +643,14 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
 
         // Handle result if returned via Get.back
         if (result != null && result is List<HashtagGroup>) {
-          for (final group in result) {
-            _selectGroup(group);
+          // If we have a callback for replacing selection (filter mode), use it
+          if (widget.onMultipleGroupsSelectedFromPicker != null) {
+            widget.onMultipleGroupsSelectedFromPicker!(result);
+          } else {
+            // Otherwise, add groups individually (normal mode)
+            for (final group in result) {
+              _selectGroup(group);
+            }
           }
         }
       },
@@ -636,5 +664,49 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         ),
       ),
     );
+  }
+
+  /// Convert hashtag strings to HashtagGroup objects
+  Future<List<HashtagGroup>> _convertHashtagStringsToGroups(List<String> hashtagStrings) async {
+    final List<HashtagGroup> groups = [];
+
+    try {
+      // Get all hashtag groups from the service
+      final allGroups = await _hashtagGroupService.getAllGroupsHierarchical();
+
+      for (final hashtagString in hashtagStrings) {
+        // Find matching group in all groups (including subgroups)
+        HashtagGroup? matchedGroup = _findGroupByName(allGroups, hashtagString);
+
+        if (matchedGroup != null) {
+          groups.add(matchedGroup);
+          debugPrint('[SearchableHashtagWidget] Matched hashtag group: ${matchedGroup.name}');
+        } else {
+          debugPrint('[SearchableHashtagWidget] Could not find hashtag group for: $hashtagString');
+        }
+      }
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error converting hashtag strings: $e');
+    }
+
+    return groups;
+  }
+
+  /// Recursively find a hashtag group by name in the hierarchical structure
+  HashtagGroup? _findGroupByName(List<HashtagGroup> groups, String name) {
+    for (final group in groups) {
+      if (group.name == name) {
+        return group;
+      }
+
+      // Check subgroups
+      if (group.subgroups != null) {
+        final found = _findGroupByName(group.subgroups!, name);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
   }
 }
