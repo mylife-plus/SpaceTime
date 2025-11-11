@@ -2003,7 +2003,7 @@ Future<bool> _checkOfflineTileCount() async {
                         zoom: 1.0,
                       )
                       : null,
-              styleUri: mapbox.MapboxStyles.STANDARD,
+              styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
               textureView: true,
               onMapCreated: (mapbox.MapboxMap controller) async {
                 mapController = controller;

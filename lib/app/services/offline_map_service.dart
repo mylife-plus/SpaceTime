@@ -28,9 +28,9 @@ class OfflineMapService extends GetxService {
 
   // Configuration
   static const String _tileRegionId = "spacetime-tile-region";
-  static const int _minZoom = 8;  // Higher zoom to stay within 750 tile limit
-  static const int _maxZoom = 13; // Lower max zoom to reduce tile count
-  static const int _requiredTileThreshold = 500; // Require 500 tiles for offline mode
+  static const int _minZoom = 14;  // Only download zoom level 14
+  static const int _maxZoom = 14; // Only download zoom level 14
+  static const int _requiredTileThreshold = 700; // Require 700 tiles for offline mode
 
   // Reactive state
   final RxBool isInitialized = false.obs;
@@ -401,6 +401,82 @@ class OfflineMapService extends GetxService {
       debugPrint('[OfflineMapService] 💾 Saved to SharedPreferences: ${downloadedTileCount.value} tiles, offline ready: ${isOfflineReady.value}');
     } catch (e) {
       debugPrint('[OfflineMapService] ❌ Failed to save tile count to SharedPreferences: $e');
+    }
+  }
+
+  /// Public method to save tile count
+  Future<void> saveTileCount() async {
+    await _saveTileCountToPrefs();
+  }
+
+  /// Get TileStore instance
+  TileStore? getTileStore() {
+    return _tileStore;
+  }
+
+  /// Get OfflineManager instance
+  OfflineManager? getOfflineManager() {
+    return _offlineManager;
+  }
+
+  /// Download zoom level 14 tiles specifically
+  Future<void> downloadZoom10Tiles({
+    required Map<String, dynamic> regionGeometry,
+    required Function(int downloaded, int total) onProgress,
+    required Function() onComplete,
+    required Function(dynamic error) onError,
+  }) async {
+    try {
+      debugPrint('[OfflineMapService] 🗺️ Starting zoom level 14 tile download...');
+
+      final tileRegionId = "spacetime-zoom14-tiles";
+
+      final tileRegionLoadOptions = TileRegionLoadOptions(
+        geometry: regionGeometry,
+        descriptorsOptions: [
+          TilesetDescriptorOptions(
+            styleURI: MapboxStyles.MAPBOX_STREETS,
+            minZoom: 14,
+            maxZoom: 14,
+          ),
+        ],
+        acceptExpired: false,
+        networkRestriction: NetworkRestriction.NONE,
+      );
+
+      final completer = Completer<void>();
+
+      _tileStore
+          ?.loadTileRegion(tileRegionId, tileRegionLoadOptions, (progress) {
+            final downloaded = progress.completedResourceCount;
+            final total = progress.requiredResourceCount;
+
+            debugPrint('[OfflineMapService] 🗺️ Zoom 14 progress: $downloaded/$total tiles');
+
+            // Update the main tile count
+            downloadedTileCount.value += downloaded;
+
+            onProgress(downloaded, total);
+          })
+          .then((value) {
+            debugPrint('[OfflineMapService] ✅ Zoom 14 tile download completed');
+            onComplete();
+            completer.complete();
+          })
+          .catchError((error) {
+            debugPrint('[OfflineMapService] ❌ Zoom 14 tile download failed: $error');
+            // Even on error, save what we have
+            _saveTileCountToPrefs();
+            onError(error);
+            completer.complete(); // Complete anyway to move forward
+          });
+
+      await completer.future;
+    } catch (e) {
+      debugPrint('[OfflineMapService] ❌ Zoom 14 download error: $e');
+      // Save whatever was downloaded
+      await _saveTileCountToPrefs();
+      onError(e);
     }
   }
 

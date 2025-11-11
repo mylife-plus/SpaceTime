@@ -33,6 +33,10 @@ class GetStartedController extends GetxController {
   final RxBool hasLocationPermission = false.obs;
   final RxBool isCheckingPermissions = true.obs;
 
+  // State for zoom level 14 download
+  final RxBool isDownloadingZoom10 = false.obs;
+  final RxBool hasReached150Tiles = false.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -41,7 +45,7 @@ class GetStartedController extends GetxController {
 
   /// Check if get started should be shown or navigate directly to main app
   Future<void> _checkIfShouldShowGetStarted() async {
-    debugPrint('[GetStartedController] Checking get started conditions...');
+    debugPrint('[GetStartedController] Always showing Get Started screen for tile download');
 
     // Initialize services first
     _initializeServices();
@@ -49,37 +53,9 @@ class GetStartedController extends GetxController {
     // 1. First, always check and request location permissions
     await _checkAndRequestLocationPermissions();
 
-    // 2. Check persistent tile download status
-    final isPersistentlyDownloaded = await _getTileDownloadCompletionStatus();
-    debugPrint('[GetStartedController] Persistent download status: $isPersistentlyDownloaded');
-
-    if (isPersistentlyDownloaded) {
-      // Tiles are already downloaded according to persistent storage - navigate directly
-      debugPrint('[GetStartedController] Tiles already downloaded (persistent), navigating to main app');
-      tilesDownloadCompleted.value = true;
-
-      // Navigate directly to main app without showing Get Started screen
-      navigateToMainApp();
-      return;
-    }
-
-    // 3. If not persistently downloaded, check actual tile count as fallback
-    final tileCount = await _getTileCount();
-    debugPrint('[GetStartedController] Current tile count: $tileCount');
-
-    if (tileCount >= 500) {
-      // Tiles are downloaded but not marked as complete - mark as complete and navigate
-      debugPrint('[GetStartedController] Tiles downloaded but not marked complete, updating status');
-      await _saveTileDownloadCompletionStatus(true);
-      tilesDownloadCompleted.value = true;
-
-      // Navigate directly to main app without showing Get Started screen
-      navigateToMainApp();
-    } else {
-      // Tiles not downloaded - show Get Started screen with appropriate content
-      debugPrint('[GetStartedController] Tiles not downloaded, showing Get Started screen');
-      await _checkInternetAndShowAppropriateScreen();
-    }
+    // 2. Always show Get Started screen to download tiles every time
+    debugPrint('[GetStartedController] Showing Get Started screen for tile download');
+    await _checkInternetAndShowAppropriateScreen();
   }
 
   /// Check internet connectivity and show appropriate screen
@@ -187,7 +163,7 @@ class GetStartedController extends GetxController {
     // Listen to download progress
     ever(_offlineMapService!.tileRegionProgress, (double progress) {
       downloadProgress.value = progress;
-      if (progress > 0) {
+      if (progress > 0 && !isDownloadingZoom10.value) {
         statusText.value = "Downloading maps... ${(progress * 100).toStringAsFixed(1)}%";
       }
     });
@@ -195,32 +171,108 @@ class GetStartedController extends GetxController {
     // Listen to tile count updates
     ever(_offlineMapService!.downloadedTileCount, (int tileCount) {
       downloadedTileCount.value = tileCount;
-      if (tileCount > 0) {
+
+      // Check if we've reached 150 tiles and haven't started zoom 14 download yet
+      if (tileCount >= 150 && !hasReached150Tiles.value && !isDownloadingZoom10.value) {
+        hasReached150Tiles.value = true;
+        debugPrint('[GetStartedController] Reached 150 tiles, starting zoom level 14 download...');
+        _startZoom10Download();
+      }
+
+      if (tileCount > 0 && !isDownloadingZoom10.value) {
         statusText.value = "Downloaded $tileCount tiles";
       }
     });
 
     // Listen to status text updates
     ever(_offlineMapService!.downloadStatusText, (String status) {
-      if (status.isNotEmpty && status != "Ready to download") {
+      if (status.isNotEmpty && status != "Ready to download" && !isDownloadingZoom10.value) {
         statusText.value = status;
       }
     });
 
     // Listen to download completion
     ever(_offlineMapService!.isOfflineReady, (bool isReady) {
-      if (isReady) {
-        _onDownloadCompleted();
+      if (isReady && !isDownloadingZoom10.value) {
+        // Initial download completed, but we'll wait for zoom 12 download
+        debugPrint('[GetStartedController] Initial download completed, waiting for zoom 12...');
       }
     });
 
     // Listen to download state changes
     ever(_offlineMapService!.isDownloading, (bool downloading) {
-      isDownloading.value = downloading;
-      if (!downloading && downloadedTileCount.value >= 500) {
-        _onDownloadCompleted();
+      if (!isDownloadingZoom10.value) {
+        isDownloading.value = downloading;
       }
     });
+  }
+
+  /// Start downloading zoom level 14 tiles
+  Future<void> _startZoom10Download() async {
+    try {
+      isDownloadingZoom10.value = true;
+      statusText.value = "Downloading zoom level 14 tiles...";
+
+      debugPrint('[GetStartedController] Starting zoom level 14 download...');
+
+      // Get the region geometry from the coordinator service
+      final regionGeometry = await _offlineCoordinator?.getRegionGeometry();
+
+      if (regionGeometry == null) {
+        debugPrint('[GetStartedController] Failed to get region geometry for zoom 14');
+        _onZoom10DownloadCompleted(false);
+        return;
+      }
+
+      // Download zoom level 14 tiles specifically
+      await _downloadZoom10Tiles(regionGeometry);
+
+    } catch (e) {
+      debugPrint('[GetStartedController] Zoom 14 download failed: $e');
+      // Even if it fails, we save what we have and move on
+      _onZoom10DownloadCompleted(false);
+    }
+  }
+
+  /// Download zoom level 14 tiles with error handling
+  Future<void> _downloadZoom10Tiles(Map<String, dynamic> regionGeometry) async {
+    try {
+      // This will attempt to download zoom 14 tiles until it fails
+      // The Mapbox SDK will handle the download and save whatever it can
+      await _offlineMapService?.downloadZoom10Tiles(
+        regionGeometry: regionGeometry,
+        onProgress: (int downloaded, int total) {
+          statusText.value = "Downloading zoom 14: $downloaded tiles";
+          debugPrint('[GetStartedController] Zoom 14 progress: $downloaded tiles');
+        },
+        onComplete: () {
+          debugPrint('[GetStartedController] Zoom 14 download completed successfully');
+          _onZoom10DownloadCompleted(true);
+        },
+        onError: (error) {
+          debugPrint('[GetStartedController] Zoom 14 download error: $error');
+          // Save whatever was downloaded and move on
+          _onZoom10DownloadCompleted(false);
+        },
+      );
+
+    } catch (e) {
+      debugPrint('[GetStartedController] Error in zoom 14 download: $e');
+      _onZoom10DownloadCompleted(false);
+    }
+  }
+
+  /// Handle zoom 14 download completion (success or failure)
+  void _onZoom10DownloadCompleted(bool success) async {
+    debugPrint('[GetStartedController] Zoom 14 download completed. Success: $success');
+
+    isDownloadingZoom10.value = false;
+
+    // Save the current tile count (includes whatever zoom 14 tiles were downloaded)
+    await _offlineMapService?.saveTileCount();
+
+    // Mark overall download as completed
+    _onDownloadCompleted();
   }
 
   /// Handle download completion
@@ -232,8 +284,8 @@ class GetStartedController extends GetxController {
     tilesDownloadCompleted.value = true;
     statusText.value = "Download completed! ${downloadedTileCount.value} tiles ready";
 
-    // Save persistent download completion status
-    await _saveTileDownloadCompletionStatus(true);
+    // Don't save persistent download completion status - always download on app start
+    // await _saveTileDownloadCompletionStatus(true);
 
     // Auto-navigate to main app after download completion
     debugPrint('[GetStartedController] Download completed, auto-navigating to main app');
@@ -287,29 +339,8 @@ class GetStartedController extends GetxController {
   /// Check if get started should be shown based on tile download status
   static Future<bool> shouldShowGetStarted() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Check if tiles are completely downloaded
-      final tilesDownloaded = prefs.getBool('tiles_download_completed') ?? false;
-
-      if (tilesDownloaded) {
-        debugPrint('[GetStartedController] Tiles already downloaded, skipping Get Started');
-        return false; // Don't show Get Started screen
-      }
-
-      // If not marked as downloaded, check tile count as fallback
-      final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
-      debugPrint('[GetStartedController] Tile count fallback check: $tileCount');
-
-      if (tileCount >= 500) {
-        // Mark as downloaded and don't show Get Started
-        await prefs.setBool('tiles_download_completed', true);
-        debugPrint('[GetStartedController] Marked tiles as downloaded based on count');
-        return false;
-      }
-
-      // Tiles not downloaded - show Get Started screen
-      debugPrint('[GetStartedController] Tiles not downloaded, showing Get Started');
+      // Always show Get Started screen to download tiles every time
+      debugPrint('[GetStartedController] Always showing Get Started screen for tile download');
       return true;
     } catch (e) {
       debugPrint('[GetStartedController] Error checking get started status: $e');

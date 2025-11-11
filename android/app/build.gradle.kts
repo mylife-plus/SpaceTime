@@ -40,8 +40,8 @@ android {
 }
 
 dependencies {
-    // Removed Mapbox dependencies to avoid authentication issues
-    // The Flutter mapbox_maps plugin will handle Mapbox dependencies
+    // Mapbox dependencies for native tile downloading
+    implementation("com.mapbox.maps:android:11.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }
 

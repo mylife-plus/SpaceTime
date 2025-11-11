@@ -4,12 +4,20 @@ import CoreLocation
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
+
+  private var tileDownloader: MapboxTileDownloader?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
 
     let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
+
+    // Initialize tile downloader
+    tileDownloader = MapboxTileDownloader()
+
+    // Location search channel
     let locationSearchChannel = FlutterMethodChannel(name: "com.spacetime.location_search",
                                                    binaryMessenger: controller.binaryMessenger)
 
@@ -29,6 +37,78 @@ import CoreLocation
         }
 
         self.searchLocations(query: query, limit: limit, result: result)
+
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    })
+
+    // Tile download channel
+    let tileDownloadChannel = FlutterMethodChannel(name: "com.spacetime.tile_download",
+                                                   binaryMessenger: controller.binaryMessenger)
+
+    tileDownloadChannel.setMethodCallHandler({ [weak self]
+      (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
+
+      guard let self = self, let downloader = self.tileDownloader else {
+        result(FlutterError(code: "NOT_INITIALIZED", message: "Tile downloader not initialized", details: nil))
+        return
+      }
+
+      switch call.method {
+      case "initializeTileStore":
+        downloader.initialize(result: result)
+
+      case "downloadTiles":
+        guard let args = call.arguments as? Dictionary<String, Any>,
+              let regionGeometry = args["regionGeometry"] as? [String: Any],
+              let minZoom = args["minZoom"] as? Int,
+              let maxZoom = args["maxZoom"] as? Int else {
+          result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid arguments", details: nil))
+          return
+        }
+
+        downloader.downloadTiles(
+          regionGeometry: regionGeometry,
+          minZoom: minZoom,
+          maxZoom: maxZoom,
+          onProgress: { downloaded, total in
+            tileDownloadChannel.invokeMethod("onProgress", arguments: [
+              "downloaded": downloaded,
+              "total": total
+            ])
+          },
+          result: result
+        )
+
+      case "downloadZoomTiles":
+        guard let args = call.arguments as? Dictionary<String, Any>,
+              let regionGeometry = args["regionGeometry"] as? [String: Any],
+              let zoomLevel = args["zoomLevel"] as? Int else {
+          result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid arguments", details: nil))
+          return
+        }
+
+        downloader.downloadZoomTiles(
+          regionGeometry: regionGeometry,
+          zoomLevel: zoomLevel,
+          onProgress: { downloaded, total in
+            tileDownloadChannel.invokeMethod("onZoomProgress", arguments: [
+              "downloaded": downloaded,
+              "total": total
+            ])
+          },
+          result: result
+        )
+
+      case "getDownloadProgress":
+        result(downloader.getDownloadProgress())
+
+      case "cancelDownload":
+        downloader.cancelDownload(result: result)
+
+      case "isDownloadInProgress":
+        result(downloader.isDownloadInProgress())
 
       default:
         result(FlutterMethodNotImplemented)

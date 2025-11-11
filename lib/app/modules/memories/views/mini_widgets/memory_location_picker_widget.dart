@@ -204,7 +204,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     return mapbox.MapWidget(
       key: const ValueKey('memory_location_picker_map'),
       cameraOptions: _getCameraOptions(),
-      styleUri: mapbox.MapboxStyles.STANDARD,
+      styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
       textureView: true,
       onMapCreated: _onMapCreated,
       onTapListener: _onMapTap,

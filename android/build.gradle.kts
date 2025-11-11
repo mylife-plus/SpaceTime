@@ -2,17 +2,17 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        // Remove Mapbox dependencies for now to avoid authentication issues
-        // maven {
-        //     url = uri("https://api.mapbox.com/downloads/v2/releases/maven")
-        //     authentication {
-        //         create<BasicAuthentication>("basic")
-        //     }
-        //     credentials {
-        //         username = "mapbox"
-        //         password = project.findProperty("MAPBOX_DOWNLOADS_TOKEN") as String? ?: ""
-        //     }
-        // }
+        // Mapbox repository for native tile downloading
+        maven {
+            url = uri("https://api.mapbox.com/downloads/v2/releases/maven")
+            authentication {
+                create<BasicAuthentication>("basic")
+            }
+            credentials {
+                username = "mapbox"
+                password = project.findProperty("MAPBOX_DOWNLOADS_TOKEN") as String? ?: ""
+            }
+        }
     }
 }
 

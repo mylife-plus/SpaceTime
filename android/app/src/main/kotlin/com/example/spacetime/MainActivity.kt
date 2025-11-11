@@ -3,21 +3,40 @@ package com.example.spacetime
 import android.content.Context
 import android.location.Address
 import android.location.Geocoder
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.*
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.spacetime.location_search"
+    private val LOCATION_SEARCH_CHANNEL = "com.spacetime.location_search"
+    private val TILE_DOWNLOAD_CHANNEL = "com.spacetime.tile_download"
+
     private lateinit var geocoder: Geocoder
+    private lateinit var tileDownloader: MapboxTileDownloader
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         geocoder = Geocoder(this, Locale.getDefault())
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        // Initialize tile downloader
+        try {
+            Log.d("MainActivity", "Creating MapboxTileDownloader instance...")
+            tileDownloader = MapboxTileDownloader()
+            Log.d("MainActivity", "MapboxTileDownloader created successfully")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to create MapboxTileDownloader: ${e.message}", e)
+            e.printStackTrace()
+            throw e
+        }
+
+        // Location search channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LOCATION_SEARCH_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "isNativeSearchAvailable" -> {
                     result.success(Geocoder.isPresent())
@@ -31,6 +50,77 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.error("INVALID_ARGUMENT", "Query cannot be null", null)
                     }
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // Tile download channel
+        Log.d("MainActivity", "Setting up tile download channel: $TILE_DOWNLOAD_CHANNEL")
+        val tileChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TILE_DOWNLOAD_CHANNEL)
+        tileChannel.setMethodCallHandler { call, result ->
+            Log.d("MainActivity", "Received method call: ${call.method}")
+            when (call.method) {
+                "initializeTileStore" -> {
+                    Log.d("MainActivity", "Calling tileDownloader.initialize()")
+                    tileDownloader.initialize(result)
+                }
+                "downloadTiles" -> {
+                    val regionGeometry = call.argument<Map<String, Any>>("regionGeometry")
+                    val minZoom = call.argument<Int>("minZoom") ?: 14
+                    val maxZoom = call.argument<Int>("maxZoom") ?: 14
+
+                    if (regionGeometry != null) {
+                        tileDownloader.downloadTiles(
+                            regionGeometry,
+                            minZoom,
+                            maxZoom,
+                            onProgress = { downloaded, total ->
+                                mainHandler.post {
+                                    tileChannel.invokeMethod("onProgress", mapOf(
+                                        "downloaded" to downloaded,
+                                        "total" to total
+                                    ))
+                                }
+                            },
+                            result
+                        )
+                    } else {
+                        result.error("INVALID_ARGUMENT", "Region geometry cannot be null", null)
+                    }
+                }
+                "downloadZoomTiles" -> {
+                    val regionGeometry = call.argument<Map<String, Any>>("regionGeometry")
+                    val zoomLevel = call.argument<Int>("zoomLevel") ?: 14
+
+                    if (regionGeometry != null) {
+                        tileDownloader.downloadZoomTiles(
+                            regionGeometry,
+                            zoomLevel,
+                            onProgress = { downloaded, total ->
+                                mainHandler.post {
+                                    tileChannel.invokeMethod("onZoomProgress", mapOf(
+                                        "downloaded" to downloaded,
+                                        "total" to total
+                                    ))
+                                }
+                            },
+                            result
+                        )
+                    } else {
+                        result.error("INVALID_ARGUMENT", "Region geometry cannot be null", null)
+                    }
+                }
+                "getDownloadProgress" -> {
+                    result.success(tileDownloader.getDownloadProgress())
+                }
+                "cancelDownload" -> {
+                    tileDownloader.cancelDownload(result)
+                }
+                "isDownloadInProgress" -> {
+                    result.success(tileDownloader.isDownloadInProgress())
                 }
                 else -> {
                     result.notImplemented()

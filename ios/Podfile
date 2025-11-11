@@ -31,6 +31,10 @@ target 'Runner' do
   use_frameworks!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # Mapbox Maps SDK for native tile downloading (supports up to 6000 tiles)
+  pod 'MapboxMaps', '~> 11.0.0'
+
   target 'RunnerTests' do
     inherit! :search_paths
   end

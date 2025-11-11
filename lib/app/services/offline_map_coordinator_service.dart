@@ -413,6 +413,11 @@ class OfflineMapCoordinatorService extends GetxService {
   /// Get current status
   String get currentStatus => _offlineMapService?.downloadStatusText.value ?? 'Unknown';
 
+  /// Get region geometry for zoom level 12 download
+  Future<Map<String, dynamic>?> getRegionGeometry() async {
+    return await _getDownloadRegionGeometry(null);
+  }
+
   // ============================================================================
   // PRIVATE HELPERS
   // ============================================================================

@@ -23,6 +23,7 @@ import 'services/background_tile_download_service.dart';
 import 'app/services/offline_map_service.dart';
 import 'app/repositories/offline_map_repository.dart';
 import 'app/services/offline_map_coordinator_service.dart';
+import 'app/services/native_tile_download_service.dart';
 import 'app/modules/get_started/controllers/get_started_controller.dart';
 
 Future<void> main() async {
@@ -89,6 +90,12 @@ Future<void> main() async {
   Get.put(OfflineMapService(), permanent: true);
   Get.put(OfflineMapRepository(), permanent: true);
   Get.put(OfflineMapCoordinatorService(), permanent: true);
+
+  // Initialize native tile download service (supports up to 6000 tiles)
+  debugPrint('🗺️ Initializing NativeTileDownloadService...');
+  Get.put(NativeTileDownloadService(), permanent: true);
+  debugPrint('✅ NativeTileDownloadService initialized');
+
   debugPrint('✅ Global services initialized');
 
   // Initialize controllers as permanent singletons
