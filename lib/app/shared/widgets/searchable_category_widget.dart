@@ -767,14 +767,19 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                   ),
                 ],],),
              ),
-              // Edit button
-              const SizedBox(width: 8),
-              GestureDetector(
+              // Edit button with increased clickable area
+              const SizedBox(width: 4),
+              InkWell(
                 onTap: () => _showEditCategoryPopup(category),
-                child: Icon(
-                  Icons.edit,
-                  size: 18,
-                  color: uiController.currentMainColor,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Image.asset(
+                    AppImages.edit,
+                    width: 16,
+                    height: 16,
+                    color: uiController.currentMainColor,
+                  ),
                 ),
               ),
             ],
