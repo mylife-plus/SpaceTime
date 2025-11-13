@@ -204,7 +204,9 @@ class Header extends StatelessWidget {
                   // Filter badge indicator with count
                   Obx(() {
                     final filterCount = controller.activeFilterCount;
-                    return filterCount > 0
+                    final hasResults = controller.filteredMemories.isNotEmpty;
+                    // Don't show badge when there are 0 filters OR 0 results
+                    return (filterCount > 0 && hasResults)
                         ? Positioned(
                             right: 0,
                             top: 0,
