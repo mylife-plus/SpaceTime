@@ -60,7 +60,7 @@ class SearchableCategoryWidget extends StatefulWidget {
 
   const SearchableCategoryWidget({
     super.key,
-    this.title = 'Place Categories',
+    this.title = 'Places',
     this.selectedCategory,
     required this.onCategorySelected,
     this.onMultipleCategoriesSelectedFromPicker,
@@ -297,6 +297,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
             // If we have a callback for replacing selection (filter mode), use it
             if (widget.onMultipleCategoriesSelectedFromPicker != null) {
               widget.onMultipleCategoriesSelectedFromPicker!(selectedCategories);
+              // Save each selected category to recents if enabled
+              if (widget.saveToRecent) {
+                for (final category in selectedCategories) {
+                  _saveRecentlySelectedSubcategory(category);
+                }
+                // Reload recent categories to update the UI
+                _loadRecentCategories();
+              }
             } else {
               // Otherwise, add categories individually (normal mode)
               for (final category in selectedCategories) {
@@ -312,6 +320,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         // If we have a callback for replacing selection (filter mode), use it
         if (widget.onMultipleCategoriesSelectedFromPicker != null) {
           widget.onMultipleCategoriesSelectedFromPicker!(result);
+          // Save each selected category to recents if enabled
+          if (widget.saveToRecent) {
+            for (final category in result) {
+              _saveRecentlySelectedSubcategory(category);
+            }
+            // Reload recent categories to update the UI
+            _loadRecentCategories();
+          }
         } else {
           // Otherwise, add categories individually (normal mode)
           for (final category in result) {

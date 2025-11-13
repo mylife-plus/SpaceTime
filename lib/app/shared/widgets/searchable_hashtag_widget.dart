@@ -135,6 +135,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   final RxList<String> _searchResults = <String>[].obs;
   final RxList<HashtagGroup> _groupResults = <HashtagGroup>[].obs;
   final RxList<String> _recentHashtags = <String>[].obs;
+  final RxList<String> _recentHashtagGroups = <String>[].obs; // Track which recent items are groups
   final RxBool _isLoading = false.obs;
 
   List<String> _allHashtags = [];
@@ -233,17 +234,25 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         }
       }
 
-      // Combine recent hashtags and groups, prioritizing groups
+      // Combine recent hashtags and groups, prioritizing groups (max 6 items total)
       final combinedRecent = <String>[];
-      combinedRecent.addAll(recentGroups.take(3)); // Max 3 groups
-      combinedRecent.addAll(recentHashtags.take(5 - combinedRecent.length)); // Fill remaining with hashtags
+      final groupNames = <String>[];
+
+      combinedRecent.addAll(recentGroups.take(6)); // Max 6 groups
+      groupNames.addAll(recentGroups.take(6)); // Track which are groups
+
+      if (combinedRecent.length < 6) {
+        combinedRecent.addAll(recentHashtags.take(6 - combinedRecent.length)); // Fill remaining with hashtags
+      }
 
       _recentHashtags.value = combinedRecent;
-      debugPrint('[SearchableHashtagWidget] Loaded ${combinedRecent.length} recent items');
+      _recentHashtagGroups.value = groupNames; // Store which items are groups
+      debugPrint('[SearchableHashtagWidget] Loaded ${combinedRecent.length} recent items (${groupNames.length} groups)');
 
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error loading recent hashtags: $e');
       _recentHashtags.value = [];
+      _recentHashtagGroups.value = [];
     }
   }
 
@@ -362,9 +371,9 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       // Add to beginning
       recentGroupsJson.insert(0, json.encode(groupData));
 
-      // Keep only last 5 items
-      if (recentGroupsJson.length > 5) {
-        recentGroupsJson.removeRange(5, recentGroupsJson.length);
+      // Keep only last 6 items
+      if (recentGroupsJson.length > 6) {
+        recentGroupsJson.removeRange(6, recentGroupsJson.length);
       }
 
       await prefs.setStringList('recent_hashtag_groups_filter', recentGroupsJson);
@@ -548,6 +557,9 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   }
 
   Widget _buildHashtagItem(String hashtag, UiController uiController) {
+    // Check if this item is a group (exists in _recentHashtagGroups)
+    final isGroup = _recentHashtagGroups.contains(hashtag);
+
     return InkWell(
       onTap: () => _selectHashtag(hashtag),
       child: Container(
@@ -569,6 +581,20 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
+            // Show folder icon for groups
+            if (isGroup)
+              ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  AppImages.category2,
+                  width: 18,
+                  height: 18,
+                  fit: BoxFit.contain,
+                ),
+              ),
           ],
         ),
       ),
@@ -576,9 +602,6 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   }
 
   Widget _buildGroupItem(HashtagGroup group, UiController uiController) {
-    // Check if this is a main group (parent) or subgroup
-    final isMainGroup = group.parentId == null;
-
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
@@ -600,12 +623,19 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
-            // Only show "Group" text for main groups (parent categories)
-            if (isMainGroup)
-              Text(
-                'Group',
-                style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+            // Show folder icon for all groups
+            ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+                BlendMode.srcIn,
               ),
+              child: Image.asset(
+                AppImages.category2,
+                width: 18,
+                height: 18,
+                fit: BoxFit.contain,
+              ),
+            ),
           ],
         ),
       ),
@@ -631,6 +661,12 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
               // If we have a callback for replacing selection (filter mode), use it
               if (widget.onMultipleGroupsSelectedFromPicker != null) {
                 widget.onMultipleGroupsSelectedFromPicker!(selectedGroups);
+                // Save each selected group to recents
+                for (final group in selectedGroups) {
+                  _saveRecentHashtagGroup(group);
+                }
+                // Reload recent hashtags to update the UI
+                _loadRecentHashtags();
               } else {
                 // Otherwise, add groups individually (normal mode)
                 for (final group in selectedGroups) {
@@ -646,6 +682,12 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
           // If we have a callback for replacing selection (filter mode), use it
           if (widget.onMultipleGroupsSelectedFromPicker != null) {
             widget.onMultipleGroupsSelectedFromPicker!(result);
+            // Save each selected group to recents
+            for (final group in result) {
+              _saveRecentHashtagGroup(group);
+            }
+            // Reload recent hashtags to update the UI
+            _loadRecentHashtags();
           } else {
             // Otherwise, add groups individually (normal mode)
             for (final group in result) {

@@ -341,7 +341,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
         descriptorsOptions: [
           TilesetDescriptorOptions(
             styleURI: MapboxStyles.MAPBOX_STREETS,
-            minZoom: 6,
+            minZoom: 8,
             maxZoom: 14,
           ),
         ],

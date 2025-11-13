@@ -173,33 +173,30 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
             : null;
     final uiController = Get.find<UiController>();
     controller.isOpenedFromMap = widget.isOpenedFromMap;
-    return SafeArea(
-      child: Container(
-                    padding: const EdgeInsets.only(top: 10.0),
-            // height: MediaQuery.of(context).size.height - 30,
-
-        child: SingleChildScrollView(
-          child: Container(
-            height: MediaQuery.of(context).size.height,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: () {
-                      // Just close the filter overlay without resetting filters
-                      // Filters should persist until manually removed or reset
-                      controller.closeFilter();
-                      mapController?.isFilterOpen.value = false;
-                    },
-                    child: Container(color: Colors.black.withValues(alpha: 0.5)),
-                  ),
-                ),
-                // The actual filter panel
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: FilterPanel(
+    return Container(
+      height: MediaQuery.of(context).size.height,
+      width: MediaQuery.of(context).size.width,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                // Just close the filter overlay without resetting filters
+                // Filters should persist until manually removed or reset
+                controller.closeFilter();
+                mapController?.isFilterOpen.value = false;
+              },
+              child: Container(color: Colors.black.withValues(alpha: 0.5)),
+            ),
+          ),
+          // The actual filter panel
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              child: FilterPanel(
                     onReset: () {
                       controller.resetFilters();
                       mapController?.resetFilters();
@@ -476,11 +473,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ),
-      ),
     );
   }
 }

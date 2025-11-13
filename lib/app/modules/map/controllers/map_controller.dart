@@ -189,7 +189,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
       offlineManager = await OfflineManager.create();
       tileStore = await TileStore.createDefault();
       tileStore?.setDiskQuota(
-        null,
+        4000000000,
       ); // Reset to default (setDiskQuota returns void)
       print(
         '[MapController][initOfflineMap]: Offline map components initialized successfully',

@@ -1465,7 +1465,7 @@ class BackgroundTileDownloadService extends GetxService {
       final diskQuotaBytes = tileCount * 1250000;
 
       // Use setDiskQuota method directly
-      _tileStore!.setDiskQuota(diskQuotaBytes);
+      _tileStore!.setDiskQuota(4000000000);
 
       debugPrint(
         '[BackgroundTileDownloadService] Set disk quota: ${diskQuotaBytes / 1024 / 1024} MB for $tileCount tiles',
@@ -1486,7 +1486,7 @@ class BackgroundTileDownloadService extends GetxService {
       }
 
       // Use setDiskQuota method directly
-      _tileStore!.setDiskQuota(limitInBytes);
+      _tileStore!.setDiskQuota(4000000000);
       debugPrint(
         '[BackgroundTileDownloadService] Set disk quota: ${limitInBytes / 1024 / 1024} MB',
       );

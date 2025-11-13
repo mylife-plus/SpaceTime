@@ -54,6 +54,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   final RxList<String> _searchResults = <String>[].obs;
   final RxList<ContactGroup> _groupResults = <ContactGroup>[].obs;
   final RxList<String> _recentContacts = <String>[].obs;
+  final RxList<String> _recentContactGroups = <String>[].obs; // Track which recent items are groups
   final RxBool _isLoading = false.obs;
 
   List<String> _allContacts = [];
@@ -152,17 +153,25 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         }
       }
 
-      // Combine recent contacts and groups, prioritizing groups
+      // Combine recent contacts and groups, prioritizing groups (max 6 items total)
       final combinedRecent = <String>[];
-      combinedRecent.addAll(recentGroups.take(3)); // Max 3 groups
-      combinedRecent.addAll(recentContacts.take(5 - combinedRecent.length)); // Fill remaining with contacts
+      final groupNames = <String>[];
+
+      combinedRecent.addAll(recentGroups.take(6)); // Max 6 groups
+      groupNames.addAll(recentGroups.take(6)); // Track which are groups
+
+      if (combinedRecent.length < 6) {
+        combinedRecent.addAll(recentContacts.take(6 - combinedRecent.length)); // Fill remaining with contacts
+      }
 
       _recentContacts.value = combinedRecent;
-      debugPrint('[SearchableContactWidget] Loaded ${combinedRecent.length} recent items');
+      _recentContactGroups.value = groupNames; // Store which items are groups
+      debugPrint('[SearchableContactWidget] Loaded ${combinedRecent.length} recent items (${groupNames.length} groups)');
 
     } catch (e) {
       debugPrint('[SearchableContactWidget] Error loading recent contacts: $e');
       _recentContacts.value = [];
+      _recentContactGroups.value = [];
     }
   }
 
@@ -281,9 +290,9 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       // Add to beginning
       recentGroupsJson.insert(0, json.encode(groupData));
 
-      // Keep only last 5 items
-      if (recentGroupsJson.length > 5) {
-        recentGroupsJson.removeRange(5, recentGroupsJson.length);
+      // Keep only last 6 items
+      if (recentGroupsJson.length > 6) {
+        recentGroupsJson.removeRange(6, recentGroupsJson.length);
       }
 
       await prefs.setStringList('recent_contact_groups_filter', recentGroupsJson);
@@ -522,6 +531,9 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   }
 
   Widget _buildContactItem(String contact, UiController uiController) {
+    // Check if this item is a group (exists in _recentContactGroups)
+    final isGroup = _recentContactGroups.contains(contact);
+
     return InkWell(
       onTap: () => _selectContact(contact),
       child: Container(
@@ -543,6 +555,20 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
+            // Show folder icon for groups
+            if (isGroup)
+              ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  AppImages.category2,
+                  width: 18,
+                  height: 18,
+                  fit: BoxFit.contain,
+                ),
+              ),
           ],
         ),
       ),
@@ -550,9 +576,6 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   }
 
   Widget _buildGroupItem(ContactGroup group, UiController uiController) {
-    // Check if this is a main group (parent) or subgroup
-    final isMainGroup = group.parentId == null;
-
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
@@ -574,12 +597,19 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
-            // Only show "Group" text for main groups (parent categories)
-            if (isMainGroup)
-              Text(
-                'Group',
-                style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+            // Show folder icon for all groups
+            ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+                BlendMode.srcIn,
               ),
+              child: Image.asset(
+                AppImages.category2,
+                width: 18,
+                height: 18,
+                fit: BoxFit.contain,
+              ),
+            ),
           ],
         ),
       ),
@@ -605,6 +635,12 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
               // If we have a callback for replacing selection (filter mode), use it
               if (widget.onMultipleGroupsSelectedFromPicker != null) {
                 widget.onMultipleGroupsSelectedFromPicker!(selectedGroups);
+                // Save each selected group to recents
+                for (final group in selectedGroups) {
+                  _saveRecentContactGroup(group);
+                }
+                // Reload recent contacts to update the UI
+                _loadRecentContacts();
               } else {
                 // Otherwise, add groups individually (normal mode)
                 for (final group in selectedGroups) {
@@ -620,6 +656,12 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
           // If we have a callback for replacing selection (filter mode), use it
           if (widget.onMultipleGroupsSelectedFromPicker != null) {
             widget.onMultipleGroupsSelectedFromPicker!(result);
+            // Save each selected group to recents
+            for (final group in result) {
+              _saveRecentContactGroup(group);
+            }
+            // Reload recent contacts to update the UI
+            _loadRecentContacts();
           } else {
             // Otherwise, add groups individually (normal mode)
             for (final group in result) {

@@ -69,7 +69,7 @@ class OfflineMapService extends GetxService {
       _tileStore = await TileStore.createDefault();
 
       // Reset disk quota to default value
-      _tileStore?.setDiskQuota(null);
+      _tileStore?.setDiskQuota(4000000000);
 
       isInitialized.value = true;
       debugPrint(
