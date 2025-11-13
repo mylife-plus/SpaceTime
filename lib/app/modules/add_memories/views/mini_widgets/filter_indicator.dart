@@ -12,8 +12,8 @@ class FilterIndicator extends StatelessWidget {
     final uiController = Get.find<UiController>();
 
     return Obx(() {
-      // Don't show indicator when filters are not active OR when there are 0 results
-      if (!controller.hasActiveFilters.value || controller.filteredMemories.isEmpty) {
+      // Don't show indicator when filters are not active
+      if (!controller.hasActiveFilters.value) {
         return const SizedBox.shrink();
       }
 
