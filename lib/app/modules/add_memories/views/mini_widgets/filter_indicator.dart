@@ -73,6 +73,11 @@ class FilterIndicator extends StatelessWidget {
         activeFilters.add('Map View');
       }
 
+
+      if(activeFilterCount == 0) {
+        return Container();
+      }
+      
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
