@@ -191,45 +191,22 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                   ),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: TextSelectionTheme(
-                      data: TextSelectionThemeData(
-                        cursorColor: widget.isTagMode ? AppColors.blue : AppColors.green,
-                        selectionColor: (widget.isTagMode ? AppColors.blue : AppColors.green).withValues(alpha: 0.3),
-                        selectionHandleColor: widget.isTagMode ? AppColors.blue : AppColors.green,
+                    child: Obx(() => Text(
+                      widget.searchNotifier.value.isEmpty
+                          ? 'Search...'
+                          : widget.searchNotifier.value,
+                      style: GoogleFonts.kumbhSans(
+                        color: widget.searchNotifier.value.isEmpty
+                            ? (uiController.darkMode.value
+                                ? Colors.grey
+                                : Colors.black.withValues(alpha: 0.5))
+                            : (uiController.darkMode.value
+                                ? Colors.white
+                                : Colors.black),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
                       ),
-                      child: TextField(
-                        controller: searchController,
-                        autofocus: true,
-                        style: GoogleFonts.kumbhSans(
-                          color:
-                              (
-                                      uiController.darkMode.value)
-                                  ? Colors.white
-                                  : Colors.black,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Search...',
-                          hintStyle: GoogleFonts.kumbhSans(
-                            color:
-                                (
-                                        uiController.darkMode.value)
-                                    ? Colors.grey
-                                    : Colors.black.withValues(alpha: 0.5),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: (value) {
-                          widget.searchNotifier.value = value;
-                          controller.filterItems(value);
-                        },
-                      ),
-                    ),
+                    )),
                   ),
                 ],
               ),
