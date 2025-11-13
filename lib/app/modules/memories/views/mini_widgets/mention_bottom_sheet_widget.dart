@@ -739,29 +739,27 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
 
         // Update the item with new name and parent category
         if (widget.isTagMode) {
+          final hashtagGroupService = HashtagGroupService();
+          // First update the group name (this will check for duplicates)
+          await hashtagGroupService.updateGroup(widget.editItemId!, newName);
+
+          // Then update the parent category
           final databaseHelper = DatabaseHelper.instance;
           await databaseHelper.updateHashtagGroup(widget.editItemId!, {
-            'hashtag_group_name': newName,
             'hashtag_group_parent_id': parentId,
             'hashtag_group_updated_at': DateTime.now().toIso8601String(),
           });
-
-          // ✅ Update all memories that use this hashtag
-          if (oldName != newName) {
-            await _updateMemoriesWithTag(oldName, newName);
-          }
         } else {
+          final contactGroupService = ContactGroupService();
+          // First update the group name (this will check for duplicates)
+          await contactGroupService.updateGroup(widget.editItemId!, newName);
+
+          // Then update the parent category
           final databaseHelper = DatabaseHelper.instance;
           await databaseHelper.updateContactGroup(widget.editItemId!, {
-            'contact_group_name': newName,
             'contact_group_parent_id': parentId,
             'contact_group_updated_at': DateTime.now().toIso8601String(),
           });
-
-          // ✅ Update all memories that use this mention
-          if (oldName != newName) {
-            await _updateMemoriesWithMention(oldName, newName);
-          }
         }
 
         // Call the onItemSelected callback with the updated item
@@ -776,16 +774,36 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         return;
       } catch (e) {
         debugPrint('Error updating item: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Failed to update ${widget.isTagMode ? 'hashtag' : 'contact'}',
-                style: GoogleFonts.kumbhSans(),
+        if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
+          if (mounted) {
+            Get.snackbar(
+              'Duplicate Hashtag',
+              'This name is already added in another category.',
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
+        } else if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
+          if (mounted) {
+            Get.snackbar(
+              'Duplicate Contact',
+              'This name is already added in another category.',
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to update ${widget.isTagMode ? 'hashtag' : 'contact'}',
+                  style: GoogleFonts.kumbhSans(),
+                ),
+                backgroundColor: Colors.red,
               ),
-              backgroundColor: Colors.red,
-            ),
-          );
+            );
+          }
         }
         return;
       }

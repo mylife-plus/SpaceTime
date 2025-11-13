@@ -95,6 +95,22 @@ class HashtagGroupService {
       debugPrint('[HashtagGroupService][updateGroup] Old name: "$oldName"');
       debugPrint('[HashtagGroupService][updateGroup] New name: "$newName"');
 
+      // Check for duplicate hashtag name across all groups (case-insensitive) if name is being changed
+      if (oldName != null && newName.toLowerCase() != oldName.toLowerCase()) {
+        final allGroups = await getAllGroupsFlat();
+        final nameLower = newName.toLowerCase();
+
+        for (final group in allGroups) {
+          // Skip the current group being edited
+          if (group.id != groupId && group.name.toLowerCase() == nameLower) {
+            debugPrint(
+              '[HashtagGroupService][updateGroup] Duplicate hashtag name found: ${group.name}',
+            );
+            throw Exception('DUPLICATE_HASHTAG_NAME');
+          }
+        }
+      }
+
       final updateData = {
         'hashtag_group_name': newName,
         'hashtag_group_updated_at': DateTime.now().toIso8601String(),
@@ -123,6 +139,10 @@ class HashtagGroupService {
       debugPrint('[HashtagGroupService][updateGroup] ❌ EXCEPTION CAUGHT: $e');
       debugPrint('[HashtagGroupService][updateGroup] Exception type: ${e.runtimeType}');
       debugPrint('[HashtagGroupService][updateGroup] Stack trace: ${StackTrace.current}');
+      // Rethrow duplicate exceptions so UI can handle them
+      if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
+        rethrow;
+      }
       return false;
     }
   }

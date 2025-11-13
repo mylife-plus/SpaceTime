@@ -95,6 +95,22 @@ class ContactGroupService {
       debugPrint('[ContactGroupService][updateGroup] Old name: "$oldName"');
       debugPrint('[ContactGroupService][updateGroup] New name: "$newName"');
 
+      // Check for duplicate contact name across all groups (case-insensitive) if name is being changed
+      if (oldName != null && newName.toLowerCase() != oldName.toLowerCase()) {
+        final allGroups = await getAllGroupsFlat();
+        final nameLower = newName.toLowerCase();
+
+        for (final group in allGroups) {
+          // Skip the current group being edited
+          if (group.id != groupId && group.name.toLowerCase() == nameLower) {
+            debugPrint(
+              '[ContactGroupService][updateGroup] Duplicate contact name found: ${group.name}',
+            );
+            throw Exception('DUPLICATE_CONTACT_NAME');
+          }
+        }
+      }
+
       final updateData = {
         'contact_group_name': newName,
         'contact_group_updated_at': DateTime.now().toIso8601String(),
@@ -123,6 +139,10 @@ class ContactGroupService {
       debugPrint('[ContactGroupService][updateGroup] ❌ EXCEPTION CAUGHT: $e');
       debugPrint('[ContactGroupService][updateGroup] Exception type: ${e.runtimeType}');
       debugPrint('[ContactGroupService][updateGroup] Stack trace: ${StackTrace.current}');
+      // Rethrow duplicate exceptions so UI can handle them
+      if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
+        rethrow;
+      }
       return false;
     }
   }

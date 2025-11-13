@@ -377,6 +377,26 @@ class PlaceCategoryService {
         '[PlaceCategoryService][updateCategory] Current category: ${currentCategory.emoji} ${currentCategory.name}',
       );
 
+      // Check for duplicate category name (case-insensitive) if name is being changed
+      if (name != null && name.trim().toLowerCase() != currentCategory.name.toLowerCase()) {
+        final allCategories = await getAllCategoriesFlat();
+        final nameLower = name.trim().toLowerCase();
+
+        for (final category in allCategories) {
+          // Skip the current category being edited
+          if (category.id != categoryId && category.name.toLowerCase() == nameLower) {
+            debugPrint(
+              '[PlaceCategoryService][updateCategory] Duplicate category name found: ${category.name}',
+            );
+            // Return -1 to signal duplicate (we'll use a special return value)
+            // Since this returns bool, we'll need to change the approach
+            // Return false and the UI will need to check differently
+            // Actually, let's return a special value by throwing an exception
+            throw Exception('DUPLICATE_CATEGORY_NAME');
+          }
+        }
+      }
+
       final rowsAffected = await _databaseHelper.updatePlaceCategory(
         categoryId: categoryId,
         name: name,
@@ -481,6 +501,10 @@ class PlaceCategoryService {
       return success;
     } catch (e) {
       debugPrint('[PlaceCategoryService][updateCategory] Error: $e');
+      // Rethrow duplicate exceptions so UI can handle them
+      if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
+        rethrow;
+      }
       return false;
     }
   }

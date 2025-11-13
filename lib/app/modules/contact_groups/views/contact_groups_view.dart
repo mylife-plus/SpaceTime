@@ -1972,12 +1972,21 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error updating contact group: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to update contact group: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
+        Get.snackbar(
+          'Duplicate Contact',
+          'This name is already added in another category.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to update contact group: $e',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 

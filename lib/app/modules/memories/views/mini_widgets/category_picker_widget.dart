@@ -1161,12 +1161,21 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     }
                   } catch (e) {
                     debugPrint('[CategoryPickerWidget][EditDialog] Error: $e');
-                    Get.snackbar(
-                      'Error',
-                      'Failed to update category: $e',
-                      backgroundColor: Colors.red,
-                      colorText: Colors.white,
-                    );
+                    if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
+                      Get.snackbar(
+                        'Duplicate Category',
+                        'Category with this name already exists.',
+                        backgroundColor: Colors.orange,
+                        colorText: Colors.white,
+                      );
+                    } else {
+                      Get.snackbar(
+                        'Error',
+                        'Failed to update category: $e',
+                        backgroundColor: Colors.red,
+                        colorText: Colors.white,
+                      );
+                    }
                   }
                 },
                 child: Container(

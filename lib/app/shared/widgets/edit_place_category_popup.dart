@@ -179,7 +179,18 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
       }
     } catch (e) {
       debugPrint('Error updating category: $e');
-      _showError('Failed to update category');
+      if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
+        if (mounted) {
+          Get.snackbar(
+            'Duplicate Category',
+            'Category with this name already exists.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+        }
+      } else {
+        _showError('Failed to update category');
+      }
     }
   }
 

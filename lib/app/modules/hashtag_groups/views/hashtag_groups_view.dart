@@ -1948,12 +1948,21 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       );
     } catch (e) {
       debugPrint('[HashtagGroupsView] Error updating hashtag group: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to update hashtag group: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
+        Get.snackbar(
+          'Duplicate Hashtag',
+          'This name is already added in another category.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to update hashtag group: $e',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 
