@@ -431,14 +431,42 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     Get.dialog(
       EditPlaceCategoryPopup(
         category: category,
-        onCategoryUpdated: (updatedCategory) {
-          // Refresh the recent categories list
-          _loadRecentCategories();
+        onCategoryUpdated: (updatedCategory) async {
+          debugPrint('[SearchableCategoryWidget] Category updated: ${updatedCategory.emoji} ${updatedCategory.name}');
+
+          // Update the search results list if the category is in it
+          if (_searchResults.isNotEmpty) {
+            final index = _searchResults.indexWhere((cat) => cat.id == updatedCategory.id);
+            if (index != -1) {
+              _searchResults[index] = updatedCategory;
+              debugPrint('[SearchableCategoryWidget] Updated category in search results at index $index');
+            }
+          }
+
+          // Update the recent categories list if the category is in it
+          if (_recentCategories.isNotEmpty) {
+            final index = _recentCategories.indexWhere((cat) => cat.id == updatedCategory.id);
+            if (index != -1) {
+              _recentCategories[index] = updatedCategory;
+              debugPrint('[SearchableCategoryWidget] Updated category in recent categories at index $index');
+            }
+          }
+
+          // Refresh the recent categories list from storage
+          await _loadRecentCategories();
 
           // Refresh search results if searching
           if (_isSearching.value && _searchController.text.isNotEmpty) {
             _onSearchChanged();
           }
+
+          // Auto-select the updated category
+          widget.onCategorySelected(updatedCategory);
+
+          // Clear search and hide results
+          _searchController.clear();
+          _showResults.value = false;
+          _focusNode.unfocus();
         },
       ),
     );
