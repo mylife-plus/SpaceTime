@@ -316,6 +316,49 @@ class PlaceCategoryService {
         }
       }
 
+      // Additional check: If adding a main category, check if name conflicts with any subcategory
+      // If adding a subcategory, check if name conflicts with its parent category
+      if (parentId == null) {
+        // Adding a main category - check if this name exists as any subcategory
+        for (final category in allCategories) {
+          if (category.parentId != null && category.name.toLowerCase() == nameLower) {
+            debugPrint(
+              '[PlaceCategoryService][addCustomCategory] Main category name conflicts with existing subcategory: ${category.name}',
+            );
+            // Return id = -3 to signal main category conflicts with subcategory
+            return PlaceCategory(
+              id: -3,
+              name: name,
+              emoji: emoji,
+              parentId: parentId,
+              order: order,
+              isCustom: true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+          }
+        }
+      } else {
+        // Adding a subcategory - check if name conflicts with parent category or any other subcategory under same parent
+        final parentCategory = await getCategoryById(parentId);
+        if (parentCategory != null && parentCategory.name.toLowerCase() == nameLower) {
+          debugPrint(
+            '[PlaceCategoryService][addCustomCategory] Subcategory name conflicts with parent category: ${parentCategory.name}',
+          );
+          // Return id = -4 to signal subcategory conflicts with parent category
+          return PlaceCategory(
+            id: -4,
+            name: name,
+            emoji: emoji,
+            parentId: parentId,
+            order: order,
+            isCustom: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        }
+      }
+
       final now = DateTime.now();
       final categoryId = await _databaseHelper.addCustomPlaceCategory(
         name: name,
@@ -388,11 +431,30 @@ class PlaceCategoryService {
             debugPrint(
               '[PlaceCategoryService][updateCategory] Duplicate category name found: ${category.name}',
             );
-            // Return -1 to signal duplicate (we'll use a special return value)
-            // Since this returns bool, we'll need to change the approach
-            // Return false and the UI will need to check differently
-            // Actually, let's return a special value by throwing an exception
             throw Exception('DUPLICATE_CATEGORY_NAME');
+          }
+        }
+
+        // Additional check: If editing a main category, check if name conflicts with any subcategory
+        // If editing a subcategory, check if name conflicts with its parent category
+        if (currentCategory.parentId == null) {
+          // Editing a main category - check if this name exists as any subcategory
+          for (final category in allCategories) {
+            if (category.id != categoryId && category.parentId != null && category.name.toLowerCase() == nameLower) {
+              debugPrint(
+                '[PlaceCategoryService][updateCategory] Main category name conflicts with existing subcategory: ${category.name}',
+              );
+              throw Exception('MAIN_CATEGORY_CONFLICTS_WITH_SUBCATEGORY');
+            }
+          }
+        } else {
+          // Editing a subcategory - check if name conflicts with parent category
+          final parentCategory = await getCategoryById(currentCategory.parentId!);
+          if (parentCategory != null && parentCategory.name.toLowerCase() == nameLower) {
+            debugPrint(
+              '[PlaceCategoryService][updateCategory] Subcategory name conflicts with parent category: ${parentCategory.name}',
+            );
+            throw Exception('SUBCATEGORY_CONFLICTS_WITH_PARENT');
           }
         }
       }

@@ -191,6 +191,24 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
             colorText: Colors.white,
           );
         }
+      } else if (e.toString().contains('MAIN_CATEGORY_CONFLICTS_WITH_SUBCATEGORY')) {
+        if (mounted) {
+          Get.snackbar(
+            'Name Conflict',
+            'This name is already used by a place in another category.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+        }
+      } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
+        if (mounted) {
+          Get.snackbar(
+            'Name Conflict',
+            'This name is already used by the parent category.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+        }
       } else {
         _showError('Failed to update category');
       }

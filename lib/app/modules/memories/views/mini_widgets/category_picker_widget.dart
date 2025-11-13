@@ -891,6 +891,15 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           colorText: Colors.white,
         );
         return;
+      } else if (newCategory.id == -4) {
+        // Subcategory name conflicts with parent category
+        Get.snackbar(
+          'Name Conflict',
+          'This name is already used by the parent category.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
       }
 
       // Clean up the inline adding state
@@ -1168,6 +1177,20 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                       Get.snackbar(
                         'Duplicate Category',
                         message,
+                        backgroundColor: Colors.orange,
+                        colorText: Colors.white,
+                      );
+                    } else if (e.toString().contains('MAIN_CATEGORY_CONFLICTS_WITH_SUBCATEGORY')) {
+                      Get.snackbar(
+                        'Name Conflict',
+                        'This name is already used by a place in another category.',
+                        backgroundColor: Colors.orange,
+                        colorText: Colors.white,
+                      );
+                    } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
+                      Get.snackbar(
+                        'Name Conflict',
+                        'This name is already used by the parent category.',
                         backgroundColor: Colors.orange,
                         colorText: Colors.white,
                       );

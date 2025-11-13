@@ -214,6 +214,16 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           );
           _isLoading.value = false;
           return;
+        } else if (parentCategoryToUse.id == -3) {
+          // Main category name conflicts with existing subcategory
+          Get.snackbar(
+            'Name Conflict',
+            'This name is already used by a place in another category.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
         }
       } else if (_selectedParentId.value.isNotEmpty) {
         // Use existing category
@@ -249,6 +259,16 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           Get.snackbar(
             'Duplicate Category',
             'Place with this name already exists.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
+        } else if (newPlaceCategory.id == -4) {
+          // Subcategory name conflicts with parent category
+          Get.snackbar(
+            'Name Conflict',
+            'This name is already used by the category "${parentCategoryToUse.name}".',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );

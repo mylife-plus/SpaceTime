@@ -44,6 +44,45 @@ class HashtagGroupService {
         }
       }
 
+      // Additional check: If adding a main group, check if name conflicts with any subgroup
+      // If adding a subgroup, check if name conflicts with its parent group
+      if (parentId == null) {
+        // Adding a main group - check if this name exists as any subgroup
+        for (final group in allGroups) {
+          if (group.parentId != null && group.name.toLowerCase() == nameLower) {
+            debugPrint(
+              '[HashtagGroupService][addCustomGroup] Main group name conflicts with existing subgroup: ${group.name}',
+            );
+            // Return id = -3 to signal main group conflicts with subgroup
+            return HashtagGroup(
+              id: -3,
+              name: name.trim(),
+              parentId: parentId,
+              isCustom: true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+          }
+        }
+      } else {
+        // Adding a subgroup - check if name conflicts with parent group
+        final parentGroup = await getGroupById(parentId);
+        if (parentGroup != null && parentGroup.name.toLowerCase() == nameLower) {
+          debugPrint(
+            '[HashtagGroupService][addCustomGroup] Subgroup name conflicts with parent group: ${parentGroup.name}',
+          );
+          // Return id = -4 to signal subgroup conflicts with parent group
+          return HashtagGroup(
+            id: -4,
+            name: name.trim(),
+            parentId: parentId,
+            isCustom: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        }
+      }
+
       final now = DateTime.now();
       final group = HashtagGroup(
         name: name.trim(),
@@ -107,6 +146,32 @@ class HashtagGroupService {
               '[HashtagGroupService][updateGroup] Duplicate hashtag name found: ${group.name}',
             );
             throw Exception('DUPLICATE_HASHTAG_NAME');
+          }
+        }
+
+        // Additional check: If editing a main group, check if name conflicts with any subgroup
+        // If editing a subgroup, check if name conflicts with its parent group
+        final currentGroup = await getGroupById(groupId);
+        if (currentGroup != null) {
+          if (currentGroup.parentId == null) {
+            // Editing a main group - check if this name exists as any subgroup
+            for (final group in allGroups) {
+              if (group.id != groupId && group.parentId != null && group.name.toLowerCase() == nameLower) {
+                debugPrint(
+                  '[HashtagGroupService][updateGroup] Main group name conflicts with existing subgroup: ${group.name}',
+                );
+                throw Exception('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP');
+              }
+            }
+          } else {
+            // Editing a subgroup - check if name conflicts with parent group
+            final parentGroup = await getGroupById(currentGroup.parentId!);
+            if (parentGroup != null && parentGroup.name.toLowerCase() == nameLower) {
+              debugPrint(
+                '[HashtagGroupService][updateGroup] Subgroup name conflicts with parent group: ${parentGroup.name}',
+              );
+              throw Exception('SUBGROUP_CONFLICTS_WITH_PARENT');
+            }
           }
         }
       }

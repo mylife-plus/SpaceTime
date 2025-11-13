@@ -1958,6 +1958,20 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
+      } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
+        Get.snackbar(
+          'Name Conflict',
+          'This name is already used by a hashtag in another group.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
+        Get.snackbar(
+          'Name Conflict',
+          'This name is already used by the parent group.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
       } else {
         Get.snackbar(
           'Error',
@@ -2023,6 +2037,15 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         Get.snackbar(
           'Duplicate Hashtag',
           'Hashtag Group with this name already exists.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      } else if (newGroup.id == -3) {
+        // Main group name conflicts with existing subgroup
+        Get.snackbar(
+          'Name Conflict',
+          'This name is already used by a hashtag in another group.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
@@ -2193,6 +2216,15 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         Get.snackbar(
           'Duplicate Hashtag',
           'Hashtag with this name already exists.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      } else if (newSubgroup.id == -4) {
+        // Subgroup name conflicts with parent group
+        Get.snackbar(
+          'Name Conflict',
+          'This name is already used by the parent group.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );

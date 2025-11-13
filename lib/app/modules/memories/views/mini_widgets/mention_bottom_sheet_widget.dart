@@ -712,6 +712,17 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 );
               }
               return;
+            } else if (newGroup.id == -3) {
+              // Main group name conflicts with existing subgroup
+              if (mounted) {
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by a hashtag in another group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              }
+              return;
             }
             parentId = newGroup.id!;
           } else {
@@ -725,6 +736,17 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 Get.snackbar(
                   'Duplicate Contact',
                   'Contact Group with this name already exists.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              }
+              return;
+            } else if (newGroup.id == -3) {
+              // Main group name conflicts with existing subgroup
+              if (mounted) {
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by a contact in another group.',
                   backgroundColor: Colors.orange,
                   colorText: Colors.white,
                 );
@@ -782,6 +804,24 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             Get.snackbar(
               'Duplicate Hashtag',
               message,
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
+        } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
+          if (mounted) {
+            Get.snackbar(
+              'Name Conflict',
+              'This name is already used by a hashtag in another group.',
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
+        } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
+          if (mounted) {
+            Get.snackbar(
+              'Name Conflict',
+              'This name is already used by the parent group.',
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
@@ -871,6 +911,17 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               );
             }
             return;
+          } else if (newGroup.id == -3) {
+            // Main group name conflicts with existing subgroup
+            if (mounted) {
+              Get.snackbar(
+                'Name Conflict',
+                'This name is already used by a hashtag in another group.',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+            }
+            return;
           }
           parentId = newGroup.id!;
         } else {
@@ -885,6 +936,17 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               Get.snackbar(
                 'Duplicate Contact',
                 'Contact Group with this name already exists.',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+            }
+            return;
+          } else if (newGroup.id == -3) {
+            // Main group name conflicts with existing subgroup
+            if (mounted) {
+              Get.snackbar(
+                'Name Conflict',
+                'This name is already used by a contact in another group.',
                 backgroundColor: Colors.orange,
                 colorText: Colors.white,
               );
@@ -915,6 +977,17 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             );
           }
           return;
+        } else if (newSubgroup.id == -4) {
+          // Subcategory name conflicts with parent group
+          if (mounted) {
+            Get.snackbar(
+              'Name Conflict',
+              'This name is already used by the parent group.',
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
+          return;
         }
       } else {
         final contactGroupService = ContactGroupService();
@@ -927,6 +1000,17 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             Get.snackbar(
               'Duplicate Contact',
               'Contact with this name already exists.',
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
+          return;
+        } else if (newSubgroup.id == -4) {
+          // Subcategory name conflicts with parent group
+          if (mounted) {
+            Get.snackbar(
+              'Name Conflict',
+              'This name is already used by the parent group.',
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
