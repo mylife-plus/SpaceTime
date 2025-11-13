@@ -573,7 +573,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (name.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please enter a category name',
+        'Please enter a Places name',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -662,7 +662,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (name.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please enter a category name',
+        'Please enter a Places name',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -846,7 +846,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (name.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please enter a subcategory name',
+        'Please enter a place name',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -1075,7 +1075,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                       fontSize: 14,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Category Name',
+                      hintText: 'Places Name',
                       hintStyle: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.darkMode.value
                             ? Colors.white.withValues(alpha: 0.5)
@@ -1119,7 +1119,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                   if (name.isEmpty) {
                     Get.snackbar(
                       'Validation Error',
-                      'Please enter a category name',
+                      'Please enter a Places name',
                       backgroundColor: Colors.orange,
                       colorText: Colors.white,
                     );
@@ -2199,7 +2199,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Category Name',
+                  hintText: 'Places Name',
                   hintStyle: gfonts.GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value
                         ? Colors.white.withValues(alpha: 0.6)

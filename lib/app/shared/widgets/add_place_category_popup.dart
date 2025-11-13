@@ -180,7 +180,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         if (categoryName.isEmpty) {
           Get.snackbar(
             'Validation Error',
-            'Please enter a category name',
+            'Please enter a Places name',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );
@@ -503,7 +503,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                                 color: uiController.darkMode.value ? Colors.white : Colors.black87,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Category Name',
+                                hintText: 'Places Name',
                                 hintStyle: GoogleFonts.kumbhSans(
                                   fontSize: 16,
                                   color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],

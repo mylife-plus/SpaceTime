@@ -142,7 +142,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
   Future<void> _updateCategory() async {
     // Validation
     if (_nameController.text.trim().isEmpty) {
-      _showError('Please enter a category name');
+      _showError('Please enter a Places name');
       return;
     }
 
@@ -432,7 +432,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Category Name',
+                    hintText: 'Places Name',
                     hintStyle: GoogleFonts.kumbhSans(
                       color: Colors.grey.shade400,
                       fontSize: 16,

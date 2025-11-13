@@ -2239,7 +2239,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
       Get.snackbar(
         'Success',
-        'Subgroup added successfully',
+        'Hashtag added successfully',
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );

@@ -679,7 +679,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Please enter a new category name',
+                widget.isTagMode ? 'Please enter a new Hashtag Group name' : 'Please enter a new Contact Group name',
                 style: GoogleFonts.kumbhSans(),
               ),
               backgroundColor: Colors.red,
@@ -884,7 +884,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Please enter a new category name',
+              widget.isTagMode ? 'Please enter a new Hashtag Group name' : 'Please enter a new Contact Group name',
               style: GoogleFonts.kumbhSans(),
             ),
             backgroundColor: Colors.red,
@@ -1221,7 +1221,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                   child: TextField(
                     controller: _newCategoryController,
                     decoration: InputDecoration(
-                      hintText: 'Enter new category name',
+                      hintText: widget.isTagMode ? 'Enter new Hashtag Group name' : 'Enter new Contact Group name',
                       hintStyle: GoogleFonts.kumbhSans(
                         color: Colors.grey.shade600,
                         fontSize: 16,

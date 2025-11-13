@@ -1970,7 +1970,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
       Get.snackbar(
         'Success',
-        'Contact group updated successfully',
+        'Contact updated successfully',
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
@@ -2262,7 +2262,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
       Get.snackbar(
         'Success',
-        'Subgroup added successfully',
+        'Contact added successfully',
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
