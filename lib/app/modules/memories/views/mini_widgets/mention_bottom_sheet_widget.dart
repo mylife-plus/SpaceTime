@@ -191,22 +191,31 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                   ),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Obx(() => Text(
-                      widget.searchNotifier.value.isEmpty
-                          ? 'Search...'
-                          : widget.searchNotifier.value,
+                    child: TextField(
+                      controller: searchController,
+                      enabled: false, // Disable clicks and editing
                       style: GoogleFonts.kumbhSans(
-                        color: widget.searchNotifier.value.isEmpty
-                            ? (uiController.darkMode.value
-                                ? Colors.grey
-                                : Colors.black.withValues(alpha: 0.5))
-                            : (uiController.darkMode.value
-                                ? Colors.white
-                                : Colors.black),
+                        color: uiController.darkMode.value
+                            ? Colors.white
+                            : Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
                       ),
-                    )),
+                      decoration: InputDecoration(
+                        hintText: 'Search...',
+                        hintStyle: GoogleFonts.kumbhSans(
+                          color: uiController.darkMode.value
+                              ? Colors.grey
+                              : Colors.black.withValues(alpha: 0.5),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        disabledBorder: InputBorder.none, // Remove border when disabled
+                      ),
+                    ),
                   ),
                 ],
               ),
