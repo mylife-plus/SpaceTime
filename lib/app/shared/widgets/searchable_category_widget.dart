@@ -699,7 +699,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                         onTap: () => _navigateToFullPicker(),
                         child: Text(
                           'See List',
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: AppFonts.medium(
                             18,
                             color: uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -712,7 +712,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                         onTap: () => _showAddCategoryPopup(),
                         child: Text(
                           'Add new',
-                          textAlign: TextAlign.right,
+                          textAlign: TextAlign.center,
                           style: AppFonts.medium(
                             18,
                             color: uiController.currentMainColor,
