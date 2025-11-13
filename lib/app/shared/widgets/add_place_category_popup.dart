@@ -208,7 +208,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           // Duplicate category name
           Get.snackbar(
             'Duplicate Category',
-            'Category with this name already exists.',
+            'Place Category with this name already exists.',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );
@@ -245,10 +245,10 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           _isLoading.value = false;
           return;
         } else if (newPlaceCategory.id == -1) {
-          // Duplicate category name
+          // Duplicate subcategory name
           Get.snackbar(
             'Duplicate Category',
-            'Category with this name already exists.',
+            'Place with this name already exists.',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );

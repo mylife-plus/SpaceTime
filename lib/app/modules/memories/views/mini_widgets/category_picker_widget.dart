@@ -883,10 +883,10 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         );
         return;
       } else if (newCategory.id == -1) {
-        // Duplicate category name
+        // Duplicate subcategory name
         Get.snackbar(
           'Duplicate Category',
-          'Category with this name already exists.',
+          'Place with this name already exists.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
@@ -1162,9 +1162,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                   } catch (e) {
                     debugPrint('[CategoryPickerWidget][EditDialog] Error: $e');
                     if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
+                      final message = category.parentId == null
+                          ? 'Place Category with this name already exists.'
+                          : 'Place with this name already exists.';
                       Get.snackbar(
                         'Duplicate Category',
-                        'Category with this name already exists.',
+                        message,
                         backgroundColor: Colors.orange,
                         colorText: Colors.white,
                       );

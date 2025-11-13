@@ -1949,9 +1949,12 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     } catch (e) {
       debugPrint('[HashtagGroupsView] Error updating hashtag group: $e');
       if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
+        final message = hashtagGroup.parentId == null
+            ? 'Hashtag Group with this name already exists.'
+            : 'Hashtag with this name already exists.';
         Get.snackbar(
           'Duplicate Hashtag',
-          'This name is already added in another category.',
+          message,
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
@@ -2016,10 +2019,10 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         );
         return;
       } else if (newGroup.id == -1) {
-        // Duplicate hashtag name
+        // Duplicate main hashtag group name
         Get.snackbar(
           'Duplicate Hashtag',
-          'This name is already added in another category.',
+          'Hashtag Group with this name already exists.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
@@ -2186,10 +2189,10 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         );
         return;
       } else if (newSubgroup.id == -1) {
-        // Duplicate hashtag name
+        // Duplicate subgroup hashtag name
         Get.snackbar(
           'Duplicate Hashtag',
-          'This name is already added in another category.',
+          'Hashtag with this name already exists.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );

@@ -1973,9 +1973,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     } catch (e) {
       debugPrint('[ContactGroupsView] Error updating contact group: $e');
       if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
+        final message = contactGroup.parentId == null
+            ? 'Contact Group with this name already exists.'
+            : 'Contact with this name already exists.';
         Get.snackbar(
           'Duplicate Contact',
-          'This name is already added in another category.',
+          message,
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
@@ -2040,10 +2043,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         );
         return;
       } else if (newGroup.id == -1) {
-        // Duplicate contact name
+        // Duplicate main contact group name
         Get.snackbar(
           'Duplicate Contact',
-          'This name is already added in another category.',
+          'Contact Group with this name already exists.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
@@ -2208,10 +2211,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         );
         return;
       } else if (newSubgroup.id == -1) {
-        // Duplicate contact name
+        // Duplicate subgroup contact name
         Get.snackbar(
           'Duplicate Contact',
-          'This name is already added in another category.',
+          'Contact with this name already exists.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );

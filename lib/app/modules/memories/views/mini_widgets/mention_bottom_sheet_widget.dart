@@ -702,11 +702,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             if (newGroup == null) {
               throw Exception('Failed to create new hashtag category');
             } else if (newGroup.id == -1) {
-              // Duplicate hashtag name
+              // Duplicate hashtag group name
               if (mounted) {
                 Get.snackbar(
                   'Duplicate Hashtag',
-                  'This name is already added in another category.',
+                  'Hashtag Group with this name already exists.',
                   backgroundColor: Colors.orange,
                   colorText: Colors.white,
                 );
@@ -720,11 +720,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             if (newGroup == null) {
               throw Exception('Failed to create new contact category');
             } else if (newGroup.id == -1) {
-              // Duplicate contact name
+              // Duplicate contact group name
               if (mounted) {
                 Get.snackbar(
                   'Duplicate Contact',
-                  'This name is already added in another category.',
+                  'Contact Group with this name already exists.',
                   backgroundColor: Colors.orange,
                   colorText: Colors.white,
                 );
@@ -776,18 +776,24 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         debugPrint('Error updating item: $e');
         if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
           if (mounted) {
+            final message = widget.editParentId == null
+                ? 'Hashtag Group with this name already exists.'
+                : 'Hashtag with this name already exists.';
             Get.snackbar(
               'Duplicate Hashtag',
-              'This name is already added in another category.',
+              message,
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
           }
         } else if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
           if (mounted) {
+            final message = widget.editParentId == null
+                ? 'Contact Group with this name already exists.'
+                : 'Contact with this name already exists.';
             Get.snackbar(
               'Duplicate Contact',
-              'This name is already added in another category.',
+              message,
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
@@ -855,11 +861,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           if (newGroup == null) {
             throw Exception('Failed to create new hashtag category');
           } else if (newGroup.id == -1) {
-            // Duplicate hashtag name
+            // Duplicate hashtag group name
             if (mounted) {
               Get.snackbar(
                 'Duplicate Hashtag',
-                'This name is already added in another category.',
+                'Hashtag Group with this name already exists.',
                 backgroundColor: Colors.orange,
                 colorText: Colors.white,
               );
@@ -874,11 +880,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           if (newGroup == null) {
             throw Exception('Failed to create new contact category');
           } else if (newGroup.id == -1) {
-            // Duplicate contact name
+            // Duplicate contact group name
             if (mounted) {
               Get.snackbar(
                 'Duplicate Contact',
-                'This name is already added in another category.',
+                'Contact Group with this name already exists.',
                 backgroundColor: Colors.orange,
                 colorText: Colors.white,
               );
@@ -899,11 +905,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         if (newSubgroup == null) {
           throw Exception('Failed to add hashtag subcategory');
         } else if (newSubgroup.id == -1) {
-          // Duplicate hashtag name
+          // Duplicate hashtag subcategory name
           if (mounted) {
             Get.snackbar(
               'Duplicate Hashtag',
-              'This name is already added in another category.',
+              'Hashtag with this name already exists.',
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
@@ -916,11 +922,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         if (newSubgroup == null) {
           throw Exception('Failed to add contact subcategory');
         } else if (newSubgroup.id == -1) {
-          // Duplicate contact name
+          // Duplicate contact subcategory name
           if (mounted) {
             Get.snackbar(
               'Duplicate Contact',
-              'This name is already added in another category.',
+              'Contact with this name already exists.',
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
