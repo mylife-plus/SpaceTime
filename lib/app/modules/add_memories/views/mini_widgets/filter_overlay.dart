@@ -181,15 +181,12 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
           Positioned.fill(
             child: GestureDetector(
               onTap: () {
-                // Just close the filter overlay without resetting filters
-                // Filters should persist until manually removed or reset
                 controller.closeFilter();
                 mapController?.isFilterOpen.value = false;
               },
               child: Container(color: Colors.black.withValues(alpha: 0.5)),
             ),
           ),
-          // The actual filter panel
           Positioned(
             top: 0,
             left: 0,

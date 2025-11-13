@@ -68,11 +68,14 @@ class MemoryInfoWidget extends StatelessWidget {
                         : 'Pick Location *',
                 onTap: () async {
                   var data = await Get.to(() => const MemoryLocationPickerWidget());
-                  controller.onAgainInit();
 
-                  // Use the new enhanced location method
-                  controller.setEnhancedLocationData(data);
-                  // Call onAgainInit when returning from location picker (user preference)
+                  // Only update location if user pressed done (data is not null)
+                  // If user pressed close (data is null), keep the existing location
+                  if (data != null) {
+                    controller.onAgainInit();
+                    // Use the new enhanced location method
+                    controller.setEnhancedLocationData(data);
+                  }
                 },
                 isRequired: true, // Location is required for saving memories
               ),

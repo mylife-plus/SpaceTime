@@ -51,7 +51,7 @@ class FilterPanel extends StatelessWidget {
             //  color:
           
             child: Padding(
-              padding: EdgeInsets.all(8),
+              padding: EdgeInsets.only(left : 8, right: 8, bottom: 8, top: 8),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -64,19 +64,16 @@ class FilterPanel extends StatelessWidget {
                           top: 0,
                           child: InkWell(
                             onTap: onBack,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: ColorFiltered(
-                                colorFilter: ColorFilter.mode(
-                                  controller.darkMode.value ? Colors.white : Colors.white,
-                                  BlendMode.srcIn,
-                                ),
-                                child: Image.asset(
-                                  AppImages.arrowBack,
-                                  width: 24,
-                                  height: 24,
-                                  fit: BoxFit.contain,
-                                ),
+                            child: ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                controller.darkMode.value ? Colors.white : Colors.white,
+                                BlendMode.srcIn,
+                              ),
+                              child: Image.asset(
+                                AppImages.arrowBack,
+                                width: 24,
+                                height: 24,
+                                fit: BoxFit.contain,
                               ),
                             ),
                           ),

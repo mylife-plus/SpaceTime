@@ -283,7 +283,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
       Get.snackbar(
         'Database Error',
-        'Failed to load place categories: $e',
+        'Failed to load places: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
         duration: const Duration(seconds: 5),
@@ -1810,8 +1810,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           title: Obx(
             () => Text(
               widget.allowMultipleSelection
-                  ? '📍 Place Categories'
-                  : '📍 Place Categories',
+                  ? '📍 Places'
+                  : '📍 Places',
               style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value ? Colors.white : Colors.white,
@@ -1864,7 +1864,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
                       _selectedCategories.isEmpty
-                          ? '0 categories selected'
+                          ? '0 selected'
                           : '${_selectedCategories.length} ${_selectedCategories.length == 1 ? 'category' : 'categories'} selected',
                       textAlign: TextAlign.center,
                       style: gfonts.GoogleFonts.kumbhSans(

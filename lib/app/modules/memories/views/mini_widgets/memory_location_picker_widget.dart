@@ -562,12 +562,18 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       // Create annotation manager
       annotationManager = await controller.annotations.createPointAnnotationManager();
 
-      // Move to current location if available
-      if (currentPosition.value != null) {
+      // Move to current location if available and select it automatically
+      if (hasLocationPermission.value && currentPosition.value != null) {
         await _moveToLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,
         );
+        // Automatically select current location with red marker
+        await _selectLocation(
+          currentPosition.value!.latitude,
+          currentPosition.value!.longitude,
+        );
+        debugPrint('📍 Auto-selected current location on map load');
       }
     } catch (e) {
       debugPrint('Error in onMapCreated: $e');
@@ -612,6 +618,12 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Handle map tap - show red marker without radius
   Future<void> _onMapTap(mapbox.MapContentGestureContext context) async {
+    // Dismiss keyboard when tapping on map
+    if (_searchFocusNode.hasFocus) {
+      _searchFocusNode.unfocus();
+      _showSearchResults.value = false;
+    }
+
     final point = context.point;
     await _selectLocation(
       point.coordinates.lat.toDouble(),
