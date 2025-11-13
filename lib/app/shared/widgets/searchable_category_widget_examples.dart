@@ -22,7 +22,7 @@ class SearchableCategoryWidgetExamples extends StatelessWidget {
               title: '1. Memory Creation Context',
               description: 'Used in memory creation with recent categories and full functionality',
               child: SearchableCategoryWidget(
-                title: 'Place Categories',
+                title: 'Places',
                 onCategorySelected: (category) {
                   // In real usage, this would call: memoryController.setCategory(categoryWithEmoji)
                   debugPrint('Memory: Selected ${category.emoji} ${category.name}');

@@ -1172,7 +1172,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     debugPrint('[CategoryPickerWidget][EditDialog] Error: $e');
                     if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
                       final message = category.parentId == null
-                          ? 'Place Category with this name already exists.'
+                          ? 'Places with this name already exists.'
                           : 'Place with this name already exists.';
                       Get.snackbar(
                         'Duplicate Category',

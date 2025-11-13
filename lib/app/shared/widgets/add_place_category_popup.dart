@@ -208,7 +208,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           // Duplicate category name
           Get.snackbar(
             'Duplicate Category',
-            'Place Category with this name already exists.',
+            'Places with this name already exists.',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );
@@ -248,7 +248,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         if (newPlaceCategory == null) {
           Get.snackbar(
             'Error',
-            'Failed to create place category',
+            'Failed to create places',
             backgroundColor: Colors.red,
             colorText: Colors.white,
           );
@@ -427,7 +427,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                       child: DropdownButton<String>(
                         value: _selectedParentId.value.isEmpty ? null : _selectedParentId.value,
                         hint: Text(
-                          'select Place Category',
+                          'select Places',
                           style: GoogleFonts.kumbhSans(
                             fontSize: 16,
                             color: uiController.darkMode.value ? Colors.white70 : Colors.black87,

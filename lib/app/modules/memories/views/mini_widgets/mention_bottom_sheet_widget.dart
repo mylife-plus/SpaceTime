@@ -702,7 +702,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             final hashtagGroupService = HashtagGroupService();
             final newGroup = await hashtagGroupService.addCustomGroup(newCategoryName);
             if (newGroup == null) {
-              throw Exception('Failed to create new hashtag category');
+              throw Exception('Failed to create new hashtag group');
             } else if (newGroup.id == -1) {
               // Duplicate hashtag group name
               if (mounted) {
@@ -731,7 +731,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             final contactGroupService = ContactGroupService();
             final newGroup = await contactGroupService.addCustomGroup(newCategoryName);
             if (newGroup == null) {
-              throw Exception('Failed to create new contact category');
+              throw Exception('Failed to create new contact group');
             } else if (newGroup.id == -1) {
               // Duplicate contact group name
               if (mounted) {
@@ -907,7 +907,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           // Create new main category
           final newGroup = await hashtagGroupService.addCustomGroup(newCategoryName);
           if (newGroup == null) {
-            throw Exception('Failed to create new hashtag category');
+            throw Exception('Failed to create new hashtag group');
           } else if (newGroup.id == -1) {
             // Duplicate hashtag group name
             if (mounted) {
@@ -937,7 +937,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           // Create new main category
           final newGroup = await contactGroupService.addCustomGroup(newCategoryName);
           if (newGroup == null) {
-            throw Exception('Failed to create new contact category');
+            throw Exception('Failed to create new contact group');
           } else if (newGroup.id == -1) {
             // Duplicate contact group name
             if (mounted) {

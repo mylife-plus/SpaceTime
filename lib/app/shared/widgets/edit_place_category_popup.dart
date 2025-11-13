@@ -182,7 +182,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
       if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
         if (mounted) {
           final message = widget.category.parentId == null
-              ? 'Place Category with this name already exists.'
+              ? 'Places with this name already exists.'
               : 'Place with this name already exists.';
           Get.snackbar(
             'Duplicate Category',
@@ -258,7 +258,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
                 ),
                 // Title
                 Text(
-                  '📍 Edit Place Category',
+                  '📍 Edit Places',
                   style: GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 18,
@@ -332,7 +332,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 8, bottom: 4),
                   child: Text(
-                    'Place Category Group',
+                    'Places Group',
                     style: GoogleFonts.kumbhSans(
                       color: uiController.darkMode.value ? Colors.white : Colors.black,
                       fontSize: 15,
@@ -402,7 +402,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Text(
-                  'Place Category',
+                  'Places',
                   style: GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 15,
