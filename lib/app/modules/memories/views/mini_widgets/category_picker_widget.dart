@@ -874,34 +874,44 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         parentId: parentCategoryId,
       );
 
-      if (newCategory != null) {
-        // Clean up the inline adding state
-        _cancelInlineAdding(parentCategoryId);
-
-        // Refresh categories from database to show the new addition
-        await _refreshCategoriesFromDatabase();
-
-        // Also trigger global refresh for any other category pickers that might be open
-        _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
-
-        Get.snackbar(
-          'Success',
-          'Subcategory "$name" added successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-
-        debugPrint(
-          '[CategoryPickerWidget][_saveInlineSubcategory] Successfully added subcategory: ${newCategory.id}',
-        );
-      } else {
+      if (newCategory == null) {
         Get.snackbar(
           'Error',
           'Failed to add subcategory',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
+        return;
+      } else if (newCategory.id == -1) {
+        // Duplicate category name
+        Get.snackbar(
+          'Duplicate Category',
+          'Category with this name already exists.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
       }
+
+      // Clean up the inline adding state
+      _cancelInlineAdding(parentCategoryId);
+
+      // Refresh categories from database to show the new addition
+      await _refreshCategoriesFromDatabase();
+
+      // Also trigger global refresh for any other category pickers that might be open
+      _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+
+      Get.snackbar(
+        'Success',
+        'Subcategory "$name" added successfully!',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      debugPrint(
+        '[CategoryPickerWidget][_saveInlineSubcategory] Successfully added subcategory: ${newCategory.id}',
+      );
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_saveInlineSubcategory] Error: $e');
       Get.snackbar(

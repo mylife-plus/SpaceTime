@@ -1996,7 +1996,26 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     }
 
     try {
-      await _hashtagGroupService.addCustomGroup(name);
+      final newGroup = await _hashtagGroupService.addCustomGroup(name);
+
+      if (newGroup == null) {
+        Get.snackbar(
+          'Error',
+          'Failed to add hashtag group',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      } else if (newGroup.id == -1) {
+        // Duplicate hashtag name
+        Get.snackbar(
+          'Duplicate Hashtag',
+          'This name is already added in another category.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
 
       _cancelInlineAddingMainHashtagGroup();
       await _refreshHashtagGroupsFromDatabase();
@@ -2149,24 +2168,34 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         parentId: parentHashtagGroupId,
       );
 
-      if (newSubgroup != null) {
-        _cancelInlineAdding(parentHashtagGroupId);
-        await _refreshHashtagGroupsFromDatabase();
-
-        Get.snackbar(
-          'Success',
-          'Subgroup added successfully',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-      } else {
+      if (newSubgroup == null) {
         Get.snackbar(
           'Error',
           'Failed to add subgroup',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
+        return;
+      } else if (newSubgroup.id == -1) {
+        // Duplicate hashtag name
+        Get.snackbar(
+          'Duplicate Hashtag',
+          'This name is already added in another category.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
       }
+
+      _cancelInlineAdding(parentHashtagGroupId);
+      await _refreshHashtagGroupsFromDatabase();
+
+      Get.snackbar(
+        'Success',
+        'Subgroup added successfully',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
     } catch (e) {
       debugPrint('[HashtagGroupsView] Error adding subgroup: $e');
       Get.snackbar(

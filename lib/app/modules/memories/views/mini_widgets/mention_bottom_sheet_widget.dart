@@ -699,17 +699,39 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           if (widget.isTagMode) {
             final hashtagGroupService = HashtagGroupService();
             final newGroup = await hashtagGroupService.addCustomGroup(newCategoryName);
-            if (newGroup?.id == null) {
+            if (newGroup == null) {
               throw Exception('Failed to create new hashtag category');
+            } else if (newGroup.id == -1) {
+              // Duplicate hashtag name
+              if (mounted) {
+                Get.snackbar(
+                  'Duplicate Hashtag',
+                  'This name is already added in another category.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              }
+              return;
             }
-            parentId = newGroup!.id!;
+            parentId = newGroup.id!;
           } else {
             final contactGroupService = ContactGroupService();
             final newGroup = await contactGroupService.addCustomGroup(newCategoryName);
-            if (newGroup?.id == null) {
+            if (newGroup == null) {
               throw Exception('Failed to create new contact category');
+            } else if (newGroup.id == -1) {
+              // Duplicate contact name
+              if (mounted) {
+                Get.snackbar(
+                  'Duplicate Contact',
+                  'This name is already added in another category.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              }
+              return;
             }
-            parentId = newGroup!.id!;
+            parentId = newGroup.id!;
           }
         } else {
           parentId = int.parse(_selectedCategoryId!);
@@ -812,18 +834,40 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           final hashtagGroupService = HashtagGroupService();
           // Create new main category
           final newGroup = await hashtagGroupService.addCustomGroup(newCategoryName);
-          if (newGroup?.id == null) {
+          if (newGroup == null) {
             throw Exception('Failed to create new hashtag category');
+          } else if (newGroup.id == -1) {
+            // Duplicate hashtag name
+            if (mounted) {
+              Get.snackbar(
+                'Duplicate Hashtag',
+                'This name is already added in another category.',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+            }
+            return;
           }
-          parentId = newGroup!.id!;
+          parentId = newGroup.id!;
         } else {
           final contactGroupService = ContactGroupService();
           // Create new main category
           final newGroup = await contactGroupService.addCustomGroup(newCategoryName);
-          if (newGroup?.id == null) {
+          if (newGroup == null) {
             throw Exception('Failed to create new contact category');
+          } else if (newGroup.id == -1) {
+            // Duplicate contact name
+            if (mounted) {
+              Get.snackbar(
+                'Duplicate Contact',
+                'This name is already added in another category.',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+            }
+            return;
           }
-          parentId = newGroup!.id!;
+          parentId = newGroup.id!;
         }
       } else {
         // Use existing category
@@ -833,10 +877,38 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
       // Add subcategory under the parent category
       if (widget.isTagMode) {
         final hashtagGroupService = HashtagGroupService();
-        await hashtagGroupService.addCustomGroup(subcategoryName, parentId: parentId);
+        final newSubgroup = await hashtagGroupService.addCustomGroup(subcategoryName, parentId: parentId);
+        if (newSubgroup == null) {
+          throw Exception('Failed to add hashtag subcategory');
+        } else if (newSubgroup.id == -1) {
+          // Duplicate hashtag name
+          if (mounted) {
+            Get.snackbar(
+              'Duplicate Hashtag',
+              'This name is already added in another category.',
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
+          return;
+        }
       } else {
         final contactGroupService = ContactGroupService();
-        await contactGroupService.addCustomGroup(subcategoryName, parentId: parentId);
+        final newSubgroup = await contactGroupService.addCustomGroup(subcategoryName, parentId: parentId);
+        if (newSubgroup == null) {
+          throw Exception('Failed to add contact subcategory');
+        } else if (newSubgroup.id == -1) {
+          // Duplicate contact name
+          if (mounted) {
+            Get.snackbar(
+              'Duplicate Contact',
+              'This name is already added in another category.',
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
+          return;
+        }
       }
 
       // Call the onItemSelected callback with the new item

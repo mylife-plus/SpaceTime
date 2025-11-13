@@ -22,6 +22,28 @@ class ContactGroupService {
         '[ContactGroupService][addCustomGroup] Adding custom group: $name, parentId: $parentId',
       );
 
+      // Check for duplicate contact name across all groups (case-insensitive)
+      final allGroups = await getAllGroupsFlat();
+      final nameLower = name.trim().toLowerCase();
+
+      for (final group in allGroups) {
+        if (group.name.toLowerCase() == nameLower) {
+          debugPrint(
+            '[ContactGroupService][addCustomGroup] Duplicate contact name found: ${group.name}',
+          );
+          // Return a special marker to indicate duplicate
+          // We'll use a group with id = -1 to signal duplicate
+          return ContactGroup(
+            id: -1,
+            name: name.trim(),
+            parentId: parentId,
+            isCustom: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        }
+      }
+
       final now = DateTime.now();
       final group = ContactGroup(
         name: name.trim(),

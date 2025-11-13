@@ -292,6 +292,30 @@ class PlaceCategoryService {
         '[PlaceCategoryService][addCustomCategory] Adding custom category: $name ($emoji)',
       );
 
+      // Check for duplicate category name (case-insensitive)
+      final allCategories = await getAllCategoriesFlat();
+      final nameLower = name.trim().toLowerCase();
+
+      for (final category in allCategories) {
+        if (category.name.toLowerCase() == nameLower) {
+          debugPrint(
+            '[PlaceCategoryService][addCustomCategory] Duplicate category name found: ${category.name}',
+          );
+          // Return a special marker to indicate duplicate
+          // We'll use a category with id = -1 to signal duplicate
+          return PlaceCategory(
+            id: -1,
+            name: name,
+            emoji: emoji,
+            parentId: parentId,
+            order: order,
+            isCustom: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        }
+      }
+
       final now = DateTime.now();
       final categoryId = await _databaseHelper.addCustomPlaceCategory(
         name: name,

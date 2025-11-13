@@ -2020,7 +2020,26 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     }
 
     try {
-      await _contactGroupService.addCustomGroup(name);
+      final newGroup = await _contactGroupService.addCustomGroup(name);
+
+      if (newGroup == null) {
+        Get.snackbar(
+          'Error',
+          'Failed to add contact group',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      } else if (newGroup.id == -1) {
+        // Duplicate contact name
+        Get.snackbar(
+          'Duplicate Contact',
+          'This name is already added in another category.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
 
       _cancelInlineAddingMainContactGroup();
       await _refreshContactGroupsFromDatabase();
@@ -2171,24 +2190,34 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         parentId: parentContactGroupId,
       );
 
-      if (newSubgroup != null) {
-        _cancelInlineAdding(parentContactGroupId);
-        await _refreshContactGroupsFromDatabase();
-
-        Get.snackbar(
-          'Success',
-          'Subgroup added successfully',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-      } else {
+      if (newSubgroup == null) {
         Get.snackbar(
           'Error',
           'Failed to add subgroup',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
+        return;
+      } else if (newSubgroup.id == -1) {
+        // Duplicate contact name
+        Get.snackbar(
+          'Duplicate Contact',
+          'This name is already added in another category.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
       }
+
+      _cancelInlineAdding(parentContactGroupId);
+      await _refreshContactGroupsFromDatabase();
+
+      Get.snackbar(
+        'Success',
+        'Subgroup added successfully',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding subgroup: $e');
       Get.snackbar(

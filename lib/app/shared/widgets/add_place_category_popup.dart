@@ -204,6 +204,16 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           );
           _isLoading.value = false;
           return;
+        } else if (parentCategoryToUse.id == -1) {
+          // Duplicate category name
+          Get.snackbar(
+            'Duplicate Category',
+            'Category with this name already exists.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
         }
       } else if (_selectedParentId.value.isNotEmpty) {
         // Use existing category
@@ -224,39 +234,50 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           emoji: placeEmoji,
           parentId: parentCategoryToUse.id!, // This makes it a subcategory
         );
- Get.back(); // C
 
-        if (newPlaceCategory != null) {
-          // Get.back(); // Close popup
-
-          // Call the callback with the newly created place subcategory
-          widget.onCategoryAdded?.call(newPlaceCategory);
-
-          // Refresh memory controllers to update their data after category changes
-          await _categoryService.refreshMemoryControllersAfterMemoryChange();
-
-          final placeDisplayName = placeEmoji == '📍'
-              ? placeName
-              : '$placeEmoji $placeName';
-
-          Get.snackbar(
-            'Success',
-            'Place "$placeDisplayName" added under category "${parentCategoryToUse.name}"!',
-            backgroundColor: Colors.green,
-            colorText: Colors.white,
-          );
-
-          debugPrint(
-            '[AddPlaceCategoryPopup][_addCategory] Successfully created place subcategory: ${newPlaceCategory.id}',
-          );
-        } else {
+        if (newPlaceCategory == null) {
           Get.snackbar(
             'Error',
-            'Failed to create place',
+            'Failed to create place category',
             backgroundColor: Colors.red,
             colorText: Colors.white,
           );
+          _isLoading.value = false;
+          return;
+        } else if (newPlaceCategory.id == -1) {
+          // Duplicate category name
+          Get.snackbar(
+            'Duplicate Category',
+            'Category with this name already exists.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
         }
+
+        Get.back(); // Close popup
+
+        // Call the callback with the newly created place subcategory
+        widget.onCategoryAdded?.call(newPlaceCategory);
+
+        // Refresh memory controllers to update their data after category changes
+        await _categoryService.refreshMemoryControllersAfterMemoryChange();
+
+        final placeDisplayName = placeEmoji == '📍'
+            ? placeName
+            : '$placeEmoji $placeName';
+
+        Get.snackbar(
+          'Success',
+          'Place "$placeDisplayName" added under category "${parentCategoryToUse.name}"!',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+
+        debugPrint(
+          '[AddPlaceCategoryPopup][_addCategory] Successfully created place subcategory: ${newPlaceCategory.id}',
+        );
       } else {
         Get.snackbar(
           'Error',
