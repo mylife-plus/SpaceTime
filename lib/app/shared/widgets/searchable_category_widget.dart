@@ -697,12 +697,13 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                     Expanded(
                       child: InkWell(
                         onTap: () => _navigateToFullPicker(),
-                        child: Text(
-                          'See List',
-                          textAlign: TextAlign.center,
-                          style: AppFonts.medium(
-                            18,
-                            color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                        child: Center(
+                          child: Text(
+                            'See List',
+                            style: AppFonts.medium(
+                              18,
+                              color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                            ),
                           ),
                         ),
                       ),
@@ -715,12 +716,13 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                     Expanded(
                       child: InkWell(
                         onTap: () => _showAddCategoryPopup(),
-                        child: Text(
-                          'Add new',
-                          textAlign: TextAlign.center,
-                          style: AppFonts.medium(
-                            18,
-                            color: uiController.currentMainColor,
+                        child: Center(
+                          child: Text(
+                            'Add new',
+                            style: AppFonts.medium(
+                              18,
+                              color: uiController.currentMainColor,
+                            ),
                           ),
                         ),
                       ),
