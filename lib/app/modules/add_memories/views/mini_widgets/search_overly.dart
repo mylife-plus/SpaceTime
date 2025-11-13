@@ -160,7 +160,7 @@ class SearchOverlay extends StatelessWidget {
                       color: controller2.darkMode.value ? Colors.white : Colors.black,
                     ),
                   ),
-                  onTap: () => controller.selectSuggestion(text),
+                  onTap: () => controller.selectSuggestion(text, suggestionData: suggestionData),
                 );
               } else {
                 final date = suggestionData['date'] ?? '';
@@ -251,7 +251,7 @@ class SearchOverlay extends StatelessWidget {
                       ),
                     ],
                   ),
-                  onTap: () => controller.selectSuggestion(text),
+                  onTap: () => controller.selectSuggestion(text, suggestionData: suggestionData),
                 );
               }
             },

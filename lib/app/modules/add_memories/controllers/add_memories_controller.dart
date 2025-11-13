@@ -721,6 +721,7 @@ class AddMemoriesController extends GetxController {
             'location_country': locationCountry,
             'location_flag': locationFlag,
             'type': matchType,
+            'memoryId': memoryId, // Add memory ID for filtering to specific memory
           });
         }
 
@@ -762,9 +763,31 @@ class AddMemoriesController extends GetxController {
     showSuggestions.value = suggestionsWithMetadata.isNotEmpty;
   }
 
-  void selectSuggestion(String suggestion) {
+  void selectSuggestion(String suggestion, {Map<String, dynamic>? suggestionData}) {
     searchQuery.value = suggestion;
     showSuggestions.value = false;
+
+    // If this is a memory-specific suggestion (description, location, or category),
+    // show only that specific memory
+    if (suggestionData != null) {
+      final type = suggestionData['type'] ?? '';
+      final memoryId = suggestionData['memoryId'];
+
+      if ((type == 'description' || type == 'location' || type == 'category') &&
+          memoryId != null) {
+        // Filter to show only this specific memory
+        isSearching.value = true;
+        filteredMemories.value = allMemories.where((memory) {
+          return memory['id'] == memoryId;
+        }).toList();
+
+        debugPrint('Selected specific memory with ID: $memoryId, showing ${filteredMemories.length} memory');
+        isSearchActive.value = false;
+        return;
+      }
+    }
+
+    // For hashtags and mentions, perform normal search
     performSearch();
     isSearchActive.value = false;
   }
@@ -1376,9 +1399,45 @@ class AddMemoriesController extends GetxController {
     return count;
   }
 
+  // Backup filter state for cancel functionality
+  Map<String, String> _backupFilterValues = {};
+  String _backupSelectedLocation = '';
+  String _backupSelectedRadius = '';
+  List<String> _backupSelectedHashtags = [];
+  List<String> _backupSelectedContacts = [];
+  List<String> _backupSelectedCategories = [];
+
   void toggleFilter() => isFilterOpen.toggle();
-  void openFilter() => isFilterOpen.value = true;
-  void closeFilter() => isFilterOpen.value = false;
+
+  void openFilter() {
+    // Backup current filter state before opening
+    _backupFilterValues = Map<String, String>.from(filterValues);
+    _backupSelectedLocation = selectedLocation.value;
+    _backupSelectedRadius = selectedRadius.value;
+    _backupSelectedHashtags = List<String>.from(selectedHashtags);
+    _backupSelectedContacts = List<String>.from(selectedContacts);
+    _backupSelectedCategories = List<String>.from(selectedCategories);
+
+    isFilterOpen.value = true;
+    debugPrint('[AddMemoriesController] Filter opened, state backed up');
+  }
+
+  void closeFilter() {
+    // Restore backup state when closing without applying
+    filterValues.clear();
+    filterValues.addAll(_backupFilterValues);
+    selectedLocation.value = _backupSelectedLocation;
+    selectedRadius.value = _backupSelectedRadius;
+    selectedHashtags.clear();
+    selectedHashtags.addAll(_backupSelectedHashtags);
+    selectedContacts.clear();
+    selectedContacts.addAll(_backupSelectedContacts);
+    selectedCategories.clear();
+    selectedCategories.addAll(_backupSelectedCategories);
+
+    isFilterOpen.value = false;
+    debugPrint('[AddMemoriesController] Filter closed, state restored from backup');
+  }
 
   void filterByYear(String year) {
     // Clear search when year filter is applied
