@@ -697,7 +697,8 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                     Expanded(
                       child: InkWell(
                         onTap: () => _navigateToFullPicker(),
-                        child: Center(
+                        child: Container(
+                          alignment: Alignment.center,
                           child: Text(
                             'See List',
                             style: AppFonts.medium(
@@ -716,7 +717,8 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                     Expanded(
                       child: InkWell(
                         onTap: () => _showAddCategoryPopup(),
-                        child: Center(
+                        child: Container(
+                          alignment: Alignment.center,
                           child: Text(
                             'Add new',
                             style: AppFonts.medium(
