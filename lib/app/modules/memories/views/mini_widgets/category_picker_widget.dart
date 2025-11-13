@@ -2632,12 +2632,46 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.all(Radius.circular(2)),
                 ),
+                // Show checkbox on the left when in filter mode and tile is not expanded
+                leading: widget.allowMultipleSelection && !isExpanded
+                    ? GestureDetector(
+                        onTap: () => _selectCategory(mainCategory),
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          margin: const EdgeInsets.only(left: 16),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: allSubcategoriesSelected || isMainCategorySelected
+                                  ? uiController.currentMainColor
+                                  : (uiController.darkMode.value
+                                      ? Colors.white.withValues(alpha: 0.6)
+                                      : Colors.grey[400]!),
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            color: allSubcategoriesSelected || isMainCategorySelected
+                                ? uiController.currentMainColor
+                                : Colors.transparent,
+                          ),
+                          child: (allSubcategoriesSelected || isMainCategorySelected)
+                              ? Icon(
+                                  Icons.check,
+                                  size: 18,
+                                  color: Colors.white,
+                                )
+                              : null,
+                        ),
+                      )
+                    : null,
                 title: GestureDetector(
                   onTap: widget.allowMultipleSelection
                       ? () => _selectCategory(mainCategory)
                       : null,
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 20.0),
+                    padding: EdgeInsets.only(
+                      left: widget.allowMultipleSelection && !isExpanded ? 8.0 : 20.0,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -2654,15 +2688,33 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                                     fontSize: 14,
                                   ),
                                 ),
-                                // Show selection count when in filter mode and subcategories are selected
+                                // Show selection count when in filter mode
                                 if (widget.allowMultipleSelection)
                                   TextSpan(
-                                    text: ' ($selectedSubcategoriesCount/${mainCategory.subcategories?.length ?? 0})',
+                                    text: ' (',
                                     style: gfonts.GoogleFonts.kumbhSans(
-                                      color:
-                                          uiController.darkMode.value
-                                              ? Colors.white.withValues(alpha: 0.6)
-                                              : Colors.grey[600],
+                                      color: uiController.darkMode.value
+                                          ? Colors.white.withValues(alpha: 0.6)
+                                          : Colors.grey[600],
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                if (widget.allowMultipleSelection)
+                                  TextSpan(
+                                    text: '$selectedSubcategoriesCount',
+                                    style: gfonts.GoogleFonts.kumbhSans(
+                                      color: uiController.currentMainColor,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                if (widget.allowMultipleSelection)
+                                  TextSpan(
+                                    text: '/${mainCategory.subcategories?.length ?? 0})',
+                                    style: gfonts.GoogleFonts.kumbhSans(
+                                      color: uiController.darkMode.value
+                                          ? Colors.white.withValues(alpha: 0.6)
+                                          : Colors.grey[600],
                                       fontSize: 15,
                                     ),
                                   )

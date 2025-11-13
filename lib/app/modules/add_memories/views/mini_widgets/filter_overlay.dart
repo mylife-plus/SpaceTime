@@ -371,6 +371,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                           )),
             
                           // Selected hashtags chips
+                          
                           Obx(() {
                             if (controller.selectedHashtags.isEmpty) {
                               return const SizedBox.shrink();
