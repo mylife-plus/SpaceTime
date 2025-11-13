@@ -213,7 +213,22 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Get camera options
   mapbox.CameraOptions? _getCameraOptions() {
-    if (currentPosition.value != null) {
+    // Prioritize selected location over current location
+    final hasSelectedLocation = memoryController.selectedLocation.value.isNotEmpty &&
+                                 memoryController.locationLatitude.value != null &&
+                                 memoryController.locationLongitude.value != null;
+
+    if (hasSelectedLocation) {
+      return mapbox.CameraOptions(
+        center: mapbox.Point(
+          coordinates: mapbox.Position(
+            memoryController.locationLongitude.value!,
+            memoryController.locationLatitude.value!,
+          ),
+        ),
+        zoom: 14.0,
+      );
+    } else if (currentPosition.value != null) {
       return mapbox.CameraOptions(
         center: mapbox.Point(
           coordinates: mapbox.Position(
@@ -562,8 +577,21 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       // Create annotation manager
       annotationManager = await controller.annotations.createPointAnnotationManager();
 
-      // Move to current location if available and select it automatically
-      if (hasLocationPermission.value && currentPosition.value != null) {
+      // Check if there's already a selected location
+      final hasSelectedLocation = memoryController.selectedLocation.value.isNotEmpty &&
+                                   memoryController.locationLatitude.value != null &&
+                                   memoryController.locationLongitude.value != null;
+
+      if (hasSelectedLocation) {
+        // If location is already selected, show that location
+        final lat = memoryController.locationLatitude.value!;
+        final lng = memoryController.locationLongitude.value!;
+
+        await _moveToLocation(lat, lng);
+        await _selectLocation(lat, lng);
+        debugPrint('📍 Showing previously selected location on map load: $lat, $lng');
+      } else if (hasLocationPermission.value && currentPosition.value != null) {
+        // Otherwise, show current location if available
         await _moveToLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,

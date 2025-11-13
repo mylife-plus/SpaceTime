@@ -92,7 +92,7 @@ class SearchableCategoryWidgetExamples extends StatelessWidget {
               title: '5. With Selected Category Display',
               description: 'Shows currently selected category',
               child: SearchableCategoryWidget(
-                title: 'Place Categories',
+                title: 'Places',
                 selectedCategory: '🏠 Home', // Show selected category
                 onCategorySelected: (category) {
                   debugPrint('Selected: ${category.emoji} ${category.name}');
