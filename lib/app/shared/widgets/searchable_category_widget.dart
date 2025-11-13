@@ -778,7 +778,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                     AppImages.edit,
                     width: 16,
                     height: 16,
-                    color: uiController.currentMainColor,
+                    color: Colors.grey,
                   ),
                 ),
               ),
