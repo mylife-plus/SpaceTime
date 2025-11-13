@@ -213,19 +213,19 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
   /// Save recently selected subcategory to SharedPreferences
   Future<void> _saveRecentlySelectedSubcategory(PlaceCategory subcategory) async {
     if (!widget.saveToRecent) return;
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Get existing recent categories
       List<PlaceCategory> recentCategories = await _getRecentlySelectedSubcategories();
-      
+
       // Remove if already exists (to move to front)
       recentCategories.removeWhere((cat) => cat.id == subcategory.id);
-      
+
       // Add to front
       recentCategories.insert(0, subcategory);
-      
+
       // Keep only max items
       if (recentCategories.length > _maxRecentItems) {
         recentCategories = recentCategories.take(_maxRecentItems).toList();
@@ -244,10 +244,49 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       }).toList();
 
       await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
-      
+
       debugPrint('[SearchableCategoryWidget] Saved recent subcategory: ${subcategory.name} (${subcategory.id})');
     } catch (e) {
       debugPrint('[SearchableCategoryWidget] Error saving recent subcategory: $e');
+    }
+  }
+
+  /// Update a category in the recents list (when edited)
+  Future<void> _updateCategoryInRecents(int categoryId, PlaceCategory updatedCategory) async {
+    if (!widget.saveToRecent) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get existing recent categories
+      List<PlaceCategory> recentCategories = await _getRecentlySelectedSubcategories();
+
+      // Find and update the category if it exists in recents
+      final index = recentCategories.indexWhere((cat) => cat.id == categoryId);
+      if (index != -1) {
+        // Replace with updated category
+        recentCategories[index] = updatedCategory;
+
+        // Convert to the same format as CategoryPickerWidget for compatibility
+        final List<Map<String, dynamic>> recentList = recentCategories.map((cat) => {
+          'id': cat.id,
+          'name': cat.name,
+          'emoji': cat.emoji,
+          'parentId': cat.parentId,
+          'order': cat.order,
+          'isCustom': cat.isCustom,
+          'createdAt': cat.createdAt.toIso8601String(),
+          'updatedAt': cat.updatedAt.toIso8601String(),
+        }).toList();
+
+        await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
+
+        debugPrint('[SearchableCategoryWidget] Updated category in recents: ${updatedCategory.emoji} ${updatedCategory.name} (${updatedCategory.id})');
+      } else {
+        debugPrint('[SearchableCategoryWidget] Category not found in recents, skipping update');
+      }
+    } catch (e) {
+      debugPrint('[SearchableCategoryWidget] Error updating category in recents: $e');
     }
   }
 
@@ -433,6 +472,9 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         category: category,
         onCategoryUpdated: (updatedCategory) async {
           debugPrint('[SearchableCategoryWidget] Category updated: ${updatedCategory.emoji} ${updatedCategory.name}');
+
+          // Update the category in SharedPreferences if it exists in recents
+          await _updateCategoryInRecents(category.id!, updatedCategory);
 
           // Update the search results list if the category is in it
           if (_searchResults.isNotEmpty) {
