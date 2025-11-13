@@ -315,6 +315,14 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         '[CategoryPickerWidget][_refreshCategoriesFromDatabase] Refreshing categories from database',
       );
 
+      // Check if widget is still mounted before proceeding
+      if (!mounted) {
+        debugPrint(
+          '[CategoryPickerWidget][_refreshCategoriesFromDatabase] Widget not mounted, skipping refresh',
+        );
+        return;
+      }
+
       // Clear expansion controllers to prevent reuse issues
       _expansionControllers.clear();
       debugPrint(
@@ -322,6 +330,15 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       );
 
       final categories = await _categoryService.getAllCategoriesHierarchical();
+
+      // Check again if widget is still mounted before updating reactive variables
+      if (!mounted) {
+        debugPrint(
+          '[CategoryPickerWidget][_refreshCategoriesFromDatabase] Widget disposed during refresh, skipping update',
+        );
+        return;
+      }
+
       _mainCategories.value = categories;
 
       debugPrint(
@@ -332,12 +349,14 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         '[CategoryPickerWidget][_refreshCategoriesFromDatabase] Error refreshing categories: $e',
       );
 
-      Get.snackbar(
-        'Refresh Error',
-        'Failed to refresh categories: $e',
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,
-      );
+      if (mounted) {
+        Get.snackbar(
+          'Refresh Error',
+          'Failed to refresh categories: $e',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 
