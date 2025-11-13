@@ -597,13 +597,12 @@ class AddMemoriesController extends GetxController {
         : lowerQuery;
 
     // Track unique suggestions to avoid duplicates
-    final seenDescriptions = <String>{};
+    final seenMemoryIds = <int>{}; // Track memory IDs for description/location/category matches
     final seenHashtags = <String>{};
     final seenMentions = <String>{};
-    final seenLocations = <String>{};
-    final seenCategories = <String>{};
 
     for (final memory in allMemories) {
+      final memoryId = memory['id'] as int?;
       final text = memory['text'] ?? '';
       final location = memory['location'] ?? '';
       final date = memory['date'] ?? '';
@@ -652,11 +651,67 @@ class AddMemoriesController extends GetxController {
       }
       // For mixed search (plain text - show all types)
       else {
-        // 1. Add description matches
-        if (text.toLowerCase().contains(lowerQuery) && !seenDescriptions.contains(text)) {
-          seenDescriptions.add(text);
+        // Check if this memory matches any criteria
+        bool matchesDescription = text.toLowerCase().contains(lowerQuery);
+        bool matchesLocation = locationCity.toLowerCase().contains(lowerQuery) ||
+                               locationCountry.toLowerCase().contains(lowerQuery) ||
+                               location.toLowerCase().contains(lowerQuery);
+
+        // Check category match
+        bool matchesCategory = false;
+        if (category.isNotEmpty) {
+          String categoryName = category;
+          if (category.contains(' ')) {
+            final parts = category.split(' ');
+            if (parts.length > 1) {
+              categoryName = parts.sublist(1).join(' ');
+            }
+          }
+          matchesCategory = categoryName.toLowerCase().contains(lowerQuery) ||
+                           category.toLowerCase().contains(lowerQuery);
+        }
+
+        // If memory matches description, location, or category, add it once
+        if ((matchesDescription || matchesLocation || matchesCategory) &&
+            memoryId != null &&
+            !seenMemoryIds.contains(memoryId)) {
+          seenMemoryIds.add(memoryId);
+
+          // Determine the primary match type for display
+          String matchType = 'description';
+          String displayText = text;
+
+          if (matchesDescription) {
+            matchType = 'description';
+            displayText = text;
+          } else if (matchesLocation) {
+            matchType = 'location';
+            // Build location display
+            if (locationCity.isNotEmpty && locationCountry.isNotEmpty) {
+              displayText = '$locationCity, $locationCountry';
+              if (locationFlag.isNotEmpty) {
+                displayText += ' $locationFlag';
+              }
+            } else if (locationCity.isNotEmpty) {
+              displayText = locationCity;
+              if (locationFlag.isNotEmpty) {
+                displayText += ' $locationFlag';
+              }
+            } else if (locationCountry.isNotEmpty) {
+              displayText = locationCountry;
+              if (locationFlag.isNotEmpty) {
+                displayText += ' $locationFlag';
+              }
+            } else if (location.isNotEmpty) {
+              displayText = location;
+            }
+          } else if (matchesCategory) {
+            matchType = 'category';
+            displayText = category;
+          }
+
           suggestionsWithMetadata.add({
-            'text': text,
+            'text': displayText,
             'date': date,
             'year': year,
             'time': time,
@@ -665,11 +720,11 @@ class AddMemoriesController extends GetxController {
             'location_city': locationCity,
             'location_country': locationCountry,
             'location_flag': locationFlag,
-            'type': 'description',
+            'type': matchType,
           });
         }
 
-        // 2. Add hashtag matches
+        // 2. Add hashtag matches (these are unique by tag name, not memory)
         if (tags.isNotEmpty) {
           final tagList = tags.split(',');
           for (final tag in tagList) {
@@ -685,7 +740,7 @@ class AddMemoriesController extends GetxController {
           }
         }
 
-        // 3. Add mention matches
+        // 3. Add mention matches (these are unique by mention name, not memory)
         if (mentions.isNotEmpty) {
           final mentionList = mentions.split(',');
           for (final mention in mentionList) {
@@ -698,81 +753,6 @@ class AddMemoriesController extends GetxController {
                 'type': 'mention',
               });
             }
-          }
-        }
-
-        // 4. Add location matches (city/country) - works with or without flag
-        String locationDisplay = '';
-        if (locationCity.isNotEmpty && locationCountry.isNotEmpty) {
-          locationDisplay = '$locationCity, $locationCountry';
-          if (locationFlag.isNotEmpty) {
-            locationDisplay += ' $locationFlag';
-          }
-        } else if (locationCity.isNotEmpty) {
-          locationDisplay = locationCity;
-          if (locationFlag.isNotEmpty) {
-            locationDisplay += ' $locationFlag';
-          }
-        } else if (locationCountry.isNotEmpty) {
-          locationDisplay = locationCountry;
-          if (locationFlag.isNotEmpty) {
-            locationDisplay += ' $locationFlag';
-          }
-        } else if (location.isNotEmpty) {
-          locationDisplay = location;
-        }
-
-        if (locationDisplay.isNotEmpty &&
-            (locationCity.toLowerCase().contains(lowerQuery) ||
-             locationCountry.toLowerCase().contains(lowerQuery) ||
-             location.toLowerCase().contains(lowerQuery)) &&
-            !seenLocations.contains(locationDisplay)) {
-          seenLocations.add(locationDisplay);
-          suggestionsWithMetadata.add({
-            'text': locationDisplay,
-            'date': date,
-            'year': year,
-            'time': time,
-            'category': category,
-            'location': location,
-            'location_city': locationCity,
-            'location_country': locationCountry,
-            'location_flag': locationFlag,
-            'type': 'location',
-          });
-        }
-
-        // 5. Add place category matches - works with or without emoji
-        if (category.isNotEmpty && !seenCategories.contains(category)) {
-          // Category is stored as "emoji name" (e.g., "🍽️ Restaurant")
-          // Search should match the name part without requiring emoji
-
-          // Extract category name without emoji
-          String categoryName = category;
-          if (category.contains(' ')) {
-            // If category has emoji, get the name part after the emoji
-            final parts = category.split(' ');
-            if (parts.length > 1) {
-              categoryName = parts.sublist(1).join(' '); // Join in case name has spaces
-            }
-          }
-
-          // Match against category name (without emoji) or full category (with emoji)
-          if (categoryName.toLowerCase().contains(lowerQuery) ||
-              category.toLowerCase().contains(lowerQuery)) {
-            seenCategories.add(category);
-            suggestionsWithMetadata.add({
-              'text': category, // Keep full category with emoji for display
-              'date': date,
-              'year': year,
-              'time': time,
-              'category': category,
-              'location': location,
-              'location_city': locationCity,
-              'location_country': locationCountry,
-              'location_flag': locationFlag,
-              'type': 'category',
-            });
           }
         }
       }
