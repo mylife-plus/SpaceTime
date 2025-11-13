@@ -1430,8 +1430,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.all(Radius.circular(2)),
                 ),
-                // Show checkbox on the left when in filter mode and tile is not expanded
-                leading: widget.allowMultipleSelection && !isExpanded
+                // Show checkbox on the left when in filter mode
+                leading: widget.allowMultipleSelection
                     ? GestureDetector(
                         onTap: () => _selectContactGroup(mainContactGroup),
                         child: Container(
@@ -1468,7 +1468,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       : null,
                   child: Padding(
                     padding: EdgeInsets.only(
-                      left: widget.allowMultipleSelection && !isExpanded ? 8.0 : 20.0,
+                      left: widget.allowMultipleSelection ? 8.0 : 20.0,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
