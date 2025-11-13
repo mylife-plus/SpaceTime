@@ -1423,7 +1423,7 @@ class AddMemoriesController extends GetxController {
   }
 
   void closeFilter() {
-    // Restore backup state when closing without applying
+    // Restore backup state when closing without applying (back button)
     filterValues.clear();
     filterValues.addAll(_backupFilterValues);
     selectedLocation.value = _backupSelectedLocation;
@@ -1437,6 +1437,12 @@ class AddMemoriesController extends GetxController {
 
     isFilterOpen.value = false;
     debugPrint('[AddMemoriesController] Filter closed, state restored from backup');
+  }
+
+  void _closeFilterPanelOnly() {
+    // Just close the panel without restoring state (used after applying filters)
+    isFilterOpen.value = false;
+    debugPrint('[AddMemoriesController] Filter panel closed (state kept)');
   }
 
   void filterByYear(String year) {
@@ -1620,7 +1626,15 @@ class AddMemoriesController extends GetxController {
     // Sync filters to MapController to keep both controllers in sync
     _syncFiltersToMapController();
 
-    closeFilter();
+    // Update backup to match current state since filters were applied
+    _backupFilterValues = Map<String, String>.from(filterValues);
+    _backupSelectedLocation = selectedLocation.value;
+    _backupSelectedRadius = selectedRadius.value;
+    _backupSelectedHashtags = List<String>.from(selectedHashtags);
+    _backupSelectedContacts = List<String>.from(selectedContacts);
+    _backupSelectedCategories = List<String>.from(selectedCategories);
+
+    _closeFilterPanelOnly();
   }
 
   // Reset all filters
@@ -1634,7 +1648,16 @@ class AddMemoriesController extends GetxController {
     filteredMemories.clear();
     isSearching.value = false;
     hasActiveFilters.value = false;
-    closeFilter();
+
+    // Update backup to match cleared state
+    _backupFilterValues.clear();
+    _backupSelectedLocation = '';
+    _backupSelectedRadius = '';
+    _backupSelectedHashtags.clear();
+    _backupSelectedContacts.clear();
+    _backupSelectedCategories.clear();
+
+    _closeFilterPanelOnly();
 
     // Sync back to MapController if opened from map
     if (isOpenedFromMap) {

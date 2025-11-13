@@ -205,7 +205,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                     },
                     onApply: () {
                       controller.applyFilters();
-                      controller.closeFilter();
+                      // applyFilters() already closes the panel, no need to call closeFilter()
                       if (widget.isOpenedFromMap) {
                         mapController?.handleFilterApplyFromMap();
                       }
