@@ -928,6 +928,22 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
 
             const SizedBox(height: 6),
 
+            // Category label
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8, bottom: 4),
+                child: Text(
+                  '${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
+                  style: GoogleFonts.kumbhSans(
+                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+
             // Category dropdown
             Container(
               width: double.infinity,
@@ -1038,6 +1054,22 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             ],
 
             const SizedBox(height: 6),
+
+            // Subcategory label
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8, bottom: 4),
+                child: Text(
+                  widget.isTagMode ? 'Hashtag' : 'Contact',
+                  style: GoogleFonts.kumbhSans(
+                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
 
             // Name input field
             Container(
