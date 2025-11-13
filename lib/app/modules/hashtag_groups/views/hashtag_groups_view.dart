@@ -1945,7 +1945,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
       Get.snackbar(
         'Success',
-        'Hashtag group updated successfully',
+        'Hashtag updated successfully',
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );

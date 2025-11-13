@@ -139,6 +139,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       controller.dispose();
     }
 
+    // Clear expansion tile controllers (they don't have dispose method)
+    _expansionControllers.clear();
+
     // Close reactive variables to prevent memory leaks and dependency issues
     _mainCategories.close();
     _searchResults.close();
@@ -227,6 +230,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         '[CategoryPickerWidget][_loadCategories] Fetching categories from database',
       );
 
+      // Clear expansion controllers to prevent reuse issues
+      _expansionControllers.clear();
+      debugPrint(
+        '[CategoryPickerWidget][_loadCategories] Cleared expansion controllers',
+      );
+
       final categories = await _categoryService.getAllCategoriesHierarchical();
       _mainCategories.value = categories;
 
@@ -304,6 +313,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     try {
       debugPrint(
         '[CategoryPickerWidget][_refreshCategoriesFromDatabase] Refreshing categories from database',
+      );
+
+      // Clear expansion controllers to prevent reuse issues
+      _expansionControllers.clear();
+      debugPrint(
+        '[CategoryPickerWidget][_refreshCategoriesFromDatabase] Cleared expansion controllers',
       );
 
       final categories = await _categoryService.getAllCategoriesHierarchical();
