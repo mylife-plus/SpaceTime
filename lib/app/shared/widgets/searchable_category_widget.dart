@@ -707,6 +707,11 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                         ),
                       ),
                     ),
+                    Container(
+                      width: 1,
+                      height: 20,
+                      color: Colors.grey.withValues(alpha: 0.3),
+                    ),
                     Expanded(
                       child: InkWell(
                         onTap: () => _showAddCategoryPopup(),
