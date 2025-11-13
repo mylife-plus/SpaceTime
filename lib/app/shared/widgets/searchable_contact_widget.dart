@@ -363,6 +363,37 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
     }
   }
 
+  /// Update contact group name in recent contact groups
+  static Future<void> updateContactGroupInRecents(int groupId, String newName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
+
+      bool updated = false;
+      final updatedList = recentGroupsJson.map((item) {
+        try {
+          final data = json.decode(item);
+          if (data['id'] == groupId) {
+            data['name'] = newName;
+            data['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+            updated = true;
+            return json.encode(data);
+          }
+          return item;
+        } catch (e) {
+          return item;
+        }
+      }).toList();
+
+      if (updated) {
+        await prefs.setStringList('recent_contact_groups_filter', updatedList);
+        debugPrint('[SearchableContactWidget] Updated contact group ID $groupId to "$newName" in recent contact groups');
+      }
+    } catch (e) {
+      debugPrint('[SearchableContactWidget] Error updating contact group in recents: $e');
+    }
+  }
+
   Widget _buildSearchField(UiController uiController) {
     return SizedBox(
       height: 20, // Fixed height to match icon height

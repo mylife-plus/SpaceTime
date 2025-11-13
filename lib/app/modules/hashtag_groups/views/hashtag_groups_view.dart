@@ -1937,6 +1937,9 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     try {
       await _hashtagGroupService.updateGroup(hashtagGroup.id!, newName);
 
+      // Update in recents if it exists
+      await SearchableHashtagWidget.updateHashtagGroupInRecents(hashtagGroup.id!, newName);
+
       _cancelInlineEdit(hashtagGroup.id!);
       await _refreshHashtagGroupsFromDatabase();
 

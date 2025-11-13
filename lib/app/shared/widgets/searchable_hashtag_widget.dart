@@ -124,6 +124,37 @@ class SearchableHashtagWidget extends StatefulWidget {
       debugPrint('[SearchableHashtagWidget] Error removing group and subgroups from recent: $e');
     }
   }
+
+  /// Update hashtag group name in recent hashtag groups
+  static Future<void> updateHashtagGroupInRecents(int groupId, String newName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
+
+      bool updated = false;
+      final updatedList = recentGroupsJson.map((item) {
+        try {
+          final data = json.decode(item);
+          if (data['id'] == groupId) {
+            data['name'] = newName;
+            data['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+            updated = true;
+            return json.encode(data);
+          }
+          return item;
+        } catch (e) {
+          return item;
+        }
+      }).toList();
+
+      if (updated) {
+        await prefs.setStringList('recent_hashtag_groups_filter', updatedList);
+        debugPrint('[SearchableHashtagWidget] Updated hashtag group ID $groupId to "$newName" in recent hashtag groups');
+      }
+    } catch (e) {
+      debugPrint('[SearchableHashtagWidget] Error updating hashtag group in recents: $e');
+    }
+  }
 }
 
 class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/contact_group_service.dart';
 import 'package:spacetime/app/models/contact_group_model.dart';
+import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
 import '../../../config/app_text.dart';
 
 class ContactGroupsView extends StatefulWidget {
@@ -1960,6 +1961,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
     try {
       await _contactGroupService.updateGroup(contactGroup.id!, newName);
+
+      // Update in recents if it exists
+      await SearchableContactWidget.updateContactGroupInRecents(contactGroup.id!, newName);
 
       _cancelInlineEdit(contactGroup.id!);
       await _refreshContactGroupsFromDatabase();

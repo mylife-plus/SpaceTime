@@ -10,6 +10,8 @@ import 'package:spacetime/app/models/hashtag_group_model.dart';
 import 'package:spacetime/app/models/contact_group_model.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/modules/memories/helpers/tagmention_helper.dart';
+import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
+import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
 
 import '../../controllers/memory_controller.dart';
 
@@ -765,6 +767,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           // First update the group name (this will check for duplicates)
           await hashtagGroupService.updateGroup(widget.editItemId!, newName);
 
+          // Update in recents if it exists
+          await SearchableHashtagWidget.updateHashtagGroupInRecents(widget.editItemId!, newName);
+
           // Then update the parent category
           final databaseHelper = DatabaseHelper.instance;
           await databaseHelper.updateHashtagGroup(widget.editItemId!, {
@@ -775,6 +780,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           final contactGroupService = ContactGroupService();
           // First update the group name (this will check for duplicates)
           await contactGroupService.updateGroup(widget.editItemId!, newName);
+
+          // Update in recents if it exists
+          await SearchableContactWidget.updateContactGroupInRecents(widget.editItemId!, newName);
 
           // Then update the parent category
           final databaseHelper = DatabaseHelper.instance;
