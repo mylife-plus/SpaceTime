@@ -10,6 +10,7 @@ import 'package:spacetime/app/modules/memories/views/mini_widgets/category_picke
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/shared/widgets/add_place_category_popup.dart';
+import 'package:spacetime/app/shared/widgets/edit_place_category_popup.dart';
 
 /// Generic searchable category widget that can be used across the app
 ///
@@ -424,6 +425,25 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     );
   }
 
+  /// Show edit category popup
+  void _showEditCategoryPopup(PlaceCategory category) {
+    debugPrint('[SearchableCategoryWidget] Showing edit category popup for: ${category.name}');
+    Get.dialog(
+      EditPlaceCategoryPopup(
+        category: category,
+        onCategoryUpdated: (updatedCategory) {
+          // Refresh the recent categories list
+          _loadRecentCategories();
+
+          // Refresh search results if searching
+          if (_isSearching.value && _searchController.text.isNotEmpty) {
+            _onSearchChanged();
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
@@ -637,7 +657,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
              Expanded(
                child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                
+
                 children: [ AutoSizeText(
                   category.name,
                   style: AppFonts.medium(
@@ -648,7 +668,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
-               
+
                 // Parent category name (if available)
                 if (category.parentId != null) ...[
                   const SizedBox(width: 8),
@@ -676,7 +696,17 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                     ),
                   ),
                 ],],),
-             )
+             ),
+              // Edit button
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _showEditCategoryPopup(category),
+                child: Icon(
+                  Icons.edit,
+                  size: 18,
+                  color: uiController.currentMainColor,
+                ),
+              ),
             ],
           ),
         ),
@@ -690,7 +720,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       children: [
         Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
         Container(
-          padding:  EdgeInsets.only(left: 12, right: 12, bottom: !(widget.showAddNewButton) ?4: 8, top: !(widget.showAddNewButton) ? 8:  8),
+          padding:  EdgeInsets.only(left: 12, right: 12, bottom: !(widget.showAddNewButton) ?4: 0, top: !(widget.showAddNewButton) ? 8:  8),
           child: widget.showAddNewButton
               ? Row(
                   children: [
@@ -711,7 +741,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                     ),
                     Container(
                       width: 1,
-                      height: 20,
+                      // height: 20,
                       color: Colors.grey.withValues(alpha: 0.3),
                     ),
                     Expanded(
