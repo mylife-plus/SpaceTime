@@ -43,6 +43,92 @@ class SearchableContactWidget extends StatefulWidget {
 
   @override
   State<SearchableContactWidget> createState() => _SearchableContactWidgetState();
+
+  /// Remove deleted contact group from recent contact groups
+  static Future<void> removeFromRecentContactGroups(int groupId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
+
+      // Remove the deleted group from recent list
+      final originalLength = recentGroupsJson.length;
+      recentGroupsJson.removeWhere((item) {
+        try {
+          final data = json.decode(item);
+          return data['id'] == groupId;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (recentGroupsJson.length != originalLength) {
+        await prefs.setStringList('recent_contact_groups_filter', recentGroupsJson);
+        debugPrint('[SearchableContactWidget] Removed group ID $groupId from recent contact groups');
+      }
+    } catch (e) {
+      debugPrint('[SearchableContactWidget] Error removing group from recent: $e');
+    }
+  }
+
+  /// Remove contact group and all its subgroups from recent contact groups
+  static Future<void> removeGroupAndSubgroupsFromRecentContactGroups(int mainGroupId, List<int> subgroupIds) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
+
+      // Remove main group and all its subgroups from recent list
+      final originalLength = recentGroupsJson.length;
+      recentGroupsJson.removeWhere((item) {
+        try {
+          final data = json.decode(item);
+          final itemId = data['id'];
+          // Remove if it's the main group or any of its subgroups
+          if (itemId == mainGroupId) return true;
+          return subgroupIds.contains(itemId);
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (recentGroupsJson.length != originalLength) {
+        await prefs.setStringList('recent_contact_groups_filter', recentGroupsJson);
+        debugPrint('[SearchableContactWidget] Removed main group ID $mainGroupId and ${subgroupIds.length} subgroups from recent contact groups');
+      }
+    } catch (e) {
+      debugPrint('[SearchableContactWidget] Error removing group and subgroups from recent: $e');
+    }
+  }
+
+  /// Update contact group name in recent contact groups
+  static Future<void> updateContactGroupInRecents(int groupId, String newName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
+
+      bool updated = false;
+      final updatedList = recentGroupsJson.map((item) {
+        try {
+          final data = json.decode(item);
+          if (data['id'] == groupId) {
+            data['name'] = newName;
+            data['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+            updated = true;
+            return json.encode(data);
+          }
+          return item;
+        } catch (e) {
+          return item;
+        }
+      }).toList();
+
+      if (updated) {
+        await prefs.setStringList('recent_contact_groups_filter', updatedList);
+        debugPrint('[SearchableContactWidget] Updated contact group ID $groupId to "$newName" in recent contact groups');
+      }
+    } catch (e) {
+      debugPrint('[SearchableContactWidget] Error updating contact group in recents: $e');
+    }
+  }
 }
 
 class _SearchableContactWidgetState extends State<SearchableContactWidget> {
@@ -305,92 +391,6 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
 
     } catch (e) {
       debugPrint('[SearchableContactWidget] Error saving recent contact group: $e');
-    }
-  }
-
-  /// Remove deleted contact group from recent contact groups
-  static Future<void> removeFromRecentContactGroups(int groupId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
-
-      // Remove the deleted group from recent list
-      final originalLength = recentGroupsJson.length;
-      recentGroupsJson.removeWhere((item) {
-        try {
-          final data = json.decode(item);
-          return data['id'] == groupId;
-        } catch (e) {
-          return false;
-        }
-      });
-
-      if (recentGroupsJson.length != originalLength) {
-        await prefs.setStringList('recent_contact_groups_filter', recentGroupsJson);
-        debugPrint('[SearchableContactWidget] Removed group ID $groupId from recent contact groups');
-      }
-    } catch (e) {
-      debugPrint('[SearchableContactWidget] Error removing group from recent: $e');
-    }
-  }
-
-  /// Remove contact group and all its subgroups from recent contact groups
-  static Future<void> removeGroupAndSubgroupsFromRecentContactGroups(int mainGroupId, List<int> subgroupIds) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
-
-      // Remove main group and all its subgroups from recent list
-      final originalLength = recentGroupsJson.length;
-      recentGroupsJson.removeWhere((item) {
-        try {
-          final data = json.decode(item);
-          final itemId = data['id'];
-          // Remove if it's the main group or any of its subgroups
-          if (itemId == mainGroupId) return true;
-          return subgroupIds.contains(itemId);
-        } catch (e) {
-          return false;
-        }
-      });
-
-      if (recentGroupsJson.length != originalLength) {
-        await prefs.setStringList('recent_contact_groups_filter', recentGroupsJson);
-        debugPrint('[SearchableContactWidget] Removed main group ID $mainGroupId and ${subgroupIds.length} subgroups from recent contact groups');
-      }
-    } catch (e) {
-      debugPrint('[SearchableContactWidget] Error removing group and subgroups from recent: $e');
-    }
-  }
-
-  /// Update contact group name in recent contact groups
-  static Future<void> updateContactGroupInRecents(int groupId, String newName) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
-
-      bool updated = false;
-      final updatedList = recentGroupsJson.map((item) {
-        try {
-          final data = json.decode(item);
-          if (data['id'] == groupId) {
-            data['name'] = newName;
-            data['timestamp'] = DateTime.now().millisecondsSinceEpoch;
-            updated = true;
-            return json.encode(data);
-          }
-          return item;
-        } catch (e) {
-          return item;
-        }
-      }).toList();
-
-      if (updated) {
-        await prefs.setStringList('recent_contact_groups_filter', updatedList);
-        debugPrint('[SearchableContactWidget] Updated contact group ID $groupId to "$newName" in recent contact groups');
-      }
-    } catch (e) {
-      debugPrint('[SearchableContactWidget] Error updating contact group in recents: $e');
     }
   }
 
