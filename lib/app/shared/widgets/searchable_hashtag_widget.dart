@@ -619,17 +619,10 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
             ),
             // Show folder icon for groups
             if (isGroup)
-              ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
-                  BlendMode.srcIn,
-                ),
-                child: Image.asset(
-                  AppImages.category2,
-                  width: 18,
-                  height: 18,
-                  fit: BoxFit.contain,
-                ),
+              Icon(
+                Icons.folder_outlined,
+                size: 18,
+                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
               ),
           ],
         ),
@@ -664,17 +657,10 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
             ),
             // Show folder icon only for main categories (not subcategories)
             if (isMainCategory)
-              ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
-                  BlendMode.srcIn,
-                ),
-                child: Image.asset(
-                  AppImages.category2,
-                  width: 18,
-                  height: 18,
-                  fit: BoxFit.contain,
-                ),
+              Icon(
+                Icons.folder_outlined,
+                size: 18,
+                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
               ),
           ],
         ),
