@@ -1543,7 +1543,7 @@ class AddMemoriesController extends GetxController {
 
     if (hasLocation && !hasRadius) {
       Get.snackbar(
-        'Validation Error',
+        'Radius Required',
         'Radius is required when location is selected',
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
@@ -1556,7 +1556,7 @@ class AddMemoriesController extends GetxController {
 
     if (hasRadius && !hasLocation) {
       Get.snackbar(
-        'Validation Error',
+        'Location Required',
         'Location is required when radius is specified',
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,

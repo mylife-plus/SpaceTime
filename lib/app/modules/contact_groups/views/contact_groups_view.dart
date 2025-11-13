@@ -209,8 +209,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       );
 
       Get.snackbar(
-        'Database Error',
-        'Failed to load contact groups: $e',
+        'Unable to Load',
+        'Unable to load contact groups. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
         duration: const Duration(seconds: 5),
@@ -253,8 +253,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] Exception type: ${e.runtimeType}');
 
       Get.snackbar(
-        'Refresh Error',
-        'Failed to refresh contact groups: $e',
+        'Unable to Refresh',
+        'Unable to refresh contact groups. Please try again.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -429,8 +429,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       } else {
         // Failed to delete
         Get.snackbar(
-          'Error',
-          'Failed to delete contact group',
+          'Unable to Delete',
+          'Unable to delete contact group. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -438,8 +438,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     } catch (e) {
       debugPrint('[ContactGroupsView][_deleteContactGroup] Error: $e');
       Get.snackbar(
-        'Error',
-        'Failed to delete contact group: $e',
+        'Unable to Delete',
+        'Unable to delete contact group. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -707,8 +707,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     } else {
                       debugPrint('[ContactGroupsView][EditDialog] ❌ Update failed: Service returned false');
                       Get.snackbar(
-                        'Error',
-                        'Failed to update contact group',
+                        'Unable to Update',
+                        'Unable to update contact group. Please try again.',
                         backgroundColor: Colors.red,
                         colorText: Colors.white,
                       );
@@ -717,8 +717,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     debugPrint('[ContactGroupsView][EditDialog] ❌ Exception occurred: $e');
                     debugPrint('[ContactGroupsView][EditDialog] Exception type: ${e.runtimeType}');
                     Get.snackbar(
-                      'Error',
-                      'Failed to update contact group: $e',
+                      'Unable to Update',
+                      'Unable to update contact group. Please try again.',
                       backgroundColor: Colors.red,
                       colorText: Colors.white,
                     );
@@ -773,8 +773,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       } else {
         // Failed to delete
         Get.snackbar(
-          'Error',
-          'Failed to delete contact',
+          'Unable to Delete',
+          'Unable to delete contact. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -782,8 +782,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     } catch (e) {
       debugPrint('[ContactGroupsView][_deleteSubgroup] Error: $e');
       Get.snackbar(
-        'Error',
-        'Failed to delete contact: $e',
+        'Unable to Delete',
+        'Unable to delete contact. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -2054,8 +2054,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         );
       } else {
         Get.snackbar(
-          'Error',
-          'Failed to update contact group: $e',
+          'Unable to Update',
+          'Unable to update contact group. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -2106,8 +2106,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
       if (newGroup == null) {
         Get.snackbar(
-          'Error',
-          'Failed to add contact group',
+          'Unable to Add',
+          'Unable to add contact group. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -2144,8 +2144,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding main contact group: $e');
       Get.snackbar(
-        'Error',
-        'Failed to add contact group: $e',
+        'Unable to Add',
+        'Unable to add contact group. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -2268,7 +2268,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     if (name.isEmpty) {
       Get.snackbar(
         'Invalid Name',
-        'Subgroup name cannot be empty',
+        'Contact name cannot be empty',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -2283,8 +2283,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
       if (newSubgroup == null) {
         Get.snackbar(
-          'Error',
-          'Failed to add subgroup',
+          'Unable to Add',
+          'Unable to add contact. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -2321,8 +2321,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding subgroup: $e');
       Get.snackbar(
-        'Error',
-        'Failed to add subgroup: $e',
+        'Unable to Add',
+        'Unable to add contact. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

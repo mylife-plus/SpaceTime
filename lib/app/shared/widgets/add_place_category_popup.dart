@@ -198,7 +198,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         if (parentCategoryToUse == null) {
           Get.snackbar(
             'Error',
-            'Failed to create new category',
+            'Failed to create new Place Group',
             backgroundColor: Colors.red,
             colorText: Colors.white,
           );
@@ -207,8 +207,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         } else if (parentCategoryToUse.id == -1) {
           // Duplicate category name
           Get.snackbar(
-            'Duplicate Category',
-            'Places with this name already exists.',
+            'Duplicate Place Group',
+            'Place Group with this name already exists.',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );
@@ -218,7 +218,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           // Main category name conflicts with existing subcategory
           Get.snackbar(
             'Name Conflict',
-            'This name is already used by a place in another category.',
+            'This name is already used by a Place in another Place Group.',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );

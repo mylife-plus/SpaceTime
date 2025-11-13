@@ -408,7 +408,7 @@ class MemoryController extends GetxController {
 
     // Validate that category is provided (mandatory)
     if (selectedCategory.value.isEmpty) {
-      throw Exception('Place category is required');
+      throw Exception('Place is required');
     }
 
     // Validate audio files before saving
@@ -531,7 +531,7 @@ class MemoryController extends GetxController {
         debugPrint('💾 Memory saved successfully after recovery with ID: $memoryId');
       } catch (retryError) {
         debugPrint('💾 Failed to save memory even after recovery: $retryError');
-        throw Exception('Failed to save memory: ${retryError.toString()}');
+        throw Exception('Unable to save memory. Please try again.');
       }
     }
 

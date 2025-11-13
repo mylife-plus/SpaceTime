@@ -209,8 +209,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       );
 
       Get.snackbar(
-        'Database Error',
-        'Failed to load hashtag groups: $e',
+        'Unable to Load',
+        'Unable to load hashtag groups. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
         duration: const Duration(seconds: 5),
@@ -253,8 +253,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       debugPrint('[HashtagGroupsView][_refreshHashtagGroupsFromDatabase] Exception type: ${e.runtimeType}');
 
       Get.snackbar(
-        'Refresh Error',
-        'Failed to refresh hashtag groups: $e',
+        'Unable to Refresh',
+        'Unable to refresh hashtag groups. Please try again.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -443,8 +443,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       } else {
         // Failed to delete
         Get.snackbar(
-          'Error',
-          'Failed to delete hashtag group',
+          'Unable to Delete',
+          'Unable to delete hashtag group. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -452,8 +452,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     } catch (e) {
       debugPrint('[HashtagGroupsView][_deleteHashtagGroup] Error: $e');
       Get.snackbar(
-        'Error',
-        'Failed to delete hashtag group: $e',
+        'Unable to Delete',
+        'Unable to delete hashtag group. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -721,8 +721,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                     } else {
                       debugPrint('[HashtagGroupsView][EditDialog] ❌ Update failed: Service returned false');
                       Get.snackbar(
-                        'Error',
-                        'Failed to update hashtag group',
+                        'Unable to Update',
+                        'Unable to update hashtag group. Please try again.',
                         backgroundColor: Colors.red,
                         colorText: Colors.white,
                       );
@@ -731,8 +731,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                     debugPrint('[HashtagGroupsView][EditDialog] ❌ Exception occurred: $e');
                     debugPrint('[HashtagGroupsView][EditDialog] Exception type: ${e.runtimeType}');
                     Get.snackbar(
-                      'Error',
-                      'Failed to update hashtag group: $e',
+                      'Unable to Update',
+                      'Unable to update hashtag group. Please try again.',
                       backgroundColor: Colors.red,
                       colorText: Colors.white,
                     );
@@ -791,8 +791,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       } else {
         // Failed to delete
         Get.snackbar(
-          'Error',
-          'Failed to delete hashtag',
+          'Unable to Delete',
+          'Unable to delete hashtag. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -800,8 +800,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     } catch (e) {
       debugPrint('[HashtagGroupsView][_deleteSubgroup] Error: $e');
       Get.snackbar(
-        'Error',
-        'Failed to delete hashtag: $e',
+        'Unable to Delete',
+        'Unable to delete hashtag. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -2029,8 +2029,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         );
       } else {
         Get.snackbar(
-          'Error',
-          'Failed to update hashtag group: $e',
+          'Unable to Update',
+          'Unable to update hashtag group. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -2081,8 +2081,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
       if (newGroup == null) {
         Get.snackbar(
-          'Error',
-          'Failed to add hashtag group',
+          'Unable to Add',
+          'Unable to add hashtag group. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -2119,8 +2119,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     } catch (e) {
       debugPrint('[HashtagGroupsView] Error adding main hashtag group: $e');
       Get.snackbar(
-        'Error',
-        'Failed to add hashtag group: $e',
+        'Unable to Add',
+        'Unable to add hashtag group. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -2245,7 +2245,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     if (name.isEmpty) {
       Get.snackbar(
         'Invalid Name',
-        'Subgroup name cannot be empty',
+        'Hashtag name cannot be empty',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -2260,8 +2260,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
       if (newSubgroup == null) {
         Get.snackbar(
-          'Error',
-          'Failed to add subgroup',
+          'Unable to Add',
+          'Unable to add hashtag. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -2298,8 +2298,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     } catch (e) {
       debugPrint('[HashtagGroupsView] Error adding subgroup: $e');
       Get.snackbar(
-        'Error',
-        'Failed to add subgroup: $e',
+        'Unable to Add',
+        'Unable to add hashtag. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

@@ -85,8 +85,8 @@ class MemoryRepository extends GetxService {
       debugPrint('[MemoryRepository] Error loading memories from database: $e');
       // Show error message to user
       Get.snackbar(
-        'Error Loading Memories',
-        'Failed to load memories from database: ${e.toString()}',
+        'Unable to Load Memories',
+        'Unable to load your memories. Please try again.',
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red,
         colorText: Colors.white,

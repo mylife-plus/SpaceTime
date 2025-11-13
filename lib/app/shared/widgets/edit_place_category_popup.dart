@@ -182,10 +182,10 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
       if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
         if (mounted) {
           final message = widget.category.parentId == null
-              ? 'Places with this name already exists.'
+              ? 'Place Group with this name already exists.'
               : 'Place with this name already exists.';
           Get.snackbar(
-            'Duplicate Category',
+            'Duplicate ${widget.category.parentId == null ? 'Place Group' : 'Place'}',
             message,
             backgroundColor: Colors.orange,
             colorText: Colors.white,
@@ -195,7 +195,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
         if (mounted) {
           Get.snackbar(
             'Name Conflict',
-            'This name is already used by a place in another category.',
+            'This name is already used by a Place in another Place Group.',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );

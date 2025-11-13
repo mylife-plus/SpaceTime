@@ -184,7 +184,7 @@ class _CategoryFilterDropdownState extends State<CategoryFilterDropdown> {
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'Search categories...',
+                        hintText: 'Search Place Groups...',
                         prefixIcon: const Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),

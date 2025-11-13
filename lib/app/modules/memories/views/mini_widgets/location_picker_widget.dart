@@ -679,9 +679,9 @@ Future<bool> _checkOfflineTileCount() async {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Unable to get current location: ${e.toString()}'),
+            content: Text('Unable to get your current location. Please check your location settings or select a location manually on the map.'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 4),
           ),
         );
       }
@@ -1125,7 +1125,7 @@ Future<bool> _checkOfflineTileCount() async {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Error moving to location: ${e.toString()}'),
+            content: Text('Unable to move to the selected location. Please try again.'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 3),
           ),
@@ -1699,8 +1699,8 @@ Future<bool> _checkOfflineTileCount() async {
 
       // Show error message
       Get.snackbar(
-        'Error',
-        'Failed to get location details. Please try again.',
+        'Unable to Get Location',
+        'Unable to get location details. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

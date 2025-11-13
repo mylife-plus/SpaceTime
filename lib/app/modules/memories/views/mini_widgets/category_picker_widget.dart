@@ -637,7 +637,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
         Get.snackbar(
           'Success',
-          'Main category "$name" added successfully!',
+          'Place Group "$name" added successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
@@ -648,7 +648,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       } else {
         Get.snackbar(
           'Error',
-          'Failed to add main category',
+          'Failed to add Place Group',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -657,7 +657,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       debugPrint('[CategoryPickerWidget][_saveInlineMainCategory] Error: $e');
       Get.snackbar(
         'Error',
-        'Failed to add main category: $e',
+        'Failed to add Place Group: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -734,14 +734,14 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
         Get.snackbar(
           'Success',
-          'Category "$name" updated successfully!',
+          'Place "$name" updated successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
       } else {
         Get.snackbar(
           'Error',
-          'Failed to update category',
+          'Failed to update Place',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -750,7 +750,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       debugPrint('[CategoryPickerWidget][_saveInlineEditedSubcategory] Error: $e');
       Get.snackbar(
         'Error',
-        'Failed to update category: $e',
+        'Failed to update Place: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -911,7 +911,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       if (newCategory == null) {
         Get.snackbar(
           'Error',
-          'Failed to add subcategory',
+          'Failed to add Place',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -919,7 +919,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       } else if (newCategory.id == -1) {
         // Duplicate subcategory name
         Get.snackbar(
-          'Duplicate Category',
+          'Duplicate Place',
           'Place with this name already exists.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
@@ -929,7 +929,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         // Subcategory name conflicts with parent category
         Get.snackbar(
           'Name Conflict',
-          'This name is already used by the parent category.',
+          'This name is already used by the Place Group.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
@@ -947,7 +947,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
       Get.snackbar(
         'Success',
-        'Subcategory "$name" added successfully!',
+        'Place "$name" added successfully!',
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
@@ -1006,7 +1006,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
         Get.snackbar(
           'Success',
-          'Category "$name" added successfully!',
+          'Place "$name" added successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
@@ -1017,7 +1017,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       } else {
         Get.snackbar(
           'Error',
-          'Failed to add category',
+          'Failed to add Place',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -1026,7 +1026,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       debugPrint('[CategoryPickerWidget][_addNewCategory] Error: $e');
       Get.snackbar(
         'Error',
-        'Failed to add category: $e',
+        'Failed to add Place: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -1190,14 +1190,14 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
                       Get.snackbar(
                         'Success',
-                        'Category "$name" updated successfully!',
+                        'Place "$name" updated successfully!',
                         backgroundColor: Colors.green,
                         colorText: Colors.white,
                       );
                     } else {
                       Get.snackbar(
                         'Error',
-                        'Failed to update category',
+                        'Failed to update Place',
                         backgroundColor: Colors.red,
                         colorText: Colors.white,
                       );
@@ -1206,10 +1206,10 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     debugPrint('[CategoryPickerWidget][EditDialog] Error: $e');
                     if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
                       final message = category.parentId == null
-                          ? 'Places with this name already exists.'
+                          ? 'Place Group with this name already exists.'
                           : 'Place with this name already exists.';
                       Get.snackbar(
-                        'Duplicate Category',
+                        'Duplicate ${category.parentId == null ? 'Place Group' : 'Place'}',
                         message,
                         backgroundColor: Colors.orange,
                         colorText: Colors.white,
@@ -1217,21 +1217,21 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     } else if (e.toString().contains('MAIN_CATEGORY_CONFLICTS_WITH_SUBCATEGORY')) {
                       Get.snackbar(
                         'Name Conflict',
-                        'This name is already used by a place in another category.',
+                        'This name is already used by a Place in another Place Group.',
                         backgroundColor: Colors.orange,
                         colorText: Colors.white,
                       );
                     } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
                       Get.snackbar(
                         'Name Conflict',
-                        'This name is already used by the parent category.',
+                        'This name is already used by the Place Group.',
                         backgroundColor: Colors.orange,
                         colorText: Colors.white,
                       );
                     } else {
                       Get.snackbar(
                         'Error',
-                        'Failed to update category: $e',
+                        'Failed to update ${category.parentId == null ? 'Place Group' : 'Place'}: $e',
                         backgroundColor: Colors.red,
                         colorText: Colors.white,
                       );
@@ -1299,14 +1299,14 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
         Get.snackbar(
           'Success',
-          'Category updated successfully!',
+          'Place updated successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
       } else {
         Get.snackbar(
           'Error',
-          'Failed to update category',
+          'Failed to update Place',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -1315,7 +1315,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       debugPrint('[CategoryPickerWidget][_updateCategory] Error: $e');
       Get.snackbar(
         'Error',
-        'Failed to update category: $e',
+        'Failed to update Place: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -1331,7 +1331,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         backgroundColor:
             uiController.darkMode.value ? Colors.grey[900] : Colors.white,
         title: Text(
-          'Delete Category',
+          'Delete ${category.parentId == null ? 'Place Group' : 'Place'}',
           style: gfonts.GoogleFonts.kumbhSans(
             color: uiController.darkMode.value ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
@@ -1367,7 +1367,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This is a predefined category. Deleting it will remove it permanently.',
+                        'This is a predefined ${category.parentId == null ? 'Place Group' : 'Place'}. Deleting it will remove it permanently.',
                         style: gfonts.GoogleFonts.kumbhSans(
                           color: Colors.orange[700],
                           fontSize: 12,
@@ -1440,7 +1440,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
         Get.snackbar(
           'Success',
-          'Category deleted successfully!',
+          'Place deleted successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
@@ -1459,12 +1459,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     )
                 : 0;
 
-        _showCannotDeleteDialog(category?.name ?? 'Unknown', memoryCount);
+        _showCannotDeleteDialog(category?.name ?? 'Unknown', memoryCount, category?.parentId == null);
       } else {
         // Failed to delete
         Get.snackbar(
           'Error',
-          'Failed to delete category',
+          'Failed to delete Place',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -1473,7 +1473,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       debugPrint('[CategoryPickerWidget][_deleteCategory] Error: $e');
       Get.snackbar(
         'Error',
-        'Failed to delete category: $e',
+        'Failed to delete Place: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -1481,8 +1481,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   }
 
   /// Show dialog when category cannot be deleted due to existing memories
-  void _showCannotDeleteDialog(String categoryName, int memoryCount) {
+  void _showCannotDeleteDialog(String categoryName, int memoryCount, bool isMainCategory) {
     final uiController = Get.find<UiController>();
+    final categoryType = isMainCategory ? 'Place Group' : 'Place';
 
     Get.dialog(
       AlertDialog(
@@ -1493,7 +1494,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             Icon(Icons.warning, color: Colors.orange, size: 24),
             const SizedBox(width: 8),
             Text(
-              'Cannot Delete Category',
+              'Cannot Delete $categoryType',
               style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value ? Colors.white : Colors.black,
@@ -1508,7 +1509,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'The category "$categoryName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
+              'The $categoryType "$categoryName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
               style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value
@@ -1531,7 +1532,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'To delete this category, first change the category of all memories that use it, or delete those memories.',
+                      'To delete this $categoryType, first change the Place of all memories that use it, or delete those memories.',
                       style: gfonts.GoogleFonts.kumbhSans(color: Colors.orange[700], fontSize: 14),
                     ),
                   ),
@@ -1726,7 +1727,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              'Fixing category inconsistencies...',
+              'Fixing Place inconsistencies...',
               style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -1778,7 +1779,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             ],
           ),
           content: Text(
-            'Fixed $totalFixed category inconsistencies.\n\nMemories and category picker now show the correct updated category names.',
+            'Fixed $totalFixed Place inconsistencies.\n\nMemories and Place picker now show the correct updated Place names.',
             style: gfonts.GoogleFonts.kumbhSans(
               color:
                   uiController.darkMode.value
@@ -1832,7 +1833,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             ],
           ),
           content: Text(
-            'An error occurred while fixing category inconsistencies:\n\n$e',
+            'An error occurred while fixing Place inconsistencies:\n\n$e',
             style: gfonts.GoogleFonts.kumbhSans(
               color:
                   uiController.darkMode.value
@@ -1928,7 +1929,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     height: 25,
                   ),
                 ),
-                tooltip: 'Add Main Category',
+                tooltip: 'Add Place Group',
               ),
           ],
         ),
@@ -2100,7 +2101,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               ),
               const SizedBox(height: 16),
               Text(
-                'No categories match your search',
+                'No Places match your search',
                 style: gfonts.GoogleFonts.kumbhSans(
                   color:
                       uiController.darkMode.value
@@ -2171,7 +2172,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               ),
               const SizedBox(height: 16),
               Text(
-                'No categories found',
+                'No Place Groups found',
                 style: gfonts.GoogleFonts.kumbhSans(
                   color:
                       uiController.darkMode.value

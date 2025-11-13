@@ -664,7 +664,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Please select a category',
+                'Please select a ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
                 style: GoogleFonts.kumbhSans(),
               ),
               backgroundColor: Colors.red,
@@ -869,7 +869,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Please select a category or add a new category',
+              'Please select a ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group or add a new ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
               style: GoogleFonts.kumbhSans(),
             ),
             backgroundColor: Colors.red,
@@ -1044,7 +1044,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to add ${widget.isTagMode ? 'hashtag' : 'contact'} ${_selectedCategoryId == 'add_new_category' ? 'category and subcategory' : 'subcategory'}',
+              'Failed to add ${widget.isTagMode ? 'Hashtag' : 'Contact'} ${_selectedCategoryId == 'add_new_category' ? 'Group and ${widget.isTagMode ? 'Hashtag' : 'Contact'}' : ''}',
               style: GoogleFonts.kumbhSans(),
             ),
             backgroundColor: Colors.red,
@@ -1143,7 +1143,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               ),
               child: _isLoading
                   ? Text(
-                      'Loading categories...',
+                      'Loading ${widget.isTagMode ? 'Hashtag' : 'Contact'} Groups...',
                       style: GoogleFonts.kumbhSans(
                         color: Colors.grey.shade600,
                         fontSize: 16,
@@ -1153,7 +1153,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                       child: DropdownButton<String>(
                         value: _selectedCategoryId,
                         hint: Text(
-                          'select $prefixChar Category',
+                          'select $prefixChar ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
                           style: GoogleFonts.kumbhSans(
                             color: (uiController.darkMode.value) ?  Colors.white :  Colors.black,
                             fontSize: 16,
@@ -1181,7 +1181,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                           DropdownMenuItem<String>(
                             value: 'add_new_category',
                             child: Text(
-                              'Add New Category',
+                              'Add New ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
                               style: GoogleFonts.kumbhSans(
                                 color: widget.isTagMode ? Colors.green : Colors.blue,
                                 fontSize: 16,

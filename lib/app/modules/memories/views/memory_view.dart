@@ -322,8 +322,8 @@ class _MemoryViewState extends State<MemoryView> {
     } catch (e) {
       debugPrint('Error deleting image: $e');
       Get.snackbar(
-        'Error',
-        'Failed to delete image: $e',
+        'Unable to Delete',
+        'Unable to delete image. Please try again.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
@@ -353,8 +353,8 @@ class _MemoryViewState extends State<MemoryView> {
     } catch (e) {
       debugPrint('Error deleting audio: $e');
       Get.snackbar(
-        'Error',
-        'Failed to delete audio: $e',
+        'Unable to Delete',
+        'Unable to delete audio. Please try again.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
@@ -994,7 +994,7 @@ class _MemoryViewState extends State<MemoryView> {
       // Get.back(result: true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving memory: ${e.toString()}')),
+        SnackBar(content: Text('Unable to save memory. Please try again.')),
       );
     }
   }
@@ -1101,8 +1101,8 @@ class _MemoryViewState extends State<MemoryView> {
                   }
                 } catch (e) {
                   Get.snackbar(
-                    'Error',
-                    'Failed to delete memory: $e',
+                    'Unable to Delete',
+                    'Unable to delete memory. Please try again.',
                     backgroundColor: Colors.red,
                     colorText: Colors.white,
                   );
@@ -1297,7 +1297,7 @@ class _MemoryViewState extends State<MemoryView> {
         ],
       );
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load database contents: $e');
+      Get.snackbar('Unable to Load', 'Unable to load data. Please try again.');
     }
   }
 
