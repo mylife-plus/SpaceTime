@@ -223,11 +223,16 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       // Load recent hashtag groups
       final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
       final recentGroups = <String>[];
+      final mainCategoryGroups = <String>[]; // Track which groups are main categories (parentId is null)
       for (final groupJson in recentGroupsJson) {
         try {
           final groupData = json.decode(groupJson);
           if (groupData is Map<String, dynamic> && groupData.containsKey('name')) {
             recentGroups.add(groupData['name']);
+            // Check if this is a main category (parentId is null)
+            if (groupData['parentId'] == null) {
+              mainCategoryGroups.add(groupData['name']);
+            }
           }
         } catch (e) {
           debugPrint('[SearchableHashtagWidget] Error parsing recent hashtag group: $e');
@@ -239,15 +244,15 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       final groupNames = <String>[];
 
       combinedRecent.addAll(recentGroups.take(6)); // Max 6 groups
-      groupNames.addAll(recentGroups.take(6)); // Track which are groups
+      groupNames.addAll(mainCategoryGroups.take(6)); // Track which are MAIN CATEGORY groups (not subcategories)
 
       if (combinedRecent.length < 6) {
         combinedRecent.addAll(recentHashtags.take(6 - combinedRecent.length)); // Fill remaining with hashtags
       }
 
       _recentHashtags.value = combinedRecent;
-      _recentHashtagGroups.value = groupNames; // Store which items are groups
-      debugPrint('[SearchableHashtagWidget] Loaded ${combinedRecent.length} recent items (${groupNames.length} groups)');
+      _recentHashtagGroups.value = groupNames; // Store which items are main category groups
+      debugPrint('[SearchableHashtagWidget] Loaded ${combinedRecent.length} recent items (${groupNames.length} main category groups)');
 
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error loading recent hashtags: $e');
@@ -602,6 +607,9 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   }
 
   Widget _buildGroupItem(HashtagGroup group, UiController uiController) {
+    // Check if this is a main category (parentId is null)
+    final isMainCategory = group.parentId == null;
+
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
@@ -623,19 +631,20 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
-            // Show folder icon for all groups
-            ColorFiltered(
-              colorFilter: ColorFilter.mode(
-                uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
-                BlendMode.srcIn,
+            // Show folder icon only for main categories (not subcategories)
+            if (isMainCategory)
+              ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+                  BlendMode.srcIn,
+                ),
+                child: Image.asset(
+                  AppImages.category2,
+                  width: 18,
+                  height: 18,
+                  fit: BoxFit.contain,
+                ),
               ),
-              child: Image.asset(
-                AppImages.category2,
-                width: 18,
-                height: 18,
-                fit: BoxFit.contain,
-              ),
-            ),
           ],
         ),
       ),

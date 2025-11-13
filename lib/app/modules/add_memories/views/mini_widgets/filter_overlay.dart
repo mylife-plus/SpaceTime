@@ -197,6 +197,10 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
             bottom: 0,
             child: SafeArea(
               child: FilterPanel(
+                    onBack: () {
+                      controller.closeFilter();
+                      mapController?.isFilterOpen.value = false;
+                    },
                     onReset: () {
                       controller.resetFilters();
                       mapController?.resetFilters();

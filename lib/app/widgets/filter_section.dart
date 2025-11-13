@@ -9,12 +9,14 @@ class FilterPanel extends StatelessWidget {
   final List<Widget> children;
   final VoidCallback onReset;
   final VoidCallback onApply;
+  final VoidCallback? onBack;
 
   const FilterPanel({
     super.key,
     required this.children,
     required this.onReset,
     required this.onApply,
+    this.onBack,
   });
 
   @override
@@ -53,20 +55,49 @@ class FilterPanel extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Stack(
                     children: [
-                      ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          controller.darkMode.value ? Colors.white : Colors.white,
-                          BlendMode.srcIn,
+                      // Back button on the left
+                      if (onBack != null)
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          child: InkWell(
+                            onTap: onBack,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: ColorFiltered(
+                                colorFilter: ColorFilter.mode(
+                                  controller.darkMode.value ? Colors.white : Colors.white,
+                                  BlendMode.srcIn,
+                                ),
+                                child: Image.asset(
+                                  AppImages.arrowBack,
+                                  width: 24,
+                                  height: 24,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        child: Image.asset(
-                          AppImages.filter,
-                          width: 24,
-                          height: 24,
-                          fit: BoxFit.contain,
-                        ),
+                      // Filter icon in the center
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              controller.darkMode.value ? Colors.white : Colors.white,
+                              BlendMode.srcIn,
+                            ),
+                            child: Image.asset(
+                              AppImages.filter,
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
