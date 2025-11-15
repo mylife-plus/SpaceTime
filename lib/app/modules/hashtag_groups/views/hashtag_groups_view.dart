@@ -899,12 +899,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
       }
     } else {
       // Selecting
-      _selectedHashtagGroups.add(hashtagGroup);
-      debugPrint(
-        '[HashtagGroupsView][_toggleHashtagGroupSelection] Added: ${hashtagGroup.name}',
-      );
-
-      // If this is a main group, also add all its subgroups
+      // If this is a main group, only add its subgroups (not the main group itself)
       if (hashtagGroup.isMainGroup && hashtagGroup.hasSubgroups) {
         for (final subgroup in hashtagGroup.subgroups!) {
           if (!_selectedHashtagGroups.any((g) => g.id == subgroup.id)) {
@@ -914,19 +909,15 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
             );
           }
         }
-      }
-
-      // If this is a subgroup, check if all subgroups of the main group are now selected
-      if (hashtagGroup.isSubgroup) {
-        final mainGroup = _findMainGroupForSubgroup(hashtagGroup);
-        if (mainGroup != null && _areAllSubgroupsSelected(mainGroup)) {
-          if (!_selectedHashtagGroups.any((g) => g.id == mainGroup.id)) {
-            _selectedHashtagGroups.add(mainGroup);
-            debugPrint(
-              '[HashtagGroupsView][_toggleHashtagGroupSelection] Added main group: ${mainGroup.name} (all subgroups selected)',
-            );
-          }
-        }
+        debugPrint(
+          '[HashtagGroupsView][_toggleHashtagGroupSelection] Selected main group: ${hashtagGroup.name} (added ${hashtagGroup.subgroups!.length} subgroups)',
+        );
+      } else {
+        // For subgroups, add them directly
+        _selectedHashtagGroups.add(hashtagGroup);
+        debugPrint(
+          '[HashtagGroupsView][_toggleHashtagGroupSelection] Added: ${hashtagGroup.name}',
+        );
 
         // Save to recent subgroups
         _saveRecentlySelectedSubgroup(hashtagGroup);
@@ -1333,9 +1324,6 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     final controller = _expansionControllers[groupId]!;
 
     return Obx(() {
-      final isMainGroupSelected = widget.allowMultipleSelection &&
-          _selectedHashtagGroups.any((g) => g.id == mainHashtagGroup.id);
-
       // Check if all subgroups are selected (for filter mode)
       final allSubgroupsSelected = widget.allowMultipleSelection &&
           mainHashtagGroup.subgroups != null &&
@@ -1374,13 +1362,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                     ? Colors.grey[900]
                     : Colors.white,
                 borderRadius: BorderRadius.circular(2),
-                // Show border on category only when it's selected individually (not when all subgroups selected)
-                border: isMainGroupSelected && !allSubgroupsSelected
-                    ? Border.all(
-                        color: uiController.currentMainColor,
-                        width: 2,
-                      )
-                    : null,
+                // No border on main group header since we only select subgroups
+                border: null,
               ),
               child: ExpansionTile(
                 key: ValueKey('hashtag_group_${mainHashtagGroup.id}'),
@@ -1415,7 +1398,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                           margin: const EdgeInsets.only(left: 16),
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: allSubgroupsSelected || isMainGroupSelected
+                              color: allSubgroupsSelected
                                   ? uiController.currentMainColor
                                   : (uiController.darkMode.value
                                       ? Colors.white.withValues(alpha: 0.6)
@@ -1423,11 +1406,11 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                               width: 2,
                             ),
                             borderRadius: BorderRadius.circular(4),
-                            color: allSubgroupsSelected || isMainGroupSelected
+                            color: allSubgroupsSelected
                                 ? uiController.currentMainColor
                                 : Colors.transparent,
                           ),
-                          child: (allSubgroupsSelected || isMainGroupSelected)
+                          child: allSubgroupsSelected
                               ? Icon(
                                   Icons.check,
                                   size: 18,
@@ -1457,7 +1440,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                                   text: mainHashtagGroup.name,
                                   style: gfonts.GoogleFonts.kumbhSans(
                                     color: uiController.darkMode.value ? Colors.white : Colors.black,
-                                    fontWeight: isMainGroupSelected ? FontWeight.w600 : FontWeight.w500,
+                                    fontWeight: FontWeight.w500,
                                     fontSize: 14,
                                   ),
                                 ),

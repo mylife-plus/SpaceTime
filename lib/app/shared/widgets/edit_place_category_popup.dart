@@ -285,7 +285,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Text(
-                  'Emoji',
+                  'Icon',
                   style: GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 15,
@@ -332,7 +332,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 8, bottom: 4),
                   child: Text(
-                    'Places Group',
+                    'Places Category',
                     style: GoogleFonts.kumbhSans(
                       color: uiController.darkMode.value ? Colors.white : Colors.black,
                       fontSize: 15,
@@ -402,7 +402,7 @@ class _EditPlaceCategoryPopupState extends State<EditPlaceCategoryPopup> {
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Text(
-                  'Places',
+                  'Place',
                   style: GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 15,

@@ -453,12 +453,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       }
     } else {
       // Selecting
-      _selectedCategories.add(category);
-      debugPrint(
-        '[CategoryPickerWidget][_toggleCategorySelection] Added: ${category.name}',
-      );
-
-      // If this is a main category, also add all its subcategories
+      // If this is a main category, only add its subcategories (not the main category itself)
       if (category.isMainCategory && category.hasSubcategories) {
         for (final subcategory in category.subcategories!) {
           if (!_selectedCategories.any((c) => c.id == subcategory.id)) {
@@ -468,19 +463,15 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             );
           }
         }
-      }
-
-      // If this is a subcategory, check if all subcategories of the main category are now selected
-      if (category.isSubcategory) {
-        final mainCategory = _findMainCategoryForSubcategory(category);
-        if (mainCategory != null && _areAllSubcategoriesSelected(mainCategory)) {
-          if (!_selectedCategories.any((c) => c.id == mainCategory.id)) {
-            _selectedCategories.add(mainCategory);
-            debugPrint(
-              '[CategoryPickerWidget][_toggleCategorySelection] Added main category: ${mainCategory.name} (all subcategories selected)',
-            );
-          }
-        }
+        debugPrint(
+          '[CategoryPickerWidget][_toggleCategorySelection] Selected main category: ${category.name} (added ${category.subcategories!.length} subcategories)',
+        );
+      } else {
+        // For subcategories, add them directly
+        _selectedCategories.add(category);
+        debugPrint(
+          '[CategoryPickerWidget][_toggleCategorySelection] Added: ${category.name}',
+        );
 
         // Save to recent subcategories
         _saveRecentlySelectedSubcategory(category);
@@ -2172,7 +2163,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               ),
               const SizedBox(height: 16),
               Text(
-                'No Place Groups found',
+                'No Place Categories found',
                 style: gfonts.GoogleFonts.kumbhSans(
                   color:
                       uiController.darkMode.value
@@ -2568,8 +2559,6 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     return Obx(() {
       final isExpanded = _expandedCategories[mainCategory.id] ?? false;
-      final isMainCategorySelected = widget.allowMultipleSelection &&
-          _selectedCategories.any((c) => c.id == mainCategory.id);
 
       // Check if all subcategories are selected (for filter mode)
       final allSubcategoriesSelected = widget.allowMultipleSelection &&
@@ -2609,13 +2598,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     ? Colors.grey[900]
                     : Colors.white,
                 borderRadius: BorderRadius.circular(2),
-                // Show border on category only when it's selected individually (not when all subcategories selected)
-                border: isMainCategorySelected && !allSubcategoriesSelected
-                    ? Border.all(
-                        color: uiController.currentMainColor,
-                        width: 2,
-                      )
-                    : null,
+                // No border on main category header since we only select subcategories
+                border: null,
               ),
               child: ExpansionTile(
                 key: ValueKey(mainCategory.id),
@@ -2643,7 +2627,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                           margin: const EdgeInsets.only(left: 16),
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: allSubcategoriesSelected || isMainCategorySelected
+                              color: allSubcategoriesSelected
                                   ? uiController.currentMainColor
                                   : (uiController.darkMode.value
                                       ? Colors.white.withValues(alpha: 0.6)
@@ -2651,11 +2635,11 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                               width: 2,
                             ),
                             borderRadius: BorderRadius.circular(4),
-                            color: allSubcategoriesSelected || isMainCategorySelected
+                            color: allSubcategoriesSelected
                                 ? uiController.currentMainColor
                                 : Colors.transparent,
                           ),
-                          child: (allSubcategoriesSelected || isMainCategorySelected)
+                          child: allSubcategoriesSelected
                               ? Icon(
                                   Icons.check,
                                   size: 18,
@@ -2685,7 +2669,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                                   text: mainCategory.name,
                                   style: gfonts.GoogleFonts.kumbhSans(
                                     color: uiController.darkMode.value ? Colors.white : Colors.black,
-                                    fontWeight: isMainCategorySelected ? FontWeight.w600 : FontWeight.w500,
+                                    fontWeight: FontWeight.w500,
                                     fontSize: 14,
                                   ),
                                 ),

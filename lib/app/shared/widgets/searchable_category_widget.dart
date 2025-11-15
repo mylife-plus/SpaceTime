@@ -59,6 +59,9 @@ class SearchableCategoryWidget extends StatefulWidget {
   /// Previously selected categories to pass to the picker (for filter mode)
   final List<String>? previouslySelectedCategories;
 
+  /// Whether this widget is being used inside a filter overlay (affects padding)
+  final bool isInFilterMode;
+
   const SearchableCategoryWidget({
     super.key,
     this.title = 'Places',
@@ -74,6 +77,7 @@ class SearchableCategoryWidget extends StatefulWidget {
     this.isCompact = false,
     this.allowMultipleSelectionInPicker = true,
     this.previouslySelectedCategories,
+    this.isInFilterMode = false,
   });
 
   @override
@@ -681,8 +685,8 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         padding: const EdgeInsets.all(20),
         child: Text(
           _isSearching.value && _searchController.text.isNotEmpty
-              ? 'No Place Groups found'
-              : 'No recent Place Groups',
+              ? 'No Places found'
+              : 'No recent Places',
           style: AppFonts.medium(
             14,
             color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
@@ -795,7 +799,12 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       children: [
         Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
         Container(
-          padding:  EdgeInsets.only(left: 12, right: 12, bottom: !(widget.showAddNewButton) ?4: 0, top: !(widget.showAddNewButton) ? 8:  8),
+          padding:  EdgeInsets.only(
+            left: 12,
+            right: 12,
+            bottom: widget.isInFilterMode ? 0 : (!(widget.showAddNewButton) ? 4 : 0),
+            top: !(widget.showAddNewButton) ? 8 : 8
+          ),
           child: widget.showAddNewButton
               ? Row(
                   children: [

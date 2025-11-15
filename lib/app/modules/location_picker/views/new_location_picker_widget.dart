@@ -534,7 +534,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          // const SizedBox(height: 8),
           Obx(() {
             // Convert radius to slider value (0-100 scale)
             final sliderValue = _radiusToSliderValue(controller.selectedRadius.value);
@@ -543,6 +543,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
               value: sliderValue,
               min: 0.0,
               max: 100.0,
+              padding: EdgeInsets.only(bottom: 5),
               divisions: 1000,
               activeColor: uiController.currentMainColor,
               inactiveColor: Colors.grey.withOpacity(0.3),

@@ -266,6 +266,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                             showActionButtons: true, // Show "See List" button in filter context
                             showAddNewButton: false, // Hide "Add new" button in filter context
                             previouslySelectedCategories: controller.selectedCategories.toList(), // Pass previously selected categories
+                            isInFilterMode: true, // Remove bottom padding in filter mode
                             backgroundColor: uiController.darkMode.value
                                 ? Colors.white.withValues(alpha: 0.2)
                                 : Colors.white,
@@ -365,6 +366,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               }
                             },
                             previouslySelectedHashtags: controller.selectedHashtags.toList(), // Pass previously selected hashtags
+                            isInFilterMode: true, // Remove bottom padding in filter mode
                             backgroundColor: uiController.darkMode.value
                                 ? Colors.white.withValues(alpha: 0.2)
                                 : Colors.white,
@@ -435,6 +437,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               }
                             },
                             previouslySelectedContacts: controller.selectedContacts.toList(), // Pass previously selected contacts
+                            isInFilterMode: true, // Remove bottom padding in filter mode
                             backgroundColor: uiController.darkMode.value
                                 ? Colors.white.withValues(alpha: 0.2)
                                 : Colors.white,

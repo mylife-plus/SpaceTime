@@ -881,12 +881,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       }
     } else {
       // Selecting
-      _selectedContactGroups.add(contactGroup);
-      debugPrint(
-        '[ContactGroupsView][_toggleContactGroupSelection] Added: ${contactGroup.name}',
-      );
-
-      // If this is a main group, also add all its subgroups
+      // If this is a main group, only add its subgroups (not the main group itself)
       if (contactGroup.isMainGroup && contactGroup.hasSubgroups) {
         for (final subgroup in contactGroup.subgroups!) {
           if (!_selectedContactGroups.any((g) => g.id == subgroup.id)) {
@@ -896,19 +891,15 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             );
           }
         }
-      }
-
-      // If this is a subgroup, check if all subgroups of the main group are now selected
-      if (contactGroup.isSubgroup) {
-        final mainGroup = _findMainGroupForSubgroup(contactGroup);
-        if (mainGroup != null && _areAllSubgroupsSelected(mainGroup)) {
-          if (!_selectedContactGroups.any((g) => g.id == mainGroup.id)) {
-            _selectedContactGroups.add(mainGroup);
-            debugPrint(
-              '[ContactGroupsView][_toggleContactGroupSelection] Added main group: ${mainGroup.name} (all subgroups selected)',
-            );
-          }
-        }
+        debugPrint(
+          '[ContactGroupsView][_toggleContactGroupSelection] Selected main group: ${contactGroup.name} (added ${contactGroup.subgroups!.length} subgroups)',
+        );
+      } else {
+        // For subgroups, add them directly
+        _selectedContactGroups.add(contactGroup);
+        debugPrint(
+          '[ContactGroupsView][_toggleContactGroupSelection] Added: ${contactGroup.name}',
+        );
 
         // Save to recent subgroups
         _saveRecentlySelectedSubgroup(contactGroup);
@@ -1358,9 +1349,6 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final controller = _expansionControllers[groupId]!;
 
     return Obx(() {
-      final isMainGroupSelected = widget.allowMultipleSelection &&
-          _selectedContactGroups.any((g) => g.id == mainContactGroup.id);
-
       // Check if all subgroups are selected (for filter mode)
       final allSubgroupsSelected = widget.allowMultipleSelection &&
           mainContactGroup.subgroups != null &&
@@ -1399,13 +1387,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     ? Colors.grey[900]
                     : Colors.white,
                 borderRadius: BorderRadius.circular(2),
-                // Show border on category only when it's selected individually (not when all subgroups selected)
-                border: isMainGroupSelected && !allSubgroupsSelected
-                    ? Border.all(
-                        color: uiController.currentMainColor,
-                        width: 2,
-                      )
-                    : null,
+                // No border on main group header since we only select subgroups
+                border: null,
               ),
               child: ExpansionTile(
                 key: ValueKey('contact_group_${mainContactGroup.id}'),
@@ -1440,7 +1423,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                           margin: const EdgeInsets.only(left: 16),
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: allSubgroupsSelected || isMainGroupSelected
+                              color: allSubgroupsSelected
                                   ? uiController.currentMainColor
                                   : (uiController.darkMode.value
                                       ? Colors.white.withValues(alpha: 0.6)
@@ -1448,11 +1431,11 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                               width: 2,
                             ),
                             borderRadius: BorderRadius.circular(4),
-                            color: allSubgroupsSelected || isMainGroupSelected
+                            color: allSubgroupsSelected
                                 ? uiController.currentMainColor
                                 : Colors.transparent,
                           ),
-                          child: (allSubgroupsSelected || isMainGroupSelected)
+                          child: allSubgroupsSelected
                               ? Icon(
                                   Icons.check,
                                   size: 18,
@@ -1482,7 +1465,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                                   text: mainContactGroup.name,
                                   style: gfonts.GoogleFonts.kumbhSans(
                                     color: uiController.darkMode.value ? Colors.white : Colors.black,
-                                    fontWeight: isMainGroupSelected ? FontWeight.w600 : FontWeight.w500,
+                                    fontWeight: FontWeight.w500,
                                     fontSize: 14,
                                   ),
                                 ),

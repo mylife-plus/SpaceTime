@@ -27,6 +27,9 @@ class SearchableHashtagWidget extends StatefulWidget {
   /// This is called when user returns from the picker with a new selection
   final Function(List<HashtagGroup> groups)? onMultipleGroupsSelectedFromPicker;
 
+  /// Whether this widget is being used inside a filter overlay (affects padding)
+  final bool isInFilterMode;
+
   const SearchableHashtagWidget({
     super.key,
     this.title = 'Search Hashtags',
@@ -39,6 +42,7 @@ class SearchableHashtagWidget extends StatefulWidget {
     this.backgroundColor,
     this.isCompact = false,
     this.previouslySelectedHashtags,
+    this.isInFilterMode = false,
   });
 
   @override
@@ -723,7 +727,12 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          top: 8,
+          bottom: widget.isInFilterMode ? 0 : 8,
+        ),
         child: Center(
           child: Text(
             'See List',
