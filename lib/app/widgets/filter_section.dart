@@ -22,24 +22,29 @@ class FilterPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
-    return Container(
-      color: Colors.black.withAlpha(0),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(0),
-          child: Container(
-            decoration: BoxDecoration(
-    color: controller.darkMode.value
-              ? controller.mainColor.value == 'blue'
-                  ? Color(0xFF001937)
-                  : controller.iconColor2
-              : controller.mainColor.value == 'blue'
-              ? Color(0xFF92C3FF)
-              : controller.primaryColor,
-    borderRadius: const BorderRadius.only(
-      bottomLeft: Radius.circular(10),
-      bottomRight: Radius.circular(10),
-    ),
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping on the panel background
+        FocusScope.of(context).unfocus();
+      },
+      child: Container(
+        color: Colors.black.withAlpha(0),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(0),
+            child: Container(
+              decoration: BoxDecoration(
+      color: controller.darkMode.value
+                ? controller.mainColor.value == 'blue'
+                    ? Color(0xFF001937)
+                    : controller.iconColor2
+                : controller.mainColor.value == 'blue'
+                ? Color(0xFF92C3FF)
+                : controller.primaryColor,
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(10),
+        bottomRight: Radius.circular(10),
+      ),
     // boxShadow: [
     //   BoxShadow(
     //     color: Colors.black.withOpacity(0.11),
@@ -153,6 +158,6 @@ class FilterPanel extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ); // GestureDetector
   }
 }

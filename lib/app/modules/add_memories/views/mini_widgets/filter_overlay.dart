@@ -181,6 +181,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
           Positioned.fill(
             child: GestureDetector(
               onTap: () {
+                // Dismiss keyboard first
+                FocusScope.of(context).unfocus();
+                // Then close filter
                 controller.closeFilter();
                 mapController?.isFilterOpen.value = false;
               },
