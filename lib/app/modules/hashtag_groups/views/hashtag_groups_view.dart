@@ -1602,8 +1602,19 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
   /// Build subgroups list
   List<Widget> _buildSubgroupsList(HashtagGroup mainHashtagGroup, UiController uiController) {
-    return mainHashtagGroup.subgroups!.map((subgroup) {
-      return _buildSubgroupTile(subgroup, uiController);
+    return mainHashtagGroup.subgroups!.asMap().entries.map((entry) {
+      final index = entry.key;
+      final subgroup = entry.value;
+      final isLast = index == mainHashtagGroup.subgroups!.length - 1;
+
+      return Column(
+        children: [
+          _buildSubgroupTile(subgroup, uiController),
+          // Add bottom padding after last subgroup when in filter mode
+          if (isLast && widget.allowMultipleSelection)
+            const SizedBox(height: 8),
+        ],
+      );
     }).toList();
   }
 

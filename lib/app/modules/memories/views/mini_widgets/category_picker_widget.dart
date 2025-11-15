@@ -2803,11 +2803,24 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               Obx(() => (_addingToCategory[mainCategory.id] ?? false)
                   ? _buildInlineAddWidget(mainCategory.id!)
                   : const SizedBox.shrink()),
-              if (mainCategory.hasSubcategories)
-                ...mainCategory.subcategories!.map(
-                  (subCategory) =>
-                      _buildCategoryTile(subCategory, isSubcategory: true),
+              if (mainCategory.hasSubcategories) ...[
+                ...mainCategory.subcategories!.asMap().entries.map(
+                  (entry) {
+                    final index = entry.key;
+                    final subCategory = entry.value;
+                    final isLast = index == mainCategory.subcategories!.length - 1;
+
+                    return Column(
+                      children: [
+                        _buildCategoryTile(subCategory, isSubcategory: true),
+                        // Add bottom padding after last subcategory when in filter mode
+                        if (isLast && widget.allowMultipleSelection)
+                          const SizedBox(height: 8),
+                      ],
+                    );
+                  },
                 ),
+              ],
             ],
           ],
         ),
