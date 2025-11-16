@@ -801,7 +801,12 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         Container(
           height: widget.isInFilterMode ? 40 : null, // Fixed height only in filter mode
           padding: widget.isInFilterMode
-              ? null // No padding in filter mode - let Center/Alignment handle it
+              ?  EdgeInsets.only(
+                  left: 12,
+                  right: 12,
+                  bottom: !(widget.showAddNewButton) ? 0 : 0,
+                  top: !(widget.showAddNewButton) ? 12 : 8
+                ) // No padding in filter mode - let Center/Alignment handle it
               : EdgeInsets.only(
                   left: 12,
                   right: 12,

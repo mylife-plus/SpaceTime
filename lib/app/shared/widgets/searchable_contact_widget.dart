@@ -648,76 +648,78 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   }
 
   Widget _buildSeeListButton(UiController uiController) {
-    return Column(
-      children: [
-        Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
-        InkWell(
-          onTap: () async {
-            // Convert previously selected contact strings to ContactGroup objects
-            List<ContactGroup>? previouslySelected;
-            if (widget.previouslySelectedContacts != null && widget.previouslySelectedContacts!.isNotEmpty) {
-              previouslySelected = await _convertContactStringsToGroups(widget.previouslySelectedContacts!);
-              debugPrint('[SearchableContactWidget] Passing ${previouslySelected.length} previously selected contact groups to picker');
-            }
-
-            // Navigate to Contact Groups page in multiple selection mode
-            final result = await Get.to(
-              () => ContactGroupsView(
-                allowMultipleSelection: true,
-                selectedContactGroups: previouslySelected,
-                onMultipleContactGroupsSelected: (selectedGroups) {
-                  // If we have a callback for replacing selection (filter mode), use it
-                  if (widget.onMultipleGroupsSelectedFromPicker != null) {
-                    widget.onMultipleGroupsSelectedFromPicker!(selectedGroups);
-                    // Save each selected group to recents
-                    for (final group in selectedGroups) {
-                      _saveRecentContactGroup(group);
+    return Container(
+      child: Column(
+        children: [
+          Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
+          InkWell(
+            onTap: () async {
+              // Convert previously selected contact strings to ContactGroup objects
+              List<ContactGroup>? previouslySelected;
+              if (widget.previouslySelectedContacts != null && widget.previouslySelectedContacts!.isNotEmpty) {
+                previouslySelected = await _convertContactStringsToGroups(widget.previouslySelectedContacts!);
+                debugPrint('[SearchableContactWidget] Passing ${previouslySelected.length} previously selected contact groups to picker');
+              }
+      
+              // Navigate to Contact Groups page in multiple selection mode
+              final result = await Get.to(
+                () => ContactGroupsView(
+                  allowMultipleSelection: true,
+                  selectedContactGroups: previouslySelected,
+                  onMultipleContactGroupsSelected: (selectedGroups) {
+                    // If we have a callback for replacing selection (filter mode), use it
+                    if (widget.onMultipleGroupsSelectedFromPicker != null) {
+                      widget.onMultipleGroupsSelectedFromPicker!(selectedGroups);
+                      // Save each selected group to recents
+                      for (final group in selectedGroups) {
+                        _saveRecentContactGroup(group);
+                      }
+                      // Reload recent contacts to update the UI
+                      _loadRecentContacts();
+                    } else {
+                      // Otherwise, add groups individually (normal mode)
+                      for (final group in selectedGroups) {
+                        _selectGroup(group);
+                      }
                     }
-                    // Reload recent contacts to update the UI
-                    _loadRecentContacts();
-                  } else {
-                    // Otherwise, add groups individually (normal mode)
-                    for (final group in selectedGroups) {
-                      _selectGroup(group);
-                    }
+                  },
+                ),
+              );
+      
+              // Handle result if returned via Get.back
+              if (result != null && result is List<ContactGroup>) {
+                // If we have a callback for replacing selection (filter mode), use it
+                if (widget.onMultipleGroupsSelectedFromPicker != null) {
+                  widget.onMultipleGroupsSelectedFromPicker!(result);
+                  // Save each selected group to recents
+                  for (final group in result) {
+                    _saveRecentContactGroup(group);
                   }
-                },
-              ),
-            );
-
-            // Handle result if returned via Get.back
-            if (result != null && result is List<ContactGroup>) {
-              // If we have a callback for replacing selection (filter mode), use it
-              if (widget.onMultipleGroupsSelectedFromPicker != null) {
-                widget.onMultipleGroupsSelectedFromPicker!(result);
-                // Save each selected group to recents
-                for (final group in result) {
-                  _saveRecentContactGroup(group);
-                }
-                // Reload recent contacts to update the UI
-                _loadRecentContacts();
-              } else {
-                // Otherwise, add groups individually (normal mode)
-                for (final group in result) {
-                  _selectGroup(group);
+                  // Reload recent contacts to update the UI
+                  _loadRecentContacts();
+                } else {
+                  // Otherwise, add groups individually (normal mode)
+                  for (final group in result) {
+                    _selectGroup(group);
+                  }
                 }
               }
-            }
-          },
-          child: Container(
-            height: widget.isInFilterMode ? 40 : null, // Fixed height only in filter mode
-            padding: widget.isInFilterMode
-                ? null // No padding in filter mode - let Center handle it
-                : const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 8),
-            child: Center(
-              child: Text(
-                'See List',
-                style: AppFonts.medium(18, color: uiController.currentMainColor),
+            },
+            child: Container(
+              height: widget.isInFilterMode ? 40 : null, // Fixed height only in filter mode
+              padding: widget.isInFilterMode
+                  ? const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 0) // No padding in filter mode - let Center handle it
+                  : const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 8),
+              child: Center(
+                child: Text(
+                  'See List',
+                  style: AppFonts.medium(18, color: uiController.currentMainColor),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

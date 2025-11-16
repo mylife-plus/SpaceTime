@@ -22,17 +22,15 @@ class FilterPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
-    return GestureDetector(
-      onTap: () {
-        // Dismiss keyboard when tapping on the panel background
-        FocusScope.of(context).unfocus();
-      },
-      child: Container(
-        color: Colors.black.withAlpha(0),
-        child: SingleChildScrollView(
-          child: Padding(
+    return SingleChildScrollView(
+        child: Padding(
             padding: const EdgeInsets.all(0),
-            child: Container(
+            child: GestureDetector(
+              onTap: () {
+                // Dismiss keyboard when tapping on the panel
+                FocusScope.of(context).unfocus();
+              },
+              child: Container(
               decoration: BoxDecoration(
       color: controller.darkMode.value
                 ? controller.mainColor.value == 'blue'
@@ -158,6 +156,6 @@ class FilterPanel extends StatelessWidget {
           ),
         ),
       ),
-    )); // GestureDetector
+    );
   }
 }

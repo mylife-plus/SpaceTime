@@ -733,7 +733,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
           child: Container(
             height: widget.isInFilterMode ? 40 : null, // Fixed height only in filter mode
             padding: widget.isInFilterMode
-                ? null // No padding in filter mode - let Center handle it
+                ?  const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 0)
                 : const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 8),
             child: Center(
               child: Text(
