@@ -63,7 +63,9 @@ class SearchOverlay extends StatelessWidget {
                             controller.generateSearchSuggestions(val);
                           },
                           onSubmitted: (val) {
-                            // Only hide keyboard, don't trigger search
+                            // Perform search and hide keyboard
+                            controller.performSearch();
+                            controller.isSearchActive.value = false;
                             FocusScope.of(context).unfocus();
                           },
                           decoration: InputDecoration(

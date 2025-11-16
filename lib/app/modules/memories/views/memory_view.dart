@@ -1479,6 +1479,7 @@ class _MemoryViewState extends State<MemoryView> {
                             onTagAdded: _onTagAdded,
                             onMentionAdded: _onMentionAdded,
                             onPopupStateChanged: _onPopupStateChanged,
+                            scrollController: _scrollController,
                           ),
                           MemoryAudioWidget(
                             onPlayPause: _handleAudioPlay,

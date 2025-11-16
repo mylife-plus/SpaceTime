@@ -18,6 +18,7 @@ class MemoryDescriptionField extends StatefulWidget {
   final Function(String) onTagAdded;
   final Function(String) onMentionAdded;
   final Function(bool)? onPopupStateChanged;
+  final ScrollController? scrollController; // Add scroll controller parameter
 
   const MemoryDescriptionField({
     super.key,
@@ -27,6 +28,7 @@ class MemoryDescriptionField extends StatefulWidget {
     required this.onTagAdded,
     required this.onMentionAdded,
     this.onPopupStateChanged,
+    this.scrollController,
   });
 
   @override
@@ -169,7 +171,22 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _onFocusChange() {
-    if (!_focusNode.hasFocus) {
+    if (_focusNode.hasFocus) {
+      // When field gains focus, scroll up by 100 points
+      if (widget.scrollController != null && widget.scrollController!.hasClients) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted && widget.scrollController!.hasClients) {
+            final currentOffset = widget.scrollController!.offset;
+            final targetOffset = currentOffset + 100.0;
+            widget.scrollController!.animateTo(
+              targetOffset,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    } else {
       Future.delayed(const Duration(milliseconds: 100), () {
         if (!_focusNode.hasFocus && mounted) {
           try {
@@ -555,7 +572,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                     maxLines: 50,
                     minLines: 8,
                     keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.newline,
+                    textInputAction: TextInputAction.done,
                     autocorrect: true,
                     enableSuggestions: true,
                     showCursor: true,
@@ -563,6 +580,10 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                     cursorWidth: 2.0,
                     cursorHeight: 20.0,
                     cursorRadius: const Radius.circular(1.0),
+                    onSubmitted: (_) {
+                      // Hide keyboard when done is pressed
+                      _focusNode.unfocus();
+                    },
                     onChanged: (text) {
                       setState(() {}); // Rebuild to update RichText
                       _onTextChanged();
