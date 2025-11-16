@@ -158,6 +158,6 @@ class FilterPanel extends StatelessWidget {
           ),
         ),
       ),
-    ); // GestureDetector
+    )); // GestureDetector
   }
 }
