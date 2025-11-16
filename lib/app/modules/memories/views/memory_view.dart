@@ -34,6 +34,7 @@ class _MemoryViewState extends State<MemoryView> {
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<MemoryDescriptionFieldState> _descriptionFieldKey =
       GlobalKey<MemoryDescriptionFieldState>();
+  final ScrollController _scrollController = ScrollController();
   bool _isPopupOpen = false;
   final RxList<String> _selectedImagePaths = <String>[].obs;
   int? _editingMemoryId;
@@ -1347,6 +1348,7 @@ class _MemoryViewState extends State<MemoryView> {
                   children: [
                     Expanded(
                       child: SingleChildScrollView(
+                      controller: _scrollController,
                       physics: const BouncingScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1482,6 +1484,8 @@ class _MemoryViewState extends State<MemoryView> {
                             onPlayPause: _handleAudioPlay,
                             onAudioDelete: _deleteAudioAtIndex,
                           ),
+                          // Add bottom padding to ensure description field can scroll above keyboard
+                          SizedBox(height: MediaQuery.of(context).size.height * 0.5),
                         ],
                       ),
                     ),
@@ -2238,6 +2242,8 @@ class _MemoryViewState extends State<MemoryView> {
 
     // Dispose text controller
     _descriptionController.dispose();
+    // Dispose scroll controller
+    _scrollController.dispose();
     super.dispose();
   }
 }
