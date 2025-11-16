@@ -799,13 +799,15 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       children: [
         Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
         Container(
-          height: 40, // Fixed height for proper vertical centering
-          padding:  EdgeInsets.only(
-            left: 12,
-            right: 12,
-            bottom: widget.isInFilterMode ? 0 : (!(widget.showAddNewButton) ? 4 : 0),
-            top: !(widget.showAddNewButton) ? 8 : 8
-          ),
+          height: widget.isInFilterMode ? 40 : null, // Fixed height only in filter mode
+          padding: widget.isInFilterMode
+              ? null // No padding in filter mode - let Center/Alignment handle it
+              : EdgeInsets.only(
+                  left: 12,
+                  right: 12,
+                  bottom: !(widget.showAddNewButton) ? 4 : 0,
+                  top: !(widget.showAddNewButton) ? 8 : 8
+                ),
           child: widget.showAddNewButton
               ? Row(
                   children: [
