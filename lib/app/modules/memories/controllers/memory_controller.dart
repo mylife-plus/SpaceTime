@@ -1033,9 +1033,8 @@ class TagMentionController extends GetxController {
   final RxString searchQuery = ''.obs;
 
   final bool isTagMode;
-  String? excludeItem; // Item to exclude from the list (being edited)
 
-  TagMentionController({required this.isTagMode, this.excludeItem});
+  TagMentionController({required this.isTagMode});
 
   @override
   void onInit() {
@@ -1167,13 +1166,6 @@ class TagMentionController extends GetxController {
               item['name'].toString().toLowerCase().contains(queryLower) ||
               item['parentName'].toString().toLowerCase().contains(queryLower))
           .toList();
-    }
-
-    // Exclude the item being edited if specified
-    if (excludeItem != null && excludeItem!.isNotEmpty) {
-      items = items.where((item) =>
-          item['name'].toString().toLowerCase() != excludeItem!.toLowerCase()
-      ).toList();
     }
 
     filteredItems.value = items;

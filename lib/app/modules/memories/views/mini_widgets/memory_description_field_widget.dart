@@ -170,10 +170,13 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     _focusNode.addListener(_onFocusChange);
   }
 
+  double? _scrollOffsetBeforeFocus;
+
   void _onFocusChange() {
     if (_focusNode.hasFocus) {
-      // When field gains focus, scroll up by 100 points
+      // When field gains focus, save current position and scroll up by 100 points
       if (widget.scrollController != null && widget.scrollController!.hasClients) {
+        _scrollOffsetBeforeFocus = widget.scrollController!.offset;
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted && widget.scrollController!.hasClients) {
             final currentOffset = widget.scrollController!.offset;
@@ -187,6 +190,22 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         });
       }
     } else {
+      // When field loses focus, scroll back to original position
+      if (widget.scrollController != null &&
+          widget.scrollController!.hasClients &&
+          _scrollOffsetBeforeFocus != null) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && widget.scrollController!.hasClients) {
+            widget.scrollController!.animateTo(
+              _scrollOffsetBeforeFocus!,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+            _scrollOffsetBeforeFocus = null;
+          }
+        });
+      }
+
       Future.delayed(const Duration(milliseconds: 100), () {
         if (!_focusNode.hasFocus && mounted) {
           try {
@@ -293,39 +312,42 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     _overlayEntry = OverlayEntry(
       builder:
-          (context) => Positioned(
-            left: 20,
-            right: 20,
-            top: 150,
-            child: Material(
-              elevation: 8,
-              color: Colors.transparent,
-              child: TagMentionBottomSheet(
-                onItemSelected: (item) {
-                  final clean = item.substring(1);
-
-                  // Check if trying to add the same tag that's being edited
-                  if (oldTag != null && clean.toLowerCase() == oldTag.toLowerCase()) {
-                    // Don't allow adding the same tag - just close popup
-                    _forceRemovePopup();
-                    return;
-                  }
-
-                  // Remove old tag if we're replacing
-                  if (oldTag != null) {
-                    _tags.remove(oldTag);
-                  }
-
-                  _insertTextAtCursor(item);
-                  widget.onTagAdded(clean);
-                  _tags.add(clean); // ✅ Add to tag list
-                  _forceRemovePopup();
+          (context) => GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              // Dismiss keyboard when tapping outside
+              _focusNode.unfocus();
+            },
+            child: Positioned(
+              left: 20,
+              right: 20,
+              top: 0, // Moved 150 points upward (was 150, now 0)
+              child: GestureDetector(
+                onTap: () {
+                  // Prevent tap from propagating to parent
                 },
-                isTagMode: true,
-                initialKeyword: keyword,
-                searchNotifier: _searchNotifier!,
-                onEditingComplete: _forceRemovePopup,
-                excludeItem: oldTag, // Exclude the item being edited
+                child: Material(
+                  elevation: 8,
+                  color: Colors.transparent,
+                  child: TagMentionBottomSheet(
+                    onItemSelected: (item) {
+                      // Remove old tag if we're replacing
+                      if (oldTag != null) {
+                        _tags.remove(oldTag);
+                      }
+
+                      _insertTextAtCursor(item);
+                      final clean = item.substring(1);
+                      widget.onTagAdded(clean);
+                      _tags.add(clean); // ✅ Add to tag list
+                      _forceRemovePopup();
+                    },
+                    isTagMode: true,
+                    initialKeyword: keyword,
+                    searchNotifier: _searchNotifier!,
+                    onEditingComplete: _forceRemovePopup,
+                  ),
+                ),
               ),
             ),
           ),
@@ -353,39 +375,42 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     _overlayEntry = OverlayEntry(
       builder:
-          (context) => Positioned(
-            left: 20,
-            right: 20,
-            top: 150,
-            child: Material(
-              elevation: 8,
-              color: Colors.transparent,
-              child: TagMentionBottomSheet(
-                onItemSelected: (item) {
-                  final clean = item.substring(1);
-
-                  // Check if trying to add the same mention that's being edited
-                  if (oldMention != null && clean.toLowerCase() == oldMention.toLowerCase()) {
-                    // Don't allow adding the same mention - just close popup
-                    _forceRemovePopup();
-                    return;
-                  }
-
-                  // Remove old mention if we're replacing
-                  if (oldMention != null) {
-                    _mentions.remove(oldMention);
-                  }
-
-                  _insertTextAtCursor(item);
-                  widget.onMentionAdded(clean);
-                  _mentions.add(clean); // ✅ Add to mention list
-                  _forceRemovePopup();
+          (context) => GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              // Dismiss keyboard when tapping outside
+              _focusNode.unfocus();
+            },
+            child: Positioned(
+              left: 20,
+              right: 20,
+              top: 0, // Moved 150 points upward (was 150, now 0)
+              child: GestureDetector(
+                onTap: () {
+                  // Prevent tap from propagating to parent
                 },
-                isTagMode: false,
-                initialKeyword: keyword,
-                searchNotifier: _searchNotifier!,
-                onEditingComplete: _forceRemovePopup,
-                excludeItem: oldMention, // Exclude the item being edited
+                child: Material(
+                  elevation: 8,
+                  color: Colors.transparent,
+                  child: TagMentionBottomSheet(
+                    onItemSelected: (item) {
+                      // Remove old mention if we're replacing
+                      if (oldMention != null) {
+                        _mentions.remove(oldMention);
+                      }
+
+                      _insertTextAtCursor(item);
+                      final clean = item.substring(1);
+                      widget.onMentionAdded(clean);
+                      _mentions.add(clean); // ✅ Add to mention list
+                      _forceRemovePopup();
+                    },
+                    isTagMode: false,
+                    initialKeyword: keyword,
+                    searchNotifier: _searchNotifier!,
+                    onEditingComplete: _forceRemovePopup,
+                  ),
+                ),
               ),
             ),
           ),

@@ -21,7 +21,6 @@ class TagMentionBottomSheet extends StatefulWidget {
   final String initialKeyword;
   final ValueNotifier<String> searchNotifier;
   final VoidCallback? onEditingComplete;
-  final String? excludeItem; // Item being edited - should be excluded from list
 
   const TagMentionBottomSheet({
     super.key,
@@ -30,7 +29,6 @@ class TagMentionBottomSheet extends StatefulWidget {
     required this.searchNotifier,
     this.isTagMode = true,
     this.onEditingComplete,
-    this.excludeItem,
   });
 
   @override
@@ -47,7 +45,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     super.initState();
     controller = Get.put(TagMentionController(
       isTagMode: widget.isTagMode,
-      excludeItem: widget.excludeItem,
     ));
     controller.loadSavedItems();
 
