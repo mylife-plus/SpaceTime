@@ -302,13 +302,21 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               color: Colors.transparent,
               child: TagMentionBottomSheet(
                 onItemSelected: (item) {
+                  final clean = item.substring(1);
+
+                  // Check if trying to add the same tag that's being edited
+                  if (oldTag != null && clean.toLowerCase() == oldTag.toLowerCase()) {
+                    // Don't allow adding the same tag - just close popup
+                    _forceRemovePopup();
+                    return;
+                  }
+
                   // Remove old tag if we're replacing
                   if (oldTag != null) {
                     _tags.remove(oldTag);
                   }
 
                   _insertTextAtCursor(item);
-                  final clean = item.substring(1);
                   widget.onTagAdded(clean);
                   _tags.add(clean); // ✅ Add to tag list
                   _forceRemovePopup();
@@ -354,13 +362,21 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               color: Colors.transparent,
               child: TagMentionBottomSheet(
                 onItemSelected: (item) {
+                  final clean = item.substring(1);
+
+                  // Check if trying to add the same mention that's being edited
+                  if (oldMention != null && clean.toLowerCase() == oldMention.toLowerCase()) {
+                    // Don't allow adding the same mention - just close popup
+                    _forceRemovePopup();
+                    return;
+                  }
+
                   // Remove old mention if we're replacing
                   if (oldMention != null) {
                     _mentions.remove(oldMention);
                   }
 
                   _insertTextAtCursor(item);
-                  final clean = item.substring(1);
                   widget.onMentionAdded(clean);
                   _mentions.add(clean); // ✅ Add to mention list
                   _forceRemovePopup();
