@@ -799,6 +799,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       children: [
         Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
         Container(
+          height: 40, // Fixed height for proper vertical centering
           padding:  EdgeInsets.only(
             left: 12,
             right: 12,
@@ -847,12 +848,13 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                 )
               : InkWell(
                   onTap: () => _navigateToFullPicker(),
-                  child: Text(
-                    'See List',
-                    textAlign: TextAlign.center,
-                    style: AppFonts.medium(
-                      18,
-                      color: uiController.currentMainColor,
+                  child: Center(
+                    child: Text(
+                      'See List',
+                      style: AppFonts.medium(
+                        18,
+                        color: uiController.currentMainColor,
+                      ),
                     ),
                   ),
                 ),

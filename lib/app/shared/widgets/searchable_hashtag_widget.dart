@@ -731,6 +731,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
             }
           },
           child: Container(
+            height: 40, // Fixed height for proper vertical centering
             padding: EdgeInsets.only(
               left: 12,
               right: 12,
