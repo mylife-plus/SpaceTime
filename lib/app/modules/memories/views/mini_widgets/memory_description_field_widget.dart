@@ -300,6 +300,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 initialKeyword: keyword,
                 searchNotifier: _searchNotifier!,
                 onEditingComplete: _forceRemovePopup,
+                excludeItem: oldTag, // Exclude the item being edited
               ),
             ),
           ),
@@ -351,6 +352,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 initialKeyword: keyword,
                 searchNotifier: _searchNotifier!,
                 onEditingComplete: _forceRemovePopup,
+                excludeItem: oldMention, // Exclude the item being edited
               ),
             ),
           ),
@@ -436,7 +438,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
           TextSpan(
             text: word,
             style: isValidTag
-                ? defaultStyle.copyWith(color: Colors.blue)
+                ? defaultStyle.copyWith(color: Colors.green)
                 : defaultStyle, // Show as regular text if not selected
           ),
         );
@@ -449,7 +451,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
           TextSpan(
             text: word,
             style: isValidMention
-                ? defaultStyle.copyWith(color: Colors.green)
+                ? defaultStyle.copyWith(color: Colors.blue)
                 : defaultStyle, // Show as regular text if not selected
           ),
         );

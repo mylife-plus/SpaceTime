@@ -1033,8 +1033,9 @@ class TagMentionController extends GetxController {
   final RxString searchQuery = ''.obs;
 
   final bool isTagMode;
+  String? excludeItem; // Item to exclude from the list (being edited)
 
-  TagMentionController({required this.isTagMode});
+  TagMentionController({required this.isTagMode, this.excludeItem});
 
   @override
   void onInit() {
@@ -1154,18 +1155,28 @@ class TagMentionController extends GetxController {
   void filterItems(String query) {
     searchQuery.value = query;
 
+    List<Map<String, dynamic>> items;
+
     if (query.trim().isEmpty) {
       // Show all items when query is empty
-      filteredItems.value = List<Map<String, dynamic>>.from(allItems);
-      return;
+      items = List<Map<String, dynamic>>.from(allItems);
+    } else {
+      final queryLower = query.trim().toLowerCase();
+      items = allItems
+          .where((item) =>
+              item['name'].toString().toLowerCase().contains(queryLower) ||
+              item['parentName'].toString().toLowerCase().contains(queryLower))
+          .toList();
     }
 
-    final queryLower = query.trim().toLowerCase();
-    filteredItems.value = allItems
-        .where((item) =>
-            item['name'].toString().toLowerCase().contains(queryLower) ||
-            item['parentName'].toString().toLowerCase().contains(queryLower))
-        .toList();
+    // Exclude the item being edited if specified
+    if (excludeItem != null && excludeItem!.isNotEmpty) {
+      items = items.where((item) =>
+          item['name'].toString().toLowerCase() != excludeItem!.toLowerCase()
+      ).toList();
+    }
+
+    filteredItems.value = items;
   }
 
   Future<void> addNewItem(String value, Function(String) onItemSelected) async {
