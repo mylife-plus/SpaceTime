@@ -122,7 +122,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Select Emoji',
+                'Select Icon',
                 style: AppFonts.medium(18,
                   color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
@@ -215,7 +215,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         placeEmoji.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please select an emoji',
+        'Please select an icon',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
