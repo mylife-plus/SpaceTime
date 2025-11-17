@@ -32,6 +32,8 @@
 	<string>This app needs location access to show your current location on the map and provide location-based services.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs location access to show your current location on the map and provide location-based services.</string>
+	<key>NSLocationDefaultAccuracyReduced</key>
+	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs location access to show your current location on the map and provide location-based services.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -52,14 +54,10 @@
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<key>NSLocationDefaultAccuracyReduced</key>
-	<false/>
 </dict>
 </plist>

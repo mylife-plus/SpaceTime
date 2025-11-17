@@ -10,7 +10,6 @@ import 'package:spacetime/app/modules/memories/views/mini_widgets/category_picke
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/shared/widgets/add_place_category_popup.dart';
-import 'package:spacetime/app/shared/widgets/edit_place_category_popup.dart';
 
 /// Generic searchable category widget that can be used across the app
 ///
@@ -472,9 +471,9 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
   void _showEditCategoryPopup(PlaceCategory category) {
     debugPrint('[SearchableCategoryWidget] Showing edit category popup for: ${category.name}');
     Get.dialog(
-      EditPlaceCategoryPopup(
-        category: category,
-        onCategoryUpdated: (updatedCategory) async {
+      AddPlaceCategoryPopup(
+        editCategory: category,
+        onCategoryAdded: (updatedCategory) async {
           debugPrint('[SearchableCategoryWidget] Category updated: ${updatedCategory.emoji} ${updatedCategory.name}');
 
           // Update the category in SharedPreferences if it exists in recents
@@ -515,6 +514,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
           _focusNode.unfocus();
         },
       ),
+      barrierDismissible: false,
     );
   }
 

@@ -9,6 +9,7 @@ import 'package:spacetime/app/modules/memories/controllers/memory_controller.dar
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/models/place_category_model.dart';
+import 'package:spacetime/app/shared/widgets/add_place_category_popup.dart';
 
 class CategoryPickerWidget extends StatefulWidget {
   final Function(PlaceCategory)? onCategorySelected;
@@ -422,39 +423,50 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
   /// Toggle category selection for multiple selection mode
   void _toggleCategorySelection(PlaceCategory category) {
-    final isSelected = _selectedCategories.any((c) => c.id == category.id);
+    debugPrint(
+      '[CategoryPickerWidget][_toggleCategorySelection] Toggling: ${category.name} (isMainCategory: ${category.isMainCategory}, isSubcategory: ${category.isSubcategory})',
+    );
+
+    // Determine if the category is currently selected
+    bool isSelected;
+    if (category.isMainCategory && category.hasSubcategories) {
+      // For main categories, check if ALL subcategories are selected
+      isSelected = category.subcategories!.every(
+        (subcategory) => _selectedCategories.any((c) => c.id == subcategory.id)
+      );
+    } else {
+      // For subcategories, check if this specific category is selected
+      isSelected = _selectedCategories.any((c) => c.id == category.id);
+    }
+
+    debugPrint(
+      '[CategoryPickerWidget][_toggleCategorySelection] Current selection state: $isSelected',
+    );
 
     if (isSelected) {
       // Deselecting
-      _selectedCategories.removeWhere((c) => c.id == category.id);
-      debugPrint(
-        '[CategoryPickerWidget][_toggleCategorySelection] Removed: ${category.name}',
-      );
-
-      // If this is a main category, also remove all its subcategories
       if (category.isMainCategory && category.hasSubcategories) {
+        // If this is a main category, remove all its subcategories
         for (final subcategory in category.subcategories!) {
           _selectedCategories.removeWhere((c) => c.id == subcategory.id);
           debugPrint(
             '[CategoryPickerWidget][_toggleCategorySelection] Removed subcategory: ${subcategory.name}',
           );
         }
-      }
-
-      // If this is a subcategory, check if we should deselect the main category
-      if (category.isSubcategory) {
-        final mainCategory = _findMainCategoryForSubcategory(category);
-        if (mainCategory != null) {
-          _selectedCategories.removeWhere((c) => c.id == mainCategory.id);
-          debugPrint(
-            '[CategoryPickerWidget][_toggleCategorySelection] Removed main category: ${mainCategory.name} (subcategory was deselected)',
-          );
-        }
+        debugPrint(
+          '[CategoryPickerWidget][_toggleCategorySelection] Deselected main category: ${category.name} (removed all subcategories)',
+        );
+      } else {
+        // For subcategories, remove them directly
+        _selectedCategories.removeWhere((c) => c.id == category.id);
+        debugPrint(
+          '[CategoryPickerWidget][_toggleCategorySelection] Removed: ${category.name}',
+        );
       }
     } else {
       // Selecting
-      // If this is a main category, only add its subcategories (not the main category itself)
       if (category.isMainCategory && category.hasSubcategories) {
+        // If this is a main category, add all its subcategories (not the main category itself)
         for (final subcategory in category.subcategories!) {
           if (!_selectedCategories.any((c) => c.id == subcategory.id)) {
             _selectedCategories.add(subcategory);
@@ -479,7 +491,10 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     }
 
     debugPrint(
-      '[CategoryPickerWidget][_toggleCategorySelection] Total selected: ${_selectedCategories.length}',
+      '[CategoryPickerWidget][_toggleCategorySelection] Total selected after toggle: ${_selectedCategories.length}',
+    );
+    debugPrint(
+      '[CategoryPickerWidget][_toggleCategorySelection] Selected categories: ${_selectedCategories.map((c) => c.name).join(", ")}',
     );
   }
 
@@ -516,15 +531,24 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
   /// Handle done button press for multiple selection mode
   void _onDonePressed() {
+    // Filter to only return subcategories (not main categories)
+    final subcategoriesOnly = _selectedCategories.where((c) => c.isSubcategory).toList();
+
     debugPrint(
-      '[CategoryPickerWidget][_onDonePressed] Returning ${_selectedCategories.length} selected categories',
+      '[CategoryPickerWidget][_onDonePressed] Total in _selectedCategories: ${_selectedCategories.length}',
+    );
+    debugPrint(
+      '[CategoryPickerWidget][_onDonePressed] Returning ${subcategoriesOnly.length} subcategories only',
+    );
+    debugPrint(
+      '[CategoryPickerWidget][_onDonePressed] Subcategories: ${subcategoriesOnly.map((c) => c.name).join(", ")}',
     );
 
     if (widget.onMultipleCategoriesSelected != null) {
-      widget.onMultipleCategoriesSelected!(_selectedCategories.toList());
+      widget.onMultipleCategoriesSelected!(subcategoriesOnly);
     }
 
-    Get.back(result: _selectedCategories.toList());
+    Get.back(result: subcategoriesOnly);
   }
 
   /// Toggle expansion state of a main category
@@ -535,23 +559,28 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
   /// Start inline adding for a category
   void _startInlineAdding(int categoryId) {
-    // Check if category is already expanded
+    // Expand the category if not already expanded
     final isCurrentlyExpanded = _expandedCategories[categoryId] ?? false;
-
     if (!isCurrentlyExpanded) {
-      // If not expanded, use the controller to expand (this will trigger onExpansionChanged)
       final controller = _expansionControllers[categoryId];
       if (controller != null && !controller.isExpanded) {
-        // Set a flag to indicate we're expanding for adding mode
-        _pendingAddingMode[categoryId] = true;
         controller.expand();
       }
-    } else {
-      // If already expanded, just enable adding mode
-      _enableAddingMode(categoryId);
     }
 
-    debugPrint('[CategoryPickerWidget][_startInlineAdding] Started inline adding for category: $categoryId, expanded: ${_expandedCategories[categoryId]}, adding: ${_addingToCategory[categoryId]}');
+    // Show popup for adding subcategory
+    Get.dialog(
+      AddPlaceCategoryPopup(
+        parentCategoryId: categoryId,
+        isMainCategory: false,
+        onCategoryAdded: (category) async {
+          // Refresh categories from database
+          await _refreshCategoriesFromDatabase();
+          _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+        },
+      ),
+      barrierDismissible: false,
+    );
   }
 
   /// Helper method to enable adding mode
@@ -574,13 +603,18 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
   /// Start inline adding for main category
   void _startInlineAddingMainCategory() {
-    _addingMainCategory.value = true;
-    _mainCategoryNameController.clear();
-
-    // Auto-focus the text field after the widget is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // The focus will be handled by the TextField's autofocus property
-    });
+    // Show popup for adding main category
+    Get.dialog(
+      AddPlaceCategoryPopup(
+        isMainCategory: true,
+        onCategoryAdded: (category) async {
+          // Refresh categories from database
+          await _refreshCategoriesFromDatabase();
+          _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+        },
+      ),
+      barrierDismissible: false,
+    );
   }
 
   /// Cancel inline adding for main category
@@ -659,9 +693,18 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   void _startInlineEditing(PlaceCategory category) {
     if (category.id == null) return;
 
-    _editingCategory[category.id!] = true;
-    _editNameControllers[category.id!] = TextEditingController(text: category.name);
-    _editEmojiControllers[category.id!] = TextEditingController(text: category.emoji);
+    // Show popup for editing subcategory
+    Get.dialog(
+      AddPlaceCategoryPopup(
+        editCategory: category,
+        onCategoryAdded: (updatedCategory) async {
+          // Refresh categories from database
+          await _refreshCategoriesFromDatabase();
+          _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+        },
+      ),
+      barrierDismissible: false,
+    );
   }
 
   /// Cancel inline editing
@@ -687,7 +730,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (name.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please enter a Places name',
+        'Please enter a Place category',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -697,7 +740,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (emoji.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please select an emoji',
+        'Please select an icon',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -881,7 +924,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (emoji.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please select an emoji',
+        'Please select an icon',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -962,7 +1005,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (name.isEmpty || emoji.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please enter both name and emoji',
+        'Please enter both name and icon',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -1024,225 +1067,26 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     }
   }
 
-  /// Show edit category dialog - now uses inline editing style
+  /// Show edit category dialog - now uses AddPlaceCategoryPopup
   void _showEditCategoryDialog(PlaceCategory category) {
     // Allow editing of all categories (both custom and predefined)
     debugPrint(
-      '[CategoryPickerWidget][_showEditCategoryDialog] Opening inline edit for: ${category.name} (${category.isCustom ? 'Custom' : 'Predefined'})',
+      '[CategoryPickerWidget][_showEditCategoryDialog] Opening edit popup for: ${category.name} (${category.isCustom ? 'Custom' : 'Predefined'})',
     );
 
-    final uiController = Get.find<UiController>();
-    final nameController = TextEditingController(text: category.name);
-    final emojiController = TextEditingController(text: category.emoji);
-    final focusNode = FocusNode();
-
-    // Auto-focus the text field after dialog is shown
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      focusNode.requestFocus();
-    });
-
+    // Show popup for editing category
     Get.dialog(
-      Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: uiController.darkMode.value
-                ? Colors.grey[900]
-                : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Emoji picker button
-              StatefulBuilder(
-                builder: (context, setEmojiState) {
-                  return Container(
-                    width: 0,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,  // Always white background
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Container()
-                  );
-                },
-              ),
-              // const SizedBox(width: 12),
-              // Text input field
-              Expanded(
-                child: Theme(
-                  data: Theme.of(context).copyWith(
-                    textSelectionTheme: TextSelectionThemeData(
-                      cursorColor: uiController.currentMainColor,
-                      selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
-                      selectionHandleColor: uiController.currentMainColor,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: nameController,
-                    focusNode: focusNode,
-                    autofocus: true,
-                    cursorColor: uiController.currentMainColor,
-                    style: gfonts.GoogleFonts.kumbhSans(
-                      color: uiController.darkMode.value ? Colors.white : Colors.black,
-                      fontSize: 14,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Places Name',
-                      hintStyle: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey[500],
-                        fontSize: 14,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Cancel button (red cross)
-              GestureDetector(
-                onTap: () => Get.back(),
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  child: ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      Colors.red,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.asset(
-                      'assets/images/ic_cross.png',
-                      width: 10,
-                      height: 10,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Save button (green tick)
-              GestureDetector(
-                onTap: () async {
-                  final name = nameController.text.trim();
-                  final emoji = emojiController.text.trim();
+      AddPlaceCategoryPopup(
+        editCategory: category,
+        onCategoryAdded: (updatedCategory) async {
+          // Refresh categories from database to show the updated category
+          await _refreshCategoriesFromDatabase();
 
-                  // Validate that both name and emoji are provided
-                  if (name.isEmpty) {
-                    Get.snackbar(
-                      'Validation Error',
-                      'Please enter a Places name',
-                      backgroundColor: Colors.orange,
-                      colorText: Colors.white,
-                    );
-                    return;
-                  }
-
-                  if (emoji.isEmpty) {
-                    Get.snackbar(
-                      'Validation Error',
-                      'Please select an emoji',
-                      backgroundColor: Colors.orange,
-                      colorText: Colors.white,
-                    );
-                    return;
-                  }
-
-                  try {
-                    debugPrint('[CategoryPickerWidget][EditDialog] Updating: $name ($emoji)');
-
-                    final success = await _categoryService.updateCategory(
-                      categoryId: category.id!,
-                      name: name,
-                      emoji: emoji,
-                    );
-
-                    if (success) {
-                      Get.back(); // Close dialog
-
-                      // Refresh categories from database to show the updated category
-                      await _refreshCategoriesFromDatabase();
-
-                      // Also trigger global refresh for any other category pickers that might be open
-                      _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
-
-                      Get.snackbar(
-                        'Success',
-                        'Place "$name" updated successfully!',
-                        backgroundColor: Colors.green,
-                        colorText: Colors.white,
-                      );
-                    } else {
-                      Get.snackbar(
-                        'Error',
-                        'Failed to update Place',
-                        backgroundColor: Colors.red,
-                        colorText: Colors.white,
-                      );
-                    }
-                  } catch (e) {
-                    debugPrint('[CategoryPickerWidget][EditDialog] Error: $e');
-                    if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
-                      final message = category.parentId == null
-                          ? 'Place Group with this name already exists.'
-                          : 'Place with this name already exists.';
-                      Get.snackbar(
-                        'Duplicate ${category.parentId == null ? 'Place Group' : 'Place'}',
-                        message,
-                        backgroundColor: Colors.orange,
-                        colorText: Colors.white,
-                      );
-                    } else if (e.toString().contains('MAIN_CATEGORY_CONFLICTS_WITH_SUBCATEGORY')) {
-                      Get.snackbar(
-                        'Name Conflict',
-                        'This name is already used by a Place in another Place Group.',
-                        backgroundColor: Colors.orange,
-                        colorText: Colors.white,
-                      );
-                    } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
-                      Get.snackbar(
-                        'Name Conflict',
-                        'This name is already used by the Place Group.',
-                        backgroundColor: Colors.orange,
-                        colorText: Colors.white,
-                      );
-                    } else {
-                      Get.snackbar(
-                        'Error',
-                        'Failed to update ${category.parentId == null ? 'Place Group' : 'Place'}: $e',
-                        backgroundColor: Colors.red,
-                        colorText: Colors.white,
-                      );
-                    }
-                  }
-                },
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  child: Image.asset(
-                    'assets/images/ic_tick.png',
-                    width: 10,
-                    height: 10,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+          // Also trigger global refresh for any other category pickers that might be open
+          _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+        },
       ),
+      barrierDismissible: false,
     );
   }
 
@@ -1255,7 +1099,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (name.isEmpty || emoji.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please enter both name and emoji',
+        'Please enter both name and icon',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -1929,14 +1773,16 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             // Selection indicator when in filter mode
             if (widget.allowMultipleSelection)
               Obx(() {
+                // Count only subcategories (exclude main categories)
+                final subcategoryCount = _selectedCategories.where((c) => c.isSubcategory).length;
                 return Center(
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
-                      _selectedCategories.isEmpty
+                      subcategoryCount == 0
                           ? '0 selected'
-                          : '${_selectedCategories.length} ${_selectedCategories.length == 1 ? 'Place' : 'Places'} selected',
+                          : '$subcategoryCount ${subcategoryCount == 1 ? 'Place' : 'Places'} selected',
                       textAlign: TextAlign.center,
                       style: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.currentMainColor,
@@ -1948,10 +1794,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                 );
               }),
 
-            // Inline add main category widget
-            Obx(() => _addingMainCategory.value
-                ? _buildInlineAddMainCategoryWidget()
-                : const SizedBox.shrink()),
+            // Inline add main category widget (removed - now using popup)
 
             // Search Field
             // Container(
@@ -2180,16 +2023,26 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       );
     }
 
-    return Container(
-      // color:
-      child: ListView.builder(
-        itemCount: _mainCategories.length,
-        itemBuilder: (context, index) {
-          final mainCategory = _mainCategories[index];
-          return _buildMainCategoryExpansionTile(mainCategory);
-        },
-      ),
-    );
+    return Obx(() {
+      // Check if any category is expanded
+      final hasExpandedCategory = _expandedCategories.values.any((expanded) => expanded == true);
+
+      return Container(
+        // color:
+        child: ListView.builder(
+          itemCount: _mainCategories.length + (hasExpandedCategory ? 1 : 0),
+          itemBuilder: (context, index) {
+            // Add spacing at the end if any category is expanded
+            if (index == _mainCategories.length) {
+              return const SizedBox(height: 15);
+            }
+
+            final mainCategory = _mainCategories[index];
+            return _buildMainCategoryExpansionTile(mainCategory);
+          },
+        ),
+      );
+    });
   }
 
   /// Build inline add widget for main categories
@@ -2225,7 +2078,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Places Name',
+                  hintText: 'Place Category',
                   hintStyle: gfonts.GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value
                         ? Colors.white.withValues(alpha: 0.6)
@@ -2799,10 +2652,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             ),
             // Subcategories section (outside the grey container)
             if (isExpanded) ...[
-              // Inline adding widget at index 0
-              Obx(() => (_addingToCategory[mainCategory.id] ?? false)
-                  ? _buildInlineAddWidget(mainCategory.id!)
-                  : const SizedBox.shrink()),
+              // Inline adding widget at index 0 (removed - now using popup)
               if (mainCategory.hasSubcategories) ...[
                 ...mainCategory.subcategories!.asMap().entries.map(
                   (entry) {
@@ -2813,9 +2663,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     return Column(
                       children: [
                         _buildCategoryTile(subCategory, isSubcategory: true),
-                        // Add bottom padding after last subcategory when in filter mode
-                        if (isLast && widget.allowMultipleSelection)
-                          const SizedBox(height: 8),
+                        // Add bottom padding after last subcategory
+                        if (isLast)
+                          const SizedBox(height: 10),
                       ],
                     );
                   },
@@ -2837,13 +2687,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     final uiController = Get.find<UiController>();
 
     return Obx(() {
-      // Check if this category is being edited inline
-      final isBeingEdited = _editingCategory[category.id] ?? false;
-
-      // If being edited, show the inline edit widget instead
-      if (isBeingEdited && category.id != null) {
-        return _buildInlineEditWidget(category.id!);
-      }
+      // Inline editing removed - now using popup
 
       final bool isSelected;
       if (widget.allowMultipleSelection) {

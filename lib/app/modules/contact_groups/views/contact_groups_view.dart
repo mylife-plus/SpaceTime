@@ -8,6 +8,7 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/contact_group_service.dart';
 import 'package:spacetime/app/models/contact_group_model.dart';
 import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
+import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
 import '../../../config/app_text.dart';
 
 class ContactGroupsView extends StatefulWidget {
@@ -552,192 +553,72 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     );
   }
 
-  /// Show edit contact group dialog - matches category picker styling
+  /// Show edit contact group dialog using AddEditGroupPopup
   void _showEditContactGroupDialog(ContactGroup contactGroup) {
-    debugPrint(
-      '[ContactGroupsView][_showEditContactGroupDialog] ===== EDIT DIALOG OPENED =====',
-    );
-    debugPrint(
-      '[ContactGroupsView][_showEditContactGroupDialog] Contact Group Details:',
-    );
-    debugPrint('  - ID: ${contactGroup.id}');
-    debugPrint('  - Name: "${contactGroup.name}"');
-    debugPrint('  - Parent ID: ${contactGroup.parentId}');
-    debugPrint('  - Is Custom: ${contactGroup.isCustom}');
-    debugPrint('  - Is Subgroup: ${contactGroup.isSubgroup}');
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AddEditGroupPopup(
+          isHashtagMode: false,
+          isMainGroup: contactGroup.parentId == null,
+          initialName: contactGroup.name,
+          editItemId: contactGroup.id,
+          parentId: contactGroup.parentId,
+          onSave: (newName, parentId) async {
+            // Validate that name is provided
+            if (newName.isEmpty) {
+              Get.snackbar(
+                'Validation Error',
+                'Please enter a contact group name',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
 
-    final uiController = Get.find<UiController>();
-    final nameController = TextEditingController(text: contactGroup.name);
-    final focusNode = FocusNode();
+            if (newName == contactGroup.name) {
+              // No changes, just close
+              Navigator.of(context).pop();
+              return;
+            }
 
-    // Auto-focus the text field after dialog is shown
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      focusNode.requestFocus();
-    });
+            try {
+              final success = await _contactGroupService.updateGroup(
+                contactGroup.id!,
+                newName,
+              );
 
-    Get.dialog(
-      Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 10),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: uiController.darkMode.value
-                ? Colors.grey[900]
-                : Colors.white,
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Text input field
-              Expanded(
-                child: Theme(
-                  data: Theme.of(context).copyWith(
-                    textSelectionTheme: TextSelectionThemeData(
-                      cursorColor: uiController.currentMainColor,
-                      selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
-                      selectionHandleColor: uiController.currentMainColor,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: nameController,
-                    focusNode: focusNode,
-                    autofocus: true,
-                    cursorColor: uiController.currentMainColor,
-                    style: gfonts.GoogleFonts.kumbhSans(
-                      color: uiController.darkMode.value ? Colors.white : Colors.black,
-                      fontSize: 14,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Contact Group Name',
-                      hintStyle: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey[500],
-                        fontSize: 14,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Cancel button (red cross)
-              GestureDetector(
-                onTap: () => Get.back(),
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  child: ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      Colors.red,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.asset(
-                      'assets/images/ic_cross.png',
-                      width: 10,
-                      height: 10,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Save button (green tick)
-              GestureDetector(
-                onTap: () async {
-                  debugPrint('[ContactGroupsView][EditDialog] ===== SAVE BUTTON PRESSED =====');
-                  final name = nameController.text.trim();
-                  debugPrint('[ContactGroupsView][EditDialog] Original name: "${contactGroup.name}"');
-                  debugPrint('[ContactGroupsView][EditDialog] New name: "$name"');
+              if (success) {
+                Navigator.of(context).pop(); // Close dialog
+                await _refreshContactGroupsFromDatabase();
 
-                  // Validate that name is provided
-                  if (name.isEmpty) {
-                    debugPrint('[ContactGroupsView][EditDialog] ❌ Validation failed: Empty name');
-                    Get.snackbar(
-                      'Validation Error',
-                      'Please enter a contact group name',
-                      backgroundColor: Colors.orange,
-                      colorText: Colors.white,
-                    );
-                    return;
-                  }
-
-                  if (name == contactGroup.name) {
-                    debugPrint('[ContactGroupsView][EditDialog] ⚠️ No changes detected, closing dialog');
-                    Get.back();
-                    return;
-                  }
-
-                  try {
-                    debugPrint('[ContactGroupsView][EditDialog] 🔄 Starting update process...');
-                    debugPrint('[ContactGroupsView][EditDialog] Calling updateGroup with:');
-                    debugPrint('  - Group ID: ${contactGroup.id}');
-                    debugPrint('  - New Name: "$name"');
-
-                    final success = await _contactGroupService.updateGroup(
-                      contactGroup.id!,
-                      name,
-                    );
-
-                    debugPrint('[ContactGroupsView][EditDialog] Update result: $success');
-
-                    if (success) {
-                      debugPrint('[ContactGroupsView][EditDialog] ✅ Update successful, closing dialog');
-                      Get.back(); // Close dialog
-
-                      debugPrint('[ContactGroupsView][EditDialog] 🔄 Refreshing contact groups from database');
-                      await _refreshContactGroupsFromDatabase();
-
-                      debugPrint('[ContactGroupsView][EditDialog] ✅ Showing success message');
-                      Get.snackbar(
-                        'Success',
-                        'Contact group "$name" updated successfully!',
-                        backgroundColor: Colors.green,
-                        colorText: Colors.white,
-                      );
-                    } else {
-                      debugPrint('[ContactGroupsView][EditDialog] ❌ Update failed: Service returned false');
-                      Get.snackbar(
-                        'Unable to Update',
-                        'Unable to update contact group. Please try again.',
-                        backgroundColor: Colors.red,
-                        colorText: Colors.white,
-                      );
-                    }
-                  } catch (e) {
-                    debugPrint('[ContactGroupsView][EditDialog] ❌ Exception occurred: $e');
-                    debugPrint('[ContactGroupsView][EditDialog] Exception type: ${e.runtimeType}');
-                    Get.snackbar(
-                      'Unable to Update',
-                      'Unable to update contact group. Please try again.',
-                      backgroundColor: Colors.red,
-                      colorText: Colors.white,
-                    );
-                  }
-                },
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  child: Image.asset(
-                    'assets/images/ic_tick.png',
-                    width: 10,
-                    height: 10,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+                Get.snackbar(
+                  'Success',
+                  'Contact group "$newName" updated successfully!',
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                );
+              } else {
+                Get.snackbar(
+                  'Unable to Update',
+                  'Unable to update contact group. Please try again.',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+              }
+            } catch (e) {
+              debugPrint('[ContactGroupsView][EditDialog] Exception occurred: $e');
+              Get.snackbar(
+                'Unable to Update',
+                'Unable to update contact group. Please try again.',
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+            }
+          },
+        );
+      },
     );
   }
 
@@ -850,39 +731,50 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
   /// Toggle contact group selection for multiple selection mode
   void _toggleContactGroupSelection(ContactGroup contactGroup) {
-    final isSelected = _selectedContactGroups.any((g) => g.id == contactGroup.id);
+    debugPrint(
+      '[ContactGroupsView][_toggleContactGroupSelection] Toggling: ${contactGroup.name} (isMainGroup: ${contactGroup.isMainGroup}, isSubgroup: ${contactGroup.isSubgroup})',
+    );
+
+    // Determine if the group is currently selected
+    bool isSelected;
+    if (contactGroup.isMainGroup && contactGroup.hasSubgroups) {
+      // For main groups, check if ALL subgroups are selected
+      isSelected = contactGroup.subgroups!.every(
+        (subgroup) => _selectedContactGroups.any((g) => g.id == subgroup.id)
+      );
+    } else {
+      // For subgroups, check if this specific group is selected
+      isSelected = _selectedContactGroups.any((g) => g.id == contactGroup.id);
+    }
+
+    debugPrint(
+      '[ContactGroupsView][_toggleContactGroupSelection] Current selection state: $isSelected',
+    );
 
     if (isSelected) {
       // Deselecting
-      _selectedContactGroups.removeWhere((g) => g.id == contactGroup.id);
-      debugPrint(
-        '[ContactGroupsView][_toggleContactGroupSelection] Removed: ${contactGroup.name}',
-      );
-
-      // If this is a main group, also remove all its subgroups
       if (contactGroup.isMainGroup && contactGroup.hasSubgroups) {
+        // If this is a main group, remove all its subgroups
         for (final subgroup in contactGroup.subgroups!) {
           _selectedContactGroups.removeWhere((g) => g.id == subgroup.id);
           debugPrint(
             '[ContactGroupsView][_toggleContactGroupSelection] Removed subgroup: ${subgroup.name}',
           );
         }
-      }
-
-      // If this is a subgroup, check if we should deselect the main group
-      if (contactGroup.isSubgroup) {
-        final mainGroup = _findMainGroupForSubgroup(contactGroup);
-        if (mainGroup != null) {
-          _selectedContactGroups.removeWhere((g) => g.id == mainGroup.id);
-          debugPrint(
-            '[ContactGroupsView][_toggleContactGroupSelection] Removed main group: ${mainGroup.name} (subgroup was deselected)',
-          );
-        }
+        debugPrint(
+          '[ContactGroupsView][_toggleContactGroupSelection] Deselected main group: ${contactGroup.name} (removed all subgroups)',
+        );
+      } else {
+        // For subgroups, remove them directly
+        _selectedContactGroups.removeWhere((g) => g.id == contactGroup.id);
+        debugPrint(
+          '[ContactGroupsView][_toggleContactGroupSelection] Removed: ${contactGroup.name}',
+        );
       }
     } else {
       // Selecting
-      // If this is a main group, only add its subgroups (not the main group itself)
       if (contactGroup.isMainGroup && contactGroup.hasSubgroups) {
+        // If this is a main group, add all its subgroups (not the main group itself)
         for (final subgroup in contactGroup.subgroups!) {
           if (!_selectedContactGroups.any((g) => g.id == subgroup.id)) {
             _selectedContactGroups.add(subgroup);
@@ -961,24 +853,83 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         !(_expandedContactGroups[contactGroupId] ?? false);
   }
 
-  /// Start inline adding for a contact group
+  /// Show popup for adding subgroup to a contact group
   void _startInlineAdding(int contactGroupId) {
-    final isCurrentlyExpanded = _expandedContactGroups[contactGroupId] ?? false;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AddEditGroupPopup(
+          isHashtagMode: false,
+          isMainGroup: false,
+          parentId: contactGroupId,
+          onSave: (name, parentId) async {
+            // Use the existing save logic
+            if (name.isEmpty) {
+              Get.snackbar(
+                'Invalid Name',
+                'Contact name cannot be empty',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
 
-    if (!isCurrentlyExpanded) {
-      // If not expanded, use the controller to expand (this will trigger onExpansionChanged)
-      final controller = _expansionControllers[contactGroupId];
-      if (controller != null && !controller.isExpanded) {
-        // Set a flag to indicate we're expanding for adding mode
-        _pendingAddingMode[contactGroupId] = true;
-        controller.expand();
-      }
-    } else {
-      // If already expanded, just enable adding mode
-      _enableAddingMode(contactGroupId);
-    }
+            try {
+              final newSubgroup = await _contactGroupService.addCustomGroup(
+                name,
+                parentId: contactGroupId,
+              );
 
-    debugPrint('[ContactGroupsView][_startInlineAdding] Started inline adding for contact group: $contactGroupId, controller expanded: ${_expansionControllers[contactGroupId]?.isExpanded}, tracked expanded: ${_expandedContactGroups[contactGroupId]}, adding: ${_addingToContactGroup[contactGroupId]}');
+              if (newSubgroup == null) {
+                Get.snackbar(
+                  'Unable to Add',
+                  'Unable to add contact. Please try again.',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+                return;
+              } else if (newSubgroup.id == -1) {
+                // Duplicate subgroup contact name
+                Get.snackbar(
+                  'Duplicate Contact',
+                  'Contact with this name already exists.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+                return;
+              } else if (newSubgroup.id == -4) {
+                // Subgroup name conflicts with parent group
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by the parent group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+                return;
+              }
+
+              await _refreshContactGroupsFromDatabase();
+
+              Get.snackbar(
+                'Success',
+                'Contact added successfully',
+                backgroundColor: Colors.green,
+                colorText: Colors.white,
+              );
+            } catch (e) {
+              debugPrint('[ContactGroupsView] Error adding subgroup: $e');
+              Get.snackbar(
+                'Unable to Add',
+                'Unable to add contact. Please try again.',
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+            }
+          },
+        );
+      },
+    );
   }
 
   /// Force expansion state and trigger UI rebuild
@@ -1256,7 +1207,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       children: [
                         Center(
                           child: Text(
-                            '${_selectedContactGroups.length} selected',
+                            '${_selectedContactGroups.where((g) => g.isSubgroup).length} selected',
                             style: gfonts.GoogleFonts.kumbhSans(
                               color: uiController.currentMainColor,
                               fontSize: 16,
@@ -1304,38 +1255,46 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   Widget _buildHierarchicalContactGroups() {
     final uiController = Get.find<UiController>();
 
-    return ListView(
-      children: [
-        // Inline add widget for main contact groups (at the top)
-        Obx(() => _addingMainContactGroup.value
-            ? _buildInlineAddMainContactGroupWidget()
-            : const SizedBox.shrink()),
+    return Obx(() {
+      // Check if any contact group is expanded
+      final hasExpandedGroup = _expandedContactGroups.values.any((expanded) => expanded == true);
 
-        // Show empty state message if no groups and not adding
-        if (_mainContactGroups.isEmpty)
-          Obx(() => !_addingMainContactGroup.value
-              ? Container(
-                  padding: const EdgeInsets.all(40),
-                  child: Center(
-                    child: Text(
-                      'No contact groups found.\nTap + to add a new group.',
-                      textAlign: TextAlign.center,
-                      style: gfonts.GoogleFonts.kumbhSans(
-                        fontSize: 16,
-                        color: uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.6)
-                            : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                )
+      return ListView(
+        children: [
+          // Inline add widget for main contact groups (at the top)
+          Obx(() => _addingMainContactGroup.value
+              ? _buildInlineAddMainContactGroupWidget()
               : const SizedBox.shrink()),
 
-        // Main contact groups
-        ..._mainContactGroups.map((mainContactGroup) =>
-            _buildMainContactGroupExpansionTile(mainContactGroup)),
-      ],
-    );
+          // Show empty state message if no groups and not adding
+          if (_mainContactGroups.isEmpty)
+            Obx(() => !_addingMainContactGroup.value
+                ? Container(
+                    padding: const EdgeInsets.all(40),
+                    child: Center(
+                      child: Text(
+                        'No contact groups found.\nTap + to add a new group.',
+                        textAlign: TextAlign.center,
+                        style: gfonts.GoogleFonts.kumbhSans(
+                          fontSize: 16,
+                          color: uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink()),
+
+          // Main contact groups
+          ..._mainContactGroups.map((mainContactGroup) =>
+              _buildMainContactGroupExpansionTile(mainContactGroup)),
+
+          // Add spacing at the end if any group is expanded
+          if (hasExpandedGroup) const SizedBox(height: 15),
+        ],
+      );
+    });
   }
 
   /// Build main contact group expansion tile
@@ -1869,10 +1828,83 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     );
   }
 
-  /// Start inline editing for a subgroup
+  /// Show popup for editing a subgroup
   void _startInlineEditing(ContactGroup contactGroup) {
-    _editingContactGroup[contactGroup.id!] = true;
-    _editNameControllers[contactGroup.id!] = TextEditingController(text: contactGroup.name);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AddEditGroupPopup(
+          isHashtagMode: false,
+          isMainGroup: contactGroup.parentId == null,
+          initialName: contactGroup.name,
+          editItemId: contactGroup.id,
+          parentId: contactGroup.parentId,
+          onSave: (newName, parentId) async {
+            // Use the existing save logic
+            if (newName.isEmpty) {
+              Get.snackbar(
+                'Invalid Name',
+                'Contact group name cannot be empty',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
+
+            try {
+              await _contactGroupService.updateGroup(contactGroup.id!, newName);
+
+              // Update in recents if it exists
+              await SearchableContactWidget.updateContactGroupInRecents(contactGroup.id!, newName);
+
+              await _refreshContactGroupsFromDatabase();
+
+              Get.snackbar(
+                'Success',
+                'Contact updated successfully',
+                backgroundColor: Colors.green,
+                colorText: Colors.white,
+              );
+            } catch (e) {
+              debugPrint('[ContactGroupsView] Error updating contact group: $e');
+              if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
+                final message = contactGroup.parentId == null
+                    ? 'Contact Group with this name already exists.'
+                    : 'Contact with this name already exists.';
+                Get.snackbar(
+                  'Duplicate Contact',
+                  message,
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by a contact in another group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by the parent group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              } else {
+                Get.snackbar(
+                  'Unable to Update',
+                  'Unable to update contact group. Please try again.',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+              }
+            }
+          },
+        );
+      },
+    );
   }
 
   /// Build inline edit widget
@@ -2064,15 +2096,79 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     _editNameControllers.remove(contactGroupId);
   }
 
-  /// Start inline adding for main contact group
+  /// Show popup for adding main contact group
   void _startInlineAddingMainContactGroup() {
-    _addingMainContactGroup.value = true;
-    _mainContactGroupNameController.clear();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AddEditGroupPopup(
+          isHashtagMode: false,
+          isMainGroup: true,
+          onSave: (name, parentId) async {
+            // Use the existing save logic
+            if (name.isEmpty) {
+              Get.snackbar(
+                'Invalid Name',
+                'Contact group name cannot be empty',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
 
-    // Auto-focus the text field after the widget is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // The focus will be handled by the TextField's autofocus property
-    });
+            try {
+              final newGroup = await _contactGroupService.addCustomGroup(name);
+
+              if (newGroup == null) {
+                Get.snackbar(
+                  'Unable to Add',
+                  'Unable to add contact group. Please try again.',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+                return;
+              } else if (newGroup.id == -1) {
+                // Duplicate main contact group name
+                Get.snackbar(
+                  'Duplicate Contact',
+                  'Contact Group with this name already exists.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+                return;
+              } else if (newGroup.id == -3) {
+                // Main group name conflicts with existing subgroup
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by a contact in another group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+                return;
+              }
+
+              await _refreshContactGroupsFromDatabase();
+
+              Get.snackbar(
+                'Success',
+                'Contact group "$name" added successfully!',
+                backgroundColor: Colors.green,
+                colorText: Colors.white,
+              );
+            } catch (e) {
+              debugPrint('[ContactGroupsView] Error adding main contact group: $e');
+              Get.snackbar(
+                'Unable to Add',
+                'Unable to add contact group. Please try again.',
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+            }
+          },
+        );
+      },
+    );
   }
 
   /// Cancel inline adding for main contact group

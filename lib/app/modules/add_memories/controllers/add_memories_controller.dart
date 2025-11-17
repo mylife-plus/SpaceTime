@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../../services/memory_clustering_service.dart';
 import '../../../services/memory_db.dart';
 import '../../memories/controllers/memory_controller.dart';
@@ -203,7 +204,7 @@ class AddMemoriesController extends GetxController {
       final transformedMemories = <Map<String, dynamic>>[];
       for (final memory in memories) {
         try {
-          final transformed = transformDatabaseMemoryToUI(memory);
+          final transformed = await transformDatabaseMemoryToUI(memory);
           transformedMemories.add(transformed);
           debugPrint(
             'Transformed memory: ${transformed['date']} - ${transformed['location']}',
@@ -326,9 +327,9 @@ class AddMemoriesController extends GetxController {
   }
 
   // Transform database memory to UI format
-  Map<String, dynamic> transformDatabaseMemoryToUI(
+  Future<Map<String, dynamic>> transformDatabaseMemoryToUI(
     Map<String, dynamic> dbMemory,
-  ) {
+  ) async {
     final createdAt = DateTime.tryParse(dbMemory['created_at'] ?? '');
     final date = _formatDate(dbMemory['date'], dbMemory['created_at']);
     final year = _formatYear(dbMemory['date'], dbMemory['created_at']);
@@ -338,15 +339,17 @@ class AddMemoriesController extends GetxController {
     List<String>? displayImages;
     if (imagesList != null && imagesList.isNotEmpty) {
       // Check if images are file paths or base64
-      displayImages =
-          imagesList.map((image) {
-            if (_isFilePath(image)) {
-              return image; // Keep file path as is
-            } else {
-              // Legacy base64 - convert to file if needed
-              return image; // For now, keep base64 for backward compatibility
-            }
-          }).toList();
+      displayImages = await Future.wait(
+        imagesList.map((image) async {
+          if (_isFilePath(image)) {
+            // Convert relative path to absolute path
+            return await _getAbsolutePath(image);
+          } else {
+            // Legacy base64 - keep as is
+            return image;
+          }
+        }),
+      );
     }
 
     // Get audio data from the new 'audios' field (loaded from separate table)
@@ -356,10 +359,13 @@ class AddMemoriesController extends GetxController {
     if (audiosList != null && audiosList.isNotEmpty) {
       audioDurations =
           audiosList.map((audio) => audio['audio_duration'] as String).toList();
-      audioPaths =
-          audiosList
-              .map((audio) => audio['audio_file_path'] as String)
-              .toList();
+      // Convert relative paths to absolute paths
+      audioPaths = await Future.wait(
+        audiosList.map((audio) async {
+          final relativePath = audio['audio_file_path'] as String;
+          return await _getAbsolutePath(relativePath);
+        }),
+      );
     } else {
       // Fallback to old method for backward compatibility
       audioPaths = _databaseHelper.getAudioPathsFromMemory(dbMemory);
@@ -367,6 +373,48 @@ class AddMemoriesController extends GetxController {
         audioDurations =
             audioPaths.map((path) => _extractDurationFromPath(path)).toList();
       }
+    }
+
+    // Get video data from the new 'videos' field (loaded from separate table)
+    final videosRaw = dbMemory['videos'];
+    debugPrint('🎥 Videos raw from DB (type: ${videosRaw.runtimeType}): $videosRaw');
+
+    List<Map<String, dynamic>>? videosList;
+    if (videosRaw is List) {
+      videosList = videosRaw.cast<Map<String, dynamic>>();
+    }
+
+    debugPrint('🎥 Videos list from DB: $videosList');
+    List<String>? videoPaths;
+    List<String>? videoThumbnails;
+    List<String>? videoDurations;
+    if (videosList != null && videosList.isNotEmpty) {
+      debugPrint('🎥 Processing ${videosList.length} videos');
+      debugPrint('🎥 First video data: ${videosList.first}');
+
+      // Convert relative paths to absolute paths
+      videoPaths = await Future.wait(
+        videosList.map((video) async {
+          debugPrint('🎥 Video map keys: ${video.keys}');
+          final relativePath = video['video_file_path'] as String;
+          final absolutePath = await _getAbsolutePath(relativePath);
+          debugPrint('🎥 Converting video path: $relativePath -> $absolutePath');
+          return absolutePath;
+        }),
+      );
+      videoThumbnails =
+          videosList
+              .map((video) => (video['video_thumbnail_path'] as String?) ?? '')
+              .toList();
+      videoDurations =
+          videosList
+              .map((video) => (video['video_duration'] as String?) ?? '')
+              .toList();
+      debugPrint('🎥 Final video paths (absolute): $videoPaths');
+      debugPrint('🎥 Video thumbnails: $videoThumbnails');
+      debugPrint('🎥 Video durations: $videoDurations');
+    } else {
+      debugPrint('🎥 No videos found in database for this memory (videosList is ${videosList == null ? "null" : "empty"})');
     }
 
     // Format location coordinates
@@ -391,7 +439,7 @@ class AddMemoriesController extends GetxController {
       displayLocation = locationAddress;
     }
 
-    return {
+    final result = {
       'id': dbMemory['id'],
       'year': year,
       'date': date,
@@ -412,19 +460,38 @@ class AddMemoriesController extends GetxController {
       'audioDurations': audioDurations,
       'base64Images': imagesList, // Use the images from separate table
       'audioPaths': audioPaths,
+      'videoPaths': videoPaths,
+      'videoThumbnails': videoThumbnails,
+      'videoDurations': videoDurations,
       'created_at': dbMemory['created_at'],
     };
+
+    debugPrint('🎯 Transformed memory ${result['id']}: videoPaths=${result['videoPaths']}, images=${result['assetsImg']?.length}');
+
+    return result;
   }
 
   // Helper method to check if string is a file path
   bool _isFilePath(String str) {
+    // Check for relative paths (memory_images/, memory_videos/, memory_audios/)
+    if (str.startsWith('memory_images/') ||
+        str.startsWith('memory_videos/') ||
+        str.startsWith('memory_audios/') ||
+        str.startsWith('audio_files/')) {
+      return true;
+    }
+
+    // Check for absolute paths or file extensions
     return str.startsWith('/') ||
         str.contains('\\') ||
         str.contains('.jpg') ||
         str.contains('.jpeg') ||
         str.contains('.png') ||
         str.contains('.gif') ||
-        str.contains('.webp');
+        str.contains('.webp') ||
+        str.contains('.mov') ||
+        str.contains('.mp4') ||
+        str.contains('.m4a');
   }
 
   // Format date for display
@@ -480,6 +547,17 @@ class AddMemoriesController extends GetxController {
     }
 
     return 'Unknown Date';
+  }
+
+  // Convert relative path to absolute path
+  Future<String> _getAbsolutePath(String path) async {
+    // If already absolute path, return as is
+    if (path.startsWith('/')) {
+      return path;
+    }
+
+    final appDir = await getApplicationDocumentsDirectory();
+    return '${appDir.path}/$path';
   }
 
   String _formatYear(String? dbDate, String? createdAt) {

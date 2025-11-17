@@ -7,6 +7,8 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/audio_duration_list.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/image_viewer_screen.dart';
 import 'package:spacetime/app/modules/memories/views/memory_view.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/video_player_screen.dart';
 
 import '../../../../config/app_images.dart';
 import '../../../memories/controllers/memory_controller.dart';
@@ -134,6 +136,48 @@ String get locationFlag {
     List<String>? get audioPaths {
     try {
       final value = memoryData['audioPaths'];
+      if (value == null) return null;
+      if (value is List) {
+        final stringList = value.whereType<String>().where((s) => s.isNotEmpty).toList();
+        return stringList.isNotEmpty ? stringList : null;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  List<String>? get videoPaths {
+    try {
+      final value = memoryData['videoPaths'];
+      if (value == null) return null;
+      if (value is List) {
+        final stringList = value.whereType<String>().where((s) => s.isNotEmpty).toList();
+        return stringList.isNotEmpty ? stringList : null;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  List<String>? get videoThumbnails {
+    try {
+      final value = memoryData['videoThumbnails'];
+      if (value == null) return null;
+      if (value is List) {
+        final stringList = value.whereType<String>().where((s) => s.isNotEmpty).toList();
+        return stringList.isNotEmpty ? stringList : null;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  List<String>? get videoDurations {
+    try {
+      final value = memoryData['videoDurations'];
       if (value == null) return null;
       if (value is List) {
         final stringList = value.whereType<String>().where((s) => s.isNotEmpty).toList();
@@ -293,9 +337,22 @@ class _MemoryCardState extends State<MemoryCard> {
   }
 
   Widget _buildImageGallery() {
+    // Combine images and videos into a single media list
     final images = widget.assetsImg is List
         ? widget.assetsImg as List<String>
-        : [widget.assetsImg as String];
+        : widget.assetsImg != null ? [widget.assetsImg as String] : <String>[];
+
+    final videos = widget.videoPaths ?? <String>[];
+    final totalMediaCount = images.length + videos.length;
+
+    debugPrint('🎬 Gallery: ${images.length} images, ${videos.length} videos, total: $totalMediaCount');
+    if (videos.isNotEmpty) {
+      debugPrint('🎬 Video paths: $videos');
+    }
+
+    if (totalMediaCount == 0) {
+      return const SizedBox.shrink();
+    }
 
     return SizedBox(
       // height: 300,
@@ -305,21 +362,20 @@ class _MemoryCardState extends State<MemoryCard> {
           SizedBox(
             height: 260,
             width: double.infinity,
-            child: GestureDetector(
-              // Add a parent GestureDetector to catch taps on the entire PageView
-              onTap: () {
-                debugPrint('🔥 PAGEVIEW TAP DETECTED! Current index: $_currentIndex');
-                _openImageViewer(images, _currentIndex);
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
               },
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                itemCount: images.length,
-                itemBuilder: (context, index) {
+              itemCount: totalMediaCount,
+              itemBuilder: (context, index) {
+                // Determine if this is an image or video
+                final isImage = index < images.length;
+
+                if (isImage) {
+                  // Display image
                   // Use cached widget if available, otherwise build and cache
                   if (!_imageCache.containsKey(index)) {
                     _imageCache[index] = GestureDetector(
@@ -334,11 +390,29 @@ class _MemoryCardState extends State<MemoryCard> {
                     );
                   }
                   return _imageCache[index]!;
-                },
-              ),
+                } else {
+                  // Display video with play button
+                  final videoIndex = index - images.length;
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      return VideoThumbnailWidget(
+                        videoPath: videos[videoIndex],
+                        width: constraints.maxWidth,
+                        height: 260,
+                        onTap: () {
+                          debugPrint('🔥 VIDEO TAP DETECTED! Index: $videoIndex');
+                          Get.to(() => VideoPlayerScreen(
+                            videoPath: videos[videoIndex],
+                          ));
+                        },
+                      );
+                    },
+                  );
+                }
+              },
             ),
           ),
-          if (images.length > 1)
+          if (totalMediaCount > 1)
             Positioned(
               bottom: 12,
               left: 0,
@@ -346,7 +420,7 @@ class _MemoryCardState extends State<MemoryCard> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  images.length,
+                  totalMediaCount,
                   (index) => Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     width: 8,
@@ -926,7 +1000,7 @@ return;
             //     ),
             //   ),
             // ),
-         if (widget.assetsImg != null) _buildImageGallery(),
+         if (widget.assetsImg != null || widget.videoPaths != null) _buildImageGallery(),
 
             // Audio durations - only show if valid audio durations exist
             if (widget.audioDurations != null && widget.audioDurations!.isNotEmpty)

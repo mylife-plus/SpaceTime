@@ -21,6 +21,8 @@ class TagMentionBottomSheet extends StatefulWidget {
   final String initialKeyword;
   final ValueNotifier<String> searchNotifier;
   final VoidCallback? onEditingComplete;
+  final List<String>? excludedItems; // Items already added to the description
+  final bool isEditingExisting; // True when editing an existing hashtag/mention
 
   const TagMentionBottomSheet({
     super.key,
@@ -29,6 +31,8 @@ class TagMentionBottomSheet extends StatefulWidget {
     required this.searchNotifier,
     this.isTagMode = true,
     this.onEditingComplete,
+    this.excludedItems,
+    this.isEditingExisting = false,
   });
 
   @override
@@ -45,14 +49,16 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     super.initState();
     controller = Get.put(TagMentionController(
       isTagMode: widget.isTagMode,
+      excludedItems: widget.excludedItems,
+      initialKeyword: widget.initialKeyword,
+      isEditingExisting: widget.isEditingExisting,
     ));
+
+    // Load saved items - this will automatically filter by initialKeyword if provided
     controller.loadSavedItems();
 
     // Set initial search text
     searchController.text = widget.initialKeyword;
-
-    // Filter items based on initial keyword
-    controller.filterItems(widget.initialKeyword);
 
     // Listen to search notifier changes
     widget.searchNotifier.addListener(_onSearchChanged);
@@ -79,6 +85,18 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     if (searchController.text != searchText) {
       searchController.text = searchText;
     }
+  }
+
+  /// Helper function to check if an item is already added (excluded)
+  /// Returns true if the item is in the excluded items list
+  bool isItemAlreadyAdded(String itemName) {
+    if (widget.excludedItems == null || widget.excludedItems!.isEmpty) {
+      return false;
+    }
+
+    return widget.excludedItems!.any(
+      (excluded) => excluded.toLowerCase() == itemName.toLowerCase()
+    );
   }
 
   void _showAddGroupPopup(BuildContext context, String searchText) {
@@ -306,8 +324,18 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                           valueListenable: widget.searchNotifier,
                           builder: (context, searchText, child) {
                             final trimmedSearchText = searchText.trim();
+
+                            // Check if there's an exact match in the filtered items
                             final hasExactMatch = controller.filteredItems
-                                .any((item) => item['name'] == trimmedSearchText);
+                                .any((item) => item['name'].toString().toLowerCase() == trimmedSearchText.toLowerCase());
+
+                            // Check if the search text is already added (in excluded items)
+                            final isSearchTextAlreadyAdded = isItemAlreadyAdded(trimmedSearchText);
+
+                            // Show "add" button only if there's no exact match AND the item is not already added
+                            final shouldShowAddButton = trimmedSearchText.isNotEmpty &&
+                                                        !hasExactMatch &&
+                                                        !isSearchTextAlreadyAdded;
 
                             return Obx(() {
                               return controller.filteredItems.isEmpty &&
@@ -326,19 +354,14 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                       vertical: 2,
                                     ),
                                     itemCount:
-                                        (trimmedSearchText.isNotEmpty &&
-                                                !hasExactMatch
-                                            ? 1
-                                            : 0) +
+                                        (shouldShowAddButton ? 1 : 0) +
                                         controller.filteredItems.length,
                                     separatorBuilder:
                                         (context, index) =>
                                             const Divider(height: 0.1),
                                     itemBuilder: (context, index) {
                                       // Handle "add new item" case
-                                      if (trimmedSearchText.isNotEmpty &&
-                                          !hasExactMatch &&
-                                          index == 0) {
+                                      if (shouldShowAddButton && index == 0) {
                                         return Container(
                                           height: 40,
                                           margin: const EdgeInsets.symmetric(
@@ -383,7 +406,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                       'add',
                                                       style: GoogleFonts.kumbhSans(
                                                         color:
-                                                            !widget.isTagMode
+                                                            widget.isTagMode
                                                                 ? Colors.green
                                                                 : Colors.blue,
                                                         fontSize: 14,
@@ -400,16 +423,15 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                       }
 
                                       // Handle existing items
-                                      final itemIndex =
-                                          trimmedSearchText.isNotEmpty &&
-                                                  !hasExactMatch
-                                              ? index - 1
-                                              : index;
-                                      final item =
-                                          controller.filteredItems[itemIndex];
+                                      final itemIndex = shouldShowAddButton ? index - 1 : index;
+                                      final item = controller.filteredItems[itemIndex];
 
+                                      // Skip main groups (they're just for organization)
+                                      if (item['type'] == 'main_group') {
+                                        return const SizedBox.shrink();
+                                      }
 
-                                      return (item['type'] == 'main_group') ? SizedBox.shrink(): Container(
+                                      return Container(
                                         height: 40,
                                         margin: const EdgeInsets.symmetric(
                                           vertical: 2,
@@ -435,8 +457,8 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                     style: GoogleFonts.kumbhSans(
                                                       color:
                                                           widget.isTagMode
-                                                              ? AppColors.blue
-                                                              : AppColors.green,
+                                                              ? AppColors.green
+                                                              : AppColors.blue,
                                                       fontSize: 16,
                                                       fontWeight: item['type'] == 'main_group'
                                                           ? FontWeight.w600
@@ -469,16 +491,16 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                     ),
                                                     decoration: BoxDecoration(
                                                       color: (widget.isTagMode
-                                                          ? AppColors.blue
-                                                          : AppColors.green).withValues(alpha: 0.1),
+                                                          ? AppColors.green
+                                                          : AppColors.blue).withValues(alpha: 0.1),
                                                       borderRadius: BorderRadius.circular(8),
                                                     ),
                                                     child: Text(
                                                       'Group',
                                                       style: GoogleFonts.kumbhSans(
                                                         color: widget.isTagMode
-                                                            ? AppColors.blue
-                                                            : AppColors.green,
+                                                            ? AppColors.green
+                                                            : AppColors.blue,
                                                         fontSize: 12,
                                                         fontWeight: FontWeight.w500,
                                                       ),
@@ -553,7 +575,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                     Text(
                       'See List',
                       style: GoogleFonts.kumbhSans(
-                        color: widget.isTagMode ? AppColors.blue : AppColors.green,
+                        color: widget.isTagMode ? AppColors.green : AppColors.blue,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
@@ -561,7 +583,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                     const SizedBox(width: 8),
                     Icon(
                       Icons.arrow_forward_ios,
-                      color: widget.isTagMode ? AppColors.blue : AppColors.green,
+                      color: widget.isTagMode ? AppColors.green : AppColors.blue,
                       size: 16,
                     ),
                   ],

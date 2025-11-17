@@ -19,6 +19,7 @@ import 'app/services/map_marker_service.dart';
 import 'app/services/map_marker_creation_service.dart';
 import 'app/routes/app_pages.dart';
 import 'app/services/memory_db.dart';
+import 'app/services/path_migration_helper.dart';
 import 'services/background_tile_download_service.dart';
 import 'app/services/offline_map_service.dart';
 import 'app/repositories/offline_map_repository.dart';
@@ -57,6 +58,16 @@ Future<void> main() async {
   debugPrint('🏷️ [MAIN] Initializing place categories...');
   await DatabaseHelper.instance.initializePlaceCategoriesIfNeeded();
   debugPrint('🏷️ [MAIN] Place categories initialization completed');
+
+  // Migrate absolute paths to relative paths
+  debugPrint('🔄 [MAIN] Running path migration...');
+  try {
+    await PathMigrationHelper.instance.migrateAllPathsToRelative();
+    debugPrint('🔄 [MAIN] Path migration completed');
+  } catch (e) {
+    debugPrint('🔄 [MAIN] Path migration failed: $e');
+    // Continue with app startup even if migration fails
+  }
 
   // Initialize hashtag groups if not already done
   debugPrint('🏷️ [MAIN] Initializing hashtag groups...');

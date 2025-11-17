@@ -13,6 +13,8 @@ import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_audio_w
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_description_field_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_image_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_info_widget.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/video_player_screen.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 
@@ -37,17 +39,22 @@ class _MemoryViewState extends State<MemoryView> {
   final ScrollController _scrollController = ScrollController();
   bool _isPopupOpen = false;
   final RxList<String> _selectedImagePaths = <String>[].obs;
+  final RxList<String> _selectedVideoPaths = <String>[].obs;
   int? _editingMemoryId;
 
   // Track keyboard visibility
   final RxBool _isKeyboardVisible = false.obs;
 
-  // Track original database images and audio for edit mode
+  // Track original database images, videos, and audio for edit mode
   List<Map<String, dynamic>> _originalImages = [];
+  List<Map<String, dynamic>> _originalVideos = [];
   List<Map<String, dynamic>> _originalAudios = [];
 
   // Track which images are marked for deletion (by index)
   Set<int> _deletedImageIndices = <int>{};
+
+  // Track which videos are marked for deletion (by index)
+  Set<int> _deletedVideoIndices = <int>{};
 
   // Track which audio files are marked for deletion (by index)
   Set<int> _deletedAudioIndices = <int>{};
@@ -125,22 +132,28 @@ class _MemoryViewState extends State<MemoryView> {
 
     // Clear any existing data first to prevent mixing old and new data
     _selectedImagePaths.clear();
+    _selectedVideoPaths.clear();
     _originalImages.clear();
+    _originalVideos.clear();
     _originalAudios.clear();
     _deletedImageIndices.clear();
+    _deletedVideoIndices.clear();
     _deletedAudioIndices.clear();
 
-    // Load original images and audio data from database for tracking
+    // Load original images, videos, and audio data from database for tracking
     if (_editingMemoryId != null) {
       final databaseHelper = DatabaseHelper.instance;
       _originalImages = await databaseHelper.getMemoryImagesWithOrder(
+        _editingMemoryId!,
+      );
+      _originalVideos = await databaseHelper.getMemoryVideosWithOrder(
         _editingMemoryId!,
       );
       _originalAudios = await databaseHelper.getMemoryAudiosWithOrder(
         _editingMemoryId!,
       );
       debugPrint(
-        'Loaded ${_originalImages.length} original images and ${_originalAudios.length} original audios from database',
+        'Loaded ${_originalImages.length} original images, ${_originalVideos.length} original videos, and ${_originalAudios.length} original audios from database',
       );
     }
 
@@ -253,6 +266,13 @@ class _MemoryViewState extends State<MemoryView> {
       _loadExistingAudiosForEdit(audioPaths, audioDurations);
     }
 
+    // Load existing video files for editing
+    final videoPaths = memoryData['videoPaths'] as List<String>?;
+    debugPrint('Found ${videoPaths?.length ?? 0} video files for editing');
+    if (videoPaths != null && videoPaths.isNotEmpty) {
+      _loadExistingVideosForEdit(videoPaths);
+    }
+
     // Initialize memory controller with existing data
     final memoryController = Get.find<MemoryController>();
 
@@ -333,6 +353,47 @@ class _MemoryViewState extends State<MemoryView> {
     }
   }
 
+  // Delete video at specific index, handling both edit mode and new memory mode
+  Future<void> _deleteVideoAtIndex(int index) async {
+    try {
+      // If in edit mode, mark the video for deletion instead of immediately deleting from database
+      if (widget.editMode && _editingMemoryId != null) {
+        // Mark this index as deleted (using the original index before any UI changes)
+        _deletedVideoIndices.add(index);
+        debugPrint('Marked video at index $index for deletion in edit mode');
+      }
+
+      // Remove from UI list
+      _selectedVideoPaths.removeAt(index);
+
+      // Force UI refresh
+      _selectedVideoPaths.refresh();
+
+      Get.snackbar(
+        'Deleted',
+        'Your video has been successfully deleted.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade400,
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+      );
+
+      debugPrint(
+        'Video deleted and UI refreshed. Remaining: ${_selectedVideoPaths.length}',
+      );
+    } catch (e) {
+      debugPrint('Error deleting video: $e');
+      Get.snackbar(
+        'Unable to Delete',
+        'Unable to delete video. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+      );
+    }
+  }
+
   // Delete audio at specific index, handling both edit mode and new memory mode
   Future<void> _deleteAudioAtIndex(int index) async {
     try {
@@ -364,7 +425,7 @@ class _MemoryViewState extends State<MemoryView> {
     }
   }
 
-  // Load existing images for editing by converting base64 to temporary files
+  // Load existing images for editing by converting base64 to temporary files or using file paths
   Future<void> _loadExistingImagesForEdit(List<String> base64Images) async {
     try {
       debugPrint('Starting to load ${base64Images.length} images for editing');
@@ -372,6 +433,7 @@ class _MemoryViewState extends State<MemoryView> {
       // Clear any existing images first
       _selectedImagePaths.clear();
 
+      final memoryController = Get.find<MemoryController>();
       final tempDir = await getTemporaryDirectory();
 
       // Create a unique folder for this editing session
@@ -383,19 +445,28 @@ class _MemoryViewState extends State<MemoryView> {
       }
 
       for (int i = 0; i < base64Images.length; i++) {
-        final base64Data = base64Images[i];
+        final imageData = base64Images[i];
 
         try {
-          final bytes = base64Decode(base64Data);
+          // Check if it's a file path (relative or absolute) or base64
+          if (imageData.startsWith('memory_images/') || imageData.startsWith('/')) {
+            // It's a file path - convert to absolute path
+            final absolutePath = await memoryController.getAbsolutePath(imageData);
+            _selectedImagePaths.add(absolutePath);
+            debugPrint('📸 Loaded image path $i: $imageData -> $absolutePath');
+          } else {
+            // It's base64 data - decode and save to temp file
+            final bytes = base64Decode(imageData);
 
-          // Create temporary file with unique name
-          final tempFile = File(
-            '${editSessionDir.path}/edit_image_${_editingMemoryId}_$i.png',
-          );
-          await tempFile.writeAsBytes(bytes);
+            // Create temporary file with unique name
+            final tempFile = File(
+              '${editSessionDir.path}/edit_image_${_editingMemoryId}_$i.png',
+            );
+            await tempFile.writeAsBytes(bytes);
 
-          _selectedImagePaths.add(tempFile.path);
-          debugPrint('Loaded image $i: ${tempFile.path}');
+            _selectedImagePaths.add(tempFile.path);
+            debugPrint('📸 Loaded base64 image $i: ${tempFile.path}');
+          }
         } catch (e) {
           debugPrint('Error processing image $i: $e');
         }
@@ -413,10 +484,10 @@ class _MemoryViewState extends State<MemoryView> {
   }
 
   // Load existing audio files for editing
-  void _loadExistingAudiosForEdit(
+  Future<void> _loadExistingAudiosForEdit(
     List<String> audioPaths,
     List<String>? audioDurations,
-  ) {
+  ) async {
     try {
       final memoryController = Get.find<MemoryController>();
 
@@ -425,7 +496,10 @@ class _MemoryViewState extends State<MemoryView> {
       memoryController.recordedAudios.clear();
 
       for (int i = 0; i < audioPaths.length; i++) {
-        memoryController.recordedAudioPaths.add(audioPaths[i]);
+        // Convert relative path to absolute path
+        final absolutePath = await memoryController.getAbsolutePath(audioPaths[i]);
+        memoryController.recordedAudioPaths.add(absolutePath);
+        debugPrint('🎵 Loaded audio: ${audioPaths[i]} -> $absolutePath');
 
         // Use provided duration or default
         final duration =
@@ -440,6 +514,29 @@ class _MemoryViewState extends State<MemoryView> {
       );
     } catch (e) {
       debugPrint('Error loading existing audio files for edit: $e');
+    }
+  }
+
+  // Load existing video files for editing
+  Future<void> _loadExistingVideosForEdit(List<String> videoPaths) async {
+    try {
+      // Load existing video paths into the selected videos list
+      _selectedVideoPaths.clear();
+
+      final memoryController = Get.find<MemoryController>();
+
+      for (final videoPath in videoPaths) {
+        // Convert relative path to absolute path
+        final absolutePath = await memoryController.getAbsolutePath(videoPath);
+        _selectedVideoPaths.add(absolutePath);
+        debugPrint('📹 Loaded video: $videoPath -> $absolutePath');
+      }
+
+      debugPrint(
+        'Loaded ${videoPaths.length} existing video files for editing',
+      );
+    } catch (e) {
+      debugPrint('Error loading existing video files for edit: $e');
     }
   }
 
@@ -581,43 +678,116 @@ class _MemoryViewState extends State<MemoryView> {
     }
   }
 
+  // Update memory video files when editing
+  Future<void> _updateMemoryVideos(int memoryId) async {
+    try {
+      final memoryController = Get.find<MemoryController>();
+      final databaseHelper = DatabaseHelper.instance;
+
+      // Delete existing video files for this memory
+      await databaseHelper.deleteMemoryVideos(memoryId);
+
+      // Get the original video data from memory data
+      final originalVideoPaths =
+          widget.memoryData?['videoPaths'] as List<String>? ?? [];
+
+      // Create a list of video files to save (original videos minus deleted ones + new videos)
+      final List<String> finalVideoPaths = [];
+
+      // Add original videos that weren't deleted
+      for (int i = 0; i < originalVideoPaths.length; i++) {
+        if (!_deletedVideoIndices.contains(i)) {
+          finalVideoPaths.add(originalVideoPaths[i]);
+        }
+      }
+
+      // Identify and save new video files that were added during editing
+      final originalVideoCount = originalVideoPaths.length;
+      final currentVideoCount = _selectedVideoPaths.length;
+      final originalMinusDeleted =
+          originalVideoCount - _deletedVideoIndices.length;
+
+      if (currentVideoCount > originalMinusDeleted) {
+        // There are new video files - extract them
+        final newVideoPaths = <String>[];
+        final newVideosStartIndex = originalMinusDeleted;
+        for (int i = newVideosStartIndex; i < currentVideoCount; i++) {
+          newVideoPaths.add(_selectedVideoPaths[i]);
+        }
+
+        // Save new videos to app directory
+        if (newVideoPaths.isNotEmpty) {
+          final savedNewVideoPaths = await memoryController.saveVideosToAppDirectory(newVideoPaths);
+          debugPrint('💾 Saved ${savedNewVideoPaths.length} new videos to app directory during edit');
+          finalVideoPaths.addAll(savedNewVideoPaths);
+        }
+      }
+
+      // Insert all final video files
+      for (int i = 0; i < finalVideoPaths.length; i++) {
+        await databaseHelper.insertMemoryVideo(
+          memoryId,
+          finalVideoPaths[i],
+          '', // Duration can be extracted later if needed
+          '', // Thumbnail path can be generated later if needed
+          i,
+        );
+      }
+
+      debugPrint(
+        'Updated ${finalVideoPaths.length} video files for memory $memoryId (${_deletedVideoIndices.length} deleted, ${finalVideoPaths.length - originalMinusDeleted} new)',
+      );
+    } catch (e) {
+      debugPrint('Error updating memory video files: $e');
+      throw e;
+    }
+  }
+
   void _handleImageUpload() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.image, // Allow both images and videos
+      type: FileType.media, // Allow both images and videos
       allowMultiple: true, // Enable multiple selection
     );
 
     if (result != null && result.files.isNotEmpty) {
-      debugPrint('📸 Image selection result: ${result.files.length} files');
+      debugPrint('📸🎥 Media selection result: ${result.files.length} files');
 
-      final newPaths =
-          result.files
-              .map((file) => file.path!)
-              .where((path) => path != null)
-              .toList();
-      debugPrint('📸 New image paths to add: ${newPaths.length}');
-      for (int i = 0; i < newPaths.length; i++) {
-        debugPrint('  New path [$i]: ${newPaths[i]}');
+      // Separate images and videos based on file extension
+      final List<String> newImagePaths = [];
+      final List<String> newVideoPaths = [];
+
+      for (final file in result.files) {
+        if (file.path != null) {
+          final extension = file.extension?.toLowerCase() ?? '';
+
+          // Check if it's a video file
+          if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp'].contains(extension)) {
+            newVideoPaths.add(file.path!);
+            debugPrint('🎥 Video file: ${file.path}');
+          } else {
+            // Treat as image
+            newImagePaths.add(file.path!);
+            debugPrint('📸 Image file: ${file.path}');
+          }
+        }
       }
 
-      _selectedImagePaths.addAll(newPaths);
-      debugPrint(
-        "📸 Total selected images after adding: ${_selectedImagePaths.length}",
-      );
-      debugPrint(
-        "📸 All selected image paths: ${_selectedImagePaths.join(', ')}",
-      );
+      // Add to respective lists
+      if (newImagePaths.isNotEmpty) {
+        _selectedImagePaths.addAll(newImagePaths);
+        debugPrint('📸 Added ${newImagePaths.length} images. Total: ${_selectedImagePaths.length}');
+      }
 
-      // Auto-save draft when images are added
-      debugPrint('📸 Calling _saveDraft() after image selection...');
+      if (newVideoPaths.isNotEmpty) {
+        _selectedVideoPaths.addAll(newVideoPaths);
+        debugPrint('🎥 Added ${newVideoPaths.length} videos. Total: ${_selectedVideoPaths.length}');
+      }
 
-      // Add a small delay to ensure UI state is updated
-      // Future.delayed(const Duration(milliseconds: 100), () {
-      debugPrint('📸 Delayed _saveDraft() call after image selection');
+      // Auto-save draft when media is added
+      debugPrint('📸🎥 Calling _saveDraft() after media selection...');
       // _saveDraft();
-      // });
     } else {
-      debugPrint('📸 No images selected or result is null');
+      debugPrint('📸🎥 No media selected or result is null');
     }
   }
 
@@ -935,14 +1105,28 @@ class _MemoryViewState extends State<MemoryView> {
           await _updateMemoryAudios(_editingMemoryId!);
         }
 
+        // Update videos if they were modified (added, deleted, or changed)
+        final shouldUpdateVideos =
+            _selectedVideoPaths.isNotEmpty ||
+            _deletedVideoIndices.isNotEmpty ||
+            _originalVideos.isNotEmpty;
+        debugPrint(
+          'Video update check: selectedPaths=${_selectedVideoPaths.length}, deletedIndices=${_deletedVideoIndices.length}, originalVideos=${_originalVideos.length}, shouldUpdate=$shouldUpdateVideos',
+        );
+        if (shouldUpdateVideos) {
+          await _updateMemoryVideos(_editingMemoryId!);
+        }
+
         // Clear all controller data after successful update
         memoryController.clearAllData();
 
         // Clear the description field and selected images
         _descriptionController.clear();
         _selectedImagePaths.clear();
+        _selectedVideoPaths.clear();
         _deletedImageIndices.clear();
         _deletedAudioIndices.clear();
+        _deletedVideoIndices.clear();
 
         // Force UI refresh for images
         _selectedImagePaths.refresh();
@@ -975,6 +1159,7 @@ class _MemoryViewState extends State<MemoryView> {
         await memoryController.saveMemory(
           description: description,
           imagePaths: _selectedImagePaths,
+          videoPaths: _selectedVideoPaths,
           tags: tags,
           mentions: mentions,
         );
@@ -985,6 +1170,7 @@ class _MemoryViewState extends State<MemoryView> {
         // Clear the description field
         _descriptionController.clear();
         _selectedImagePaths.clear();
+        _selectedVideoPaths.clear();
 
         // Clear all controller data including audio recordings
         memoryController.clearAllData();
@@ -1364,53 +1550,106 @@ class _MemoryViewState extends State<MemoryView> {
                                         ) ??
                                         const Color(0xFFF8FBFF),
                             child: Obx(
-                              () => Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 170,
-                                      child: ListView.builder(
-                                        scrollDirection: Axis.horizontal,
-                                        itemCount: _selectedImagePaths.length,
-                                        itemBuilder: (context, index) {
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                              right: 8,
-                                            ),
-                                            child: SizedBox(
-                                              width: 120,
-                                              height: 170,
-                                              child: GestureDetector(
-                                                onLongPress: () {
-                                                  showDeleteConfirmationDialog(
-                                                    title: 'Delete Image',
-                                                    message:
-                                                        'Do you want to delete this image?',
-                                                    onConfirm: () async {
-                                                      await _deleteImageAtIndex(
-                                                        index,
-                                                      );
-                                                    },
-                                                  );
-                                                },
-                                                child: ClipRRect(
-                                                  child: Image.file(
-                                                    File(
-                                                      _selectedImagePaths[index],
-                                                    ),
-                                                    fit: BoxFit.cover,
+                              () {
+                                // Combine images and videos into a single list
+                                final totalMediaCount = _selectedImagePaths.length + _selectedVideoPaths.length;
+
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 170,
+                                        child: ListView.builder(
+                                          scrollDirection: Axis.horizontal,
+                                          itemCount: totalMediaCount,
+                                          itemBuilder: (context, index) {
+                                            // Determine if this is an image or video
+                                            final isImage = index < _selectedImagePaths.length;
+
+                                            if (isImage) {
+                                              // Display image
+                                              return Padding(
+                                                padding: const EdgeInsets.only(right: 8),
+                                                child: SizedBox(
+                                                  width: 120,
+                                                  height: 170,
+                                                  child: Stack(
+                                                    children: [
+                                                      GestureDetector(
+                                                        onLongPress: () {
+                                                          showDeleteConfirmationDialog(
+                                                            title: 'Delete Image',
+                                                            message: 'Do you want to delete this image?',
+                                                            onConfirm: () async {
+                                                              await _deleteImageAtIndex(index);
+                                                            },
+                                                          );
+                                                        },
+                                                        child: ClipRRect(
+                                                          borderRadius: BorderRadius.circular(8),
+                                                          child: Image.file(
+                                                            File(_selectedImagePaths[index]),
+                                                            fit: BoxFit.cover,
+                                                            width: 120,
+                                                            height: 170,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      // Cross button to delete image
+                                                      Positioned(
+                                                        top: 4,
+                                                        right: 4,
+                                                        child: GestureDetector(
+                                                          onTap: () async {
+                                                            await _deleteImageAtIndex(index);
+                                                          },
+                                                          child: Container(
+                                                            width: 24,
+                                                            height: 24,
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.black.withOpacity(0.6),
+                                                              shape: BoxShape.circle,
+                                                            ),
+                                                            child: const Icon(
+                                                              Icons.close,
+                                                              color: Colors.white,
+                                                              size: 16,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
-                                              ),
-                                            ),
-                                          );
-                                        },
+                                              );
+                                            } else {
+                                              // Display video thumbnail
+                                              final videoIndex = index - _selectedImagePaths.length;
+                                              return Padding(
+                                                padding: const EdgeInsets.only(right: 8),
+                                                child: VideoThumbnailWidget(
+                                                  videoPath: _selectedVideoPaths[videoIndex],
+                                                  width: 120,
+                                                  height: 170,
+                                                  onTap: () {
+                                                    // Open video player
+                                                    Get.to(() => VideoPlayerScreen(
+                                                      videoPath: _selectedVideoPaths[videoIndex],
+                                                    ));
+                                                  },
+                                                  onDelete: () async {
+                                                    await _deleteVideoAtIndex(videoIndex);
+                                                  },
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        ),
                                       ),
                                     ),
-                                  ),
                                   GestureDetector(
                                     onTap: _handleImageUpload,
                                     child: Padding(
@@ -1461,7 +1700,8 @@ class _MemoryViewState extends State<MemoryView> {
                                     ),
                                   ),
                                 ],
-                              ),
+                              );
+                              },
                             ),
                           ),
                           Divider(

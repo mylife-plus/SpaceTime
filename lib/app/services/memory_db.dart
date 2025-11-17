@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      11; // Updated version for contact groups
+      12; // Updated version for videos support
 
   // Memory table and columns
   static const tableMemories = 'memories';
@@ -49,6 +49,16 @@ class DatabaseHelper {
   static const columnAudioDuration = 'audio_duration';
   static const columnAudioOrder = 'audio_order';
   static const columnAudioCreatedAt = 'audio_created_at';
+
+  // Videos table and columns
+  static const tableVideos = 'memory_videos';
+  static const columnVideoId = 'video_id';
+  static const columnVideoMemoryId = 'video_memory_id';
+  static const columnVideoFilePath = 'video_file_path';
+  static const columnVideoDuration = 'video_duration';
+  static const columnVideoThumbnailPath = 'video_thumbnail_path';
+  static const columnVideoOrder = 'video_order';
+  static const columnVideoCreatedAt = 'video_created_at';
 
   // Tags table and columns
   static const tableTags = 'tags';
@@ -243,6 +253,20 @@ class DatabaseHelper {
         $columnAudioOrder INTEGER DEFAULT 0,
         $columnAudioCreatedAt TEXT NOT NULL,
         FOREIGN KEY ($columnAudioMemoryId) REFERENCES $tableMemories ($columnId) ON DELETE CASCADE
+      )
+    ''');
+
+    // Create videos table
+    await db.execute('''
+      CREATE TABLE $tableVideos (
+        $columnVideoId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $columnVideoMemoryId INTEGER NOT NULL,
+        $columnVideoFilePath TEXT NOT NULL,
+        $columnVideoDuration TEXT,
+        $columnVideoThumbnailPath TEXT,
+        $columnVideoOrder INTEGER DEFAULT 0,
+        $columnVideoCreatedAt TEXT NOT NULL,
+        FOREIGN KEY ($columnVideoMemoryId) REFERENCES $tableMemories ($columnId) ON DELETE CASCADE
       )
     ''');
 
@@ -491,6 +515,24 @@ class DatabaseHelper {
 
       debugPrint('✅ Contact groups table created');
     }
+
+    if (oldVersion < 12) {
+      // Add videos table
+      await db.execute('''
+        CREATE TABLE $tableVideos (
+          $columnVideoId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $columnVideoMemoryId INTEGER NOT NULL,
+          $columnVideoFilePath TEXT NOT NULL,
+          $columnVideoDuration TEXT,
+          $columnVideoThumbnailPath TEXT,
+          $columnVideoOrder INTEGER DEFAULT 0,
+          $columnVideoCreatedAt TEXT NOT NULL,
+          FOREIGN KEY ($columnVideoMemoryId) REFERENCES $tableMemories ($columnId) ON DELETE CASCADE
+        )
+      ''');
+
+      debugPrint('✅ Videos table created');
+    }
   }
 
   // Migrate existing image data from memories table to images table
@@ -621,11 +663,12 @@ class DatabaseHelper {
     throw Exception('Failed to insert memory after $maxRetries attempts');
   }
 
-  /// Insert complete memory with images and audio in a single transaction
+  /// Insert complete memory with images, audio, and videos in a single transaction
   Future<int> insertCompleteMemory({
     required Map<String, dynamic> memoryData,
     List<String>? imageDataList,
     List<Map<String, dynamic>>? audioDataList,
+    List<Map<String, dynamic>>? videoDataList,
   }) async {
     int retryCount = 0;
     const maxRetries = 3;
@@ -674,6 +717,22 @@ class DatabaseHelper {
               });
             }
             debugPrint('[DatabaseHelper] Inserted ${audioDataList.length} audio files');
+          }
+
+          // Insert video files if any
+          if (videoDataList != null && videoDataList.isNotEmpty) {
+            for (int i = 0; i < videoDataList.length; i++) {
+              final videoData = videoDataList[i];
+              await txn.insert(tableVideos, {
+                columnVideoMemoryId: memoryId,
+                columnVideoFilePath: videoData['path'],
+                columnVideoDuration: videoData['duration'],
+                columnVideoThumbnailPath: videoData['thumbnail'],
+                columnVideoOrder: i,
+                columnVideoCreatedAt: DateTime.now().toIso8601String(),
+              });
+            }
+            debugPrint('[DatabaseHelper] Inserted ${videoDataList.length} video files');
           }
 
           debugPrint('[DatabaseHelper] Complete memory insertion transaction completed successfully');
@@ -871,6 +930,85 @@ class DatabaseHelper {
       where: '$columnAudioMemoryId = ?',
       whereArgs: [memoryId],
       orderBy: '$columnAudioOrder ASC',
+    );
+    return result;
+  }
+
+  // Video operations
+  Future<int> insertMemoryVideo(
+    int memoryId,
+    String videoPath,
+    String? duration,
+    String? thumbnailPath,
+    int order,
+  ) async {
+    Database db = await instance.database;
+    return await db.insert(tableVideos, {
+      columnVideoMemoryId: memoryId,
+      columnVideoFilePath: videoPath,
+      columnVideoDuration: duration,
+      columnVideoThumbnailPath: thumbnailPath,
+      columnVideoOrder: order,
+      columnVideoCreatedAt: DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getMemoryVideos(int memoryId) async {
+    Database db = await instance.database;
+    final result = await db.query(
+      tableVideos,
+      columns: [
+        columnVideoFilePath,
+        columnVideoDuration,
+        columnVideoThumbnailPath,
+      ],
+      where: '$columnVideoMemoryId = ?',
+      whereArgs: [memoryId],
+      orderBy: '$columnVideoOrder ASC',
+    );
+    debugPrint('🎥 getMemoryVideos for memory $memoryId: Found ${result.length} videos');
+    if (result.isNotEmpty) {
+      debugPrint('🎥 Video data: $result');
+    }
+    return result;
+  }
+
+  Future<int> deleteMemoryVideos(int memoryId) async {
+    Database db = await instance.database;
+    return await db.delete(
+      tableVideos,
+      where: '$columnVideoMemoryId = ?',
+      whereArgs: [memoryId],
+    );
+  }
+
+  // Delete a specific video by its order in a memory
+  Future<int> deleteMemoryVideoByOrder(int memoryId, int videoOrder) async {
+    Database db = await instance.database;
+    return await db.delete(
+      tableVideos,
+      where: '$columnVideoMemoryId = ? AND $columnVideoOrder = ?',
+      whereArgs: [memoryId, videoOrder],
+    );
+  }
+
+  // Get video details with order for a specific memory
+  Future<List<Map<String, dynamic>>> getMemoryVideosWithOrder(
+    int memoryId,
+  ) async {
+    Database db = await instance.database;
+    final result = await db.query(
+      tableVideos,
+      columns: [
+        columnVideoId,
+        columnVideoFilePath,
+        columnVideoDuration,
+        columnVideoThumbnailPath,
+        columnVideoOrder,
+      ],
+      where: '$columnVideoMemoryId = ?',
+      whereArgs: [memoryId],
+      orderBy: '$columnVideoOrder ASC',
     );
     return result;
   }
@@ -1672,10 +1810,14 @@ class DatabaseHelper {
         // Get audio files for this memory
         final audios = await getMemoryAudios(memoryId);
 
-        // Create memory object with images and audios
+        // Get video files for this memory
+        final videos = await getMemoryVideos(memoryId);
+
+        // Create memory object with images, audios, and videos
         final memoryWithMedia = Map<String, dynamic>.from(memory);
         memoryWithMedia['images'] = images; // Store as separate field
         memoryWithMedia['audios'] = audios; // Store audio data
+        memoryWithMedia['videos'] = videos; // Store video data
 
         // For backward compatibility, also store in image_path field
         if (images.isNotEmpty) {

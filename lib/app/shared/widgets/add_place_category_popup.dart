@@ -7,18 +7,30 @@ import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
 
-/// Popup for adding new place categories with emoji selection
+/// Popup for adding/editing place categories with emoji selection
 class AddPlaceCategoryPopup extends StatefulWidget {
-  /// Callback when a new category is successfully added
+  /// Callback when a new category is successfully added or edited
   final Function(PlaceCategory category)? onCategoryAdded;
-  
+
   /// Whether to show subcategory creation options
   final bool allowSubcategories;
+
+  /// If editing, the category to edit
+  final PlaceCategory? editCategory;
+
+  /// If adding a subcategory, the parent category ID
+  final int? parentCategoryId;
+
+  /// Whether adding a main category
+  final bool isMainCategory;
 
   const AddPlaceCategoryPopup({
     super.key,
     this.onCategoryAdded,
     this.allowSubcategories = true,
+    this.editCategory,
+    this.parentCategoryId,
+    this.isMainCategory = false,
   });
 
   @override
@@ -40,11 +52,33 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
   @override
   void initState() {
     super.initState();
-    _loadMainCategories();
-    
+
+    // If editing, pre-fill the fields
+    if (widget.editCategory != null) {
+      _placeNameController.text = widget.editCategory!.name;
+      _placeEmojiController.text = widget.editCategory!.emoji;
+    }
+
+    // If adding a main category, set the flag
+    if (widget.isMainCategory) {
+      _isCreatingMainCategory.value = true;
+    } else if (widget.parentCategoryId != null) {
+      // If adding a subcategory with a specific parent, don't load categories
+      _isCreatingMainCategory.value = false;
+    } else {
+      // Otherwise load categories for parent selection
+      _loadMainCategories();
+    }
+
     // Auto-focus name field
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nameFocusNode.requestFocus();
+      // Position cursor at end of text when editing
+      if (widget.editCategory != null) {
+        _placeNameController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _placeNameController.text.length),
+        );
+      }
     });
   }
 
@@ -153,10 +187,18 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
 
 
 
-  /// Add new category
+  /// Add or edit category
   Future<void> _addCategory() async {
-    final placeName = _placeNameController.text.trim();
+    // If editing, use edit logic
+    if (widget.editCategory != null) {
+      await _editCategory();
+      return;
+    }
 
+    final placeName = _placeNameController.text.trim();
+    final placeEmoji = _placeEmojiController.text.trim();
+
+    // Validation
     if (placeName.isEmpty) {
       Get.snackbar(
         'Validation Error',
@@ -167,20 +209,48 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
       return;
     }
 
+    // Validate emoji for subcategories (not for main categories)
+    if (!widget.isMainCategory &&
+        _selectedParentId.value != 'add_new_main_category' &&
+        placeEmoji.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please select an emoji',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     _isLoading.value = true;
 
     try {
-      PlaceCategory? parentCategoryToUse;
-      PlaceCategory? newPlaceCategory;
+      PlaceCategory? newCategory;
 
-      // If creating a new main category
-      if (_selectedParentId.value == 'add_new_main_category') {
-        final categoryName = _nameController.text.trim();
+      // Determine if we're adding a main category or subcategory
+      bool isAddingMainCategory = widget.isMainCategory ||
+                                   _selectedParentId.value == 'add_new_main_category';
+      int? parentId = widget.parentCategoryId;
+
+      // If using dropdown and not adding main category, get parent ID from dropdown
+      if (!isAddingMainCategory &&
+          widget.parentCategoryId == null &&
+          _selectedParentId.value.isNotEmpty &&
+          _selectedParentId.value != 'add_new_main_category') {
+        parentId = int.tryParse(_selectedParentId.value);
+      }
+
+      // If adding a main category
+      if (isAddingMainCategory) {
+        // Use _nameController for dropdown mode, _placeNameController for direct mode
+        final categoryName = _selectedParentId.value == 'add_new_main_category'
+            ? _nameController.text.trim()
+            : placeName;
 
         if (categoryName.isEmpty) {
           Get.snackbar(
             'Validation Error',
-            'Please enter a Places name',
+            'Please enter a place group name',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );
@@ -188,24 +258,22 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           return;
         }
 
-        // Create new main category first
-        parentCategoryToUse = await _categoryService.addCustomCategory(
+        newCategory = await _categoryService.addCustomCategory(
           name: categoryName,
-          emoji: '📍', // Default emoji for place categories
+          emoji: '📍', // Default emoji for main categories
           parentId: null,
         );
 
-        if (parentCategoryToUse == null) {
+        if (newCategory == null) {
           Get.snackbar(
             'Error',
-            'Failed to create new Place Group',
+            'Failed to add Place Group',
             backgroundColor: Colors.red,
             colorText: Colors.white,
           );
           _isLoading.value = false;
           return;
-        } else if (parentCategoryToUse.id == -1) {
-          // Duplicate category name
+        } else if (newCategory.id == -1) {
           Get.snackbar(
             'Duplicate Place Group',
             'Place Group with this name already exists.',
@@ -214,8 +282,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           );
           _isLoading.value = false;
           return;
-        } else if (parentCategoryToUse.id == -3) {
-          // Main category name conflicts with existing subcategory
+        } else if (newCategory.id == -3) {
           Get.snackbar(
             'Name Conflict',
             'This name is already used by a Place in another Place Group.',
@@ -225,50 +292,48 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           _isLoading.value = false;
           return;
         }
-      } else if (_selectedParentId.value.isNotEmpty) {
-        // Use existing category
-        final categoryId = int.parse(_selectedParentId.value);
-        parentCategoryToUse = _mainCategories.firstWhere((cat) => cat.id == categoryId);
-      }
 
-      if (parentCategoryToUse != null) {
-        // Now create the place as a subcategory under the selected/created main category
-        final placeEmoji = _placeEmojiController.text.isEmpty ? '📍' : _placeEmojiController.text;
+        Get.back(); // Close popup
+        widget.onCategoryAdded?.call(newCategory);
+        await _categoryService.refreshMemoryControllersAfterMemoryChange();
 
-        debugPrint(
-          '[AddPlaceCategoryPopup][_addCategory] Creating place subcategory: $placeName ($placeEmoji) under parent: ${parentCategoryToUse.name} (ID: ${parentCategoryToUse.id})',
+        Get.snackbar(
+          'Success',
+          'Place Group "$categoryName" added successfully!',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
         );
-
-        newPlaceCategory = await _categoryService.addCustomCategory(
+      }
+      // If adding a subcategory
+      else if (parentId != null) {
+        newCategory = await _categoryService.addCustomCategory(
           name: placeName,
           emoji: placeEmoji,
-          parentId: parentCategoryToUse.id!, // This makes it a subcategory
+          parentId: parentId,
         );
 
-        if (newPlaceCategory == null) {
+        if (newCategory == null) {
           Get.snackbar(
             'Error',
-            'Failed to create places',
+            'Failed to add Place',
             backgroundColor: Colors.red,
             colorText: Colors.white,
           );
           _isLoading.value = false;
           return;
-        } else if (newPlaceCategory.id == -1) {
-          // Duplicate subcategory name
+        } else if (newCategory.id == -1) {
           Get.snackbar(
-            'Duplicate Category',
+            'Duplicate Place',
             'Place with this name already exists.',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );
           _isLoading.value = false;
           return;
-        } else if (newPlaceCategory.id == -4) {
-          // Subcategory name conflicts with parent category
+        } else if (newCategory.id == -4) {
           Get.snackbar(
             'Name Conflict',
-            'This name is already used by the category "${parentCategoryToUse.name}".',
+            'This name is already used by the Place Group.',
             backgroundColor: Colors.orange,
             colorText: Colors.white,
           );
@@ -277,11 +342,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         }
 
         Get.back(); // Close popup
-
-        // Call the callback with the newly created place subcategory
-        widget.onCategoryAdded?.call(newPlaceCategory);
-
-        // Refresh memory controllers to update their data after category changes
+        widget.onCategoryAdded?.call(newCategory);
         await _categoryService.refreshMemoryControllersAfterMemoryChange();
 
         final placeDisplayName = placeEmoji == '📍'
@@ -290,21 +351,20 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
 
         Get.snackbar(
           'Success',
-          'Place "$placeDisplayName" added under category "${parentCategoryToUse.name}"!',
+          'Place "$placeDisplayName" added successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
-
-        debugPrint(
-          '[AddPlaceCategoryPopup][_addCategory] Successfully created place subcategory: ${newPlaceCategory.id}',
-        );
       } else {
+        // No parent selected
         Get.snackbar(
-          'Error',
-          'Please select or create a category',
+          'Validation Error',
+          'Please select a Place Group',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
+        _isLoading.value = false;
+        return;
       }
     } catch (e) {
       debugPrint('[AddPlaceCategoryPopup][_addCategory] Error: $e');
@@ -319,6 +379,96 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
     }
   }
 
+  /// Edit existing category
+  Future<void> _editCategory() async {
+    final placeName = _placeNameController.text.trim();
+    // Use existing emoji if not changed (since emoji picker is hidden when editing)
+    final placeEmoji = _placeEmojiController.text.trim().isNotEmpty
+        ? _placeEmojiController.text.trim()
+        : widget.editCategory!.emoji;
+
+    // Validation
+    if (placeName.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please enter a place name',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // No need to validate emoji when editing - it's kept from the original category
+
+    _isLoading.value = true;
+
+    try {
+      final success = await _categoryService.updateCategory(
+        categoryId: widget.editCategory!.id!,
+        name: placeName,
+        emoji: placeEmoji,
+      );
+
+      if (success) {
+        Get.back(); // Close popup
+
+        // Create updated category for callback
+        final updatedCategory = PlaceCategory(
+          id: widget.editCategory!.id,
+          name: placeName,
+          emoji: placeEmoji,
+          parentId: widget.editCategory!.parentId,
+          isCustom: widget.editCategory!.isCustom,
+          createdAt: widget.editCategory!.createdAt,
+          updatedAt: DateTime.now(),
+        );
+
+        widget.onCategoryAdded?.call(updatedCategory);
+        await _categoryService.refreshMemoryControllersAfterMemoryChange();
+
+        Get.snackbar(
+          'Success',
+          'Place "$placeName" updated successfully!',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to update Place',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      debugPrint('[AddPlaceCategoryPopup][_editCategory] Error: $e');
+      if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
+        Get.snackbar(
+          'Duplicate Place',
+          'Place with this name already exists.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
+        Get.snackbar(
+          'Name Conflict',
+          'This name is already used by the Place Group.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Failed to update Place',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
@@ -326,7 +476,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.95,
+        width: MediaQuery.of(context).size.width * 0.97,
         margin: const EdgeInsets.all(10),
         padding: const EdgeInsets.all(0),
         decoration: BoxDecoration(
@@ -368,9 +518,13 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                     
-                      Text( 
-                        '📍 new Place',
+
+                      Text(
+                        widget.editCategory != null
+                            ? '📍 edit Place'
+                            : widget.isMainCategory
+                                ? '📍 new Place Group'
+                                : '📍 new Place',
                         style: GoogleFonts.kumbhSans(
                           fontSize: 18,
                           // fontWeight: FontWeight.,
@@ -413,112 +567,113 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Column(
                 children: [
-                  // Category selection dropdown
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Obx(() => DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedParentId.value.isEmpty ? null : _selectedParentId.value,
-                        hint: Text(
-                          'select Places',
-                          style: GoogleFonts.kumbhSans(
-                            fontSize: 16,
-                            color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
+                  // Category selection dropdown (only show when not in category picker mode)
+                  if (!widget.isMainCategory && widget.parentCategoryId == null && widget.editCategory == null)
+                    ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
                           ),
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        isExpanded: true,
-                        icon: Icon(
-                          Icons.keyboard_arrow_down,
-                          color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
-                        ),
-                        dropdownColor: uiController.darkMode.value ? Colors.grey[800] : Colors.white,
-                        items: [
-                          // Add "Add New Category" option
-                          DropdownMenuItem<String>(
-                            value: 'add_new_main_category',
-                            child: Text(
-                              '+ Add New Category',
+                        child: Obx(() => DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedParentId.value.isEmpty ? null : _selectedParentId.value,
+                            hint: Text(
+                              'select Places',
                               style: GoogleFonts.kumbhSans(
                                 fontSize: 16,
-                                color: uiController.currentMainColor,
-                                // fontWeight: FontWeight.w500,
+                                color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
                               ),
                             ),
-                          ),
-                          // Existing categories
-                          ..._mainCategories.map((category) {
-                            return DropdownMenuItem<String>(
-                              value: category.id.toString(),
-                              child: Text(
-                                '${category.emoji} ${category.name}',
-                                style: GoogleFonts.kumbhSans(
-                                  fontSize: 16,
-                                  color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                            isExpanded: true,
+                            icon: Icon(
+                              Icons.keyboard_arrow_down,
+                              color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
+                            ),
+                            dropdownColor: uiController.darkMode.value ? Colors.grey[800] : Colors.white,
+                            items: [
+                              // Add "Add New Category" option
+                              DropdownMenuItem<String>(
+                                value: 'add_new_main_category',
+                                child: Text(
+                                  '+ Add New Category',
+                                  style: GoogleFonts.kumbhSans(
+                                    fontSize: 16,
+                                    color: uiController.currentMainColor,
+                                    // fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            );
-                          }),
-                        ],
-                        onChanged: (value) {
-                          if (value == 'add_new_main_category') {
-                            _isCreatingMainCategory.value = true;
-                            _selectedParentId.value = 'add_new_main_category';
-                          } else {
-                            _isCreatingMainCategory.value = false;
-                            _selectedParentId.value = value ?? '';
-                          }
-                        },
+                              // Existing categories
+                              ..._mainCategories.map((category) {
+                                return DropdownMenuItem<String>(
+                                  value: category.id.toString(),
+                                  child: Text(
+                                    '${category.emoji} ${category.name}',
+                                    style: GoogleFonts.kumbhSans(
+                                      fontSize: 16,
+                                      color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (value) {
+                              if (value == 'add_new_main_category') {
+                                _isCreatingMainCategory.value = true;
+                                _selectedParentId.value = 'add_new_main_category';
+                              } else {
+                                _isCreatingMainCategory.value = false;
+                                _selectedParentId.value = value ?? '';
+                              }
+                            },
+                          ),
+                        )),
                       ),
-                    )),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // New category name input (shown when "Add New Category" is selected)
-                  Obx(() {
-                    if (_selectedParentId.value == 'add_new_main_category') {
-                      return Column(
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: TextField(
-                              controller: _nameController,
-                              focusNode: _nameFocusNode,
-                              style: GoogleFonts.kumbhSans(
-                                fontSize: 16,
-                                color: uiController.darkMode.value ? Colors.white : Colors.black87,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Places Name',
-                                hintStyle: GoogleFonts.kumbhSans(
-                                  fontSize: 16,
-                                  color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
+                      const SizedBox(height: 8),
+                      // New category name input (shown when "Add New Category" is selected)
+                      Obx(() {
+                        if (_selectedParentId.value == 'add_new_main_category') {
+                          return Column(
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
+                                child: TextField(
+                                  controller: _nameController,
+                                  focusNode: _nameFocusNode,
+                                  style: GoogleFonts.kumbhSans(
+                                    fontSize: 16,
+                                    color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Places Name',
+                                    hintStyle: GoogleFonts.kumbhSans(
+                                      fontSize: 16,
+                                      color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  }),
+                              const SizedBox(height: 8),
+                            ],
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      }),
+                    ],
 
                   // Place name input
                   Container(
@@ -532,43 +687,49 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                     ),
                     child: Row(
                       children: [
-                        // Emoji picker button
-                        GestureDetector(
-                          onTap: _showPlaceEmojiPicker,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[400]!,
+                        // Emoji picker button (show only when adding subcategories, not when editing)
+                        if (!widget.isMainCategory &&
+                            _selectedParentId.value != 'add_new_main_category' &&
+                            widget.editCategory == null)
+                          ...[
+                            GestureDetector(
+                              onTap: _showPlaceEmojiPicker,
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[400]!,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: _placeEmojiController.text.isEmpty
+                                      ? Icon(
+                                          Icons.add,
+                                          size: 20,
+                                          color: uiController.currentMainColor,
+                                        )
+                                      : Text(
+                                          _placeEmojiController.text,
+                                          style: const TextStyle(fontSize: 20),
+                                        ),
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Center(
-                              child: _placeEmojiController.text.isEmpty
-                                  ? Icon(
-                                      Icons.add,
-                                      size: 20,
-                                      color: uiController.currentMainColor,
-                                    )
-                                  : Text(
-                                      _placeEmojiController.text,
-                                      style: const TextStyle(fontSize: 20),
-                                    ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
+                            const SizedBox(width: 6),
+                          ],
                         // Place name input
                         Expanded(
                           child: TextField(
                             controller: _placeNameController,
+                            focusNode: widget.isMainCategory ? _nameFocusNode : null,
                             style: GoogleFonts.kumbhSans(
                               fontSize: 16,
                               color: uiController.darkMode.value ? Colors.white : Colors.black87,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Place Name',
+                              hintText: widget.isMainCategory ? 'Places Name' : 'Place Name',
                               hintStyle: GoogleFonts.kumbhSans(
                                 fontSize: 16,
                                 color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
@@ -576,6 +737,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(vertical: 6),
                             ),
+                            onSubmitted: (_) => _addCategory(),
                           ),
                         ),
                       ],

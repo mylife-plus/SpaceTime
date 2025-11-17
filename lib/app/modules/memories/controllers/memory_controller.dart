@@ -298,7 +298,7 @@ class MemoryController extends GetxController {
     isPopupOpen.value = false;
   }
 
-  // Save images to app directory and return file paths (NEW APPROACH)
+  // Save images to app directory and return RELATIVE file paths (NEW APPROACH)
   Future<List<String>> saveImagesToAppDirectory(List<String> imagePaths) async {
     List<String> savedImagePaths = [];
 
@@ -325,9 +325,11 @@ class MemoryController extends GetxController {
 
             // Copy original image to app directory (preserves quality)
             await sourceFile.copy(targetPath);
-            savedImagePaths.add(targetPath);
 
-            debugPrint('Image saved to app directory: $fileName');
+            // Store RELATIVE path instead of absolute path
+            savedImagePaths.add('memory_images/$fileName');
+
+            debugPrint('Image saved to app directory: $fileName (relative path)');
           }
         } catch (e) {
           debugPrint('Error saving image: $e');
@@ -344,6 +346,70 @@ class MemoryController extends GetxController {
   Future<List<String>> convertImagesToBase64(List<String> imagePaths) async {
     // For new memories, use file-based storage instead of base64
     return await saveImagesToAppDirectory(imagePaths);
+  }
+
+  // Convert relative path to absolute path
+  Future<String> getAbsolutePath(String relativePath) async {
+    // If already absolute path, return as is
+    if (relativePath.startsWith('/')) {
+      return relativePath;
+    }
+
+    final appDir = await getApplicationDocumentsDirectory();
+    return '${appDir.path}/$relativePath';
+  }
+
+  // Convert list of relative paths to absolute paths
+  Future<List<String>> getAbsolutePaths(List<String> relativePaths) async {
+    final List<String> absolutePaths = [];
+    for (String path in relativePaths) {
+      absolutePaths.add(await getAbsolutePath(path));
+    }
+    return absolutePaths;
+  }
+
+  // Save videos to app directory and return RELATIVE file paths
+  Future<List<String>> saveVideosToAppDirectory(List<String> videoPaths) async {
+    List<String> savedVideoPaths = [];
+
+    try {
+      // Get app documents directory
+      final appDir = await getApplicationDocumentsDirectory();
+      final videosDir = Directory('${appDir.path}/memory_videos');
+
+      // Create videos directory if it doesn't exist
+      if (!await videosDir.exists()) {
+        await videosDir.create(recursive: true);
+      }
+
+      for (String videoPath in videoPaths) {
+        try {
+          final sourceFile = File(videoPath);
+          if (await sourceFile.exists()) {
+            // Generate unique filename
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            final extension = videoPath.split('.').last.toLowerCase();
+            final fileName =
+                'memory_${timestamp}_${savedVideoPaths.length}.$extension';
+            final targetPath = '${videosDir.path}/$fileName';
+
+            // Copy original video to app directory
+            await sourceFile.copy(targetPath);
+
+            // Store RELATIVE path instead of absolute path
+            savedVideoPaths.add('memory_videos/$fileName');
+
+            debugPrint('Video saved to app directory: $fileName (relative path)');
+          }
+        } catch (e) {
+          debugPrint('Error saving video: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error creating videos directory: $e');
+    }
+
+    return savedVideoPaths;
   }
 
   // Compress image to reduce memory usage
@@ -381,11 +447,12 @@ class MemoryController extends GetxController {
   Future<int> saveMemory({
     required String description,
     List<String>? imagePaths,
+    List<String>? videoPaths,
     List<String>? tags,
     List<String>? mentions,
   }) async {
     debugPrint(
-      '💾 Saving memory with ${imagePaths?.length ?? 0} images and ${recordedAudioPaths.length} audio files',
+      '💾 Saving memory with ${imagePaths?.length ?? 0} images, ${videoPaths?.length ?? 0} videos, and ${recordedAudioPaths.length} audio files',
     );
 
     if (selectedDate.value == null || selectedTime.value == null) {
@@ -484,24 +551,62 @@ class MemoryController extends GetxController {
         final audioPath = recordedAudioPaths[i];
         final duration = i < recordedAudios.length ? recordedAudios[i] : '0:00';
 
-        // Verify file exists before adding to list
-        final file = File(audioPath);
+        // Convert relative path to absolute path for verification
+        final absolutePath = await getAbsolutePath(audioPath);
+        final file = File(absolutePath);
         if (await file.exists()) {
           final fileSize = await file.length();
           debugPrint(
-            '💾 Prepared audio $i: $audioPath ($duration, $fileSize bytes)',
+            '💾 Prepared audio $i: $audioPath (relative) -> $absolutePath ($duration, $fileSize bytes)',
           );
 
           audioDataList.add({
-            'path': audioPath,
+            'path': audioPath, // Store RELATIVE path in database
             'duration': duration,
           });
         } else {
-          debugPrint('❌ Audio file not found, skipping: $audioPath');
+          debugPrint('❌ Audio file not found, skipping: $audioPath -> $absolutePath');
         }
       }
 
       debugPrint('✅ Prepared ${audioDataList.length} audio files for insertion');
+    }
+
+    // Prepare video data if any
+    List<Map<String, dynamic>>? videoDataList;
+    if (videoPaths != null && videoPaths.isNotEmpty) {
+      // Save videos to app directory first
+      final savedVideoPaths = await saveVideosToAppDirectory(videoPaths);
+      debugPrint('💾 Saved ${savedVideoPaths.length} videos to app directory');
+
+      videoDataList = [];
+      debugPrint(
+        '💾 Preparing ${savedVideoPaths.length} video files for insertion...',
+      );
+
+      for (int i = 0; i < savedVideoPaths.length; i++) {
+        final videoPath = savedVideoPaths[i];
+
+        // Convert relative path to absolute path for verification
+        final absolutePath = await getAbsolutePath(videoPath);
+        final file = File(absolutePath);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          debugPrint(
+            '💾 Prepared video $i: $videoPath (relative) -> $absolutePath ($fileSize bytes)',
+          );
+
+          videoDataList.add({
+            'path': videoPath, // Store RELATIVE path in database
+            'duration': '', // Duration can be extracted later if needed
+            'thumbnail': '', // Thumbnail path can be generated later if needed
+          });
+        } else {
+          debugPrint('❌ Video file not found, skipping: $videoPath -> $absolutePath');
+        }
+      }
+
+      debugPrint('✅ Prepared ${videoDataList.length} video files for insertion');
     }
 
     // Insert everything in a single transaction with error handling
@@ -511,6 +616,7 @@ class MemoryController extends GetxController {
         memoryData: memory,
         imageDataList: imageDataList,
         audioDataList: audioDataList,
+        videoDataList: videoDataList,
       );
 
       debugPrint('💾 Complete memory saved successfully with ID: $memoryId');
@@ -526,6 +632,7 @@ class MemoryController extends GetxController {
           memoryData: memory,
           imageDataList: imageDataList,
           audioDataList: audioDataList,
+          videoDataList: videoDataList,
         );
 
         debugPrint('💾 Memory saved successfully after recovery with ID: $memoryId');
@@ -723,8 +830,9 @@ class MemoryController extends GetxController {
 
       final fileName = 'audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
       final filePath = '${audioDir.path}/$fileName';
+      final relativePath = 'audio_files/$fileName'; // Store relative path
 
-      debugPrint('🎤 Recording to file: $filePath');
+      debugPrint('🎤 Recording to file: $filePath (relative: $relativePath)');
 
       // Start recording with enhanced config
       await _audioRecorder.start(
@@ -828,12 +936,22 @@ class MemoryController extends GetxController {
                 duration: const Duration(seconds: 3),
               );
             } else {
-              // Store both the duration for display and the file path for database
+              // Convert absolute path to relative path for storage
+              final appDir = await getApplicationDocumentsDirectory();
+              String pathToStore = path;
+              if (path.startsWith(appDir.path)) {
+                // Extract relative path
+                pathToStore = path.substring(appDir.path.length + 1); // +1 to remove leading slash
+                debugPrint('🎤 Converted to relative path: $pathToStore');
+              }
+
+              // Store both the duration for display and the RELATIVE file path for database
               recordedAudios.add(recordingDuration.value);
-              recordedAudioPaths.add(path);
+              recordedAudioPaths.add(pathToStore);
 
               debugPrint('✅ Recording saved successfully:');
-              debugPrint('  Path: $path');
+              debugPrint('  Absolute Path: $path');
+              debugPrint('  Relative Path: $pathToStore');
               debugPrint('  Duration: ${recordingDuration.value}');
               debugPrint('  Size: $fileSize bytes');
               debugPrint('  Total recordings: ${recordedAudios.length}');
@@ -912,16 +1030,18 @@ class MemoryController extends GetxController {
     }
   }
 
-  void removeAudio(int index) {
+  void removeAudio(int index) async {
     if (index >= 0 && index < recordedAudios.length) {
       // Remove the audio file from storage
       if (index < recordedAudioPaths.length) {
         final filePath = recordedAudioPaths[index];
         try {
-          final file = File(filePath);
+          // Convert relative path to absolute path if needed
+          final absolutePath = await getAbsolutePath(filePath);
+          final file = File(absolutePath);
           if (file.existsSync()) {
             file.deleteSync();
-            debugPrint('🗑️ Audio file deleted: $filePath');
+            debugPrint('🗑️ Audio file deleted: $absolutePath');
           }
         } catch (e) {
           debugPrint('❌ Error deleting audio file: $e');
@@ -950,15 +1070,17 @@ class MemoryController extends GetxController {
       final duration = i < recordedAudios.length ? recordedAudios[i] : '0:00';
 
       try {
-        final file = File(path);
+        // Convert relative path to absolute path if needed
+        final absolutePath = await getAbsolutePath(path);
+        final file = File(absolutePath);
         if (await file.exists()) {
           final size = await file.length();
           if (size > 0) {
-            validPaths.add(path);
+            validPaths.add(path); // Store relative path
             validDurations.add(duration);
-            debugPrint('✅ Valid audio file: $path ($size bytes)');
+            debugPrint('✅ Valid audio file: $path -> $absolutePath ($size bytes)');
           } else {
-            debugPrint('❌ Empty audio file: $path');
+            debugPrint('❌ Empty audio file: $absolutePath');
             // Delete empty file
             try {
               await file.delete();
@@ -967,7 +1089,7 @@ class MemoryController extends GetxController {
             }
           }
         } else {
-          debugPrint('❌ Audio file not found: $path');
+          debugPrint('❌ Audio file not found: $path -> $absolutePath');
         }
       } catch (e) {
         debugPrint('❌ Error validating audio file $path: $e');
@@ -1033,8 +1155,16 @@ class TagMentionController extends GetxController {
   final RxString searchQuery = ''.obs;
 
   final bool isTagMode;
+  final List<String>? excludedItems; // Items already added to the description
+  final String? initialKeyword; // Initial keyword when opening the bottom sheet
+  final bool isEditingExisting; // True when editing an existing hashtag/mention
 
-  TagMentionController({required this.isTagMode});
+  TagMentionController({
+    required this.isTagMode,
+    this.excludedItems,
+    this.initialKeyword,
+    this.isEditingExisting = false,
+  });
 
   @override
   void onInit() {
@@ -1048,7 +1178,9 @@ class TagMentionController extends GetxController {
     } else {
       await _loadContactGroups();
     }
-    filterItems('');
+    // If there's an initial keyword, filter by it immediately to show search results
+    // Otherwise show all items (recents)
+    filterItems(initialKeyword ?? '');
   }
 
   Future<void> _loadHashtagGroups() async {
@@ -1167,6 +1299,9 @@ class TagMentionController extends GetxController {
               item['parentName'].toString().toLowerCase().contains(queryLower))
           .toList();
     }
+
+    // Note: We no longer filter out excluded items here - they will be shown in the list
+    // but without the "add" button (handled in the UI layer)
 
     filteredItems.value = items;
   }

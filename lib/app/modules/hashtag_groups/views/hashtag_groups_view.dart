@@ -8,6 +8,7 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
 import 'package:spacetime/app/models/hashtag_group_model.dart';
 import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
+import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
 import '../../../config/app_text.dart';
 
 class HashtagGroupsView extends StatefulWidget {
@@ -566,192 +567,72 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     );
   }
 
-  /// Show edit hashtag group dialog - matches category picker styling
+  /// Show edit hashtag group dialog using AddEditGroupPopup
   void _showEditHashtagGroupDialog(HashtagGroup hashtagGroup) {
-    debugPrint(
-      '[HashtagGroupsView][_showEditHashtagGroupDialog] ===== EDIT DIALOG OPENED =====',
-    );
-    debugPrint(
-      '[HashtagGroupsView][_showEditHashtagGroupDialog] Hashtag Group Details:',
-    );
-    debugPrint('  - ID: ${hashtagGroup.id}');
-    debugPrint('  - Name: "${hashtagGroup.name}"');
-    debugPrint('  - Parent ID: ${hashtagGroup.parentId}');
-    debugPrint('  - Is Custom: ${hashtagGroup.isCustom}');
-    debugPrint('  - Is Subgroup: ${hashtagGroup.isSubgroup}');
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AddEditGroupPopup(
+          isHashtagMode: true,
+          isMainGroup: hashtagGroup.parentId == null,
+          initialName: hashtagGroup.name,
+          editItemId: hashtagGroup.id,
+          parentId: hashtagGroup.parentId,
+          onSave: (newName, parentId) async {
+            // Validate that name is provided
+            if (newName.isEmpty) {
+              Get.snackbar(
+                'Validation Error',
+                'Please enter a hashtag group name',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
 
-    final uiController = Get.find<UiController>();
-    final nameController = TextEditingController(text: hashtagGroup.name);
-    final focusNode = FocusNode();
+            if (newName == hashtagGroup.name) {
+              // No changes, just close
+              Navigator.of(context).pop();
+              return;
+            }
 
-    // Auto-focus the text field after dialog is shown
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      focusNode.requestFocus();
-    });
+            try {
+              final success = await _hashtagGroupService.updateGroup(
+                hashtagGroup.id!,
+                newName,
+              );
 
-    Get.dialog(
-      Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 10),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: uiController.darkMode.value
-                ? Colors.grey[900]
-                : Colors.white,
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Text input field
-              Expanded(
-                child: Theme(
-                  data: Theme.of(context).copyWith(
-                    textSelectionTheme: TextSelectionThemeData(
-                      cursorColor: uiController.currentMainColor,
-                      selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
-                      selectionHandleColor: uiController.currentMainColor,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: nameController,
-                    focusNode: focusNode,
-                    autofocus: true,
-                    cursorColor: uiController.currentMainColor,
-                    style: gfonts.GoogleFonts.kumbhSans(
-                      color: uiController.darkMode.value ? Colors.white : Colors.black,
-                      fontSize: 14,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Hashtag Group Name',
-                      hintStyle: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey[500],
-                        fontSize: 14,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Cancel button (red cross)
-              GestureDetector(
-                onTap: () => Get.back(),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      Colors.red,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.asset(
-                      'assets/images/ic_cross.png',
-                      width: 10,
-                      height: 10,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Save button (green tick)
-              GestureDetector(
-                onTap: () async {
-                  debugPrint('[HashtagGroupsView][EditDialog] ===== SAVE BUTTON PRESSED =====');
-                  final name = nameController.text.trim();
-                  debugPrint('[HashtagGroupsView][EditDialog] Original name: "${hashtagGroup.name}"');
-                  debugPrint('[HashtagGroupsView][EditDialog] New name: "$name"');
+              if (success) {
+                Navigator.of(context).pop(); // Close dialog
+                await _refreshHashtagGroupsFromDatabase();
 
-                  // Validate that name is provided
-                  if (name.isEmpty) {
-                    debugPrint('[HashtagGroupsView][EditDialog] ❌ Validation failed: Empty name');
-                    Get.snackbar(
-                      'Validation Error',
-                      'Please enter a hashtag group name',
-                      backgroundColor: Colors.orange,
-                      colorText: Colors.white,
-                    );
-                    return;
-                  }
-
-                  if (name == hashtagGroup.name) {
-                    debugPrint('[HashtagGroupsView][EditDialog] ⚠️ No changes detected, closing dialog');
-                    Get.back();
-                    return;
-                  }
-
-                  try {
-                    debugPrint('[HashtagGroupsView][EditDialog] 🔄 Starting update process...');
-                    debugPrint('[HashtagGroupsView][EditDialog] Calling updateGroup with:');
-                    debugPrint('  - Group ID: ${hashtagGroup.id}');
-                    debugPrint('  - New Name: "$name"');
-
-                    final success = await _hashtagGroupService.updateGroup(
-                      hashtagGroup.id!,
-                      name,
-                    );
-
-                    debugPrint('[HashtagGroupsView][EditDialog] Update result: $success');
-
-                    if (success) {
-                      debugPrint('[HashtagGroupsView][EditDialog] ✅ Update successful, closing dialog');
-                      Get.back(); // Close dialog
-
-                      debugPrint('[HashtagGroupsView][EditDialog] 🔄 Refreshing hashtag groups from database');
-                      await _refreshHashtagGroupsFromDatabase();
-
-                      debugPrint('[HashtagGroupsView][EditDialog] ✅ Showing success message');
-                      Get.snackbar(
-                        'Success',
-                        'Hashtag group "$name" updated successfully!',
-                        backgroundColor: Colors.green,
-                        colorText: Colors.white,
-                      );
-                    } else {
-                      debugPrint('[HashtagGroupsView][EditDialog] ❌ Update failed: Service returned false');
-                      Get.snackbar(
-                        'Unable to Update',
-                        'Unable to update hashtag group. Please try again.',
-                        backgroundColor: Colors.red,
-                        colorText: Colors.white,
-                      );
-                    }
-                  } catch (e) {
-                    debugPrint('[HashtagGroupsView][EditDialog] ❌ Exception occurred: $e');
-                    debugPrint('[HashtagGroupsView][EditDialog] Exception type: ${e.runtimeType}');
-                    Get.snackbar(
-                      'Unable to Update',
-                      'Unable to update hashtag group. Please try again.',
-                      backgroundColor: Colors.red,
-                      colorText: Colors.white,
-                    );
-                  }
-                },
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: Image.asset(
-                    'assets/images/ic_tick.png',
-                    width: 10,
-                    height: 10,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+                Get.snackbar(
+                  'Success',
+                  'Hashtag group "$newName" updated successfully!',
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                );
+              } else {
+                Get.snackbar(
+                  'Unable to Update',
+                  'Unable to update hashtag group. Please try again.',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+              }
+            } catch (e) {
+              debugPrint('[HashtagGroupsView][EditDialog] Exception occurred: $e');
+              Get.snackbar(
+                'Unable to Update',
+                'Unable to update hashtag group. Please try again.',
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+            }
+          },
+        );
+      },
     );
   }
 
@@ -868,39 +749,50 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
   /// Toggle hashtag group selection for multiple selection mode
   void _toggleHashtagGroupSelection(HashtagGroup hashtagGroup) {
-    final isSelected = _selectedHashtagGroups.any((g) => g.id == hashtagGroup.id);
+    debugPrint(
+      '[HashtagGroupsView][_toggleHashtagGroupSelection] Toggling: ${hashtagGroup.name} (isMainGroup: ${hashtagGroup.isMainGroup}, isSubgroup: ${hashtagGroup.isSubgroup})',
+    );
+
+    // Determine if the group is currently selected
+    bool isSelected;
+    if (hashtagGroup.isMainGroup && hashtagGroup.hasSubgroups) {
+      // For main groups, check if ALL subgroups are selected
+      isSelected = hashtagGroup.subgroups!.every(
+        (subgroup) => _selectedHashtagGroups.any((g) => g.id == subgroup.id)
+      );
+    } else {
+      // For subgroups, check if this specific group is selected
+      isSelected = _selectedHashtagGroups.any((g) => g.id == hashtagGroup.id);
+    }
+
+    debugPrint(
+      '[HashtagGroupsView][_toggleHashtagGroupSelection] Current selection state: $isSelected',
+    );
 
     if (isSelected) {
       // Deselecting
-      _selectedHashtagGroups.removeWhere((g) => g.id == hashtagGroup.id);
-      debugPrint(
-        '[HashtagGroupsView][_toggleHashtagGroupSelection] Removed: ${hashtagGroup.name}',
-      );
-
-      // If this is a main group, also remove all its subgroups
       if (hashtagGroup.isMainGroup && hashtagGroup.hasSubgroups) {
+        // If this is a main group, remove all its subgroups
         for (final subgroup in hashtagGroup.subgroups!) {
           _selectedHashtagGroups.removeWhere((g) => g.id == subgroup.id);
           debugPrint(
             '[HashtagGroupsView][_toggleHashtagGroupSelection] Removed subgroup: ${subgroup.name}',
           );
         }
-      }
-
-      // If this is a subgroup, check if we should deselect the main group
-      if (hashtagGroup.isSubgroup) {
-        final mainGroup = _findMainGroupForSubgroup(hashtagGroup);
-        if (mainGroup != null) {
-          _selectedHashtagGroups.removeWhere((g) => g.id == mainGroup.id);
-          debugPrint(
-            '[HashtagGroupsView][_toggleHashtagGroupSelection] Removed main group: ${mainGroup.name} (subgroup was deselected)',
-          );
-        }
+        debugPrint(
+          '[HashtagGroupsView][_toggleHashtagGroupSelection] Deselected main group: ${hashtagGroup.name} (removed all subgroups)',
+        );
+      } else {
+        // For subgroups, remove them directly
+        _selectedHashtagGroups.removeWhere((g) => g.id == hashtagGroup.id);
+        debugPrint(
+          '[HashtagGroupsView][_toggleHashtagGroupSelection] Removed: ${hashtagGroup.name}',
+        );
       }
     } else {
       // Selecting
-      // If this is a main group, only add its subgroups (not the main group itself)
       if (hashtagGroup.isMainGroup && hashtagGroup.hasSubgroups) {
+        // If this is a main group, add all its subgroups (not the main group itself)
         for (final subgroup in hashtagGroup.subgroups!) {
           if (!_selectedHashtagGroups.any((g) => g.id == subgroup.id)) {
             _selectedHashtagGroups.add(subgroup);
@@ -973,24 +865,83 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     Get.back(result: _selectedHashtagGroups.toList());
   }
 
-  /// Start inline adding for a hashtag group
+  /// Show popup for adding subgroup to a hashtag group
   void _startInlineAdding(int hashtagGroupId) {
-    final isCurrentlyExpanded = _expandedHashtagGroups[hashtagGroupId] ?? false;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AddEditGroupPopup(
+          isHashtagMode: true,
+          isMainGroup: false,
+          parentId: hashtagGroupId,
+          onSave: (name, parentId) async {
+            // Use the existing save logic
+            if (name.isEmpty) {
+              Get.snackbar(
+                'Invalid Name',
+                'Hashtag name cannot be empty',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
 
-    if (!isCurrentlyExpanded) {
-      // If not expanded, use the controller to expand (this will trigger onExpansionChanged)
-      final controller = _expansionControllers[hashtagGroupId];
-      if (controller != null && !controller.isExpanded) {
-        // Set a flag to indicate we're expanding for adding mode
-        _pendingAddingMode[hashtagGroupId] = true;
-        controller.expand();
-      }
-    } else {
-      // If already expanded, just enable adding mode
-      _enableAddingMode(hashtagGroupId);
-    }
+            try {
+              final newSubgroup = await _hashtagGroupService.addCustomGroup(
+                name,
+                parentId: hashtagGroupId,
+              );
 
-    debugPrint('[HashtagGroupsView][_startInlineAdding] Started inline adding for hashtag group: $hashtagGroupId, controller expanded: ${_expansionControllers[hashtagGroupId]?.isExpanded}, tracked expanded: ${_expandedHashtagGroups[hashtagGroupId]}, adding: ${_addingToHashtagGroup[hashtagGroupId]}');
+              if (newSubgroup == null) {
+                Get.snackbar(
+                  'Unable to Add',
+                  'Unable to add hashtag. Please try again.',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+                return;
+              } else if (newSubgroup.id == -1) {
+                // Duplicate subgroup hashtag name
+                Get.snackbar(
+                  'Duplicate Hashtag',
+                  'Hashtag with this name already exists.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+                return;
+              } else if (newSubgroup.id == -4) {
+                // Subgroup name conflicts with parent group
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by the parent group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+                return;
+              }
+
+              await _refreshHashtagGroupsFromDatabase();
+
+              Get.snackbar(
+                'Success',
+                'Hashtag added successfully',
+                backgroundColor: Colors.green,
+                colorText: Colors.white,
+              );
+            } catch (e) {
+              debugPrint('[HashtagGroupsView] Error adding subgroup: $e');
+              Get.snackbar(
+                'Unable to Add',
+                'Unable to add hashtag. Please try again.',
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+            }
+          },
+        );
+      },
+    );
   }
 
   /// Helper method to enable adding mode
@@ -1232,7 +1183,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          '${(_selectedHashtagGroups.isEmpty) ? 0 :_selectedHashtagGroups.length} selected',
+                          '${_selectedHashtagGroups.where((g) => g.isSubgroup).length} selected',
                           style: gfonts.GoogleFonts.kumbhSans(
                             color: uiController.currentMainColor,
                             fontSize: 16,
@@ -1279,38 +1230,46 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
   Widget _buildHierarchicalHashtagGroups() {
     final uiController = Get.find<UiController>();
 
-    return ListView(
-      children: [
-        // Inline add widget for main hashtag groups (at the top)
-        Obx(() => _addingMainHashtagGroup.value
-            ? _buildInlineAddMainHashtagGroupWidget()
-            : const SizedBox.shrink()),
+    return Obx(() {
+      // Check if any hashtag group is expanded
+      final hasExpandedGroup = _expandedHashtagGroups.values.any((expanded) => expanded == true);
 
-        // Show empty state message if no groups and not adding
-        if (_mainHashtagGroups.isEmpty)
-          Obx(() => !_addingMainHashtagGroup.value
-              ? Container(
-                  padding: const EdgeInsets.all(40),
-                  child: Center(
-                    child: Text(
-                      'No hashtag groups found.\nTap + to add a new group.',
-                      textAlign: TextAlign.center,
-                      style: gfonts.GoogleFonts.kumbhSans(
-                        fontSize: 16,
-                        color: uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.6)
-                            : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                )
+      return ListView(
+        children: [
+          // Inline add widget for main hashtag groups (at the top)
+          Obx(() => _addingMainHashtagGroup.value
+              ? _buildInlineAddMainHashtagGroupWidget()
               : const SizedBox.shrink()),
 
-        // Main hashtag groups
-        ..._mainHashtagGroups.map((mainHashtagGroup) =>
-            _buildMainHashtagGroupExpansionTile(mainHashtagGroup)),
-      ],
-    );
+          // Show empty state message if no groups and not adding
+          if (_mainHashtagGroups.isEmpty)
+            Obx(() => !_addingMainHashtagGroup.value
+                ? Container(
+                    padding: const EdgeInsets.all(40),
+                    child: Center(
+                      child: Text(
+                        'No hashtag groups found.\nTap + to add a new group.',
+                        textAlign: TextAlign.center,
+                        style: gfonts.GoogleFonts.kumbhSans(
+                          fontSize: 16,
+                          color: uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.6)
+                              : Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink()),
+
+          // Main hashtag groups
+          ..._mainHashtagGroups.map((mainHashtagGroup) =>
+              _buildMainHashtagGroupExpansionTile(mainHashtagGroup)),
+
+          // Add spacing at the end if any group is expanded
+          if (hasExpandedGroup) const SizedBox(height: 15),
+        ],
+      );
+    });
   }
 
   /// Build main hashtag group expansion tile
@@ -1844,10 +1803,83 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     );
   }
 
-  /// Start inline editing for a subgroup
+  /// Show popup for editing a subgroup
   void _startInlineEditing(HashtagGroup hashtagGroup) {
-    _editingHashtagGroup[hashtagGroup.id!] = true;
-    _editNameControllers[hashtagGroup.id!] = TextEditingController(text: hashtagGroup.name);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AddEditGroupPopup(
+          isHashtagMode: true,
+          isMainGroup: hashtagGroup.parentId == null,
+          initialName: hashtagGroup.name,
+          editItemId: hashtagGroup.id,
+          parentId: hashtagGroup.parentId,
+          onSave: (newName, parentId) async {
+            // Use the existing save logic
+            if (newName.isEmpty) {
+              Get.snackbar(
+                'Invalid Name',
+                'Hashtag group name cannot be empty',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
+
+            try {
+              await _hashtagGroupService.updateGroup(hashtagGroup.id!, newName);
+
+              // Update in recents if it exists
+              await SearchableHashtagWidget.updateHashtagGroupInRecents(hashtagGroup.id!, newName);
+
+              await _refreshHashtagGroupsFromDatabase();
+
+              Get.snackbar(
+                'Success',
+                'Hashtag updated successfully',
+                backgroundColor: Colors.green,
+                colorText: Colors.white,
+              );
+            } catch (e) {
+              debugPrint('[HashtagGroupsView] Error updating hashtag group: $e');
+              if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
+                final message = hashtagGroup.parentId == null
+                    ? 'Hashtag Group with this name already exists.'
+                    : 'Hashtag with this name already exists.';
+                Get.snackbar(
+                  'Duplicate Hashtag',
+                  message,
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by a hashtag in another group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by the parent group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+              } else {
+                Get.snackbar(
+                  'Unable to Update',
+                  'Unable to update hashtag group. Please try again.',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+              }
+            }
+          },
+        );
+      },
+    );
   }
 
   /// Build inline edit widget
@@ -2039,15 +2071,79 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     _editNameControllers.remove(hashtagGroupId);
   }
 
-  /// Start inline adding for main hashtag group
+  /// Show popup for adding main hashtag group
   void _startInlineAddingMainHashtagGroup() {
-    _addingMainHashtagGroup.value = true;
-    _mainHashtagGroupNameController.clear();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AddEditGroupPopup(
+          isHashtagMode: true,
+          isMainGroup: true,
+          onSave: (name, parentId) async {
+            // Use the existing save logic
+            if (name.isEmpty) {
+              Get.snackbar(
+                'Invalid Name',
+                'Hashtag group name cannot be empty',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              return;
+            }
 
-    // Auto-focus the text field after the widget is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // The focus will be handled by the TextField's autofocus property
-    });
+            try {
+              final newGroup = await _hashtagGroupService.addCustomGroup(name);
+
+              if (newGroup == null) {
+                Get.snackbar(
+                  'Unable to Add',
+                  'Unable to add hashtag group. Please try again.',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+                return;
+              } else if (newGroup.id == -1) {
+                // Duplicate main hashtag group name
+                Get.snackbar(
+                  'Duplicate Hashtag',
+                  'Hashtag Group with this name already exists.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+                return;
+              } else if (newGroup.id == -3) {
+                // Main group name conflicts with existing subgroup
+                Get.snackbar(
+                  'Name Conflict',
+                  'This name is already used by a hashtag in another group.',
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
+                return;
+              }
+
+              await _refreshHashtagGroupsFromDatabase();
+
+              Get.snackbar(
+                'Success',
+                'Hashtag group "$name" added successfully!',
+                backgroundColor: Colors.green,
+                colorText: Colors.white,
+              );
+            } catch (e) {
+              debugPrint('[HashtagGroupsView] Error adding main hashtag group: $e');
+              Get.snackbar(
+                'Error',
+                'Failed to add hashtag group',
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+            }
+          },
+        );
+      },
+    );
   }
 
   /// Cancel inline adding for main hashtag group
