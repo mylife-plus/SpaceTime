@@ -61,6 +61,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   // Multiple selection state
   final RxList<PlaceCategory> _selectedCategories = <PlaceCategory>[].obs;
 
+  // Memory count cache for categories
+  final RxMap<int, int> _categoryMemoryCount = <int, int>{}.obs;
+
   // Main category inline adding state
   final RxBool _addingMainCategory = false.obs;
   final TextEditingController _mainCategoryNameController = TextEditingController();
@@ -143,6 +146,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     // Clear expansion tile controllers (they don't have dispose method)
     _expansionControllers.clear();
 
+    // Clear memory count cache
+    _categoryMemoryCount.clear();
+
     // Close reactive variables to prevent memory leaks and dependency issues
     _mainCategories.close();
     _searchResults.close();
@@ -158,6 +164,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     _editNameControllers.close();
     _editEmojiControllers.close();
     _selectedCategories.close();
+    _categoryMemoryCount.close();
     _addingMainCategory.close();
 
     // Clean up global refresh notifier
@@ -235,6 +242,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       _expansionControllers.clear();
       debugPrint(
         '[CategoryPickerWidget][_loadCategories] Cleared expansion controllers',
+      );
+
+      // Clear memory count cache
+      _categoryMemoryCount.clear();
+      debugPrint(
+        '[CategoryPickerWidget][_loadCategories] Cleared memory count cache',
       );
 
       final categories = await _categoryService.getAllCategoriesHierarchical();
@@ -328,6 +341,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       _expansionControllers.clear();
       debugPrint(
         '[CategoryPickerWidget][_refreshCategoriesFromDatabase] Cleared expansion controllers',
+      );
+
+      // Clear memory count cache
+      _categoryMemoryCount.clear();
+      debugPrint(
+        '[CategoryPickerWidget][_refreshCategoriesFromDatabase] Cleared memory count cache',
       );
 
       final categories = await _categoryService.getAllCategoriesHierarchical();
@@ -660,13 +679,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         // Also trigger global refresh for any other category pickers that might be open
         _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
 
-        Get.snackbar(
-          'Success',
-          'Place Category "$name" added successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-
+       
         debugPrint(
           '[CategoryPickerWidget][_saveInlineMainCategory] Successfully added main category: ${newCategory.id}',
         );
@@ -767,12 +780,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         // Also trigger global refresh for any other category pickers that might be open
         _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
 
-        Get.snackbar(
-          'Success',
-          'Place "$name" updated successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        // Get.snackbar(
+        //   'Success',
+        //   'Place "$name" updated successfully!',
+        //   backgroundColor: Colors.green,
+        //   colorText: Colors.white,
+        // );
       } else {
         Get.snackbar(
           'Error',
@@ -980,12 +993,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       // Also trigger global refresh for any other category pickers that might be open
       _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
 
-      Get.snackbar(
-        'Success',
-        'Place "$name" added successfully!',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
+      // Get.snackbar(
+      //   'Success',
+      //   'Place "$name" added successfully!',
+      //   backgroundColor: Colors.green,
+      //   colorText: Colors.white,
+      // );
 
       debugPrint(
         '[CategoryPickerWidget][_saveInlineSubcategory] Successfully added subcategory: ${newCategory.id}',
@@ -1039,12 +1052,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         );
         _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
 
-        Get.snackbar(
-          'Success',
-          'Place "$name" added successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        // Get.snackbar(
+        //   'Success',
+        //   'Place "$name" added successfully!',
+        //   backgroundColor: Colors.green,
+        //   colorText: Colors.white,
+        // );
 
         debugPrint(
           '[CategoryPickerWidget][_addNewCategory] Successfully added category: ${newCategory.id}',
@@ -1134,12 +1147,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         );
         _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
 
-        Get.snackbar(
-          'Success',
-          'Place updated successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        // Get.snackbar(
+        //   'Success',
+        //   'Place updated successfully!',
+        //   backgroundColor: Colors.green,
+        //   colorText: Colors.white,
+        // );
       } else {
         Get.snackbar(
           'Error',
@@ -1159,100 +1172,41 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     }
   }
 
-  /// Show delete confirmation dialog
-  void _showDeleteConfirmation(PlaceCategory category) {
-    final uiController = Get.find<UiController>();
+  /// Get memory count for a category
+  Future<int> _getMemoryCountForCategory(PlaceCategory category) async {
+    // Check cache first
+    if (_categoryMemoryCount.containsKey(category.id)) {
+      return _categoryMemoryCount[category.id]!;
+    }
 
-    Get.dialog(
-      AlertDialog(
-        backgroundColor:
-            uiController.darkMode.value ? Colors.grey[900] : Colors.white,
-        title: Text(
-          'Delete ${category.parentId == null ? 'Place Category' : 'Place'}',
-          style: gfonts.GoogleFonts.kumbhSans(
-            color: uiController.darkMode.value ? Colors.white : Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Are you sure you want to delete "${category.emoji} ${category.name}"?',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white70
-                        : Colors.grey[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (!category.isCustom) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning, color: Colors.orange, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'This is a predefined ${category.parentId == null ? 'Place Category' : 'Place'}. Deleting it will remove it permanently.',
-                        style: gfonts.GoogleFonts.kumbhSans(
-                          color: Colors.orange[700],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            Text(
-              'This action cannot be undone.',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white60
-                        : Colors.grey[600],
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(
-              'Cancel',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white70
-                        : Colors.grey[600],
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => _deleteCategory(category.id!),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: Text('Delete', style: gfonts.GoogleFonts.kumbhSans()),
-          ),
-        ],
-      ),
+    // Fetch from database
+    final count = await _categoryService.getMemoryCountForCategoryByEmojiAndName(
+      category.emoji,
+      category.name,
     );
+
+    // Cache the result
+    _categoryMemoryCount[category.id!] = count;
+
+    return count;
+  }
+
+  /// Delete a category (with or without confirmation based on memory count)
+  Future<void> _handleDeleteCategory(PlaceCategory category) async {
+    // Check if category has associated memories
+    final memoryCount = await _getMemoryCountForCategory(category);
+
+    if (memoryCount > 0) {
+      // Show cannot delete dialog
+      _showCannotDeleteDialog(
+        category.name,
+        memoryCount,
+        category.parentId == null,
+      );
+    } else {
+      // Delete directly without confirmation
+      await _deleteCategory(category.id!);
+    }
   }
 
   /// Delete a custom category
@@ -1275,12 +1229,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         );
         await _refreshCategoriesFromDatabase();
 
-        Get.snackbar(
-          'Success',
-          'Place deleted successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+      
       } else if (result == null) {
         // Cannot delete - has memories
         Get.back(); // Close confirmation dialog
@@ -1324,6 +1273,10 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     Get.dialog(
       AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+        ),
         backgroundColor:
             uiController.darkMode.value ? Colors.grey[900] : Colors.white,
         title: Row(
@@ -2608,20 +2561,30 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                       // Show delete button only when category has no subcategories
                       if (mainCategory.subcategories == null ||
                           mainCategory.subcategories!.isEmpty)
-                        IconButton(
-                          icon: ColorFiltered(
-                            colorFilter: ColorFilter.mode(
-                              Colors.red,
-                              BlendMode.srcIn,
-                            ),
-                            child: Image.asset(
-                              'assets/images/ic_cross.png',
-                              width: 25,
-                              height: 25,
-                            ),
-                          ),
-                          onPressed: () =>  _deleteCategory(mainCategory.id!),
-                          tooltip: 'Delete',
+                        FutureBuilder<int>(
+                          future: _getMemoryCountForCategory(mainCategory),
+                          builder: (context, snapshot) {
+                            final memoryCount = snapshot.data ?? 0;
+                            final hasMemories = memoryCount > 0;
+
+                            return IconButton(
+                              icon: ColorFiltered(
+                                colorFilter: ColorFilter.mode(
+                                  hasMemories
+                                      ? Colors.red.withValues(alpha: 0.6)
+                                      : Colors.red,
+                                  BlendMode.srcIn,
+                                ),
+                                child: Image.asset(
+                                  'assets/images/ic_cross.png',
+                                  width: 25,
+                                  height: 25,
+                                ),
+                              ),
+                              onPressed: () => _handleDeleteCategory(mainCategory),
+                              tooltip: 'Delete',
+                            );
+                          },
                         ),
                       Obx(
                         () => IconButton(
@@ -2794,24 +2757,32 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                       ),
                     ),
                     // Delete button (always show for subcategories)
-                    GestureDetector(
-                      onTap: () => _showDeleteConfirmation(category),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: ColorFiltered(
-                          colorFilter: ColorFilter.mode(
-                            uiController.darkMode.value
-                                ? Colors.white.withValues(alpha: 0.6)
-                                : Colors.grey[500] ?? Colors.grey,
-                            BlendMode.srcIn,
+                    FutureBuilder<int>(
+                      future: _getMemoryCountForCategory(category),
+                      builder: (context, snapshot) {
+                        final memoryCount = snapshot.data ?? 0;
+                        final hasMemories = memoryCount > 0;
+
+                        return GestureDetector(
+                          onTap: () => _handleDeleteCategory(category),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                hasMemories
+                                    ? Colors.red.withValues(alpha: 0.6)
+                                    : Colors.red,
+                                BlendMode.srcIn,
+                              ),
+                              child: Image.asset(
+                                'assets/images/ic_cross.png',
+                                width: 20,
+                                height: 20,
+                              ),
+                            ),
                           ),
-                          child: Image.asset(
-                            'assets/images/ic_cross.png',
-                            width: 20,
-                            height: 20,
-                          ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ],
                 ),
