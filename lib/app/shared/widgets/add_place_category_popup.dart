@@ -24,6 +24,19 @@ class AddPlaceCategoryPopup extends StatefulWidget {
   /// Whether adding a main category
   final bool isMainCategory;
 
+  /// Whether this popup is opened from Memory View
+  /// When true, shows category dropdown with add button, subcategory name, and icon picker
+  final bool fromMemoryView;
+
+  /// Whether to show both category and subcategory editing options
+  final bool shouldShowEditCategoryAndSubCategory;
+
+  /// Whether to show only category editing or adding
+  final bool shouldOnlyShowEditCategoryOrAddCategory;
+
+  /// Whether to show only subcategory editing
+  final bool shouldOnlyShowEditSubCategory;
+
   const AddPlaceCategoryPopup({
     super.key,
     this.onCategoryAdded,
@@ -31,6 +44,10 @@ class AddPlaceCategoryPopup extends StatefulWidget {
     this.editCategory,
     this.parentCategoryId,
     this.isMainCategory = false,
+    this.fromMemoryView = false,
+    this.shouldShowEditCategoryAndSubCategory = false,
+    this.shouldOnlyShowEditCategoryOrAddCategory = false,
+    this.shouldOnlyShowEditSubCategory = false,
   });
 
   @override
@@ -64,6 +81,10 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
       _isCreatingMainCategory.value = true;
     } else if (widget.parentCategoryId != null) {
       // If adding a subcategory with a specific parent, don't load categories
+      _isCreatingMainCategory.value = false;
+    } else if (widget.fromMemoryView) {
+      // From Memory View, always load categories for dropdown
+      _loadMainCategoriesAndSetParent();
       _isCreatingMainCategory.value = false;
     } else {
       // Otherwise load categories for parent selection
@@ -185,6 +206,31 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
     }
   }
 
+  /// Load main categories and set parent ID if editing from Memory View
+  Future<void> _loadMainCategoriesAndSetParent() async {
+    try {
+      final categories = await _categoryService.getMainCategories();
+      _mainCategories.value = categories;
+
+      // If editing from Memory View, set the parent category only if it exists in the loaded categories
+      if (widget.editCategory != null && widget.fromMemoryView && widget.editCategory!.parentId != null) {
+        final parentIdString = widget.editCategory!.parentId.toString();
+        final parentExists = categories.any((cat) => cat.id.toString() == parentIdString);
+
+        if (parentExists) {
+          _selectedParentId.value = parentIdString;
+          debugPrint('[AddPlaceCategoryPopup] Set parent ID to: $parentIdString');
+        } else {
+          debugPrint('[AddPlaceCategoryPopup] Warning: Parent category with ID $parentIdString not found in loaded categories');
+          // Reset to empty so dropdown shows hint instead of invalid value
+          _selectedParentId.value = '';
+        }
+      }
+    } catch (e) {
+      debugPrint('[AddPlaceCategoryPopup] Error loading main categories: $e');
+    }
+  }
+
 
 
   /// Add or edit category
@@ -209,9 +255,10 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
       return;
     }
 
-    // Validate emoji for subcategories (not for main categories)
-    if (!widget.isMainCategory &&
-        _selectedParentId.value != 'add_new_main_category' &&
+    // Validate emoji for subcategories (not for main categories) or when in Memory View mode
+    if (((!widget.isMainCategory &&
+        _selectedParentId.value != 'add_new_main_category') ||
+        widget.fromMemoryView) &&
         placeEmoji.isEmpty) {
       Get.snackbar(
         'Validation Error',
@@ -295,14 +342,19 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
 
         Get.back(); // Close popup
         widget.onCategoryAdded?.call(newCategory);
-        await _categoryService.refreshMemoryControllersAfterMemoryChange();
 
-        Get.snackbar(
-          'Success',
-          'Place Group "$categoryName" added successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        // Only refresh controllers if not in Memory View mode
+        // In Memory View, we're just selecting a category, not saving a memory yet
+        if (!widget.fromMemoryView) {
+          await _categoryService.refreshMemoryControllersAfterMemoryChange();
+        }
+
+        // Get.snackbar(
+        //   'Success',
+        //   'Place Category "$categoryName" added successfully!',
+        //   backgroundColor: Colors.green,
+        //   colorText: Colors.white,
+        // );
       }
       // If adding a subcategory
       else if (parentId != null) {
@@ -341,20 +393,25 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           return;
         }
 
-        Get.back(); // Close popup
+Navigator.of(context).pop();
         widget.onCategoryAdded?.call(newCategory);
-        await _categoryService.refreshMemoryControllersAfterMemoryChange();
+
+        // Only refresh controllers if not in Memory View mode
+        // In Memory View, we're just selecting a category, not saving a memory yet
+        if (!widget.fromMemoryView) {
+          await _categoryService.refreshMemoryControllersAfterMemoryChange();
+        }
 
         final placeDisplayName = placeEmoji == '📍'
             ? placeName
             : '$placeEmoji $placeName';
 
-        Get.snackbar(
-          'Success',
-          'Place "$placeDisplayName" added successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        // Get.snackbar(
+        //   'Success',
+        //   'Place "$placeDisplayName" added successfully!',
+        //   backgroundColor: Colors.green,
+        //   colorText: Colors.white,
+        // );
       } else {
         // No parent selected
         Get.snackbar(
@@ -398,15 +455,42 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
       return;
     }
 
-    // No need to validate emoji when editing - it's kept from the original category
+    // Validate emoji when editing from Memory View
+    if (widget.fromMemoryView && placeEmoji.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please select an icon',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Validate parent category when editing from Memory View
+    if (widget.fromMemoryView && _selectedParentId.value.isEmpty) {
+      Get.snackbar(
+        'Validation Error',
+        'Please select a Place Category',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
 
     _isLoading.value = true;
 
     try {
+      // Get parent ID for Memory View mode
+      int? parentId = widget.editCategory!.parentId;
+      if (widget.fromMemoryView && _selectedParentId.value.isNotEmpty) {
+        parentId = int.tryParse(_selectedParentId.value);
+      }
+
       final success = await _categoryService.updateCategory(
         categoryId: widget.editCategory!.id!,
         name: placeName,
         emoji: placeEmoji,
+        parentId: parentId,
       );
 
       if (success) {
@@ -417,21 +501,21 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           id: widget.editCategory!.id,
           name: placeName,
           emoji: placeEmoji,
-          parentId: widget.editCategory!.parentId,
+          parentId: parentId,
           isCustom: widget.editCategory!.isCustom,
           createdAt: widget.editCategory!.createdAt,
           updatedAt: DateTime.now(),
         );
 
         widget.onCategoryAdded?.call(updatedCategory);
-        await _categoryService.refreshMemoryControllersAfterMemoryChange();
 
-        Get.snackbar(
-          'Success',
-          'Place "$placeName" updated successfully!',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        // Only refresh controllers if not in Memory View mode
+        // In Memory View, we're just selecting a category, not saving a memory yet
+        if (!widget.fromMemoryView) {
+          await _categoryService.refreshMemoryControllersAfterMemoryChange();
+        }
+
+      
       } else {
         Get.snackbar(
           'Error',
@@ -523,7 +607,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                         widget.editCategory != null
                             ? '📍 edit Place'
                             : widget.isMainCategory
-                                ? '📍 new Place Group'
+                                ? '📍 new Place Category'
                                 : '📍 new Place',
                         style: GoogleFonts.kumbhSans(
                           fontSize: 18,
@@ -567,23 +651,44 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Column(
                 children: [
-                  // Category selection dropdown (only show when not in category picker mode)
-                  if (!widget.isMainCategory && widget.parentCategoryId == null && widget.editCategory == null)
-                    ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
+                  // Memory View Mode: Show category dropdown with label
+                  if (widget.fromMemoryView) ...[
+                    // Place Category label
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'Place Category',
+                          style: GoogleFonts.kumbhSans(
+                            fontSize: 15,
+                            color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
                           ),
-                          borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Obx(() => DropdownButtonHideUnderline(
+                      ),
+                    ),
+                    // Category dropdown
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Obx(() {
+                        // Validate that the selected value exists in the items list
+                        final selectedValue = _selectedParentId.value;
+                        final hasValidValue = selectedValue.isEmpty ||
+                                              selectedValue == 'add_new_main_category' ||
+                                              _mainCategories.any((cat) => cat.id.toString() == selectedValue);
+
+                        return DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: _selectedParentId.value.isEmpty ? null : _selectedParentId.value,
+                            value: hasValidValue && selectedValue.isNotEmpty ? selectedValue : null,
                             hint: Text(
-                              'select Places',
+                              'Select Place Category',
                               style: GoogleFonts.kumbhSans(
                                 fontSize: 16,
                                 color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
@@ -604,7 +709,6 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                                   style: GoogleFonts.kumbhSans(
                                     fontSize: 16,
                                     color: uiController.currentMainColor,
-                                    // fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -632,7 +736,124 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                               }
                             },
                           ),
-                        )),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    // New category name input (shown when "Add New Category" is selected)
+                    Obx(() {
+                      if (_selectedParentId.value == 'add_new_main_category') {
+                        return Column(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: TextField(
+                                controller: _nameController,
+                                focusNode: _nameFocusNode,
+                                style: GoogleFonts.kumbhSans(
+                                  fontSize: 16,
+                                  color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Category Name',
+                                  hintStyle: GoogleFonts.kumbhSans(
+                                    fontSize: 16,
+                                    color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }),
+                  ],
+
+                  // Category selection dropdown (only show when not in category picker mode and not from Memory View)
+                  if (!widget.fromMemoryView && !widget.isMainCategory && widget.parentCategoryId == null && widget.editCategory == null)
+                    ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Obx(() {
+                          // Validate that the selected value exists in the items list
+                          final selectedValue = _selectedParentId.value;
+                          final hasValidValue = selectedValue.isEmpty ||
+                                                selectedValue == 'add_new_main_category' ||
+                                                _mainCategories.any((cat) => cat.id.toString() == selectedValue);
+
+                          return DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: hasValidValue && selectedValue.isNotEmpty ? selectedValue : null,
+                              hint: Text(
+                                'select Places',
+                                style: GoogleFonts.kumbhSans(
+                                  fontSize: 16,
+                                  color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
+                                ),
+                              ),
+                              isExpanded: true,
+                              icon: Icon(
+                                Icons.keyboard_arrow_down,
+                                color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
+                              ),
+                              dropdownColor: uiController.darkMode.value ? Colors.grey[800] : Colors.white,
+                              items: [
+                                // Add "Add New Category" option
+                                DropdownMenuItem<String>(
+                                  value: 'add_new_main_category',
+                                  child: Text(
+                                    '+ Add New Category',
+                                    style: GoogleFonts.kumbhSans(
+                                      fontSize: 16,
+                                      color: uiController.currentMainColor,
+                                      // fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                // Existing categories
+                                ..._mainCategories.map((category) {
+                                  return DropdownMenuItem<String>(
+                                    value: category.id.toString(),
+                                    child: Text(
+                                      '${category.emoji} ${category.name}',
+                                      style: GoogleFonts.kumbhSans(
+                                        fontSize: 16,
+                                        color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                              onChanged: (value) {
+                                if (value == 'add_new_main_category') {
+                                  _isCreatingMainCategory.value = true;
+                                  _selectedParentId.value = 'add_new_main_category';
+                                } else {
+                                  _isCreatingMainCategory.value = false;
+                                  _selectedParentId.value = value ?? '';
+                                }
+                              },
+                            ),
+                          );
+                        }),
                       ),
                       const SizedBox(height: 8),
                       // New category name input (shown when "Add New Category" is selected)
@@ -675,6 +896,35 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                       }),
                     ],
 
+                  // Memory View Mode: Subcategory name label
+                  if (widget.fromMemoryView) ...[
+                    Row(
+                      children: [
+                        const SizedBox(width: 10),
+                        Center(
+                          child: Text(
+                            'Icon',
+                            style: GoogleFonts.kumbhSans(
+                              fontSize: 15,
+                              color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 15,),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Place',
+                            style: GoogleFonts.kumbhSans(
+                              fontSize: 15,
+                              color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
                   // Place name input
                   Container(
                     width: double.infinity,
@@ -687,10 +937,11 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                     ),
                     child: Row(
                       children: [
-                        // Emoji picker button (show only when adding subcategories, not when editing)
-                        if (!widget.isMainCategory &&
+                        // Emoji picker button (show when adding subcategories or when in Memory View mode)
+                        if ((!widget.isMainCategory &&
                             _selectedParentId.value != 'add_new_main_category' &&
-                            widget.editCategory == null)
+                            widget.editCategory == null) ||
+                            widget.fromMemoryView)
                           ...[
                             GestureDetector(
                               onTap: _showPlaceEmojiPicker,
@@ -743,6 +994,9 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
                       ],
                     ),
                   ),
+
+                  // Memory View Mode: Icon label at bottom center
+                 
 
                   const SizedBox(height: 10),
                 ],

@@ -389,8 +389,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
       if (result == true) {
         // Successfully deleted
-        Get.back(); // Close confirmation dialog
-
+Navigator.pop(Get.context!);
         // Remove from recent selections before refreshing
         final group = await _contactGroupService.getGroupById(contactGroupId);
         if (group != null) {

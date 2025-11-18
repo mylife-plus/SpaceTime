@@ -389,7 +389,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
       if (result == true) {
         // Successfully deleted
-        Get.back(); // Close confirmation dialog
+Navigator.pop(Get.context!);
 
         // Remove from recent selections before refreshing
         final group = await _hashtagGroupService.getGroupById(hashtagGroupId);
@@ -423,6 +423,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           '[HashtagGroupsView][_deleteHashtagGroup] Refreshing hashtag groups from database after deletion',
         );
         await _refreshHashtagGroupsFromDatabase();
+
+        Get.back(); // Close confirmation dialog
 
         Get.snackbar(
           'Success',

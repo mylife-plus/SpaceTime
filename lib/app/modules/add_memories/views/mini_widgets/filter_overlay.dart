@@ -27,11 +27,20 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
   final FocusNode _hashtagFocusNode = FocusNode();
   final FocusNode _contactFocusNode = FocusNode();
 
+  // Scroll controller for the filter panel
+  final ScrollController _scrollController = ScrollController();
+  double? _scrollOffsetBeforeFocus;
+
   @override
   void initState() {
     super.initState();
     // Always sync filters bidirectionally when opening filter overlay
     _syncFiltersBidirectionally();
+
+    // Add listeners to all focus nodes to scroll when focused
+    _categoryFocusNode.addListener(_onCategoryFocusChanged);
+    _hashtagFocusNode.addListener(_onHashtagFocusChanged);
+    _contactFocusNode.addListener(_onContactFocusChanged);
   }
 
   void _syncFiltersBidirectionally() {
@@ -105,10 +114,125 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
 
   @override
   void dispose() {
+    _categoryFocusNode.removeListener(_onCategoryFocusChanged);
+    _hashtagFocusNode.removeListener(_onHashtagFocusChanged);
+    _contactFocusNode.removeListener(_onContactFocusChanged);
     _categoryFocusNode.dispose();
     _hashtagFocusNode.dispose();
     _contactFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Handle category field focus changes - scroll view to top when focused
+  void _onCategoryFocusChanged() {
+    if (_categoryFocusNode.hasFocus) {
+      // When field gains focus, save current position and scroll to top
+      if (_scrollController.hasClients) {
+        _scrollOffsetBeforeFocus = _scrollController.offset;
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && _scrollController.hasClients) {
+            // Scroll to top of the screen (position 0)
+            _scrollController.animateTo(
+              0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    } else {
+      // When field loses focus, only scroll back if no other search field has focus
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted &&
+            _scrollController.hasClients &&
+            _scrollOffsetBeforeFocus != null &&
+            !_categoryFocusNode.hasFocus &&
+            !_hashtagFocusNode.hasFocus &&
+            !_contactFocusNode.hasFocus) {
+          _scrollController.animateTo(
+            _scrollOffsetBeforeFocus!,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+          _scrollOffsetBeforeFocus = null;
+        }
+      });
+    }
+  }
+
+  /// Handle hashtag field focus changes - scroll view to top when focused
+  void _onHashtagFocusChanged() {
+    if (_hashtagFocusNode.hasFocus) {
+      // When field gains focus, save current position and scroll to top
+      if (_scrollController.hasClients) {
+        _scrollOffsetBeforeFocus = _scrollController.offset;
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && _scrollController.hasClients) {
+            // Scroll to top of the screen (position 0)
+            _scrollController.animateTo(
+              0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    } else {
+      // When field loses focus, only scroll back if no other search field has focus
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted &&
+            _scrollController.hasClients &&
+            _scrollOffsetBeforeFocus != null &&
+            !_categoryFocusNode.hasFocus &&
+            !_hashtagFocusNode.hasFocus &&
+            !_contactFocusNode.hasFocus) {
+          _scrollController.animateTo(
+            _scrollOffsetBeforeFocus!,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+          _scrollOffsetBeforeFocus = null;
+        }
+      });
+    }
+  }
+
+  /// Handle contact field focus changes - scroll view to top when focused
+  void _onContactFocusChanged() {
+    if (_contactFocusNode.hasFocus) {
+      // When field gains focus, save current position and scroll to top
+      if (_scrollController.hasClients) {
+        _scrollOffsetBeforeFocus = _scrollController.offset;
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && _scrollController.hasClients) {
+            // Scroll to top of the screen (position 0)
+            _scrollController.animateTo(
+              0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    } else {
+      // When field loses focus, only scroll back if no other search field has focus
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted &&
+            _scrollController.hasClients &&
+            _scrollOffsetBeforeFocus != null &&
+            !_categoryFocusNode.hasFocus &&
+            !_hashtagFocusNode.hasFocus &&
+            !_contactFocusNode.hasFocus) {
+          _scrollController.animateTo(
+            _scrollOffsetBeforeFocus!,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+          _scrollOffsetBeforeFocus = null;
+        }
+      });
+    }
   }
 
   /// Handle focus shifting when a field loses focus
@@ -174,22 +298,27 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
     final uiController = Get.find<UiController>();
     controller.isOpenedFromMap = widget.isOpenedFromMap;
     return Container(
+        decoration: BoxDecoration(
+      color: uiController.darkMode.value
+                ? uiController.mainColor.value == 'blue'
+                    ? Color(0xFF001937)
+                    : uiController.iconColor2
+                : uiController.mainColor.value == 'blue'
+                ? Color(0xFF92C3FF)
+                : uiController.primaryColor,
+     // boxShadow: [
+    //   BoxShadow(
+    //     color: Colors.black.withOpacity(0.11),
+    //     blurRadius: 10,
+    //     offset: const Offset(0, 2),
+    //   ),
+    // ],
+  ),
       height: MediaQuery.of(context).size.height,
       width: MediaQuery.of(context).size.width,
       child: Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                // Dismiss keyboard first
-                FocusScope.of(context).unfocus();
-                // Then close filter
-                controller.closeFilter();
-                mapController?.isFilterOpen.value = false;
-              },
-              child: Container(color: Colors.black.withValues(alpha: 0.5)),
-            ),
-          ),
+     
           Positioned(
             top: 0,
             left: 0,
@@ -197,6 +326,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
             bottom: 0,
             child: SafeArea(
               child: FilterPanel(
+                    scrollController: _scrollController,
                     onBack: () {
                       controller.closeFilter();
                       mapController?.isFilterOpen.value = false;

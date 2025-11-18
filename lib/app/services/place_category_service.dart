@@ -401,6 +401,7 @@ class PlaceCategoryService {
     String? name,
     String? emoji,
     int? order,
+    int? parentId,
   }) async {
     try {
       debugPrint(
@@ -464,6 +465,7 @@ class PlaceCategoryService {
         name: name,
         emoji: emoji,
         order: order,
+        parentId: parentId,
       );
 
       final success = rowsAffected > 0;

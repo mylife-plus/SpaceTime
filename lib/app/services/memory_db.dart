@@ -1518,6 +1518,7 @@ class DatabaseHelper {
     String? name,
     String? emoji,
     int? order,
+    int? parentId,
   }) async {
     final db = await database;
     final currentTime = DateTime.now().toIso8601String();
@@ -1529,6 +1530,7 @@ class DatabaseHelper {
     if (name != null) updateData[columnPlaceCategoryName] = name;
     if (emoji != null) updateData[columnPlaceCategoryEmoji] = emoji;
     if (order != null) updateData[columnPlaceCategoryOrder] = order;
+    if (parentId != null) updateData[columnPlaceCategoryParentId] = parentId;
 
     debugPrint(
       '[DatabaseHelper][updatePlaceCategory] Updating category ID: $categoryId with data: $updateData',

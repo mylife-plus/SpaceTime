@@ -78,20 +78,15 @@ class MemoryController extends GetxController {
     triggerChar.value = '';
     keyword.value = '';
 
-    // Clear enhanced location data when reinitializing
-    locationCountry.value = '';
-    locationCity.value = '';
-    locationName.value = '';
-    locationAddress.value = '';
-    locationFlag.value = '';
-    locationLatitude.value = null;
-    locationLongitude.value = null;
+    // DON'T clear enhanced location data when reinitializing
+    // Location should only be cleared explicitly via clearAllData() or when user removes it
+    // This prevents location from being lost when refreshing categories or other data
 
     // Reload saved data
     _loadSavedTagsAndMentions();
     _loadSavedCategories();
 
-    // Refresh current location if needed
+    // Refresh current location only if no location is set
     if (selectedLocation.value.isEmpty) {
       fetchCurrentLocation();
     }

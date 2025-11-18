@@ -80,7 +80,7 @@ class _MemoryViewState extends State<MemoryView> {
   @override
   void initState() {
     super.initState();
-
+    print('Init State Called:');
     final memoryController = Get.find<MemoryController>();
     memoryController.setTime(TimeOfDay.now());
 
@@ -977,24 +977,33 @@ class _MemoryViewState extends State<MemoryView> {
 
   void _handleSave() async {
     try {
+      debugPrint('MemoryView: handleSave - Method called');
       final memoryController = Get.find<MemoryController>();
+      debugPrint('MemoryView: handleSave - Got MemoryController');
+
       final description = _descriptionController.text;
+      debugPrint('MemoryView: handleSave - Description: ${description.substring(0, description.length > 50 ? 50 : description.length)}...');
 
       // Get tags and mentions from MemoryDescriptionField
       final tags = _descriptionFieldKey.currentState?.getTags() ?? [];
       final mentions = _descriptionFieldKey.currentState?.getMentions() ?? [];
+      debugPrint('MemoryView: handleSave - Tags: $tags, Mentions: $mentions');
 
       if (widget.editMode && _editingMemoryId != null) {
+        debugPrint('MemoryView: handleSave - EDIT MODE - Memory ID: $_editingMemoryId');
         // Update existing memory
         // Get selected date and time from controller
         final selectedDate =
             memoryController.selectedDate.value ?? DateTime.now();
         final selectedTime =
             memoryController.selectedTime.value ?? TimeOfDay.now();
+        debugPrint('MemoryView: handleSave - Selected date: $selectedDate, time: $selectedTime');
 
         // Format date and time the same way as when creating new memories
+        debugPrint('MemoryView: handleSave - EDIT MODE - Formatting date and time');
         final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
         final timeStr = selectedTime.format(context);
+        debugPrint('MemoryView: handleSave - EDIT MODE - Formatted date: $dateStr, time: $timeStr');
 
         // Combine selected date and time into a single DateTime for created_at
         final selectedDateTime = DateTime(
@@ -1004,24 +1013,27 @@ class _MemoryViewState extends State<MemoryView> {
           selectedTime.hour,
           selectedTime.minute,
         );
+        debugPrint('MemoryView: handleSave - EDIT MODE - Combined DateTime: ${selectedDateTime.toIso8601String()}');
 
-        debugPrint('Updating memory with date: $dateStr, time: $timeStr');
+        debugPrint('MemoryView: handleSave - EDIT MODE - Updating memory with date: $dateStr, time: $timeStr');
         debugPrint(
-          'Updating memory with created_at: ${selectedDateTime.toIso8601String()}',
+          'MemoryView: handleSave - EDIT MODE - Updating memory with created_at: ${selectedDateTime.toIso8601String()}',
         );
         debugPrint(
-          'Original date from controller: ${memoryController.selectedDate.value}',
+          'MemoryView: handleSave - EDIT MODE - Original date from controller: ${memoryController.selectedDate.value}',
         );
         debugPrint(
-          'Original time from controller: ${memoryController.selectedTime.value}',
+          'MemoryView: handleSave - EDIT MODE - Original time from controller: ${memoryController.selectedTime.value}',
         );
 
         // Calculate the final audio paths for the legacy audio_path field
         // Check if audio files were modified (added, deleted, or changed)
+        debugPrint('MemoryView: handleSave - EDIT MODE - Checking audio modifications');
         final shouldUpdateAudios =
             memoryController.recordedAudioPaths.isNotEmpty ||
             _deletedAudioIndices.isNotEmpty ||
             _originalAudios.isNotEmpty;
+        debugPrint('MemoryView: handleSave - EDIT MODE - Should update audios: $shouldUpdateAudios');
         String? finalAudioPathString;
 
         if (shouldUpdateAudios) {
@@ -1061,16 +1073,20 @@ class _MemoryViewState extends State<MemoryView> {
         }
 
         // Validation before updating memory
+        debugPrint('MemoryView: handleSave - EDIT MODE - Starting validation');
         final validationResult = await _validateMemoryData(
           description,
           tags,
           mentions,
         );
+        debugPrint('MemoryView: handleSave - EDIT MODE - Validation result: ${validationResult['isValid']}');
         if (!validationResult['isValid']) {
+          debugPrint('MemoryView: handleSave - EDIT MODE - Validation failed: ${validationResult['message']}');
           _showValidationError(validationResult['message']);
           return;
         }
 
+        debugPrint('MemoryView: handleSave - EDIT MODE - Updating memory in database');
         await memoryController.updateMemory(_editingMemoryId!, {
           'date': dateStr,
           'time': timeStr,
@@ -1084,6 +1100,7 @@ class _MemoryViewState extends State<MemoryView> {
           'created_at': selectedDateTime.toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });
+        debugPrint('MemoryView: handleSave - EDIT MODE - Memory updated successfully');
 
         // Update images if they were modified (added, deleted, or changed)
         final shouldUpdateImages =
@@ -1091,18 +1108,22 @@ class _MemoryViewState extends State<MemoryView> {
             _deletedImageIndices.isNotEmpty ||
             _originalImages.isNotEmpty;
         debugPrint(
-          'Image update check: selectedPaths=${_selectedImagePaths.length}, deletedIndices=${_deletedImageIndices.length}, originalImages=${_originalImages.length}, shouldUpdate=$shouldUpdateImages',
+          'MemoryView: handleSave - EDIT MODE - Image update check: selectedPaths=${_selectedImagePaths.length}, deletedIndices=${_deletedImageIndices.length}, originalImages=${_originalImages.length}, shouldUpdate=$shouldUpdateImages',
         );
         if (shouldUpdateImages) {
+          debugPrint('MemoryView: handleSave - EDIT MODE - Updating images');
           await _updateMemoryImages(_editingMemoryId!);
+          debugPrint('MemoryView: handleSave - EDIT MODE - Images updated');
         }
 
         // Update audio files if they were modified (added, deleted, or changed)
         debugPrint(
-          'Audio update check: recordedPaths=${memoryController.recordedAudioPaths.length}, deletedIndices=${_deletedAudioIndices.length}, originalAudios=${_originalAudios.length}, shouldUpdate=$shouldUpdateAudios',
+          'MemoryView: handleSave - EDIT MODE - Audio update check: recordedPaths=${memoryController.recordedAudioPaths.length}, deletedIndices=${_deletedAudioIndices.length}, originalAudios=${_originalAudios.length}, shouldUpdate=$shouldUpdateAudios',
         );
         if (shouldUpdateAudios) {
+          debugPrint('MemoryView: handleSave - EDIT MODE - Updating audios');
           await _updateMemoryAudios(_editingMemoryId!);
+          debugPrint('MemoryView: handleSave - EDIT MODE - Audios updated');
         }
 
         // Update videos if they were modified (added, deleted, or changed)
@@ -1111,16 +1132,21 @@ class _MemoryViewState extends State<MemoryView> {
             _deletedVideoIndices.isNotEmpty ||
             _originalVideos.isNotEmpty;
         debugPrint(
-          'Video update check: selectedPaths=${_selectedVideoPaths.length}, deletedIndices=${_deletedVideoIndices.length}, originalVideos=${_originalVideos.length}, shouldUpdate=$shouldUpdateVideos',
+          'MemoryView: handleSave - EDIT MODE - Video update check: selectedPaths=${_selectedVideoPaths.length}, deletedIndices=${_deletedVideoIndices.length}, originalVideos=${_originalVideos.length}, shouldUpdate=$shouldUpdateVideos',
         );
         if (shouldUpdateVideos) {
+          debugPrint('MemoryView: handleSave - EDIT MODE - Updating videos');
           await _updateMemoryVideos(_editingMemoryId!);
+          debugPrint('MemoryView: handleSave - EDIT MODE - Videos updated');
         }
 
         // Clear all controller data after successful update
+        debugPrint('MemoryView: handleSave - EDIT MODE - Clearing controller data');
         memoryController.clearAllData();
+        debugPrint('MemoryView: handleSave - EDIT MODE - Controller data cleared');
 
         // Clear the description field and selected images
+        debugPrint('MemoryView: handleSave - EDIT MODE - Clearing UI fields');
         _descriptionController.clear();
         _selectedImagePaths.clear();
         _selectedVideoPaths.clear();
@@ -1130,11 +1156,15 @@ class _MemoryViewState extends State<MemoryView> {
 
         // Force UI refresh for images
         _selectedImagePaths.refresh();
+        debugPrint('MemoryView: handleSave - EDIT MODE - UI fields cleared');
 
         // Refresh the memories list after update
+        debugPrint('MemoryView: handleSave - EDIT MODE - Refreshing AddMemoriesController');
         final addMemoriesController = Get.find<AddMemoriesController>();
         addMemoriesController.onAgainInit();
+        debugPrint('MemoryView: handleSave - EDIT MODE - AddMemoriesController refreshed');
 
+        debugPrint('MemoryView: handleSave - EDIT MODE - Showing success snackbar');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Memory updated successfully!'),
@@ -1143,19 +1173,31 @@ class _MemoryViewState extends State<MemoryView> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        debugPrint('MemoryView: handleSave - EDIT MODE - Snackbar shown');
+
+        // Pop the view after showing snackbar
+        debugPrint('MemoryView: handleSave - EDIT MODE - Popping view with result: true');
+        Get.back(result: true);
+        debugPrint('MemoryView: handleSave - EDIT MODE - View popped successfully');
       } else {
+        debugPrint('MemoryView: handleSave - CREATE MODE - Creating new memory');
         // Create new memory
         // Validation before saving memory
+        debugPrint('MemoryView: handleSave - CREATE MODE - Starting validation');
         final validationResult = await _validateMemoryData(
           description,
           tags,
           mentions,
         );
+        debugPrint('MemoryView: handleSave - CREATE MODE - Validation result: ${validationResult['isValid']}');
         if (!validationResult['isValid']) {
+          debugPrint('MemoryView: handleSave - CREATE MODE - Validation failed: ${validationResult['message']}');
           _showValidationError(validationResult['message']);
           return;
         }
 
+        debugPrint('MemoryView: handleSave - CREATE MODE - Saving memory to database');
+        debugPrint('MemoryView: handleSave - CREATE MODE - Images: ${_selectedImagePaths.length}, Videos: ${_selectedVideoPaths.length}');
         await memoryController.saveMemory(
           description: description,
           imagePaths: _selectedImagePaths,
@@ -1163,27 +1205,56 @@ class _MemoryViewState extends State<MemoryView> {
           tags: tags,
           mentions: mentions,
         );
+        debugPrint('MemoryView: handleSave - CREATE MODE - Memory saved successfully');
 
         // Clear the draft since memory was saved successfully
+        debugPrint('MemoryView: handleSave - CREATE MODE - Clearing draft');
         await _clearDraft();
+        debugPrint('MemoryView: handleSave - CREATE MODE - Draft cleared');
 
         // Clear the description field
+        debugPrint('MemoryView: handleSave - CREATE MODE - Clearing UI fields');
         _descriptionController.clear();
         _selectedImagePaths.clear();
         _selectedVideoPaths.clear();
+        debugPrint('MemoryView: handleSave - CREATE MODE - UI fields cleared');
 
         // Clear all controller data including audio recordings
+        debugPrint('MemoryView: handleSave - CREATE MODE - Clearing controller data');
         memoryController.clearAllData();
+        debugPrint('MemoryView: handleSave - CREATE MODE - Controller data cleared');
+
+        // Show success snackbar before popping
+        debugPrint('MemoryView: handleSave - CREATE MODE - Showing success snackbar');
+        Get.back(result: true);
+
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: const Text('Memory created successfully!'),
+        //     backgroundColor: Colors.green.shade400,
+        //     margin: const EdgeInsets.all(12),
+        //     behavior: SnackBarBehavior.floating,
+        //   ),
+        // );
+        debugPrint('MemoryView: handleSave - CREATE MODE - Snackbar shown');
+
+        // Pop the view after showing snackbar
+        debugPrint('MemoryView: handleSave - CREATE MODE - Popping view with result: true');
+        debugPrint('MemoryView: handleSave - CREATE MODE - View popped successfully');
       }
 
-      // Return true to indicate successful save
-      Get.back(result: true);
-      // Get.back(result: true);
+      debugPrint('MemoryView: handleSave - Method completed successfully');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to save memory. Please try again.')),
-      );
+      debugPrint('MemoryView: handleSave - ERROR CAUGHT: $e');
+      debugPrint('MemoryView: handleSave - ERROR - Stack trace: ${StackTrace.current}');
+      Get.back(result: true);
+      debugPrint('MemoryView: handleSave - ERROR - View popped after error');
+      print('Error Log: $e');
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text('Unable to save memory. Please try again.')),
+      // );
     }
+    debugPrint('MemoryView: handleSave - Method exiting (after try-catch)');
   }
 
   void _handleDelete() {

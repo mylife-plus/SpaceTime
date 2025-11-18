@@ -455,12 +455,19 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     debugPrint('[SearchableCategoryWidget] Showing add category popup');
     Get.dialog(
       AddPlaceCategoryPopup(
-        onCategoryAdded: (category) {
+        fromMemoryView: true, // Enable Memory View mode for adding
+        onCategoryAdded: (category) async {
           // Refresh the recent categories list
-          _loadRecentCategories();
+          await _loadRecentCategories();
 
-          // Optionally auto-select the newly created category
+          // Auto-select the newly created category
           widget.onCategorySelected(category);
+
+          // Move to top of recents list
+          if (widget.saveToRecent) {
+            await _saveRecentlySelectedSubcategory(category);
+            await _loadRecentCategories();
+          }
         },
         allowSubcategories: true,
       ),
@@ -473,11 +480,21 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     Get.dialog(
       AddPlaceCategoryPopup(
         editCategory: category,
+        fromMemoryView: true, // Enable Memory View mode for editing
         onCategoryAdded: (updatedCategory) async {
           debugPrint('[SearchableCategoryWidget] Category updated: ${updatedCategory.emoji} ${updatedCategory.name}');
 
           // Update the category in SharedPreferences if it exists in recents
           await _updateCategoryInRecents(category.id!, updatedCategory);
+
+          // Auto-select the updated category
+          widget.onCategorySelected(updatedCategory);
+
+          // Move to top of recents list
+          if (widget.saveToRecent) {
+            await _saveRecentlySelectedSubcategory(updatedCategory);
+            await _loadRecentCategories();
+          }
 
           // Update the search results list if the category is in it
           if (_searchResults.isNotEmpty) {

@@ -72,7 +72,6 @@ class MemoryInfoWidget extends StatelessWidget {
                   // Only update location if user pressed done (data is not null)
                   // If user pressed close (data is null), keep the existing location
                   if (data != null) {
-                    controller.onAgainInit();
                     // Use the new enhanced location method
                     controller.setEnhancedLocationData(data);
                   }
