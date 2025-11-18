@@ -291,13 +291,13 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         '[CategoryPickerWidget][_loadCategories] Stack trace: ${StackTrace.current}',
       );
 
-      Get.snackbar(
-        'Database Error',
-        'Failed to load places: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 5),
-      );
+      // Get.snackbar(
+      //   'Database Error',
+      //   'Failed to load places: $e',
+      //   backgroundColor: Colors.red,
+      //   colorText: Colors.white,
+      //   duration: const Duration(seconds: 5),
+      // );
 
       // Set empty categories to prevent UI errors
       _mainCategories.value = [];
@@ -351,12 +351,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       );
 
       if (mounted) {
-        Get.snackbar(
-          'Refresh Error',
-          'Failed to refresh categories: $e',
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-        );
+        // Get.snackbar(
+        //   'Refresh Error',
+        //   'Failed to refresh place categories: $e',
+        //   backgroundColor: Colors.orange,
+        //   colorText: Colors.white,
+        // );
       }
     }
   }
@@ -570,7 +570,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Show popup for adding subcategory
     Get.dialog(
-      AddPlaceCategoryPopup(
+      AddPlaceCategoryPopupForCategoryPicker(
         parentCategoryId: categoryId,
         isMainCategory: false,
         onCategoryAdded: (category) async {
@@ -605,7 +605,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   void _startInlineAddingMainCategory() {
     // Show popup for adding main category
     Get.dialog(
-      AddPlaceCategoryPopup(
+      AddPlaceCategoryPopupForCategoryPicker(
         isMainCategory: true,
         onCategoryAdded: (category) async {
           // Refresh categories from database
@@ -632,7 +632,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (name.isEmpty) {
       Get.snackbar(
         'Validation Error',
-        'Please enter a Places name',
+        'Please enter a Place category name',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -662,7 +662,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
         Get.snackbar(
           'Success',
-          'Place Group "$name" added successfully!',
+          'Place Category "$name" added successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
@@ -673,7 +673,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       } else {
         Get.snackbar(
           'Error',
-          'Failed to add Place Group',
+          'Failed to add Place Category',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -682,7 +682,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       debugPrint('[CategoryPickerWidget][_saveInlineMainCategory] Error: $e');
       Get.snackbar(
         'Error',
-        'Failed to add Place Group: $e',
+        'Failed to add Place Category: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -695,7 +695,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Show popup for editing subcategory
     Get.dialog(
-      AddPlaceCategoryPopup(
+      AddPlaceCategoryPopupForCategoryPicker(
+        shouldOnlyShowEditSubCategory: true,
         editCategory: category,
         onCategoryAdded: (updatedCategory) async {
           // Refresh categories from database
@@ -963,7 +964,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         // Subcategory name conflicts with parent category
         Get.snackbar(
           'Name Conflict',
-          'This name is already used by the Place Group.',
+          'This name is already used by the Place Category.',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
@@ -991,12 +992,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       );
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_saveInlineSubcategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to add subcategory: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      // Get.snackbar(
+      //   'Error',
+      //   'Failed to add place: $e',
+      //   backgroundColor: Colors.red,
+      //   colorText: Colors.white,
+      // );
     }
   }
 
@@ -1060,7 +1061,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       debugPrint('[CategoryPickerWidget][_addNewCategory] Error: $e');
       Get.snackbar(
         'Error',
-        'Failed to add Place: $e',
+        'Failed to add Place',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -1076,8 +1077,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Show popup for editing category
     Get.dialog(
-      AddPlaceCategoryPopup(
+      AddPlaceCategoryPopupForCategoryPicker(
         editCategory: category,
+        isEditingMainCategory: true,
         onCategoryAdded: (updatedCategory) async {
           // Refresh categories from database to show the updated category
           await _refreshCategoriesFromDatabase();
@@ -1166,7 +1168,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         backgroundColor:
             uiController.darkMode.value ? Colors.grey[900] : Colors.white,
         title: Text(
-          'Delete ${category.parentId == null ? 'Place Group' : 'Place'}',
+          'Delete ${category.parentId == null ? 'Place Category' : 'Place'}',
           style: gfonts.GoogleFonts.kumbhSans(
             color: uiController.darkMode.value ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
@@ -1202,7 +1204,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This is a predefined ${category.parentId == null ? 'Place Group' : 'Place'}. Deleting it will remove it permanently.',
+                        'This is a predefined ${category.parentId == null ? 'Place Category' : 'Place'}. Deleting it will remove it permanently.',
                         style: gfonts.GoogleFonts.kumbhSans(
                           color: Colors.orange[700],
                           fontSize: 12,
@@ -1264,8 +1266,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
       if (result == true) {
         // Successfully deleted
-        Get.back(); // Close confirmation dialog
-        Get.back(); // Close edit dialog
+        // Get.back(); // Close confirmation dialog
+        // Get.back(); // Close edit dialog
 
         // Refresh categories from database to show the deletion
         debugPrint(
@@ -1318,7 +1320,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   /// Show dialog when category cannot be deleted due to existing memories
   void _showCannotDeleteDialog(String categoryName, int memoryCount, bool isMainCategory) {
     final uiController = Get.find<UiController>();
-    final categoryType = isMainCategory ? 'Place Group' : 'Place';
+    final categoryType = isMainCategory ? 'Place Category' : 'Place';
 
     Get.dialog(
       AlertDialog(
@@ -1532,7 +1534,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                                 !uiController.darkMode.value
                                     ? const Color(0xFF2E2E2E)
                                     : Colors.grey[100]!,
-                            hintText: 'Search emojis...',
+                            hintText: 'Search icons...',
                           ),
                         ),
                       ),
@@ -1764,7 +1766,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     height: 25,
                   ),
                 ),
-                tooltip: 'Add Place Group',
+                tooltip: 'Add Place Category',
               ),
           ],
         ),
@@ -2603,6 +2605,24 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                                 ? 'Edit Places'
                                 : 'Edit',
                       ),
+                      // Show delete button only when category has no subcategories
+                      if (mainCategory.subcategories == null ||
+                          mainCategory.subcategories!.isEmpty)
+                        IconButton(
+                          icon: ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              Colors.red,
+                              BlendMode.srcIn,
+                            ),
+                            child: Image.asset(
+                              'assets/images/ic_cross.png',
+                              width: 25,
+                              height: 25,
+                            ),
+                          ),
+                          onPressed: () =>  _deleteCategory(mainCategory.id!),
+                          tooltip: 'Delete',
+                        ),
                       Obx(
                         () => IconButton(
                           icon: ColorFiltered(
@@ -2748,28 +2768,53 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                   ),
                 )
               : null,
-          trailing:
-              widget.allowMultipleSelection
-                  ? null
-                  : GestureDetector(
-                    onTap: () => _startInlineEditing(category),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.grey[500] ?? Colors.grey,
-                          BlendMode.srcIn,
-                        ),
-                        child: Image.asset(
-                          'assets/images/ic_edit.png',
-                          width: 20,
-                          height: 20,
+          trailing: (widget.allowMultipleSelection || isSearchResult)
+              ? null
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Edit button
+                    GestureDetector(
+                      onTap: () => _startInlineEditing(category),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.6)
+                                : Colors.grey[500] ?? Colors.grey,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/ic_edit.png',
+                            width: 20,
+                            height: 20,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    // Delete button (always show for subcategories)
+                    GestureDetector(
+                      onTap: () => _showDeleteConfirmation(category),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.6)
+                                : Colors.grey[500] ?? Colors.grey,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/ic_cross.png',
+                            width: 20,
+                            height: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
           onTap: () => _selectCategory(category),
         ),
       );

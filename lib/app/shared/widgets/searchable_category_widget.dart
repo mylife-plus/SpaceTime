@@ -790,6 +790,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
              ),
               // Edit button with increased clickable area
               const SizedBox(width: 4),
+              if(!widget.isInFilterMode)
               InkWell(
                 onTap: () => _showEditCategoryPopup(category),
                 borderRadius: BorderRadius.circular(4),
