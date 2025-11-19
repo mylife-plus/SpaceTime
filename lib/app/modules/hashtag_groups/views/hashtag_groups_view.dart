@@ -389,7 +389,6 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
       if (result == true) {
         // Successfully deleted
-Navigator.pop(Get.context!);
 
         // Remove from recent selections before refreshing
         final group = await _hashtagGroupService.getGroupById(hashtagGroupId);
@@ -424,7 +423,6 @@ Navigator.pop(Get.context!);
         );
         await _refreshHashtagGroupsFromDatabase();
 
-        Get.back(); // Close confirmation dialog
 
         Get.snackbar(
           'Success',
@@ -434,7 +432,6 @@ Navigator.pop(Get.context!);
         );
       } else if (result == null) {
         // Cannot delete due to memories
-        Get.back(); // Close confirmation dialog
 
         // Get the group name and memory count for the error dialog
         final group = await _hashtagGroupService.getGroupById(hashtagGroupId);
@@ -1493,7 +1490,7 @@ Navigator.pop(Get.context!);
                               height: 25,
                             ),
                           ),
-                          onPressed: () => _showDeleteConfirmation(mainHashtagGroup),
+                          onPressed: () =>  _deleteHashtagGroup(mainHashtagGroup.id!),
                           tooltip: 'Delete Hashtag Group',
                         ),
                       // Add subgroup button

@@ -389,7 +389,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
       if (result == true) {
         // Successfully deleted
-Navigator.pop(Get.context!);
+// Navigator.pop(Get.context!);
         // Remove from recent selections before refreshing
         final group = await _contactGroupService.getGroupById(contactGroupId);
         if (group != null) {
@@ -417,7 +417,7 @@ Navigator.pop(Get.context!);
         );
       } else if (result == null) {
         // Cannot delete due to memories
-        Get.back(); // Close confirmation dialog
+        // Get.back(); // Close confirmation dialog
 
         // Get the group name and memory count for the error dialog
         final group = await _contactGroupService.getGroupById(contactGroupId);
@@ -1515,7 +1515,7 @@ Navigator.pop(Get.context!);
                               height: 25,
                             ),
                           ),
-                          onPressed: () => _showDeleteConfirmation(mainContactGroup),
+                          onPressed: () => _deleteContactGroup(mainContactGroup.id!),
                           tooltip: 'Delete Contact Group',
                         ),
                       // Add subgroup button
