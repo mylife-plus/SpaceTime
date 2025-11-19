@@ -293,6 +293,36 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     }
   }
 
+  /// Remove a category from the recents list (when deleted)
+  Future<void> _removeCategoryFromRecents(int categoryId) async {
+    if (!widget.saveToRecent) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentJson = prefs.getString(_recentSubcategoriesKey);
+
+      if (recentJson == null || recentJson.isEmpty) {
+        return;
+      }
+
+      final decoded = json.decode(recentJson) as List;
+      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+
+      // Remove the category with the given ID
+      recentList.removeWhere((item) => item['id'] == categoryId);
+
+      // Save back to preferences
+      await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
+
+      // Update the UI by reloading recent categories
+      await _loadRecentCategories();
+
+      debugPrint('[SearchableCategoryWidget] Removed category ID $categoryId from recents');
+    } catch (e) {
+      debugPrint('[SearchableCategoryWidget] Error removing category from recents: $e');
+    }
+  }
+
   /// Select a category
   void _selectCategory(PlaceCategory category) {
     // Format category with emoji

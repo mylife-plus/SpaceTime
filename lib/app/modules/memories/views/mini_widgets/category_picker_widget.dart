@@ -904,6 +904,29 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     }
   }
 
+  /// Remove a specific category from recent subcategories
+  static Future<void> removeFromRecentSubcategories(int categoryId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingJson = prefs.getString(_recentSubcategoriesKey);
+
+      if (existingJson == null) return;
+
+      final decoded = json.decode(existingJson) as List;
+      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+
+      // Remove the category with the given ID
+      recentList.removeWhere((item) => item['id'] == categoryId);
+
+      // Save back to preferences
+      await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
+
+      debugPrint('[CategoryPickerWidget] Removed category ID $categoryId from recent subcategories');
+    } catch (e) {
+      debugPrint('[CategoryPickerWidget] Error removing category from recents: $e');
+    }
+  }
+
   /// Example method to demonstrate how to use recent subcategories
   /// Call this from other screens to get and display recent subcategories
   static Future<void> printRecentSubcategories() async {
@@ -1205,6 +1228,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       );
     } else {
       // Delete directly without confirmation
+      //
       await _deleteCategory(category.id!);
     }
   }
@@ -1222,6 +1246,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         // Successfully deleted
         // Get.back(); // Close confirmation dialog
         // Get.back(); // Close edit dialog
+
+        // Remove from recent subcategories
+        await removeFromRecentSubcategories(categoryId);
 
         // Refresh categories from database to show the deletion
         debugPrint(
