@@ -48,6 +48,32 @@ class SearchableContactWidget extends StatefulWidget {
   @override
   State<SearchableContactWidget> createState() => _SearchableContactWidgetState();
 
+  /// Remove deleted contact from recent contacts
+  static Future<void> removeFromRecentContacts(String contactName) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recentContactsJson = prefs.getStringList('recent_contacts_filter') ?? [];
+
+      // Remove the deleted contact from recent list
+      final originalLength = recentContactsJson.length;
+      recentContactsJson.removeWhere((item) {
+        try {
+          final data = json.decode(item);
+          return data['name'] == contactName;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (recentContactsJson.length != originalLength) {
+        await prefs.setStringList('recent_contacts_filter', recentContactsJson);
+        debugPrint('[SearchableContactWidget] Removed contact "$contactName" from recent contacts');
+      }
+    } catch (e) {
+      debugPrint('[SearchableContactWidget] Error removing contact from recent: $e');
+    }
+  }
+
   /// Remove deleted contact group from recent contact groups
   static Future<void> removeFromRecentContactGroups(int groupId) async {
     try {

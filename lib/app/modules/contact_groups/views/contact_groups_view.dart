@@ -397,9 +397,17 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             // Main group deleted - remove it and all its subgroups from recent selections
             final subgroups = await _contactGroupService.getSubgroups(contactGroupId);
             await removeGroupAndSubgroupsFromRecent(contactGroupId, subgroups);
+
+            // Also remove from searchable contact widget recent lists (filter overlay)
+            final subgroupIds = subgroups.map((s) => s.id!).toList();
+            await SearchableContactWidget.removeGroupAndSubgroupsFromRecentContactGroups(contactGroupId, subgroupIds);
           } else {
             // Subgroup deleted - remove only this subgroup from recent selections
             await removeFromRecentlySelectedSubgroups(contactGroupId);
+
+            // Also remove from searchable contact widget recent lists (filter overlay)
+            await SearchableContactWidget.removeFromRecentContactGroups(contactGroupId);
+            await SearchableContactWidget.removeFromRecentContacts(group.name);
           }
         }
 
@@ -633,6 +641,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       if (result == true) {
         // Successfully deleted - also remove from recent selections
         await removeFromRecentlySelectedSubgroups(subgroup.id!);
+
+        // Also remove from searchable contact widget recent lists (filter overlay)
+        await SearchableContactWidget.removeFromRecentContactGroups(subgroup.id!);
+        await SearchableContactWidget.removeFromRecentContacts(subgroup.name);
 
         // Refresh contact groups from database to show the deletion
         debugPrint(
