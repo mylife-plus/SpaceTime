@@ -102,15 +102,24 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
       if (isOfflineMode) {
         debugPrint('[LocationPicker] 🗺️ Configuring map for offline mode');
 
-        // Map already uses MAPBOX_STREETS style which matches downloaded tiles
-        // No need to change style URI - tiles will be used automatically
+        // Enable offline mode by disconnecting from Mapbox network
+        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(false);
 
         debugPrint('[LocationPicker] ✅ Offline mode configured - using downloaded tiles');
       } else {
         debugPrint('[LocationPicker] 🌐 Using online mode');
+
+        // Ensure online mode is enabled
+        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
       }
     } catch (e) {
       debugPrint('[LocationPicker] ❌ Error configuring offline map: $e');
+      // On error, default to online mode
+      try {
+        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+      } catch (e2) {
+        debugPrint('[LocationPicker] ❌ Error setting online mode: $e2');
+      }
     }
   }
 
@@ -342,7 +351,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                   ),
                   zoom: 1.0,
                 ),
-                styleUri: mapbox.MapboxStyles.STANDARD,
+                styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
                 textureView: true,
                 onMapCreated: (mapbox.MapboxMap controller) async {
                   mapController = controller;

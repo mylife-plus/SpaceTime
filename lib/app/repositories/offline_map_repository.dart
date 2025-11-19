@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Repository for managing offline map metadata and preferences
-class OfflineMapRepository extends GetxService {
+class  OfflineMapRepository extends GetxService {
   static OfflineMapRepository get to => Get.find();
 
   SharedPreferences? _prefs;

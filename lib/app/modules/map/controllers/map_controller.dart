@@ -7598,7 +7598,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
         bearing: 0,
         pitch: 0,
       ),
-      styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
+      styleUri: MapboxStyles.MAPBOX_STREETS,
       textureView: true,
 
       onMapCreated: onMapCreated,

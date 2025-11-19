@@ -135,7 +135,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
     return mapbox.MapWidget(
       key: const ValueKey("mapbox_map_new"),
       cameraOptions: _getCameraOptions(),
-      styleUri: mapbox.MapboxStyles.STANDARD,
+      styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
       onMapCreated: _onMapCreated,
       onTapListener: _onMapTap,
       onCameraChangeListener: _onCameraChange,

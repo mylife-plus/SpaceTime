@@ -136,7 +136,7 @@ class LocationPickerService {
   /// Get optimal style URI for offline mode
   String getOptimalStyleUri() {
     // Use same logic as map controller for consistency
-    return mapbox.MapboxStyles.STANDARD;
+    return mapbox.MapboxStyles.MAPBOX_STREETS;
   }
 
   /// Configure offline map

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_fab.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/top_buttons.dart';
 import '../../controllers/map_controller_new.dart';
@@ -136,8 +137,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 
   /// Build the MapBox map widget
   Widget _buildMapWidget(MapControllerNew controller) {
-    // return 
-    
+    // return
+
    return mapbox.MapWidget(
       key: ValueKey("mapbox_map_new"),
       cameraOptions: mapbox.CameraOptions(
@@ -146,12 +147,16 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         // ),
         zoom: 8.0,
       ),
-      styleUri: mapbox.MapboxStyles.STANDARD,
+      styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
       // iOS FIX: Use surface view instead of texture view for better iOS compatibility
       textureView: io.Platform.isAndroid, // Only use texture view on Android
-      onMapCreated: (mapboxMap) {
+      onMapCreated: (mapboxMap) async {
         controller.mapboxMap = mapboxMap;
         debugPrint('[MapViewWidgetNew] 🗺️ onMapCreated callback triggered');
+
+        // Check for offline tiles and enable offline mode if available
+        await _checkAndEnableOfflineMode();
+
         controller.onMapCreated(mapboxMap);
       },
       onStyleLoadedListener: (styleLoadedEventData) {
@@ -163,6 +168,33 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         controller.onMapError(mapLoadErrorEventData);
       },
     );
+  }
+
+  /// Check for offline tiles and enable offline mode if available
+  Future<void> _checkAndEnableOfflineMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
+
+      debugPrint('[MapViewWidgetNew] 📊 Checking offline tiles: $tileCount tiles available');
+
+      if (tileCount >= 500) {
+        debugPrint('[MapViewWidgetNew] 🔌 Enabling offline mode with $tileCount tiles');
+        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(false);
+        debugPrint('[MapViewWidgetNew] ✅ Offline mode enabled - map will use downloaded tiles');
+      } else {
+        debugPrint('[MapViewWidgetNew] 🌐 Using online mode - insufficient tiles ($tileCount < 500)');
+        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+      }
+    } catch (e) {
+      debugPrint('[MapViewWidgetNew] ❌ Error checking offline mode: $e');
+      // On error, default to online mode
+      try {
+        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+      } catch (e2) {
+        debugPrint('[MapViewWidgetNew] ❌ Error setting online mode: $e2');
+      }
+    }
   }
 
   /// Build floating action button for location actions

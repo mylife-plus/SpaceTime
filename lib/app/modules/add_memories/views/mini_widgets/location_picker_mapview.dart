@@ -67,7 +67,7 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
                   ),
                   zoom: 1.0,
                 ),
-      styleUri: mapbox.MapboxStyles.STANDARD,
+      styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
                 textureView: true,
                 onMapCreated: controller.onMapCreated,
                 onTapListener: controller.onMapTap,

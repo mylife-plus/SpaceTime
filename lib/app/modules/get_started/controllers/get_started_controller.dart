@@ -339,23 +339,12 @@ class GetStartedController extends GetxController {
   /// Check if get started should be shown based on tile download status
   static Future<bool> shouldShowGetStarted() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
-
-      debugPrint('[GetStartedController] Checking tile download status: $tileCount tiles');
-
-      // If tiles are successfully downloaded (>= 25000), skip Get Started screen
-      if (tileCount >= 25000) {
-        debugPrint('[GetStartedController] Tiles already downloaded ($tileCount tiles), skipping Get Started screen');
-        return false;
-      }
-
-      // Otherwise, show Get Started screen to download tiles
-      debugPrint('[GetStartedController] Tiles not downloaded ($tileCount tiles), showing Get Started screen');
-      return true;
+      // Skip Get Started screen - go directly to map view
+      debugPrint('[GetStartedController] Skipping Get Started screen, going directly to map view');
+      return false;
     } catch (e) {
       debugPrint('[GetStartedController] Error checking get started status: $e');
-      return true; // Show by default if there's an error
+      return false; // Go to map view by default
     }
   }
 

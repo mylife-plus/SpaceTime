@@ -95,25 +95,12 @@ class NativeTileDownloadService extends GetxService {
 
       debugPrint('[NativeTileDownloadService] 🔧 Native method returned: $result (type: ${result.runtimeType})');
 
-      // Handle different result types
-      bool success = false;
       if (result is Map) {
-        debugPrint('[NativeTileDownloadService] 🔧 Result is a Map: $result');
-        // Check if the map contains a 'success' key
-        if (result.containsKey('success')) {
-          success = result['success'] == true;
-          debugPrint('[NativeTileDownloadService] 🔧 Map contains success key: $success');
-        } else {
-          debugPrint('[NativeTileDownloadService] ⚠️ Map does not contain success key');
-        }
-      } else if (result is bool) {
-        debugPrint('[NativeTileDownloadService] 🔧 Result is a bool: $result');
-        success = result;
+        debugPrint('[NativeTileDownloadService] 🔧 Result map: $result');
+        isInitialized.value = result['success'] == true;
       } else {
-        debugPrint('[NativeTileDownloadService] ⚠️ Unexpected result type: ${result.runtimeType}');
+        isInitialized.value = result == true;
       }
-
-      isInitialized.value = success;
 
       if (isInitialized.value) {
         debugPrint('[NativeTileDownloadService] ✅ Native tile store initialized successfully');

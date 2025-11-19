@@ -106,7 +106,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
 
       await offlineManager
           ?.loadStylePack(
-            MapboxStyles.MAPBOX_STREETS, // Change style if needed
+           mapbox.MapboxStyles.MAPBOX_STREETS, // Change style if needed
             stylePackLoadOptions,
             (progress) {
               final percentage =

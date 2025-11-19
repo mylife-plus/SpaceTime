@@ -28,9 +28,9 @@ class OfflineMapService extends GetxService {
 
   // Configuration
   static const String _tileRegionId = "spacetime-tile-region";
-  static const int _minZoom = 14;  // Only download zoom level 14
-  static const int _maxZoom = 14; // Only download zoom level 14
-  static const int _requiredTileThreshold = 700; // Require 700 tiles for offline mode
+  static const int _minZoom = 8;  // Higher zoom to stay within 750 tile limit
+  static const int _maxZoom = 13; // Lower max zoom to reduce tile count
+  static const int _requiredTileThreshold = 500; // Require 500 tiles for offline mode
 
   // Reactive state
   final RxBool isInitialized = false.obs;
@@ -69,7 +69,7 @@ class OfflineMapService extends GetxService {
       _tileStore = await TileStore.createDefault();
 
       // Reset disk quota to default value
-      _tileStore?.setDiskQuota(4000000000);
+      _tileStore?.setDiskQuota(null);
 
       isInitialized.value = true;
       debugPrint(
@@ -419,7 +419,7 @@ class OfflineMapService extends GetxService {
     return _offlineManager;
   }
 
-  /// Download zoom level 14 tiles specifically
+  /// Download zoom level 10 tiles specifically
   Future<void> downloadZoom10Tiles({
     required Map<String, dynamic> regionGeometry,
     required Function(int downloaded, int total) onProgress,
@@ -427,20 +427,20 @@ class OfflineMapService extends GetxService {
     required Function(dynamic error) onError,
   }) async {
     try {
-      debugPrint('[OfflineMapService] 🗺️ Starting zoom level 14 tile download...');
+      debugPrint('[OfflineMapService] 🗺️ Starting zoom level 10 tile download...');
 
-      final tileRegionId = "spacetime-zoom14-tiles";
+      final tileRegionId = "spacetime-zoom10-tiles";
 
       final tileRegionLoadOptions = TileRegionLoadOptions(
         geometry: regionGeometry,
         descriptorsOptions: [
           TilesetDescriptorOptions(
             styleURI: MapboxStyles.MAPBOX_STREETS,
-            minZoom: 14,
-            maxZoom: 14,
+            minZoom: 10,
+            maxZoom: 10,
           ),
         ],
-        acceptExpired: false,
+        acceptExpired: true,
         networkRestriction: NetworkRestriction.NONE,
       );
 
@@ -451,7 +451,7 @@ class OfflineMapService extends GetxService {
             final downloaded = progress.completedResourceCount;
             final total = progress.requiredResourceCount;
 
-            debugPrint('[OfflineMapService] 🗺️ Zoom 14 progress: $downloaded/$total tiles');
+            debugPrint('[OfflineMapService] 🗺️ Zoom 10 progress: $downloaded/$total tiles');
 
             // Update the main tile count
             downloadedTileCount.value += downloaded;
@@ -459,12 +459,12 @@ class OfflineMapService extends GetxService {
             onProgress(downloaded, total);
           })
           .then((value) {
-            debugPrint('[OfflineMapService] ✅ Zoom 14 tile download completed');
+            debugPrint('[OfflineMapService] ✅ Zoom 10 tile download completed');
             onComplete();
             completer.complete();
           })
           .catchError((error) {
-            debugPrint('[OfflineMapService] ❌ Zoom 14 tile download failed: $error');
+            debugPrint('[OfflineMapService] ❌ Zoom 10 tile download failed: $error');
             // Even on error, save what we have
             _saveTileCountToPrefs();
             onError(error);
@@ -473,7 +473,7 @@ class OfflineMapService extends GetxService {
 
       await completer.future;
     } catch (e) {
-      debugPrint('[OfflineMapService] ❌ Zoom 14 download error: $e');
+      debugPrint('[OfflineMapService] ❌ Zoom 10 download error: $e');
       // Save whatever was downloaded
       await _saveTileCountToPrefs();
       onError(e);
