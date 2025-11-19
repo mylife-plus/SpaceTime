@@ -48,8 +48,8 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         video: widget.videoPath,
         thumbnailPath: tempDir.path,
         imageFormat: ImageFormat.PNG,
-        maxHeight: 300,
-        quality: 75,
+        maxHeight: 1080,
+        quality: 100,
       );
 
       debugPrint('🎬 Thumbnail generated: $thumbnailPath');
