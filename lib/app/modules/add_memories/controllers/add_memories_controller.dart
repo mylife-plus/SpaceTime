@@ -1078,81 +1078,81 @@ class AddMemoriesController extends GetxController {
 
   void addHashtagGroup(HashtagGroup group) async {
     final groupName = group.name;
-        debugPrint("GName ${group.name} subcategories for main group: $groupName");
-        debugPrint("GName ${group.id} subcategories for main group: $groupName");
-        debugPrint("GName ${group.parentId} subcategories for main group: $groupName");
+    debugPrint("[AddMemoriesController] Adding hashtag group: $groupName (id: ${group.id}, parentId: ${group.parentId})");
 
-    // If this is a main group with subgroups, add all subcategories (but not the main group itself)
-    // if (group.isMainGroup && group.hasSubgroups) {
-    //   debugPrint("Adding main hashtag group with ${group.subgroups!.length} subcategories: $groupName");
-    //   for (final subgroup in group.subgroups!) {
-    //     if (!selectedHashtags.contains(subgroup.name)) {
-    //       selectedHashtags.add(subgroup.name);
-    //       debugPrint("  - Added subcategory: ${subgroup.name}");
-    //     }
-    //   }
-    //   _updateFilterStatus();
-    //   debugPrint("Added subcategories from hashtag group: $groupName (total selected: ${selectedHashtags.length})");
-    // } else if (group.isMainGroup && group.id != null) {
-      // If main group doesn't have subgroups loaded, fetch them from service
+    // If this is a main group, fetch and add all subgroups
+    if (group.isMainGroup && group.id != null) {
       try {
         final hashtagGroupService = Get.find<HashtagGroupService>();
         final subgroups = await hashtagGroupService.getSubgroups(group.id!);
-        debugPrint("Fetched ${subgroups.length} subcategories for main group: $groupName");
+        debugPrint("[AddMemoriesController] Fetched ${subgroups.length} subgroups for main group: $groupName");
+
+        // Remove all existing subgroups first (remove before add logic)
         for (final subgroup in subgroups) {
-          if (!selectedHashtags.contains(subgroup.name)) {
-            selectedHashtags.add(subgroup.name);
-            debugPrint("  - Added subcategory: ${subgroup.name}");
+          if (selectedHashtags.contains(subgroup.name)) {
+            selectedHashtags.remove(subgroup.name);
+            debugPrint("[AddMemoriesController]   - Removed existing subgroup: ${subgroup.name}");
           }
         }
+
+        // Now add all subgroups fresh
+        for (final subgroup in subgroups) {
+          selectedHashtags.add(subgroup.name);
+          debugPrint("[AddMemoriesController]   - Added subgroup: ${subgroup.name}");
+        }
+
         _updateFilterStatus();
-        debugPrint("Added subcategories from hashtag group: $groupName (total selected: ${selectedHashtags.length})");
+        debugPrint("[AddMemoriesController] Added ${subgroups.length} subgroups from hashtag group: $groupName (total selected: ${selectedHashtags.length})");
       } catch (e) {
-        debugPrint("Error fetching subgroups for $groupName: $e");
+        debugPrint("[AddMemoriesController] Error fetching subgroups for $groupName: $e");
       }
-    // } else {
-    //   // For non-main groups (subcategories), add the hashtag itself
-    //   if (!selectedHashtags.contains(groupName)) {
-    //     selectedHashtags.add(groupName);
-    //     _updateFilterStatus();
-    //     debugPrint("Added hashtag: $groupName (total selected: ${selectedHashtags.length})");
-    //   }
-    // }
+    } else {
+      // For subgroups, just add the hashtag itself
+      if (!selectedHashtags.contains(groupName)) {
+        selectedHashtags.add(groupName);
+        _updateFilterStatus();
+        debugPrint("[AddMemoriesController] Added hashtag: $groupName (total selected: ${selectedHashtags.length})");
+      }
+    }
   }
 
   void addContactGroup(ContactGroup group) async {
     final groupName = group.name;
-    if (!selectedContacts.contains(groupName)) {
-      selectedContacts.add(groupName);
+    debugPrint("[AddMemoriesController] Adding contact group: $groupName (id: ${group.id}, parentId: ${group.parentId})");
 
-      // If this is a main group with subgroups, also add all subcategories
-      if (group.isMainGroup && group.hasSubgroups) {
-        debugPrint("Adding main contact group with ${group.subgroups!.length} subcategories: $groupName");
-        for (final subgroup in group.subgroups!) {
-          if (!selectedContacts.contains(subgroup.name)) {
-            selectedContacts.add(subgroup.name);
-            debugPrint("  - Added subcategory: ${subgroup.name}");
+    // If this is a main group, fetch and add all subgroups
+    if (group.isMainGroup && group.id != null) {
+      try {
+        final contactGroupService = Get.find<ContactGroupService>();
+        final subgroups = await contactGroupService.getSubgroups(group.id!);
+        debugPrint("[AddMemoriesController] Fetched ${subgroups.length} subgroups for main group: $groupName");
+
+        // Remove all existing subgroups first (remove before add logic)
+        for (final subgroup in subgroups) {
+          if (selectedContacts.contains(subgroup.name)) {
+            selectedContacts.remove(subgroup.name);
+            debugPrint("[AddMemoriesController]   - Removed existing subgroup: ${subgroup.name}");
           }
         }
-      } else if (group.isMainGroup && group.id != null) {
-        // If main group doesn't have subgroups loaded, fetch them from service
-        try {
-          final contactGroupService = Get.find<ContactGroupService>();
-          final subgroups = await contactGroupService.getSubgroups(group.id!);
-          debugPrint("Fetched ${subgroups.length} subcategories for main contact group: $groupName");
-          for (final subgroup in subgroups) {
-            if (!selectedContacts.contains(subgroup.name)) {
-              selectedContacts.add(subgroup.name);
-              debugPrint("  - Added subcategory: ${subgroup.name}");
-            }
-          }
-        } catch (e) {
-          debugPrint("Error fetching subgroups for contact group $groupName: $e");
+
+        // Now add all subgroups fresh
+        for (final subgroup in subgroups) {
+          selectedContacts.add(subgroup.name);
+          debugPrint("[AddMemoriesController]   - Added subgroup: ${subgroup.name}");
         }
+
+        _updateFilterStatus();
+        debugPrint("[AddMemoriesController] Added ${subgroups.length} subgroups from contact group: $groupName (total selected: ${selectedContacts.length})");
+      } catch (e) {
+        debugPrint("[AddMemoriesController] Error fetching subgroups for $groupName: $e");
       }
-
-      _updateFilterStatus();
-      debugPrint("Added contact group: $groupName (total selected: ${selectedContacts.length})");
+    } else {
+      // For subgroups, just add the contact itself
+      if (!selectedContacts.contains(groupName)) {
+        selectedContacts.add(groupName);
+        _updateFilterStatus();
+        debugPrint("[AddMemoriesController] Added contact: $groupName (total selected: ${selectedContacts.length})");
+      }
     }
   }
 
