@@ -317,7 +317,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
       height: MediaQuery.of(context).size.height,
       width: MediaQuery.of(context).size.width,
       child: Padding(
-        padding: const EdgeInsets.all(15.0),
+        padding: const EdgeInsets.all(8.0),
         child: Stack(
           children: [
              
@@ -353,6 +353,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               child: MemoriesFilterTextFieldRow(
                                 imagePath: AppImages.calendar,
                                 hint: 'From Date',
+                                borderRadius: 5,
                               ),
                             ),
                             SizedBox(width: 5),
@@ -360,15 +361,17 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               child: MemoriesFilterTextFieldRow(
                                 imagePath: AppImages.calendar,
                                 hint: 'To Date',
+                                borderRadius: 5,
                               ),
                             ),
                           ],
                         ),
-              
+
                         // Location filter (includes radius)
                         const MemoriesFilterTextFieldRow(
                           imagePath: AppImages.location,
                           hint: 'Location',
+                          borderRadius: 5,
                         ),
               
                             const SizedBox(height: 2),
@@ -405,6 +408,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               backgroundColor: uiController.darkMode.value
                                   ? Colors.white.withValues(alpha: 0.2)
                                   : Colors.white,
+                              borderRadius: 5,
                             )),
               
                             // Selected categories chips
@@ -505,6 +509,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               backgroundColor: uiController.darkMode.value
                                   ? Colors.white.withValues(alpha: 0.2)
                                   : Colors.white,
+                              borderRadius: 5,
                             )),
               
                             // Selected hashtags chips
@@ -576,6 +581,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                               backgroundColor: uiController.darkMode.value
                                   ? Colors.white.withValues(alpha: 0.2)
                                   : Colors.white,
+                              borderRadius: 5,
                             )),
               
                             // Selected contacts chips

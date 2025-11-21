@@ -15,6 +15,7 @@ import '../../../services/hashtag_group_service.dart';
 import '../../../services/contact_group_service.dart';
 import '../../../services/place_category_service.dart';
 import 'dart:math';
+import 'package:spacetime/app/utils/search_utils.dart';
 
 class AddMemoriesController extends GetxController {
   var isFilterOpen = false.obs;
@@ -669,10 +670,10 @@ class AddMemoriesController extends GetxController {
     }
 
     final suggestionsWithMetadata = <Map<String, dynamic>>[];
-    final lowerQuery = query.toLowerCase();
+    final normalizedQuery = SearchUtils.normalizeText(query);
     final queryWithoutPrefix = query.startsWith('#') || query.startsWith('@')
-        ? query.substring(1).toLowerCase()
-        : lowerQuery;
+        ? SearchUtils.normalizeText(query.substring(1))
+        : normalizedQuery;
 
     // Track unique suggestions to avoid duplicates
     final seenMemoryIds = <int>{}; // Track memory IDs for description/location/category matches
@@ -699,7 +700,8 @@ class AddMemoriesController extends GetxController {
           final tagList = tags.split(',');
           for (final tag in tagList) {
             final trimmedTag = tag.trim();
-            if (trimmedTag.toLowerCase().contains(queryWithoutPrefix) &&
+            final normalizedTag = SearchUtils.normalizeText(trimmedTag);
+            if (normalizedTag.contains(queryWithoutPrefix) &&
                 !seenHashtags.contains(trimmedTag)) {
               seenHashtags.add(trimmedTag);
               suggestionsWithMetadata.add({
@@ -716,7 +718,8 @@ class AddMemoriesController extends GetxController {
           final mentionList = mentions.split(',');
           for (final mention in mentionList) {
             final trimmedMention = mention.trim();
-            if (trimmedMention.toLowerCase().contains(queryWithoutPrefix) &&
+            final normalizedMention = SearchUtils.normalizeText(trimmedMention);
+            if (normalizedMention.contains(queryWithoutPrefix) &&
                 !seenMentions.contains(trimmedMention)) {
               seenMentions.add(trimmedMention);
               suggestionsWithMetadata.add({
@@ -729,11 +732,13 @@ class AddMemoriesController extends GetxController {
       }
       // For mixed search (plain text - show all types)
       else {
-        // Check if this memory matches any criteria
-        bool matchesDescription = text.toLowerCase().contains(lowerQuery);
-        bool matchesLocation = locationCity.toLowerCase().contains(lowerQuery) ||
-                               locationCountry.toLowerCase().contains(lowerQuery) ||
-                               location.toLowerCase().contains(lowerQuery);
+        // Check if this memory matches any criteria using accent-insensitive search
+        bool matchesDescription = SearchUtils.matchesSearch(text, query);
+        bool matchesLocation = SearchUtils.matchesSearchInAny(query, [
+          locationCity,
+          locationCountry,
+          location,
+        ]);
 
         // Check category match
         bool matchesCategory = false;
@@ -745,8 +750,10 @@ class AddMemoriesController extends GetxController {
               categoryName = parts.sublist(1).join(' ');
             }
           }
-          matchesCategory = categoryName.toLowerCase().contains(lowerQuery) ||
-                           category.toLowerCase().contains(lowerQuery);
+          matchesCategory = SearchUtils.matchesSearchInAny(query, [
+            categoryName,
+            category,
+          ]);
         }
 
         // If memory matches description, location, or category, add it once
@@ -808,7 +815,7 @@ class AddMemoriesController extends GetxController {
           final tagList = tags.split(',');
           for (final tag in tagList) {
             final trimmedTag = tag.trim();
-            if (trimmedTag.toLowerCase().contains(lowerQuery) &&
+            if (SearchUtils.matchesSearch(trimmedTag, query) &&
                 !seenHashtags.contains(trimmedTag)) {
               seenHashtags.add(trimmedTag);
               suggestionsWithMetadata.add({
@@ -824,7 +831,7 @@ class AddMemoriesController extends GetxController {
           final mentionList = mentions.split(',');
           for (final mention in mentionList) {
             final trimmedMention = mention.trim();
-            if (trimmedMention.toLowerCase().contains(lowerQuery) &&
+            if (SearchUtils.matchesSearch(trimmedMention, query) &&
                 !seenMentions.contains(trimmedMention)) {
               seenMentions.add(trimmedMention);
               suggestionsWithMetadata.add({
@@ -1071,38 +1078,46 @@ class AddMemoriesController extends GetxController {
 
   void addHashtagGroup(HashtagGroup group) async {
     final groupName = group.name;
-    if (!selectedHashtags.contains(groupName)) {
-      selectedHashtags.add(groupName);
+        debugPrint("GName ${group.name} subcategories for main group: $groupName");
+        debugPrint("GName ${group.id} subcategories for main group: $groupName");
+        debugPrint("GName ${group.parentId} subcategories for main group: $groupName");
 
-      // If this is a main group with subgroups, also add all subcategories
-      if (group.isMainGroup && group.hasSubgroups) {
-        debugPrint("Adding main hashtag group with ${group.subgroups!.length} subcategories: $groupName");
-        for (final subgroup in group.subgroups!) {
+    // If this is a main group with subgroups, add all subcategories (but not the main group itself)
+    // if (group.isMainGroup && group.hasSubgroups) {
+    //   debugPrint("Adding main hashtag group with ${group.subgroups!.length} subcategories: $groupName");
+    //   for (final subgroup in group.subgroups!) {
+    //     if (!selectedHashtags.contains(subgroup.name)) {
+    //       selectedHashtags.add(subgroup.name);
+    //       debugPrint("  - Added subcategory: ${subgroup.name}");
+    //     }
+    //   }
+    //   _updateFilterStatus();
+    //   debugPrint("Added subcategories from hashtag group: $groupName (total selected: ${selectedHashtags.length})");
+    // } else if (group.isMainGroup && group.id != null) {
+      // If main group doesn't have subgroups loaded, fetch them from service
+      try {
+        final hashtagGroupService = Get.find<HashtagGroupService>();
+        final subgroups = await hashtagGroupService.getSubgroups(group.id!);
+        debugPrint("Fetched ${subgroups.length} subcategories for main group: $groupName");
+        for (final subgroup in subgroups) {
           if (!selectedHashtags.contains(subgroup.name)) {
             selectedHashtags.add(subgroup.name);
             debugPrint("  - Added subcategory: ${subgroup.name}");
           }
         }
-      } else if (group.isMainGroup && group.id != null) {
-        // If main group doesn't have subgroups loaded, fetch them from service
-        try {
-          final hashtagGroupService = Get.find<HashtagGroupService>();
-          final subgroups = await hashtagGroupService.getSubgroups(group.id!);
-          debugPrint("Fetched ${subgroups.length} subcategories for main group: $groupName");
-          for (final subgroup in subgroups) {
-            if (!selectedHashtags.contains(subgroup.name)) {
-              selectedHashtags.add(subgroup.name);
-              debugPrint("  - Added subcategory: ${subgroup.name}");
-            }
-          }
-        } catch (e) {
-          debugPrint("Error fetching subgroups for $groupName: $e");
-        }
+        _updateFilterStatus();
+        debugPrint("Added subcategories from hashtag group: $groupName (total selected: ${selectedHashtags.length})");
+      } catch (e) {
+        debugPrint("Error fetching subgroups for $groupName: $e");
       }
-
-      _updateFilterStatus();
-      debugPrint("Added hashtag group: $groupName (total selected: ${selectedHashtags.length})");
-    }
+    // } else {
+    //   // For non-main groups (subcategories), add the hashtag itself
+    //   if (!selectedHashtags.contains(groupName)) {
+    //     selectedHashtags.add(groupName);
+    //     _updateFilterStatus();
+    //     debugPrint("Added hashtag: $groupName (total selected: ${selectedHashtags.length})");
+    //   }
+    // }
   }
 
   void addContactGroup(ContactGroup group) async {
@@ -2112,13 +2127,15 @@ class _MemoryFilterHelper {
   bool matchesSearchQuery(String query) {
     if (query.isEmpty) return true;
 
-    final lowerQuery = query.toLowerCase();
-    return (text?.toLowerCase().contains(lowerQuery) ?? false) ||
-        location.toLowerCase().contains(lowerQuery) ||
-        date.toLowerCase().contains(lowerQuery) ||
-        (category?.toLowerCase().contains(lowerQuery) ?? false) ||
-        (tags?.toLowerCase().contains(lowerQuery) ?? false) ||
-        (mentions?.toLowerCase().contains(lowerQuery) ?? false);
+    // Use accent-insensitive, multi-word search
+    return SearchUtils.matchesSearchInAny(query, [
+      text,
+      location,
+      date,
+      category,
+      tags,
+      mentions,
+    ]);
   }
 
   bool matchesFilters(Map<String, String> filters) {

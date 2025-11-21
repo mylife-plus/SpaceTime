@@ -561,7 +561,16 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   }
 
   /// Show edit contact group dialog using AddEditGroupPopup
-  void _showEditContactGroupDialog(ContactGroup contactGroup) {
+  void _showEditContactGroupDialog(ContactGroup contactGroup) async {
+    // Get parent group name if this is a subgroup
+    String? parentGroupName;
+    if (contactGroup.parentId != null) {
+      final parentGroup = await _contactGroupService.getGroupById(contactGroup.parentId!);
+      parentGroupName = parentGroup?.name;
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -572,6 +581,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           initialName: contactGroup.name,
           editItemId: contactGroup.id,
           parentId: contactGroup.parentId,
+          parentGroupName: parentGroupName,
           onSave: (newName, parentId) async {
             // Validate that name is provided
             if (newName.isEmpty) {
@@ -865,7 +875,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   }
 
   /// Show popup for adding subgroup to a contact group
-  void _startInlineAdding(int contactGroupId) {
+  void _startInlineAdding(int contactGroupId, String contactGroupName) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -874,6 +884,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           isHashtagMode: false,
           isMainGroup: false,
           parentId: contactGroupId,
+          parentGroupName: contactGroupName,
           onSave: (name, parentId) async {
             // Use the existing save logic
             if (name.isEmpty) {
@@ -1534,7 +1545,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       IconButton(
                         onPressed: (_addingToContactGroup[mainContactGroup.id] ?? false)
                             ? null
-                            : () => _startInlineAdding(mainContactGroup.id!),
+                            : () => _startInlineAdding(mainContactGroup.id!, mainContactGroup.name),
                         icon: ColorFiltered(
                           colorFilter: ColorFilter.mode(
                             uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
@@ -1840,7 +1851,16 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   }
 
   /// Show popup for editing a subgroup
-  void _startInlineEditing(ContactGroup contactGroup) {
+  void _startInlineEditing(ContactGroup contactGroup) async {
+    // Get parent group name if this is a subgroup
+    String? parentGroupName;
+    if (contactGroup.parentId != null) {
+      final parentGroup = await _contactGroupService.getGroupById(contactGroup.parentId!);
+      parentGroupName = parentGroup?.name;
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1851,6 +1871,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           initialName: contactGroup.name,
           editItemId: contactGroup.id,
           parentId: contactGroup.parentId,
+          parentGroupName: parentGroupName,
           onSave: (newName, parentId) async {
             // Use the existing save logic
             if (newName.isEmpty) {

@@ -62,7 +62,7 @@ class _FilterPanelState extends State<FilterPanel> {
           top: 0,
           left: 0,
           right: 0,
-          bottom: _isKeyboardVisible ? 0 : 60, // Leave space for buttons when keyboard is hidden
+          bottom: _isKeyboardVisible ? 0 : 0, // Leave space for buttons when keyboard is hidden
           child: SingleChildScrollView(
             controller: widget.scrollController,
             child: Padding(
@@ -123,16 +123,7 @@ class _FilterPanelState extends State<FilterPanel> {
                       const SizedBox(height: 8),
                       ...widget.children,
                       const SizedBox(height: 10),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Bottom buttons - hidden when keyboard is visible
-        if (!_isKeyboardVisible)
+                      // if (!_isKeyboardVisible)
           Positioned(
             bottom: 0,
             left: 0,
@@ -153,6 +144,10 @@ class _FilterPanelState extends State<FilterPanel> {
                 children: [
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(120, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       backgroundColor: controller.darkMode.value
                           ? Colors.white.withValues(alpha: 0.2)
                           : Colors.white,
@@ -166,6 +161,7 @@ class _FilterPanelState extends State<FilterPanel> {
                     child: Text(
                       'reset',
                       style: GoogleFonts.kumbhSans(
+                        fontSize: 16,
                         color: controller.darkMode.value ? Colors.red : Colors.red,
                         fontWeight: FontWeight.w500,
                       ),
@@ -174,6 +170,10 @@ class _FilterPanelState extends State<FilterPanel> {
                   const SizedBox(width: 20),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(120, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       backgroundColor: controller.darkMode.value
                           ? Colors.white.withValues(alpha: 0.2)
                           : Colors.white,
@@ -183,6 +183,7 @@ class _FilterPanelState extends State<FilterPanel> {
                     child: Text(
                       'filter',
                       style: GoogleFonts.kumbhSans(
+                        fontSize: 16,
                         color: Colors.blue,
                         fontWeight: FontWeight.w500,
                       ),
@@ -192,6 +193,17 @@ class _FilterPanelState extends State<FilterPanel> {
               ),
             ),
           ),
+         
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Bottom buttons - hidden when keyboard is visible
+        
       ],
     );
   }

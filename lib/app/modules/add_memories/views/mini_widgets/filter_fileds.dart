@@ -11,11 +11,13 @@ import 'package:spacetime/app/modules/location_picker/views/new_location_picker_
 class MemoriesFilterTextFieldRow extends StatefulWidget {
   final String imagePath;
   final String hint;
+  final double? borderRadius;
 
   const MemoriesFilterTextFieldRow({
     super.key,
     required this.imagePath,
     required this.hint,
+    this.borderRadius,
   });
 
   @override
@@ -255,6 +257,9 @@ class _MemoriesFilterTextFieldRowState
                 controller2.darkMode.value
                     ? Colors.white.withValues(alpha: 0.2)
                     : Colors.white,
+            borderRadius: widget.borderRadius != null
+                ? BorderRadius.circular(widget.borderRadius!)
+                : null,
           ),
           child: Row(
             children: [

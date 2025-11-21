@@ -30,6 +30,9 @@ class SearchableContactWidget extends StatefulWidget {
   /// Whether this widget is being used inside a filter overlay (affects padding)
   final bool isInFilterMode;
 
+  /// Border radius for the container (optional)
+  final double? borderRadius;
+
   const SearchableContactWidget({
     super.key,
     this.title = 'Search Contacts',
@@ -43,6 +46,7 @@ class SearchableContactWidget extends StatefulWidget {
     this.isCompact = false,
     this.previouslySelectedContacts,
     this.isInFilterMode = false,
+    this.borderRadius,
   });
 
   @override
@@ -330,8 +334,47 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
     _groupResults.value = groupResults.take(5).toList();
   }
 
-  void _selectContact(String contact) {
+  Future<void> _selectContact(String contact, bool isGroup) async {
+    if(!isGroup) {
     widget.onContactSelected(contact);
+    } else {
+      // Find the ContactGroup object from _allGroups or fetch from database
+      ContactGroup? group = _allGroups.firstWhereOrNull((g) => g.name == contact);
+
+      // If not found in _allGroups, fetch from database
+      if (group == null) {
+        final allGroups = await _contactGroupService.getAllGroupsHierarchical();
+        group = allGroups.firstWhereOrNull((g) => g.name == contact);
+      }
+
+      if (group != null && widget.onGroupSelected != null) {
+
+
+        // Get the controller to check and remove existing subgroups
+        try {
+          final controller = Get.find<AddMemoriesController>();
+
+          for(var subgroup in group.subgroups!) {
+                        _saveRecentContact(subgroup.name);
+
+            // If already selected, remove it first
+            if (controller.selectedContacts.contains(subgroup.name)) {
+              controller.removeContact(subgroup.name);
+            }
+            // Then add it (this will add it fresh)
+            // widget.onContactSelected(subgroup.name);
+                // _saveRecentContact(contact);
+
+          }
+        } catch (e) {
+          // If controller not found, just add without removing
+          debugPrint('[SearchableContactWidget] Controller not found, adding without removing: $e');
+          for(var subgroup in group.subgroups!) {
+            widget.onContactSelected(subgroup.name);
+          }
+        }
+      }
+    }
     _saveRecentContact(contact);
     _searchController.clear();
     _showResults.value = false;
@@ -353,13 +396,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       final prefs = await SharedPreferences.getInstance();
       final recentContactsJson = prefs.getStringList('recent_contacts_filter') ?? [];
 
-      // Create contact data
-      final contactData = {
-        'name': contact,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      };
-
-      // Remove if already exists
+      // Remove if already exists (to avoid duplicates)
       recentContactsJson.removeWhere((item) {
         try {
           final data = json.decode(item);
@@ -369,7 +406,11 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         }
       });
 
-      // Add to beginning
+      // Create contact data and add to beginning
+      final contactData = {
+        'name': contact,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
       recentContactsJson.insert(0, json.encode(contactData));
 
       // Keep only last 10 items
@@ -427,7 +468,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   Widget _buildSearchField(UiController uiController) {
     return SizedBox(
       height: 20, // Fixed height to match icon height
-      child: TextField(
+      child: Obx(() => TextField(
       controller: _searchController,
       focusNode: _focusNode,
       style: AppFonts.medium(16, color: uiController.darkMode.value ? Colors.white : Colors.black87),
@@ -437,10 +478,11 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         border: InputBorder.none,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 2), // Center text with 20px icon
-        suffixIcon: _searchController.text.isNotEmpty ? GestureDetector(
+        suffixIcon: (widget.isInFilterMode && _showResults.value) || _searchController.text.isNotEmpty ? GestureDetector(
           onTap: () {
             _searchController.clear();
-            _performSearch('');
+            _showResults.value = false;
+            _focusNode.unfocus();
           },
           child: Icon(
             Icons.clear,
@@ -450,7 +492,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         ) : null,
       ),
       onChanged: _performSearch,
-    ),
+    )),
     );
   }
 
@@ -471,6 +513,9 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         color: widget.backgroundColor ?? (uiController.darkMode.value
             ? Colors.grey[850]
             : Colors.white),
+        borderRadius: widget.borderRadius != null
+            ? BorderRadius.circular(widget.borderRadius!)
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,7 +549,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
           if (_showResults.value) ...[
             // const SizedBox(height: 8),
             Container(
-              constraints: const BoxConstraints(maxHeight: 300),
+              constraints: BoxConstraints(maxHeight: widget.isInFilterMode ? 225 : 300),
               decoration: const BoxDecoration(
                 color: Colors.transparent,
               ),
@@ -602,15 +647,22 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
     final isGroup = _recentContactGroups.contains(contact);
 
     return InkWell(
-      onTap: () => _selectContact(contact),
+      onTap: () => _selectContact(contact, isGroup),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
+             if (isGroup)
+              Icon(
+                Icons.folder_outlined,
+                size: 16,
+                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
+              ),
+              if(!isGroup)
             Text(
               '@',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
               ),
@@ -623,12 +675,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
               ),
             ),
             // Show folder icon for groups
-            if (isGroup)
-              Icon(
-                Icons.folder_outlined,
-                size: 18,
-                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
-              ),
+           
           ],
         ),
       ),

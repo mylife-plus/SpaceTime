@@ -237,8 +237,35 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
   Future<void> _addCategory() async {
     // If editing, use edit logic
     if (widget.editCategory != null) {
+       if (_selectedParentId.value == 'add_new_main_category') {
+      final categoryName = _nameController.text.trim();
+      if (categoryName.isEmpty) {
+        Get.snackbar(
+          'Validation Error',
+          'Category name required',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+    }
+
       await _editCategory();
       return;
+    }
+
+    // Validate category name when "Add New Category" is selected
+    if (_selectedParentId.value == 'add_new_main_category') {
+      final categoryName = _nameController.text.trim();
+      if (categoryName.isEmpty) {
+        Get.snackbar(
+          'Validation Error',
+          'Category name required',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
     }
 
     final placeName = _placeNameController.text.trim();
@@ -455,6 +482,20 @@ Navigator.of(context).pop();
       return;
     }
 
+    // Validate category name when "Add New Category" is selected
+    if (_selectedParentId.value == 'add_new_main_category') {
+      final categoryName = _nameController.text.trim();
+      if (categoryName.isEmpty) {
+        Get.snackbar(
+          'Validation Error',
+          'Category name required',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+    }
+
     // Validate emoji when editing from Memory View
     if (widget.fromMemoryView && placeEmoji.isEmpty) {
       Get.snackbar(
@@ -466,8 +507,12 @@ Navigator.of(context).pop();
       return;
     }
 
-    // Validate parent category when editing from Memory View
-    if (widget.fromMemoryView && _selectedParentId.value.isEmpty) {
+    // Validate parent category only when adding from Memory View
+    // Skip validation when editing (already has a parent)
+    if (widget.fromMemoryView &&
+        widget.editCategory == null &&
+        _selectedParentId.value.isEmpty &&
+        _mainCategories.isNotEmpty) {
       Get.snackbar(
         'Validation Error',
         'Please select a Place Category',
@@ -480,9 +525,54 @@ Navigator.of(context).pop();
     _isLoading.value = true;
 
     try {
-      // Get parent ID for Memory View mode
+      // Get parent ID - check multiple scenarios
       int? parentId = widget.editCategory!.parentId;
-      if (widget.fromMemoryView && _selectedParentId.value.isNotEmpty) {
+
+      // If "Add New Category" is selected, create the new category first
+      if (_selectedParentId.value == 'add_new_main_category') {
+        final categoryName = _nameController.text.trim();
+
+        final newCategory = await _categoryService.addCustomCategory(
+          name: categoryName,
+          emoji: '📍', // Default emoji for main categories
+          parentId: null,
+        );
+
+        if (newCategory == null) {
+          Get.snackbar(
+            'Error',
+            'Failed to add Place category',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
+        } else if (newCategory.id == -1) {
+          Get.snackbar(
+            'Duplicate Place category',
+            'Place category with this name already exists.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
+        } else if (newCategory.id == -3) {
+          Get.snackbar(
+            'Name Conflict',
+            'This name is already used by a Place in another Place category.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
+        }
+
+        // Use the newly created category's ID as the parent
+        parentId = newCategory.id;
+      }
+      // Update parent ID if dropdown is being used and a valid selection is made
+      else if (_selectedParentId.value.isNotEmpty &&
+          _selectedParentId.value != 'add_new_main_category') {
         parentId = int.tryParse(_selectedParentId.value);
       }
 
@@ -1076,13 +1166,19 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
     if (widget.editCategory != null) {
       _placeNameController.text = widget.editCategory!.name;
       _placeEmojiController.text = widget.editCategory!.emoji;
+
+      // If editing a subcategory, load categories to display parent name
+      if (!widget.isEditingMainCategory) {
+        _loadMainCategories();
+      }
     }
 
     // If adding a main category, set the flag
     if (widget.isMainCategory) {
       _isCreatingMainCategory.value = true;
     } else if (widget.parentCategoryId != null) {
-      // If adding a subcategory with a specific parent, don't load categories
+      // If adding a subcategory with a specific parent, load categories to display parent name
+      _loadMainCategories();
       _isCreatingMainCategory.value = false;
     } else if (widget.fromMemoryView) {
       // From Memory View, always load categories for dropdown
@@ -1240,11 +1336,26 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
     _isLoading.value = true;
     // If editing, use edit logic
     if (widget.editCategory != null) {
-      
+
       await _editCategory();
           _isLoading.value = false;
 
       return;
+    }
+
+    // Validate category name when "Add New Category" is selected
+    if (_selectedParentId.value == 'add_new_main_category') {
+      final categoryName = _nameController.text.trim();
+      if (categoryName.isEmpty) {
+        Get.snackbar(
+          'Validation Error',
+          'Category name required',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        _isLoading.value = false;
+        return;
+      }
     }
 
     final placeName = _placeNameController.text.trim();
@@ -1477,6 +1588,20 @@ Navigator.of(context).pop();
       return;
     }
 
+    // Validate category name when "Add New Category" is selected
+    if (_selectedParentId.value == 'add_new_main_category') {
+      final categoryName = _nameController.text.trim();
+      if (categoryName.isEmpty) {
+        Get.snackbar(
+          'Validation Error',
+          'Category name required',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+    }
+
     // Validate emoji when editing from Memory View
     if (widget.fromMemoryView && placeEmoji.isEmpty) {
       Get.snackbar(
@@ -1488,8 +1613,13 @@ Navigator.of(context).pop();
       return;
     }
 
-    // Validate parent category when editing from Memory View
-    if (widget.fromMemoryView && _selectedParentId.value.isEmpty) {
+    // Validate parent category only when adding from Memory View and no parentCategoryId is provided
+    // Skip validation when editing (already has a parent) or when parentCategoryId is provided
+    if (widget.fromMemoryView &&
+        widget.editCategory == null &&
+        widget.parentCategoryId == null &&
+        _selectedParentId.value.isEmpty &&
+        _mainCategories.isNotEmpty) {
       Get.snackbar(
         'Validation Error',
         'Please select a Place Category',
@@ -1502,9 +1632,54 @@ Navigator.of(context).pop();
     _isLoading.value = true;
 
     try {
-      // Get parent ID for Memory View mode
+      // Get parent ID - check multiple scenarios
       int? parentId = widget.editCategory!.parentId;
-      if (widget.fromMemoryView && _selectedParentId.value.isNotEmpty) {
+
+      // If "Add New Category" is selected, create the new category first
+      if (_selectedParentId.value == 'add_new_main_category') {
+        final categoryName = _nameController.text.trim();
+
+        final newCategory = await _categoryService.addCustomCategory(
+          name: categoryName,
+          emoji: '📍', // Default emoji for main categories
+          parentId: null,
+        );
+
+        if (newCategory == null) {
+          Get.snackbar(
+            'Error',
+            'Failed to add Place category',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
+        } else if (newCategory.id == -1) {
+          Get.snackbar(
+            'Duplicate Place category',
+            'Place category with this name already exists.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
+        } else if (newCategory.id == -3) {
+          Get.snackbar(
+            'Name Conflict',
+            'This name is already used by a Place in another Place category.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          _isLoading.value = false;
+          return;
+        }
+
+        // Use the newly created category's ID as the parent
+        parentId = newCategory.id;
+      }
+      // Update parent ID if dropdown is being used and a valid selection is made
+      else if (_selectedParentId.value.isNotEmpty &&
+          _selectedParentId.value != 'add_new_main_category') {
         parentId = int.tryParse(_selectedParentId.value);
       }
 
@@ -1641,6 +1816,12 @@ Navigator.of(context).pop();
                     ],
                   ),
 
+                  // Show parent category name when adding a subcategory
+                  
+
+ 
+
+                
                   const Spacer(),
 
                   // Save button (green checkmark)
@@ -1674,6 +1855,25 @@ Navigator.of(context).pop();
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Column(
                 children: [
+                  if ((widget.editCategory == null && !widget.isMainCategory) ||
+                      (widget.editCategory != null && !widget.isEditingMainCategory))
+                    Obx(() => Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4),
+                          child: Text(
+                            getCategoryName(widget.editCategory != null
+                                ? widget.editCategory!.parentId
+                                : widget.parentCategoryId),
+                            style: GoogleFonts.kumbhSans(
+                              fontSize: 14,
+                              color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )),
+
                   // Memory View Mode: Show category dropdown with label
                   if (widget.fromMemoryView || widget.isMainCategory || widget.editCategory != null) ...[
                     // Place Category label
@@ -1995,5 +2195,20 @@ Navigator.of(context).pop();
         ),
       ),
     );
+  }
+
+  String getCategoryName(int? parentCategoryId) {
+    if (parentCategoryId == null) {
+      return '';
+    }
+
+    // Find the category with matching ID from _mainCategories
+    final category = _mainCategories.firstWhereOrNull((cat) => cat.id == parentCategoryId);
+
+    if (category != null) {
+      return 'Place Category: ${category.name}';
+    }
+
+    return '';
   }
 }

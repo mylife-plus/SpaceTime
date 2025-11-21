@@ -46,21 +46,23 @@ class MapCircleButton extends StatelessWidget {
                           image: const AssetImage(_backgroundImagePath),
                           fit: BoxFit.contain,
                           colorFilter:
-                              uiController.darkMode.value
-                                  ? uiController.mainColor.value == 'blue'
-                                      ? const ColorFilter.mode(
-                                        Color(0xFF001937),
-                                        BlendMode.srcIn,
-                                      )
-                                      : ColorFilter.mode(
-                                        (uiController.iconColor ?? AppColors.blue),
-                                        BlendMode.srcIn,
-                                      )
-                                  : ColorFilter.mode(
-                                    (uiController.currentMainColor ??
-                                        AppColors.blue),
-                                    BlendMode.srcIn,
-                                  ),
+                            //  colorFilter:
+                            uiController.darkMode.value
+                                ? uiController.mainColor.value == 'blue'
+                                    ? const ColorFilter.mode(
+                                      Color(0xFF002B62),
+                                      BlendMode.srcIn,
+                                    )
+                                    : ColorFilter.mode(
+                                      (uiController.primaryColorDark ??
+                                          AppColors.blue),
+                                      BlendMode.srcIn,
+                                    )
+                                : (uiController.rectangleColorFilter ??
+                                    const ColorFilter.mode(
+                                      AppColors.blue,
+                                      BlendMode.srcIn,
+                                    )),
                         ),
                       )
                       : null,

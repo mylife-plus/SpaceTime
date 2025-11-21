@@ -61,6 +61,9 @@ class SearchableCategoryWidget extends StatefulWidget {
   /// Whether this widget is being used inside a filter overlay (affects padding)
   final bool isInFilterMode;
 
+  /// Border radius for the container (optional)
+  final double? borderRadius;
+
   const SearchableCategoryWidget({
     super.key,
     this.title = 'Places',
@@ -77,6 +80,7 @@ class SearchableCategoryWidget extends StatefulWidget {
     this.allowMultipleSelectionInPicker = true,
     this.previouslySelectedCategories,
     this.isInFilterMode = false,
+    this.borderRadius,
   });
 
   @override
@@ -575,14 +579,17 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         _focusNode.requestFocus();
       },
       child: Container(
-        padding: widget.isCompact 
+        padding: widget.isCompact
             ? const EdgeInsets.symmetric(horizontal: 8, vertical: 8)
             : const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
-          color: widget.backgroundColor ?? 
-              (widget.isCompact 
-                  ? Colors.transparent 
+          color: widget.backgroundColor ??
+              (widget.isCompact
+                  ? Colors.transparent
                   : (uiController.darkMode.value ? Colors.grey[850] : Colors.white)),
+          borderRadius: widget.borderRadius != null
+              ? BorderRadius.circular(widget.borderRadius!)
+              : null,
         ),
         child: Column(
           children: [
@@ -653,7 +660,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
   Widget _buildSearchField(UiController uiController) {
     return SizedBox(
       height: 22, // Fixed height to match icon height
-      child: TextField(
+      child: Obx(() => TextField(
       controller: _searchController,
       focusNode: _focusNode,
       style: AppFonts.medium(
@@ -669,7 +676,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         border: InputBorder.none,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 2), // Center text with 20px icon
-        suffixIcon: _searchController.text.isNotEmpty
+        suffixIcon: (widget.isInFilterMode && _showResults.value) || _searchController.text.isNotEmpty
             ? GestureDetector(
                 onTap: () {
                   _searchController.clear();
@@ -684,14 +691,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
               )
             : null,
       ),
-    ),
+    )),
     );
   }
 
   /// Build search results container
   Widget _buildSearchResults(UiController uiController) {
     return Container(
-      constraints: const BoxConstraints(maxHeight: 300),
+      constraints: BoxConstraints(maxHeight: widget.isInFilterMode ? 225 : 300),
       decoration: const BoxDecoration(
         color: Colors.transparent,
       ),

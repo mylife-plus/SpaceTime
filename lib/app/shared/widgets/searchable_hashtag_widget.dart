@@ -30,6 +30,9 @@ class SearchableHashtagWidget extends StatefulWidget {
   /// Whether this widget is being used inside a filter overlay (affects padding)
   final bool isInFilterMode;
 
+  /// Border radius for the container (optional)
+  final double? borderRadius;
+
   const SearchableHashtagWidget({
     super.key,
     this.title = 'Search Hashtags',
@@ -43,6 +46,7 @@ class SearchableHashtagWidget extends StatefulWidget {
     this.isCompact = false,
     this.previouslySelectedHashtags,
     this.isInFilterMode = false,
+    this.borderRadius,
   });
 
   @override
@@ -330,8 +334,41 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     _groupResults.value = groupResults.take(5).toList();
   }
 
-  void _selectHashtag(String hashtag) {
+  Future<void> _selectHashtag(String hashtag, bool isGroup) async {
+    if(!isGroup) {
     widget.onHashtagSelected(hashtag);
+    } else {
+      // Find the HashtagGroup object from _allGroups or fetch from database
+      HashtagGroup? group = _allGroups.firstWhereOrNull((g) => g.name == hashtag);
+
+      // If not found in _allGroups, fetch from database
+      if (group == null) {
+        final allGroups = await _hashtagGroupService.getAllGroupsHierarchical();
+        group = allGroups.firstWhereOrNull((g) => g.name == hashtag);
+      }
+
+      if (group != null && widget.onGroupSelected != null) {
+        // Get the controller to check and remove existing subgroups
+        try {
+          final controller = Get.find<AddMemoriesController>();
+
+          for(var subgroup in group.subgroups!) {
+            // If already selected, remove it first
+            if (controller.selectedHashtags.contains(subgroup.name)) {
+              controller.removeHashtag(subgroup.name);
+            }
+            // Then add it (this will add it fresh)
+            widget.onHashtagSelected(subgroup.name);
+          }
+        } catch (e) {
+          // If controller not found, just add without removing
+          debugPrint('[SearchableHashtagWidget] Controller not found, adding without removing: $e');
+          for(var subgroup in group.subgroups!) {
+            widget.onHashtagSelected(subgroup.name);
+          }
+        }
+      }
+    }
     _saveRecentHashtag(hashtag);
     _searchController.clear();
     _showResults.value = false;
@@ -427,7 +464,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   Widget _buildSearchField(UiController uiController) {
     return SizedBox(
       height: 20, // Fixed height to match icon height
-      child: TextField(
+      child: Obx(() => TextField(
       controller: _searchController,
       focusNode: _focusNode,
       style: AppFonts.medium(16, color: uiController.darkMode.value ? Colors.white : Colors.black87),
@@ -437,10 +474,11 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         border: InputBorder.none,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 2), // Center text with 20px icon
-        suffixIcon: _searchController.text.isNotEmpty ? GestureDetector(
+        suffixIcon: (widget.isInFilterMode && _showResults.value) || _searchController.text.isNotEmpty ? GestureDetector(
           onTap: () {
             _searchController.clear();
-            _performSearch('');
+            _showResults.value = false;
+            _focusNode.unfocus();
           },
           child: Icon(
             Icons.clear,
@@ -450,7 +488,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         ) : null,
       ),
       onChanged: _performSearch,
-    ),
+    )),
     );
   }
 
@@ -471,6 +509,9 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         color: widget.backgroundColor ?? (uiController.darkMode.value
             ? Colors.grey[850]
             : Colors.white),
+        borderRadius: widget.borderRadius != null
+            ? BorderRadius.circular(widget.borderRadius!)
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,7 +545,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
           if (_showResults.value) ...[
             const SizedBox(height: 8),
             Container(
-              constraints: const BoxConstraints(maxHeight: 300),
+              constraints: BoxConstraints(maxHeight: widget.isInFilterMode ? 225 : 300),
               decoration: const BoxDecoration(
                 color: Colors.transparent,
               ),
@@ -602,15 +643,26 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     final isGroup = _recentHashtagGroups.contains(hashtag);
 
     return InkWell(
-      onTap: () => _selectHashtag(hashtag),
+      onTap: () => 
+      
+      
+      _selectHashtag(hashtag, isGroup),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
+                          if(isGroup)
+
+             Icon(
+                Icons.folder_outlined,
+                size: 16,
+                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
+              ),
+              if(!isGroup)
             Text(
               '#',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
               ),
@@ -623,12 +675,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
               ),
             ),
             // Show folder icon for groups
-            if (isGroup)
-              Icon(
-                Icons.folder_outlined,
-                size: 18,
-                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
-              ),
+           
           ],
         ),
       ),

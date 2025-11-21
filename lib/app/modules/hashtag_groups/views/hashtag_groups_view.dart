@@ -567,7 +567,16 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
   }
 
   /// Show edit hashtag group dialog using AddEditGroupPopup
-  void _showEditHashtagGroupDialog(HashtagGroup hashtagGroup) {
+  void _showEditHashtagGroupDialog(HashtagGroup hashtagGroup) async {
+    // Get parent group name if this is a subgroup
+    String? parentGroupName;
+    if (hashtagGroup.parentId != null) {
+      final parentGroup = await _hashtagGroupService.getGroupById(hashtagGroup.parentId!);
+      parentGroupName = parentGroup?.name;
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -578,6 +587,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           initialName: hashtagGroup.name,
           editItemId: hashtagGroup.id,
           parentId: hashtagGroup.parentId,
+          parentGroupName: parentGroupName,
           onSave: (newName, parentId) async {
             // Validate that name is provided
             if (newName.isEmpty) {
@@ -865,7 +875,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
   }
 
   /// Show popup for adding subgroup to a hashtag group
-  void _startInlineAdding(int hashtagGroupId) {
+  void _startInlineAdding(int hashtagGroupId, String hashtagGroupName) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -874,6 +884,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           isHashtagMode: true,
           isMainGroup: false,
           parentId: hashtagGroupId,
+          parentGroupName: hashtagGroupName,
           onSave: (name, parentId) async {
             // Use the existing save logic
             if (name.isEmpty) {
@@ -1497,7 +1508,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                       IconButton(
                         onPressed: (_addingToHashtagGroup[mainHashtagGroup.id] ?? false)
                             ? null
-                            : () => _startInlineAdding(mainHashtagGroup.id!),
+                            : () => _startInlineAdding(mainHashtagGroup.id!, mainHashtagGroup.name),
                         icon: ColorFiltered(
                           colorFilter: ColorFilter.mode(
                             uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
@@ -1803,7 +1814,16 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
   }
 
   /// Show popup for editing a subgroup
-  void _startInlineEditing(HashtagGroup hashtagGroup) {
+  void _startInlineEditing(HashtagGroup hashtagGroup) async {
+    // Get parent group name if this is a subgroup
+    String? parentGroupName;
+    if (hashtagGroup.parentId != null) {
+      final parentGroup = await _hashtagGroupService.getGroupById(hashtagGroup.parentId!);
+      parentGroupName = parentGroup?.name;
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1814,6 +1834,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           initialName: hashtagGroup.name,
           editItemId: hashtagGroup.id,
           parentId: hashtagGroup.parentId,
+          parentGroupName: parentGroupName,
           onSave: (newName, parentId) async {
             // Use the existing save logic
             if (newName.isEmpty) {

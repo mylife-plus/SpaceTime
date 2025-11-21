@@ -579,13 +579,13 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   /// Start inline adding for a category
   void _startInlineAdding(int categoryId) {
     // Expand the category if not already expanded
-    final isCurrentlyExpanded = _expandedCategories[categoryId] ?? false;
-    if (!isCurrentlyExpanded) {
-      final controller = _expansionControllers[categoryId];
-      if (controller != null && !controller.isExpanded) {
-        controller.expand();
-      }
-    }
+    // final isCurrentlyExpanded = _expandedCategories[categoryId] ?? false;
+    // if (!isCurrentlyExpanded) {
+    //   final controller = _expansionControllers[categoryId];
+    //   if (controller != null && !controller.isExpanded) {
+    //     controller.expand();
+    //   }
+    // }
 
     // Show popup for adding subcategory
     Get.dialog(

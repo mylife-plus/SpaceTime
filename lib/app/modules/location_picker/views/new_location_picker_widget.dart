@@ -498,7 +498,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
   /// Build radius control
   Widget _buildRadiusControl() {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.only(left: 10, right: 10, bottom: 5, top: 10),
       decoration: BoxDecoration(
         color: uiController.darkMode.value
             ? Colors.black.withOpacity(0.8)
@@ -534,7 +534,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
               ],
             ),
           ),
-          // const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Obx(() {
             // Convert radius to slider value (0-100 scale)
             final sliderValue = _radiusToSliderValue(controller.selectedRadius.value);

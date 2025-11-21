@@ -9,6 +9,7 @@ class AddEditGroupPopup extends StatefulWidget {
   final String? initialName; // For editing or pre-filled name
   final int? editItemId; // If editing, the ID of the item
   final int? parentId; // For subgroups, the parent group ID
+  final String? parentGroupName; // For subgroups, the parent group name
   final bool isMainGroup; // true for main groups, false for subgroups
   final Function(String name, int? parentId)? onSave; // Callback when saved
   final VoidCallback? onCancel; // Callback when cancelled
@@ -19,6 +20,7 @@ class AddEditGroupPopup extends StatefulWidget {
     this.initialName,
     this.editItemId,
     this.parentId,
+    this.parentGroupName,
     this.isMainGroup = false,
     this.onSave,
     this.onCancel,
@@ -121,14 +123,22 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                   ),
                 ),
                 // Title
-                Text(
-                  title,
-                  style: GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.kumbhSans(
+                        color: uiController.darkMode.value ? Colors.white : Colors.black,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    // Show parent group name when adding/editing a subgroup
+                   
+                  ],
                 ),
+                
                 // Check button
                 GestureDetector(
                   onTap: _handleSave,
@@ -140,8 +150,23 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                 ),
               ],
             ),
+             if (!widget.isMainGroup && widget.parentGroupName != null)
+                      Row(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, left: 12, right: 12),
+                            child: Text(
+                              '${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Group: ${widget.parentGroupName}',
+                              style: GoogleFonts.kumbhSans(
+                                color: uiController.darkMode.value ? Colors.white : Colors.black,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // Name input field
             Container(
