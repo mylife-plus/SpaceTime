@@ -350,15 +350,22 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         group = allGroups.firstWhereOrNull((g) => g.name == contact);
       }
 
-      if (group != null && widget.onGroupSelected != null) {
-        // If this is a main group, fetch subgroups to implement remove-before-add logic
-        if (group.isMainGroup && group.id != null) {
-          final subgroups = await _contactGroupService.getSubgroups(group.id!);
-          // Update group with subgroups loaded
-          group = group.copyWith(subgroups: subgroups);
+      if (group != null) {
+        // Check if this is a main group or a subgroup
+        if (group.isMainGroup && widget.onGroupSelected != null) {
+          // Main group: fetch subgroups and call onGroupSelected
+          if (group.id != null) {
+            final subgroups = await _contactGroupService.getSubgroups(group.id!);
+            // Update group with subgroups loaded
+            group = group.copyWith(subgroups: subgroups);
+          }
+          widget.onGroupSelected!(group);
+          _saveRecentContactGroup(group);
+        } else {
+          // Subgroup: treat as individual contact
+          widget.onContactSelected(contact);
+          _saveRecentContact(contact);
         }
-        widget.onGroupSelected!(group);
-        _saveRecentContactGroup(group);
       }
     }
     _searchController.clear();
