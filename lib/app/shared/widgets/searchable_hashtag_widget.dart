@@ -336,7 +336,8 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
 
   Future<void> _selectHashtag(String hashtag, bool isGroup) async {
     if(!isGroup) {
-    widget.onHashtagSelected(hashtag);
+      widget.onHashtagSelected(hashtag);
+      _saveRecentHashtag(hashtag);
     } else {
       // Find the HashtagGroup object from _allGroups or fetch from database
       HashtagGroup? group = _allGroups.firstWhereOrNull((g) => g.name == hashtag);
@@ -348,35 +349,29 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       }
 
       if (group != null && widget.onGroupSelected != null) {
-        // Get the controller to check and remove existing subgroups
-        try {
-          final controller = Get.find<AddMemoriesController>();
-
-          for(var subgroup in group.subgroups!) {
-            // If already selected, remove it first
-            if (controller.selectedHashtags.contains(subgroup.name)) {
-              controller.removeHashtag(subgroup.name);
-            }
-            // Then add it (this will add it fresh)
-            widget.onHashtagSelected(subgroup.name);
-          }
-        } catch (e) {
-          // If controller not found, just add without removing
-          debugPrint('[SearchableHashtagWidget] Controller not found, adding without removing: $e');
-          for(var subgroup in group.subgroups!) {
-            widget.onHashtagSelected(subgroup.name);
-          }
+        // If this is a main group, fetch subgroups to implement remove-before-add logic
+        if (group.isMainGroup && group.id != null) {
+          final subgroups = await _hashtagGroupService.getSubgroups(group.id!);
+          // Update group with subgroups loaded
+          group = group.copyWith(subgroups: subgroups);
         }
+        widget.onGroupSelected!(group);
+        _saveRecentHashtagGroup(group);
       }
     }
-    _saveRecentHashtag(hashtag);
     _searchController.clear();
     _showResults.value = false;
     _focusNode.unfocus();
   }
 
-  void _selectGroup(HashtagGroup group) {
+  void _selectGroup(HashtagGroup group) async {
     if (widget.onGroupSelected != null) {
+      // If this is a main group, fetch subgroups to implement remove-before-add logic
+      if (group.isMainGroup && group.id != null) {
+        final subgroups = await _hashtagGroupService.getSubgroups(group.id!);
+        // Update group with subgroups loaded
+        group = group.copyWith(subgroups: subgroups);
+      }
       widget.onGroupSelected!(group);
     }
     _saveRecentHashtagGroup(group);

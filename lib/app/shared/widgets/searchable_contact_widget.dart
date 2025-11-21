@@ -175,6 +175,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   final RxList<ContactGroup> _groupResults = <ContactGroup>[].obs;
   final RxList<String> _recentContacts = <String>[].obs;
   final RxList<String> _recentContactGroups = <String>[].obs; // Track which recent items are groups
+  final RxList<String> _recentMainCategoryGroups = <String>[].obs; // Track which groups are main categories
   final RxBool _isLoading = false.obs;
 
   List<String> _allContacts = [];
@@ -283,15 +284,16 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       final groupNames = <String>[];
 
       combinedRecent.addAll(recentGroups.take(6)); // Max 6 groups
-      groupNames.addAll(mainCategoryGroups.take(6)); // Track which are MAIN CATEGORY groups (not subcategories)
+      groupNames.addAll(recentGroups.take(6)); // Track ALL groups (both main and subgroups)
 
       if (combinedRecent.length < 6) {
         combinedRecent.addAll(recentContacts.take(6 - combinedRecent.length)); // Fill remaining with contacts
       }
 
       _recentContacts.value = combinedRecent;
-      _recentContactGroups.value = groupNames; // Store which items are main category groups
-      debugPrint('[SearchableContactWidget] Loaded ${combinedRecent.length} recent items (${groupNames.length} main category groups)');
+      _recentContactGroups.value = groupNames; // Store which items are groups (both main and subgroups)
+      _recentMainCategoryGroups.value = mainCategoryGroups.take(6).toList(); // Store which groups are main categories
+      debugPrint('[SearchableContactWidget] Loaded ${combinedRecent.length} recent items (${groupNames.length} groups, ${mainCategoryGroups.length} main categories)');
 
     } catch (e) {
       debugPrint('[SearchableContactWidget] Error loading recent contacts: $e');
@@ -336,7 +338,8 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
 
   Future<void> _selectContact(String contact, bool isGroup) async {
     if(!isGroup) {
-    widget.onContactSelected(contact);
+      widget.onContactSelected(contact);
+      _saveRecentContact(contact);
     } else {
       // Find the ContactGroup object from _allGroups or fetch from database
       ContactGroup? group = _allGroups.firstWhereOrNull((g) => g.name == contact);
@@ -348,41 +351,29 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       }
 
       if (group != null && widget.onGroupSelected != null) {
-
-
-        // Get the controller to check and remove existing subgroups
-        try {
-          final controller = Get.find<AddMemoriesController>();
-
-          for(var subgroup in group.subgroups!) {
-                        _saveRecentContact(subgroup.name);
-
-            // If already selected, remove it first
-            if (controller.selectedContacts.contains(subgroup.name)) {
-              controller.removeContact(subgroup.name);
-            }
-            // Then add it (this will add it fresh)
-            // widget.onContactSelected(subgroup.name);
-                // _saveRecentContact(contact);
-
-          }
-        } catch (e) {
-          // If controller not found, just add without removing
-          debugPrint('[SearchableContactWidget] Controller not found, adding without removing: $e');
-          for(var subgroup in group.subgroups!) {
-            widget.onContactSelected(subgroup.name);
-          }
+        // If this is a main group, fetch subgroups to implement remove-before-add logic
+        if (group.isMainGroup && group.id != null) {
+          final subgroups = await _contactGroupService.getSubgroups(group.id!);
+          // Update group with subgroups loaded
+          group = group.copyWith(subgroups: subgroups);
         }
+        widget.onGroupSelected!(group);
+        _saveRecentContactGroup(group);
       }
     }
-    _saveRecentContact(contact);
     _searchController.clear();
     _showResults.value = false;
     _focusNode.unfocus();
   }
 
-  void _selectGroup(ContactGroup group) {
+  void _selectGroup(ContactGroup group) async {
     if (widget.onGroupSelected != null) {
+      // If this is a main group, fetch subgroups to implement remove-before-add logic
+      if (group.isMainGroup && group.id != null) {
+        final subgroups = await _contactGroupService.getSubgroups(group.id!);
+        // Update group with subgroups loaded
+        group = group.copyWith(subgroups: subgroups);
+      }
       widget.onGroupSelected!(group);
     }
     _saveRecentContactGroup(group);
@@ -645,7 +636,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   Widget _buildContactItem(String contact, UiController uiController) {
     // Check if this item is a group (exists in _recentContactGroups)
     final isGroup = _recentContactGroups.contains(contact);
-
+    
     return InkWell(
       onTap: () => _selectContact(contact, isGroup),
       child: Container(
@@ -655,14 +646,14 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
              if (isGroup)
               Icon(
                 Icons.folder_outlined,
-                size: 16,
+                size: 18,
                 color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
               ),
               if(!isGroup)
             Text(
               '@',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
               ),
@@ -673,9 +664,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 contact,
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
-            ),
-            // Show folder icon for groups
-           
+            ),           
           ],
         ),
       ),
@@ -692,6 +681,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
+            if(!isMainCategory)
             Text(
               '@',
               style: TextStyle(
@@ -700,6 +690,12 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
               ),
             ),
+            if (isMainCategory)
+              Icon(
+                Icons.folder_outlined,
+                size: 16,
+                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -708,12 +704,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
               ),
             ),
             // Show folder icon only for main categories (not subcategories)
-            if (isMainCategory)
-              Icon(
-                Icons.folder_outlined,
-                size: 18,
-                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
-              ),
+            
           ],
         ),
       ),
