@@ -337,6 +337,23 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   elevation: 8,
                   color: Colors.transparent,
                   child: TagMentionBottomSheet(
+                    onEditingCancelled: () {
+                      // Get current cursor position and remove text until last @ or #
+                      final text = widget.controller.text;
+                      final cursorPos = widget.controller.selection.baseOffset;
+                      final triggerIndex = _getLastTriggerIndex(text, cursorPos);
+
+                      if (triggerIndex != -1) {
+                        // Remove from trigger character to cursor position
+                        final newText = text.substring(0, triggerIndex) + text.substring(cursorPos);
+                        widget.controller.value = TextEditingValue(
+                          text: newText,
+                          selection: TextSelection.collapsed(offset: triggerIndex),
+                        );
+                      }
+
+                      _forceRemovePopup();
+                    },
                 onItemSelected: (item) {
                   // Remove old tag if we're replacing
                   if (oldTag != null) {
@@ -425,6 +442,23 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 initialKeyword: keyword,
                 searchNotifier: _searchNotifier!,
                 onEditingComplete: _forceRemovePopup,
+                onEditingCancelled: () {
+                  // Get current cursor position and remove text until last @ or #
+                  final text = widget.controller.text;
+                  final cursorPos = widget.controller.selection.baseOffset;
+                  final triggerIndex = _getLastTriggerIndex(text, cursorPos);
+
+                  if (triggerIndex != -1) {
+                    // Remove from trigger character to cursor position
+                    final newText = text.substring(0, triggerIndex) + text.substring(cursorPos);
+                    widget.controller.value = TextEditingValue(
+                      text: newText,
+                      selection: TextSelection.collapsed(offset: triggerIndex),
+                    );
+                  }
+
+                  _forceRemovePopup();
+                },
                 excludedItems: _mentions, // Pass already added mentions
                 isEditingExisting: isEditingExisting, // Pass editing state
                   ),
