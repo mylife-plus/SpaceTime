@@ -364,11 +364,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       builder:
           (context) => Stack(
             children: [
-              // Barrier to prevent closing when tapped outside
+              // Barrier to close popup when tapped outside
               Positioned.fill(
                 child: GestureDetector(
                   onTap: () {
-                    // Do nothing - prevents closing on outside tap
+                    _removeIncompleteTextAndClosePopup();
                   },
                   child: Container(
                     color: Colors.transparent,
@@ -437,11 +437,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       builder:
           (context) => Stack(
             children: [
-              // Barrier to prevent closing when tapped outside
+              // Barrier to close popup when tapped outside
               Positioned.fill(
                 child: GestureDetector(
                   onTap: () {
-                    // Do nothing - prevents closing on outside tap
+                    _removeIncompleteTextAndClosePopup();
                   },
                   child: Container(
                     color: Colors.transparent,
@@ -505,10 +505,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     _searchNotifier?.dispose();
     _searchNotifier = null;
     _currentController = null;
+    
     Get.delete<TagMentionController>();
 
     // Close the keyboard when bottom sheet is closed
-    // FocusScope.of(context).unfocus();
+    FocusScope.of(context).unfocus();
   }
 
   void _closePopup() {
