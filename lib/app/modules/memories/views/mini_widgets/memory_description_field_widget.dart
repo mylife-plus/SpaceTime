@@ -230,6 +230,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       setState(() {});
     }
 
+    debugPrint('[_onTextChanged] Text: "${widget.controller.text}"');
+    debugPrint('[_onTextChanged] Cursor position: ${widget.controller.selection.baseOffset}');
+
     if (!_focusNode.hasFocus) {
       _removePopup();
       return;
@@ -245,6 +248,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     final cursorPos = selection.baseOffset;
     final triggerIndex = _getLastTriggerIndex(text, cursorPos);
+
+    debugPrint('[_onTextChanged] Trigger index: $triggerIndex, Cursor pos: $cursorPos');
 
     if (triggerIndex == -1 || triggerIndex >= cursorPos) {
       _removePopup();
@@ -486,12 +491,22 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final currentText = widget.controller.text;
     final selection = widget.controller.selection;
 
+    debugPrint('[_insertTextAtCursor] ===== START =====');
+    debugPrint('[_insertTextAtCursor] Text to insert: "$text"');
+    debugPrint('[_insertTextAtCursor] Current text: "$currentText"');
+    debugPrint('[_insertTextAtCursor] Current cursor position: ${selection.baseOffset}');
+
     if (selection.baseOffset >= 0) {
       final triggerIndex = _getLastTriggerIndex(
         currentText,
         selection.baseOffset,
       );
-      if (triggerIndex == -1) return;
+      debugPrint('[_insertTextAtCursor] Trigger index: $triggerIndex');
+
+      if (triggerIndex == -1) {
+        debugPrint('[_insertTextAtCursor] No trigger found, returning');
+        return;
+      }
 
       // Find the end of the current word (tag/mention) to replace the entire word
       int endIndex = selection.baseOffset;
@@ -501,16 +516,24 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         endIndex++;
       }
 
+      debugPrint('[_insertTextAtCursor] End index: $endIndex');
+      debugPrint('[_insertTextAtCursor] Text to replace: "${currentText.substring(triggerIndex, endIndex)}"');
+
       final newText = currentText.replaceRange(
         triggerIndex,
         endIndex,
         '$text ',
       );
 
+      debugPrint('[_insertTextAtCursor] New text: "$newText"');
+      debugPrint('[_insertTextAtCursor] New cursor position: ${triggerIndex + text.length}');
+
       widget.controller.text = newText;
       widget.controller.selection = TextSelection.collapsed(
         offset: triggerIndex + text.length,
       );
+
+      debugPrint('[_insertTextAtCursor] ===== END =====');
     }
   }
 
