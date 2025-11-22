@@ -21,7 +21,6 @@ class TagMentionBottomSheet extends StatefulWidget {
   final String initialKeyword;
   final ValueNotifier<String> searchNotifier;
   final VoidCallback? onEditingComplete;
-  final VoidCallback? onCancel;
   final List<String>? excludedItems; // Items already added to the description
   final bool isEditingExisting; // True when editing an existing hashtag/mention
 
@@ -32,7 +31,6 @@ class TagMentionBottomSheet extends StatefulWidget {
     required this.searchNotifier,
     this.isTagMode = true,
     this.onEditingComplete,
-    this.onCancel,
     this.excludedItems,
     this.isEditingExisting = false,
   });
@@ -111,7 +109,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
           isTagMode: widget.isTagMode,
           initialName: searchText,
           onItemSelected: widget.onItemSelected,
-          onComplete: widget.onEditingComplete,
+          onComplete: _onPopupCompleted,
           onCancel: _onPopupCancelled,
         );
       },
@@ -129,7 +127,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
           isTagMode: widget.isTagMode,
           initialName: item['name'],
           onItemSelected: widget.onItemSelected,
-          onComplete: widget.onEditingComplete,
+          onComplete: _onPopupCompleted,
           onCancel: _onPopupCancelled,
           editItemId: item['id'],
           editParentId: item['parentId']?.toString(),
@@ -137,6 +135,12 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
       },
     );
 
+  }
+
+  void _onPopupCompleted() {
+    // This will be called when the add/edit popup is completed successfully
+    // Just close the popup without clearing text (text was already inserted by onItemSelected)
+    // Don't call widget.onEditingComplete here as it would clear the inserted text
   }
 
   void _onPopupCancelled() {
@@ -269,7 +273,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                 TextButton(
                                   onPressed: () {
                                     controller.cancelEditing();
-                                    widget.onCancel?.call();
+                                    widget.onEditingComplete?.call();
                                   },
                                   child: Text(
                                     'Cancel',
