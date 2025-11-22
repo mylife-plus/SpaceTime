@@ -387,6 +387,8 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                           ),
                                           child: InkWell(
                                             onTap: () {
+                                                                // widget.onEditingCancelled?.call();
+                                              // 
                                               _showAddGroupPopup(context, trimmedSearchText);
                                             },
                                             child: Padding(
@@ -563,7 +565,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               ),
               child: GestureDetector(
                 onTap: () async {
-                  // Close the current popup
+                  // Close the current popup before navigating
                   widget.onEditingComplete?.call();
 
                   // Navigate to the appropriate groups screen
