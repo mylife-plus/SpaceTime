@@ -576,7 +576,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
 
   Widget _buildResultsList(UiController uiController) {
     final hasSearchQuery = _searchController.text.isNotEmpty;
-    final hasResults = _searchResults.isNotEmpty || _groupResults.isNotEmpty;
+    final hasResults = _searchResults.isNotEmpty; // Only check individual hashtag results (no groups)
     final hasRecent = _recentHashtags.isNotEmpty;
 
     final allItems = <Widget>[];
@@ -609,7 +609,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       if (hasSearchQuery) {
         // Individual hashtag results only
         for (int i = 0; i < _searchResults.length; i++) {
-          allItems.add(_buildHashtagItem(_searchResults[i], uiController));
+          allItems.add(_buildHashtagItem(_searchResults[i], uiController, i));
           if (i < _searchResults.length - 1) {
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
@@ -631,7 +631,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     );
   }
 
-  Widget _buildHashtagItem(String hashtag, UiController uiController) {
+  Widget _buildHashtagItem(String hashtag, UiController uiController, [int? i]) {
     return InkWell(
       onTap: () => _selectHashtag(hashtag, false),
       child: Container(
