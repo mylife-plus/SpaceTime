@@ -315,34 +315,50 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     _overlayEntry = OverlayEntry(
       builder:
-          (context) => Positioned(
-            left: 20,
-            right: 20,
-            top: 100,
-            child: Material(
-              elevation: 8,
-              color: Colors.transparent,
-              child: TagMentionBottomSheet(
-            onItemSelected: (item) {
-              // Remove old tag if we're replacing
-              if (oldTag != null) {
-                _tags.remove(oldTag);
-              }
-
-              _insertTextAtCursor(item);
-              final clean = item.substring(1);
-              widget.onTagAdded(clean);
-              _tags.add(clean); // ✅ Add to tag list
-              _forceRemovePopup();
-            },
-            isTagMode: true,
-            initialKeyword: keyword,
-            searchNotifier: _searchNotifier!,
-            onEditingComplete: _forceRemovePopup,
-            excludedItems: _tags, // Pass already added tags
-            isEditingExisting: isEditingExisting, // Pass editing state
+          (context) => Stack(
+            children: [
+              // Barrier to prevent closing when tapped outside
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () {
+                    // Do nothing - prevents closing on outside tap
+                  },
+                  child: Container(
+                    color: Colors.transparent,
+                  ),
+                ),
               ),
-            ),
+              // Popup content
+              Positioned(
+                left: 20,
+                right: 20,
+                top: 100,
+                child: Material(
+                  elevation: 8,
+                  color: Colors.transparent,
+                  child: TagMentionBottomSheet(
+                onItemSelected: (item) {
+                  // Remove old tag if we're replacing
+                  if (oldTag != null) {
+                    _tags.remove(oldTag);
+                  }
+
+                  _insertTextAtCursor(item);
+                  final clean = item.substring(1);
+                  widget.onTagAdded(clean);
+                  _tags.add(clean); // ✅ Add to tag list
+                  _forceRemovePopup();
+                },
+                isTagMode: true,
+                initialKeyword: keyword,
+                searchNotifier: _searchNotifier!,
+                onEditingComplete: _forceRemovePopup,
+                excludedItems: _tags, // Pass already added tags
+                isEditingExisting: isEditingExisting, // Pass editing state
+                  ),
+                ),
+              ),
+            ],
           ),
     );
 
@@ -371,34 +387,50 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     _overlayEntry = OverlayEntry(
       builder:
-          (context) => Positioned(
-            left: 20,
-            right: 20,
-            top: 100,
-            child: Material(
-              elevation: 8,
-              color: Colors.transparent,
-              child: TagMentionBottomSheet(
-            onItemSelected: (item) {
-              // Remove old mention if we're replacing
-              if (oldMention != null) {
-                _mentions.remove(oldMention);
-              }
-
-              _insertTextAtCursor(item);
-              final clean = item.substring(1);
-              widget.onMentionAdded(clean);
-              _mentions.add(clean); // ✅ Add to mention list
-              _forceRemovePopup();
-            },
-            isTagMode: false,
-            initialKeyword: keyword,
-            searchNotifier: _searchNotifier!,
-            onEditingComplete: _forceRemovePopup,
-            excludedItems: _mentions, // Pass already added mentions
-            isEditingExisting: isEditingExisting, // Pass editing state
+          (context) => Stack(
+            children: [
+              // Barrier to prevent closing when tapped outside
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () {
+                    // Do nothing - prevents closing on outside tap
+                  },
+                  child: Container(
+                    color: Colors.transparent,
+                  ),
+                ),
               ),
-            ),
+              // Popup content
+              Positioned(
+                left: 20,
+                right: 20,
+                top: 100,
+                child: Material(
+                  elevation: 8,
+                  color: Colors.transparent,
+                  child: TagMentionBottomSheet(
+                onItemSelected: (item) {
+                  // Remove old mention if we're replacing
+                  if (oldMention != null) {
+                    _mentions.remove(oldMention);
+                  }
+
+                  _insertTextAtCursor(item);
+                  final clean = item.substring(1);
+                  widget.onMentionAdded(clean);
+                  _mentions.add(clean); // ✅ Add to mention list
+                  _forceRemovePopup();
+                },
+                isTagMode: false,
+                initialKeyword: keyword,
+                searchNotifier: _searchNotifier!,
+                onEditingComplete: _forceRemovePopup,
+                excludedItems: _mentions, // Pass already added mentions
+                isEditingExisting: isEditingExisting, // Pass editing state
+                  ),
+                ),
+              ),
+            ],
           ),
     );
 

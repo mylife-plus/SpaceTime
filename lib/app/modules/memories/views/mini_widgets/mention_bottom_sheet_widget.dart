@@ -178,7 +178,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color:
-                    
+
                         // ? (
                             (uiController.darkMode.value
                                 ? Colors.black
@@ -238,6 +238,19 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                         disabledBorder: InputBorder.none, // Remove border when disabled
                       ),
                     ),
+                  ),
+                  // Close button
+                  IconButton(
+                    icon: Icon(
+                      Icons.close,
+                      color: uiController.darkMode.value ? Colors.white : Colors.black,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      widget.onEditingComplete?.call();
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
