@@ -395,13 +395,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       final prefs = await SharedPreferences.getInstance();
       final recentHashtagsJson = prefs.getStringList('recent_individual_hashtags_filter') ?? [];
 
-      // Create hashtag data
-      final hashtagData = {
-        'name': hashtag,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      };
-
-      // Remove if already exists
+      // Remove if already exists (to move to top, not duplicate)
       recentHashtagsJson.removeWhere((item) {
         try {
           final data = json.decode(item);
@@ -411,7 +405,11 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         }
       });
 
-      // Add to beginning
+      // Create hashtag data and add to beginning
+      final hashtagData = {
+        'name': hashtag,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
       recentHashtagsJson.insert(0, json.encode(hashtagData));
 
       // Keep only last 10 items
@@ -420,7 +418,10 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       }
 
       await prefs.setStringList('recent_individual_hashtags_filter', recentHashtagsJson);
-      debugPrint('[SearchableHashtagWidget] Saved recent individual hashtag: $hashtag');
+      debugPrint('[SearchableHashtagWidget] Saved recent individual hashtag: $hashtag (moved to top)');
+
+      // Reload recents to update UI
+      await _loadRecentHashtags();
 
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error saving recent hashtag: $e');
@@ -432,10 +433,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       final prefs = await SharedPreferences.getInstance();
       final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
 
-      // Convert group to JSON using the model's toJson method
-      final groupJson = json.encode(group.toJson());
-
-      // Remove if already exists (by id)
+      // Remove if already exists (by id) to move to top, not duplicate
       recentGroupsJson.removeWhere((item) {
         try {
           final data = json.decode(item);
@@ -445,7 +443,8 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         }
       });
 
-      // Add to beginning
+      // Convert group to JSON using the model's toJson method and add to beginning
+      final groupJson = json.encode(group.toJson());
       recentGroupsJson.insert(0, groupJson);
 
       // Keep only last 6 items
@@ -454,7 +453,10 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       }
 
       await prefs.setStringList('recent_hashtag_groups_filter', recentGroupsJson);
-      debugPrint('[SearchableHashtagWidget] Saved recent hashtag group: ${group.name} (isMainGroup: ${group.isMainGroup})');
+      debugPrint('[SearchableHashtagWidget] Saved recent hashtag group: ${group.name} (isMainGroup: ${group.isMainGroup}, moved to top)');
+
+      // Reload recents to update UI
+      await _loadRecentHashtags();
 
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error saving recent hashtag group: $e');
@@ -626,16 +628,10 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       } else {
         // Recent hashtags
         for (int i = 0; i < _recentHashtags.length; i++) {
-          
-              final isGroup = _recentHashtagGroups.contains(_recentHashtags[i]);
-
-          if(!isGroup) {
-  allItems.add(_buildHashtagItem(_recentHashtags[i], uiController));
+          allItems.add(_buildHashtagItem(_recentHashtags[i], uiController));
           if (i < _recentHashtags.length - 1) {
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
-          }
-        
         }
       }
     }
@@ -647,35 +643,30 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   }
 
   Widget _buildHashtagItem(String hashtag, UiController uiController) {
-    // Check if this item is a group (exists in _recentHashtagGroups)
-    final isGroup = _recentHashtagGroups.contains(hashtag);
-    if(isGroup)
-    return Container();
+    // Check if this item is a main group (exists in _recentHashtagGroups which stores main category groups)
+    final isMainGroup = _recentHashtagGroups.contains(hashtag);
+
     return InkWell(
-      onTap: () => 
-      
-      
-      _selectHashtag(hashtag, isGroup),
+      onTap: () => _selectHashtag(hashtag, isMainGroup),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-                          if(isGroup)
-
-             Icon(
+            if (isMainGroup)
+              Icon(
                 Icons.folder_outlined,
                 size: 16,
                 color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
               ),
-              if(!isGroup)
-            Text(
-              '#',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+            if (!isMainGroup)
+              Text(
+                '#',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+                ),
               ),
-            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -683,8 +674,6 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
-            // Show folder icon for groups
-           
           ],
         ),
       ),
@@ -692,10 +681,12 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   }
 
   Widget _buildGroupItem(HashtagGroup group, UiController uiController) {
-    // Check if this is a main category (parentId is null)
-    final isMainCategory = group.parentId == null;
-    if(isMainCategory)
-    return Container();
+    // In search results, only show subgroups (not main groups)
+    // Main groups are shown in recents via _buildHashtagItem
+    if (group.isMainGroup) {
+      return Container();
+    }
+
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
@@ -717,13 +708,6 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
-            // Show folder icon only for main categories (not subcategories)
-            if (isMainCategory)
-              Icon(
-                Icons.folder_outlined,
-                size: 18,
-                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
-              ),
           ],
         ),
       ),

@@ -397,7 +397,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       final prefs = await SharedPreferences.getInstance();
       final recentContactsJson = prefs.getStringList('recent_individual_contacts_filter') ?? [];
 
-      // Remove if already exists (to avoid duplicates)
+      // Remove if already exists (to move to top, not duplicate)
       recentContactsJson.removeWhere((item) {
         try {
           final data = json.decode(item);
@@ -420,7 +420,10 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       }
 
       await prefs.setStringList('recent_individual_contacts_filter', recentContactsJson);
-      debugPrint('[SearchableContactWidget] Saved recent individual contact: $contact');
+      debugPrint('[SearchableContactWidget] Saved recent individual contact: $contact (moved to top)');
+
+      // Reload recents to update UI
+      await _loadRecentContacts();
 
     } catch (e) {
       debugPrint('[SearchableContactWidget] Error saving recent contact: $e');
@@ -432,10 +435,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       final prefs = await SharedPreferences.getInstance();
       final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
 
-      // Convert group to JSON using the model's toJson method
-      final groupJson = json.encode(group.toJson());
-
-      // Remove if already exists (by id)
+      // Remove if already exists (by id) to move to top, not duplicate
       recentGroupsJson.removeWhere((item) {
         try {
           final data = json.decode(item);
@@ -445,7 +445,8 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         }
       });
 
-      // Add to beginning
+      // Convert group to JSON using the model's toJson method and add to beginning
+      final groupJson = json.encode(group.toJson());
       recentGroupsJson.insert(0, groupJson);
 
       // Keep only last 6 items
@@ -454,7 +455,10 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       }
 
       await prefs.setStringList('recent_contact_groups_filter', recentGroupsJson);
-      debugPrint('[SearchableContactWidget] Saved recent contact group: ${group.name} (isMainGroup: ${group.isMainGroup})');
+      debugPrint('[SearchableContactWidget] Saved recent contact group: ${group.name} (isMainGroup: ${group.isMainGroup}, moved to top)');
+
+      // Reload recents to update UI
+      await _loadRecentContacts();
 
     } catch (e) {
       debugPrint('[SearchableContactWidget] Error saving recent contact group: $e');
@@ -626,16 +630,12 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         }
       } else {
         // Recent contacts
-        
+
         for (int i = 0; i < _recentContacts.length; i++) {
-           final isGroup = _recentContactGroups.contains(_recentContacts[i]);
-           if(!isGroup) {
- allItems.add(_buildContactItem(_recentContacts[i], uiController));
+          allItems.add(_buildContactItem(_recentContacts[i], uiController));
           if (i < _recentContacts.length - 1) {
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
-           }
-         
         }
       }
     }
@@ -647,38 +647,37 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   }
 
   Widget _buildContactItem(String contact, UiController uiController) {
-    // Check if this item is a group (exists in _recentContactGroups)
-    final isGroup = _recentContactGroups.contains(contact);
-    if(isGroup)
-    return Container();
+    // Check if this item is a main group (exists in _recentMainCategoryGroups)
+    final isMainGroup = _recentMainCategoryGroups.contains(contact);
+
     return InkWell(
-      onTap: () => _selectContact(contact, isGroup),
+      onTap: () => _selectContact(contact, isMainGroup),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-             if (isGroup)
+            if (isMainGroup)
               Icon(
                 Icons.folder_outlined,
                 size: 18,
                 color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
               ),
-              if(!isGroup)
-            Text(
-              '@',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+            if (!isMainGroup)
+              Text(
+                '@',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+                ),
               ),
-            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 contact,
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
-            ),           
+            ),
           ],
         ),
       ),
@@ -686,17 +685,18 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   }
 
   Widget _buildGroupItem(ContactGroup group, UiController uiController) {
-    // Check if this is a main category (parentId is null)
-    final isMainCategory = group.parentId == null;
- if(isMainCategory)
-    return Container();
+    // In search results, only show subgroups (not main groups)
+    // Main groups are shown in recents via _buildContactItem
+    if (group.isMainGroup) {
+      return Container();
+    }
+
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            if(!isMainCategory)
             Text(
               '@',
               style: TextStyle(
@@ -705,12 +705,6 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
               ),
             ),
-            if (isMainCategory)
-              Icon(
-                Icons.folder_outlined,
-                size: 16,
-                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
-              ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -718,8 +712,6 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
-            // Show folder icon only for main categories (not subcategories)
-            
           ],
         ),
       ),
