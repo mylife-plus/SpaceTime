@@ -173,57 +173,57 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   double? _scrollOffsetBeforeFocus;
 
   void _onFocusChange() {
-    if (_focusNode.hasFocus) {
-      // When field gains focus, save current position and scroll up by 100 points
-      if (widget.scrollController != null && widget.scrollController!.hasClients) {
-        _scrollOffsetBeforeFocus = widget.scrollController!.offset;
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted && widget.scrollController!.hasClients) {
-            final currentOffset = widget.scrollController!.offset;
-            final targetOffset = currentOffset + 150.0;
-            widget.scrollController!.animateTo(
-              targetOffset,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-      }
-    } else {
-      // When field loses focus, scroll back to original position
-      if (widget.scrollController != null &&
-          widget.scrollController!.hasClients &&
-          _scrollOffsetBeforeFocus != null) {
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted && widget.scrollController!.hasClients) {
-            widget.scrollController!.animateTo(
-              _scrollOffsetBeforeFocus!,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-            _scrollOffsetBeforeFocus = null;
-          }
-        });
-      }
+    // if (_focusNode.hasFocus) {
+    //   // When field gains focus, save current position and scroll up by 100 points
+    //   if (widget.scrollController != null && widget.scrollController!.hasClients) {
+    //     _scrollOffsetBeforeFocus = widget.scrollController!.offset;
+    //     Future.delayed(const Duration(milliseconds: 300), () {
+    //       if (mounted && widget.scrollController!.hasClients) {
+    //         final currentOffset = widget.scrollController!.offset;
+    //         final targetOffset = currentOffset + 150.0;
+    //         widget.scrollController!.animateTo(
+    //           targetOffset,
+    //           duration: const Duration(milliseconds: 300),
+    //           curve: Curves.easeOut,
+    //         );
+    //       }
+    //     });
+    //   }
+    // } else {
+    //   // When field loses focus, scroll back to original position
+    //   if (widget.scrollController != null &&
+    //       widget.scrollController!.hasClients &&
+    //       _scrollOffsetBeforeFocus != null) {
+    //     Future.delayed(const Duration(milliseconds: 100), () {
+    //       if (mounted && widget.scrollController!.hasClients) {
+    //         widget.scrollController!.animateTo(
+    //           _scrollOffsetBeforeFocus!,
+    //           duration: const Duration(milliseconds: 300),
+    //           curve: Curves.easeOut,
+    //         );
+    //         _scrollOffsetBeforeFocus = null;
+    //       }
+    //     });
+    //   }
 
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (!_focusNode.hasFocus && mounted) {
-          try {
-            final controller = Get.find<TagMentionController>();
-            if (!controller.isEditing.value) {
-              _removePopup();
-            }
-          } catch (_) {
-            _removePopup();
-          }
-        }
-      });
-    }
+    //   Future.delayed(const Duration(milliseconds: 100), () {
+    //     if (!_focusNode.hasFocus && mounted) {
+    //       try {
+    //         final controller = Get.find<TagMentionController>();
+    //         if (!controller.isEditing.value) {
+    //           _removePopup();
+    //         }
+    //       } catch (_) {
+    //         _removePopup();
+    //       }
+    //     }
+    //   });
+    // }
   }
 
   void _onTextChanged() {
     // Clean up tags and mentions that are no longer in the text
-    _cleanupRemovedItems();
+    // _cleanupRemovedItems();
 
     // // Always rebuild the widget when text changes (even from external sources)
     // if (mounted) {
@@ -525,12 +525,14 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         '$text ',
       );
 
-      debugPrint('[_insertTextAtCursor] New text: "$newText"');
-      debugPrint('[_insertTextAtCursor] New cursor position: ${triggerIndex + text.length}');
+      final newCursorPosition = triggerIndex + text.length + 1;
 
-      widget.controller.text = newText;
-      widget.controller.selection = TextSelection.collapsed(
-        offset: triggerIndex + text.length,
+      debugPrint('[_insertTextAtCursor] New text: "$newText"');
+      debugPrint('[_insertTextAtCursor] New cursor position: $newCursorPosition');
+
+      widget.controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newCursorPosition),
       );
 
       debugPrint('[_insertTextAtCursor] ===== END =====');
