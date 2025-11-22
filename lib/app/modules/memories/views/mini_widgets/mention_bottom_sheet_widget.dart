@@ -525,19 +525,19 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                   ),
                                                 // Edit icon
                                                 const SizedBox(width: 8),
-                                                GestureDetector(
-                                                  onTap: () {
-                                                    _showEditGroupPopup(context, item);
-                                                  },
-                                                  child: Image.asset(
-                                                    'assets/images/edit_pencil_1.png',
-                                                    width: 18,
-                                                    height: 18,
-                                                    color: uiController.darkMode.value
-                                                        ? Colors.white.withValues(alpha: 0.7)
-                                                        : Colors.grey[600],
-                                                  ),
-                                                ),
+                                                // GestureDetector(
+                                                //   onTap: () {
+                                                //     _showEditGroupPopup(context, item);
+                                                //   },
+                                                //   child: Image.asset(
+                                                //     'assets/images/edit_pencil_1.png',
+                                                //     width: 18,
+                                                //     height: 18,
+                                                //     color: uiController.darkMode.value
+                                                //         ? Colors.white.withValues(alpha: 0.7)
+                                                //         : Colors.grey[600],
+                                                //   ),
+                                                // ),
                                               ],
                                             ),
                                           ),
