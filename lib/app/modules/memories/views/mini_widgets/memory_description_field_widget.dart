@@ -657,7 +657,31 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               },
               behavior:
                   HitTestBehavior.opaque, // Prevent parent from receiving tap
-              child: TextField(
+              child: Stack(
+                children: [
+                  // Show hint text when empty
+                  if (widget.controller.text.isEmpty)
+                    Text(
+                      'my memory... ',
+                      style: GoogleFonts.kumbhSans(
+                        fontWeight: FontWeight.w500,
+                        color: controller.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.5)
+                            : Colors.grey,
+                        fontSize: 16,
+                      ),
+                    ),
+
+                  // The visible rich text with colored hashtags and mentions
+                  if (widget.controller.text.isNotEmpty)
+                    RichText(
+                      text: TextSpan(
+                        children: _parseText(widget.controller.text),
+                      ),
+                    ),
+
+                  // The text field for input with visible cursor (text is transparent)
+                  TextField(
                     controller: widget.controller,
                     focusNode: _focusNode,
                     maxLines: 50,
@@ -685,27 +709,20 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                         _requestFocusWithDelay();
                       }
                     },
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
-                      hintText: 'my memory... ',
-                      hintStyle: GoogleFonts.kumbhSans(
-                        fontWeight: FontWeight.w500,
-                        color: controller.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey,
-                        fontSize: 16,
-                      ),
+                      hintText: '',
                     ),
                     style: GoogleFonts.kumbhSans(
                       fontSize: 16,
                       height: 1.5,
-                      color: controller.darkMode.value
-                          ? Colors.white
-                          : Colors.black,
+                      color: Colors.transparent, // Make TextField text transparent
                     ),
                   ),
+                ],
+              ),
             ),
           ),
         ),
