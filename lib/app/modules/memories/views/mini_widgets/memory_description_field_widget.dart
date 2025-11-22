@@ -337,23 +337,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   elevation: 8,
                   color: Colors.transparent,
                   child: TagMentionBottomSheet(
-                    onEditingCancelled: () {
-                      // Get current cursor position and remove text until last @ or #
-                      final text = widget.controller.text;
-                      final cursorPos = widget.controller.selection.baseOffset;
-                      final triggerIndex = _getLastTriggerIndex(text, cursorPos);
-
-                      if (triggerIndex != -1) {
-                        // Remove from trigger character to cursor position
-                        final newText = text.substring(0, triggerIndex) + text.substring(cursorPos);
-                        widget.controller.value = TextEditingValue(
-                          text: newText,
-                          selection: TextSelection.collapsed(offset: triggerIndex),
-                        );
-                      }
-
-                      _forceRemovePopup();
-                    },
+                    onEditingCancelled: _removeIncompleteTextAndClosePopup,
                 onItemSelected: (item) {
                   // Remove old tag if we're replacing
                   if (oldTag != null) {
@@ -369,7 +353,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 isTagMode: true,
                 initialKeyword: keyword,
                 searchNotifier: _searchNotifier!,
-                onEditingComplete: _forceRemovePopup,
+                onEditingComplete: _removeIncompleteTextAndClosePopup,
                 excludedItems: _tags, // Pass already added tags
                 isEditingExisting: isEditingExisting, // Pass editing state
                   ),
@@ -441,24 +425,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 isTagMode: false,
                 initialKeyword: keyword,
                 searchNotifier: _searchNotifier!,
-                onEditingComplete: _forceRemovePopup,
-                onEditingCancelled: () {
-                  // Get current cursor position and remove text until last @ or #
-                  final text = widget.controller.text;
-                  final cursorPos = widget.controller.selection.baseOffset;
-                  final triggerIndex = _getLastTriggerIndex(text, cursorPos);
-
-                  if (triggerIndex != -1) {
-                    // Remove from trigger character to cursor position
-                    final newText = text.substring(0, triggerIndex) + text.substring(cursorPos);
-                    widget.controller.value = TextEditingValue(
-                      text: newText,
-                      selection: TextSelection.collapsed(offset: triggerIndex),
-                    );
-                  }
-
-                  _forceRemovePopup();
-                },
+                onEditingComplete: _removeIncompleteTextAndClosePopup,
+                onEditingCancelled: _removeIncompleteTextAndClosePopup,
                 excludedItems: _mentions, // Pass already added mentions
                 isEditingExisting: isEditingExisting, // Pass editing state
                   ),
@@ -494,6 +462,24 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     // Close the keyboard when bottom sheet is closed
     // FocusScope.of(context).unfocus();
+  }
+
+  void _removeIncompleteTextAndClosePopup() {
+    // Get current cursor position and remove text until last @ or #
+    final text = widget.controller.text;
+    final cursorPos = widget.controller.selection.baseOffset;
+    final triggerIndex = _getLastTriggerIndex(text, cursorPos);
+
+    if (triggerIndex != -1) {
+      // Remove from trigger character to cursor position
+      final newText = text.substring(0, triggerIndex) + text.substring(cursorPos);
+      widget.controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: triggerIndex),
+      );
+    }
+
+    _forceRemovePopup();
   }
 
   void _insertTextAtCursor(String text) {

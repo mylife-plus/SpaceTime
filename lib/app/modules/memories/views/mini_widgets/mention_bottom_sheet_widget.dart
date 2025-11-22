@@ -1,3 +1,5 @@
+import 'dart:nativewrappers/_internal/vm/lib/ffi_allocation_patch.dart';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -111,6 +113,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
           isTagMode: widget.isTagMode,
           initialName: searchText,
           onItemSelected: widget.onItemSelected,
+          onEditingCancelled: widget.onEditingCancelled,
           onComplete: widget.onEditingComplete,
         );
       },
@@ -127,6 +130,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
           initialName: item['name'],
           onItemSelected: widget.onItemSelected,
           onComplete: widget.onEditingComplete,
+          onEditingCancelled: widget.onEditingCancelled,
           editItemId: item['id'],
           editParentId: item['parentId']?.toString(),
         );
@@ -620,6 +624,7 @@ class _AddGroupPopupDialog extends StatefulWidget {
   final VoidCallback? onComplete;
   final int? editItemId;
   final String? editParentId;
+  final VoidCallback? onEditingCancelled;
 
   const _AddGroupPopupDialog({
     required this.isTagMode,
@@ -627,7 +632,7 @@ class _AddGroupPopupDialog extends StatefulWidget {
     required this.onItemSelected,
     this.onComplete,
     this.editItemId,
-    this.editParentId,
+    this.editParentId, this.onEditingCancelled,
   });
 
   @override
@@ -1118,7 +1123,10 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               children: [
                 // Close button
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () {
+                    widget.onEditingCancelled?.call();
+                     Navigator.of(context).pop();
+                  },
                   child: Container(
                     // padding: const EdgeInsets.all(8),
                     child: Icon(
