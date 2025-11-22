@@ -1,15 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:mention_tag_text_field/mention_tag_text_field.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import '../../controllers/memory_controller.dart';
+import '../../controllers/mention_hashtag_text_controller.dart';
 import 'mention_bottom_sheet_widget.dart';
 
 class MemoryDescriptionField extends StatefulWidget {
@@ -44,7 +42,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   ValueNotifier<String>? _searchNotifier;
   TagMentionController? _currentController;
 
-  late MentionTagTextEditingController _mentionController;
+  late MentionHashtagTextController _customController;
 
   final List<String> _tags = [];
   final List<String> _mentions = [];
@@ -172,21 +170,45 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   @override
   void initState() {
     super.initState();
-    _mentionController = MentionTagTextEditingController();
-    // Sync initial text from widget.controller to _mentionController
+    final controller = Get.find<UiController>();
+
+    _customController = MentionHashtagTextController(
+      mentionStyle: GoogleFonts.kumbhSans(
+        fontSize: 16,
+        height: 1.5,
+        fontWeight: FontWeight.w500,
+        color: Colors.blue,
+      ),
+      hashtagStyle: GoogleFonts.kumbhSans(
+        fontSize: 16,
+        height: 1.5,
+        fontWeight: FontWeight.w500,
+        color: Colors.green,
+      ),
+      defaultStyle: GoogleFonts.kumbhSans(
+        fontSize: 16,
+        height: 1.5,
+        fontWeight: FontWeight.w500,
+        color: controller.darkMode.value ? Colors.white : Colors.black,
+      ),
+    );
+
+    // Sync initial text from widget.controller to _customController
     if (widget.controller.text.isNotEmpty) {
-      _mentionController.setText = widget.controller.text;
+      _customController.text = widget.controller.text;
     }
-    // Listen to _mentionController changes and sync to widget.controller
-    // Note: We don't call _onTextChanged here to avoid duplicate calls
-    // since onChanged callback already handles it
-    _mentionController.addListener(() {
-      if (widget.controller.text != _mentionController.text) {
-        widget.controller.text = _mentionController.text;
+
+    // Listen to _customController changes and sync to widget.controller
+    _customController.addListener(() {
+      if (widget.controller.text != _customController.text) {
+        widget.controller.text = _customController.text;
       }
+      // Trigger text change handling
+      _onTextChanged();
       // Check if cursor is within an existing mention/hashtag
       _checkCursorInMention();
     });
+
     _focusNode.addListener(_onFocusChange);
   }
 
@@ -250,16 +272,16 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       setState(() {});
     }
 
-    // debugPrint('[_onTextChanged] Text: "${_mentionController.text}"');
-    // debugPrint('[_onTextChanged] Cursor position: ${_mentionController.selection.baseOffset}');
+    // debugPrint('[_onTextChanged] Text: "${_customController.text}"');
+    // debugPrint('[_onTextChanged] Cursor position: ${_customController.selection.baseOffset}');
 
     if (!_focusNode.hasFocus) {
       _removePopup();
       return;
     }
 
-    final text = _mentionController.text;
-    final selection = _mentionController.selection;
+    final text = _customController.text;
+    final selection = _customController.selection;
 
     if (selection.baseOffset <= 0 || text.isEmpty) {
       _removePopup();
@@ -496,8 +518,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   void _checkCursorInMention() {
     if (!_focusNode.hasFocus) return;
 
-    final text = _mentionController.text;
-    final selection = _mentionController.selection;
+    final text = _customController.text;
+    final selection = _customController.selection;
 
     if (!selection.isCollapsed || selection.baseOffset <= 0) return;
 
@@ -565,14 +587,14 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   void _removeIncompleteTextAndClosePopup() {
     // Get current cursor position and remove text until last @ or #
-    final text = _mentionController.text;
-    final cursorPos = _mentionController.selection.baseOffset;
+    final text = _customController.text;
+    final cursorPos = _customController.selection.baseOffset;
     final triggerIndex = _getLastTriggerIndex(text, cursorPos);
 
     if (triggerIndex != -1) {
       // Remove from trigger character to cursor position
       final newText = text.substring(0, triggerIndex) + text.substring(cursorPos);
-      _mentionController.value = TextEditingValue(
+      _customController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: triggerIndex),
       );
@@ -584,8 +606,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _insertTextAtCursor(String text) {
-    final currentText = _mentionController.text;
-    final selection = _mentionController.selection;
+    final currentText = _customController.text;
+    final selection = _customController.selection;
 
     debugPrint('[_insertTextAtCursor] ===== START =====');
     debugPrint('[_insertTextAtCursor] Text to insert: "$text"');
@@ -608,22 +630,20 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       final trigger = currentText[triggerIndex];
       final isHashtag = trigger == '#';
 
-      // Use MentionTagTextField's addMention method with custom styling
-      _mentionController.addMention(
-        label: text,
-        data: text,
-        stylingWidget: Text(
-          text,
-          style: GoogleFonts.kumbhSans(
-            fontSize: 16,
-            height: 1.5,
-            fontWeight: FontWeight.w500,
-            color: isHashtag ? Colors.green : Colors.blue,
-          ),
-        ),
-      );
+      // Extract label (remove @ or # if present in text)
+      final label = text.startsWith('@') || text.startsWith('#')
+          ? text.substring(1)
+          : text;
 
-      debugPrint('[_insertTextAtCursor] Added mention with ${isHashtag ? "green" : "blue"} color');
+      // Use our custom controller's addMention or addHashtag method
+      if (isHashtag) {
+        _customController.addHashtag(label);
+        debugPrint('[_insertTextAtCursor] Added hashtag: #$label');
+      } else {
+        _customController.addMention(label);
+        debugPrint('[_insertTextAtCursor] Added mention: @$label');
+      }
+
       debugPrint('[_insertTextAtCursor] ===== END =====');
     }
   }
@@ -634,7 +654,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   void dispose() {
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
-    _mentionController.dispose();
+    _customController.dispose();
     _removePopup();
     super.dispose();
   }
@@ -675,8 +695,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               },
               behavior:
                   HitTestBehavior.opaque, // Prevent parent from receiving tap
-              child: MentionTagTextField(
-                controller: _mentionController,
+              child: TextField(
+                controller: _customController,
                 focusNode: _focusNode,
                 maxLines: 50,
                 minLines: 8,
@@ -687,34 +707,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 cursorColor: controller.primaryColor ?? Colors.blue,
                 cursorWidth: 2.0,
                 cursorHeight: 20.0,
-                // onMention callback - triggered when @ or # is typed
-                // We'll handle popup logic in onChanged instead
-                onMention: (value) async {
-                  // The library's onMention is called, but we handle popups in _onTextChanged
-                  // This callback is mainly for the library's internal state management
-                },
-                mentionTagDecoration: MentionTagDecoration(
-                  // Define list of symbols where mention will be triggered
-                  mentionStart: ['@', '#'],
-                  // The character which will be inserted automatically after the mention
-                  mentionBreak: ' ',
-                  // Disable auto-decrement since we handle mentions manually via popup
-                  allowDecrement: false,
-                  // Prevent mention triggering if mention symbol is embedded in the text
-                  allowEmbedding: false,
-                  // Show mention symbol with mentions in the textfield
-                  showMentionStartSymbol: true,
-                  // Max words a mention can have
-                  maxWords: null,
-                  // TextStyle for mentions - default style
-                  // We use custom styling widgets when adding mentions via popup
-                  mentionTextStyle: GoogleFonts.kumbhSans(
-                    fontSize: 16,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
-                    color: controller.darkMode.value ? Colors.white : Colors.black,
-                  ),
-                ),
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   isDense: true,
@@ -737,14 +729,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 onSubmitted: (_) {
                   // Hide keyboard when done is pressed
                   _focusNode.unfocus();
-                },
-                onChanged: (text) {
-                  // Sync to widget.controller
-                  if (widget.controller.text != text) {
-                    widget.controller.text = text;
-                  }
-                  // Trigger popup logic
-                  _onTextChanged();
                 },
                 onTap: () {
                   // Additional focus handling for iOS

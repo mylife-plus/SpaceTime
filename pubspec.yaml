@@ -58,7 +58,6 @@ dependencies:
   video_player: ^2.10.1
   video_thumbnail: ^0.5.6
   diacritic: ^0.1.6
-  mention_tag_text_field: ^0.0.9
 
 dependency_overrides:
   csv: ^6.0.0
