@@ -175,12 +175,13 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       _mentionController.setText = widget.controller.text;
     }
     // Listen to _mentionController changes and sync to widget.controller
+    // Note: We don't call _onTextChanged here to avoid duplicate calls
+    // since onChanged callback already handles it
     _mentionController.addListener(() {
       if (widget.controller.text != _mentionController.text) {
         widget.controller.text = _mentionController.text;
       }
     });
-    widget.controller.addListener(_onTextChanged);
     _focusNode.addListener(_onFocusChange);
   }
 
@@ -244,16 +245,16 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       setState(() {});
     }
 
-    // debugPrint('[_onTextChanged] Text: "${widget.controller.text}"');
-    // debugPrint('[_onTextChanged] Cursor position: ${widget.controller.selection.baseOffset}');
+    // debugPrint('[_onTextChanged] Text: "${_mentionController.text}"');
+    // debugPrint('[_onTextChanged] Cursor position: ${_mentionController.selection.baseOffset}');
 
     if (!_focusNode.hasFocus) {
       _removePopup();
       return;
     }
 
-    final text = widget.controller.text;
-    final selection = widget.controller.selection;
+    final text = _mentionController.text;
+    final selection = _mentionController.selection;
 
     if (selection.baseOffset <= 0 || text.isEmpty) {
       _removePopup();
@@ -556,7 +557,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onTextChanged);
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     _mentionController.dispose();
@@ -613,48 +613,31 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 cursorWidth: 2.0,
                 cursorHeight: 20.0,
                 // onMention callback - triggered when @ or # is typed
+                // We'll handle popup logic in onChanged instead
                 onMention: (value) async {
-                  if (value != null) {
-                    // Determine if it's a hashtag or mention
-                    final text = _mentionController.text;
-                    final selection = _mentionController.selection;
-                    if (selection.baseOffset > 0) {
-                      final triggerIndex = _getLastTriggerIndex(text, selection.baseOffset);
-                      if (triggerIndex >= 0) {
-                        final trigger = text[triggerIndex];
-                        if (trigger == '#') {
-                          _showTagPopup(value);
-                        } else if (trigger == '@') {
-                          _showMentionPopup(value);
-                        }
-                      }
-                    }
-                  } else {
-                    // Mention ended, close popup
-                    _closePopup();
-                  }
+                  // The library's onMention is called, but we handle popups in _onTextChanged
+                  // This callback is mainly for the library's internal state management
                 },
                 mentionTagDecoration: MentionTagDecoration(
                   // Define list of symbols where mention will be triggered
                   mentionStart: ['@', '#'],
                   // The character which will be inserted automatically after the mention
                   mentionBreak: ' ',
-                  // Enable removing mention decrementally instead of all at once
-                  allowDecrement: true,
+                  // Disable auto-decrement since we handle mentions manually via popup
+                  allowDecrement: false,
                   // Prevent mention triggering if mention symbol is embedded in the text
                   allowEmbedding: false,
                   // Show mention symbol with mentions in the textfield
                   showMentionStartSymbol: true,
                   // Max words a mention can have
                   maxWords: null,
-                  // TextStyle for mentions - we'll use green as default
-                  // Note: The library doesn't support different colors for @ and #
-                  // We'll need to use custom styling widgets when adding mentions
+                  // TextStyle for mentions - default style
+                  // We use custom styling widgets when adding mentions via popup
                   mentionTextStyle: GoogleFonts.kumbhSans(
                     fontSize: 16,
                     height: 1.5,
                     fontWeight: FontWeight.w500,
-                    color: Colors.green,
+                    color: controller.darkMode.value ? Colors.white : Colors.black,
                   ),
                 ),
                 decoration: InputDecoration(
@@ -681,11 +664,12 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   _focusNode.unfocus();
                 },
                 onChanged: (text) {
-                  setState(() {}); // Rebuild if needed
                   // Sync to widget.controller
                   if (widget.controller.text != text) {
                     widget.controller.text = text;
                   }
+                  // Trigger popup logic
+                  _onTextChanged();
                 },
                 onTap: () {
                   // Additional focus handling for iOS
