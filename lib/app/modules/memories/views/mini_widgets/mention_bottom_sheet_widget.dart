@@ -103,6 +103,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   }
 
   void _showAddGroupPopup(BuildContext context, String searchText) {
+    // Close the main overlay before showing the add popup
+    widget.onEditingComplete?.call();
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -120,6 +123,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   }
 
   void _showEditGroupPopup(BuildContext context, Map<String, dynamic> item) {
+    // Close the main overlay before showing the edit popup
+    widget.onEditingComplete?.call();
+
     showDialog(
       context: context,
       barrierDismissible: false,
