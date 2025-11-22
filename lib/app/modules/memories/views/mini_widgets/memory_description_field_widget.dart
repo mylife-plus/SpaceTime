@@ -372,35 +372,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final triggerChar = text[triggerIndex];
     final keyword = text.substring(triggerIndex + 1, cursorPos);
 
-    // Check if keyword contains space or newline
-    // Only show snackbar if the space was just typed (at the end of keyword)
-    // Don't show snackbar if there's no space before the trigger (e.g., 'hello#test')
     if (keyword.contains(' ') || keyword.contains('\n')) {
-      // Check if the last character typed was a space
-      final lastChar = cursorPos > 0 ? text[cursorPos - 1] : '';
-
-      if (lastChar == ' ' || lastChar == '\n') {
-        // Show snackbar only if user just typed a space
-        Get.snackbar(
-          'Space Not Allowed',
-          'Spaces are not allowed in ${triggerChar == '#' ? 'hashtags' : 'mentions'}',
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-          snackPosition: SnackPosition.BOTTOM,
-        );
-
-        // Remove the space from the text field
-        final newText = text.substring(0, cursorPos - 1) + text.substring(cursorPos);
-        _coloredController.text = newText;
-        _coloredController.selection = TextSelection.collapsed(
-          offset: cursorPos - 1,
-        );
-      } else {
-        // Space exists but wasn't just typed, just close popup
-        _removePopup();
-      }
-
+      _removePopup();
       return;
     }
 
@@ -679,12 +652,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       );
       if (triggerIndex == -1) return;
 
-      // Check if there's a space before the trigger character
-      // Only add space when inserting the selected item, not while searching
-      final needsSpaceBefore = triggerIndex > 0 &&
-                                currentText[triggerIndex - 1] != ' ' &&
-                                currentText[triggerIndex - 1] != '\n';
-
       // Find the end of the current word (tag/mention) to replace the entire word
       int endIndex = selection.baseOffset;
       while (endIndex < currentText.length &&
@@ -693,30 +660,15 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         endIndex++;
       }
 
-      // Build the replacement text
-      // If we need space before, insert it at the trigger position
-      String replacementText;
-      int startIndex;
-
-      if (needsSpaceBefore) {
-        // Insert space before the trigger character
-        replacementText = ' $text ';
-        startIndex = triggerIndex;
-      } else {
-        // No space needed, just replace from trigger
-        replacementText = '$text ';
-        startIndex = triggerIndex;
-      }
-
       final newText = currentText.replaceRange(
-        startIndex,
+        triggerIndex,
         endIndex,
-        replacementText,
+        '$text ',
       );
 
       _coloredController.text = newText;
       _coloredController.selection = TextSelection.collapsed(
-        offset: startIndex + replacementText.length,
+        offset: triggerIndex + text.length + 1,
       );
     }
   }
