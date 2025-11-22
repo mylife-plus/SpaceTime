@@ -245,9 +245,9 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   Future<void> _loadRecentContacts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final recentContactsJson = prefs.getStringList('recent_contacts_filter') ?? [];
 
-      // Load recent contacts (individual contacts)
+      // Load recent individual contacts (stored as simple strings)
+      final recentContactsJson = prefs.getStringList('recent_individual_contacts_filter') ?? [];
       final recentContacts = <String>[];
       for (final contactJson in recentContactsJson) {
         try {
@@ -260,24 +260,27 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         }
       }
 
-      // Load recent contact groups
+      // Load recent contact groups (stored as full ContactGroup objects)
       final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
-      final recentGroups = <String>[];
-      final mainCategoryGroups = <String>[]; // Track which groups are main categories (parentId is null)
+      final recentGroupObjects = <ContactGroup>[];
       for (final groupJson in recentGroupsJson) {
         try {
           final groupData = json.decode(groupJson);
-          if (groupData is Map<String, dynamic> && groupData.containsKey('name')) {
-            recentGroups.add(groupData['name']);
-            // Check if this is a main category (parentId is null)
-            if (groupData['parentId'] == null) {
-              mainCategoryGroups.add(groupData['name']);
-            }
+          if (groupData is Map<String, dynamic>) {
+            final group = ContactGroup.fromJson(groupData);
+            recentGroupObjects.add(group);
           }
         } catch (e) {
           debugPrint('[SearchableContactWidget] Error parsing recent contact group: $e');
         }
       }
+
+      // Extract group names for display
+      final recentGroups = recentGroupObjects.map((g) => g.name).toList();
+      final mainCategoryGroups = recentGroupObjects
+          .where((g) => g.isMainGroup)
+          .map((g) => g.name)
+          .toList();
 
       // Combine recent contacts and groups, prioritizing groups (max 6 items total)
       final combinedRecent = <String>[];
@@ -392,7 +395,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   Future<void> _saveRecentContact(String contact) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final recentContactsJson = prefs.getStringList('recent_contacts_filter') ?? [];
+      final recentContactsJson = prefs.getStringList('recent_individual_contacts_filter') ?? [];
 
       // Remove if already exists (to avoid duplicates)
       recentContactsJson.removeWhere((item) {
@@ -416,8 +419,8 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         recentContactsJson.removeRange(10, recentContactsJson.length);
       }
 
-      await prefs.setStringList('recent_contacts_filter', recentContactsJson);
-      debugPrint('[SearchableContactWidget] Saved recent contact: $contact');
+      await prefs.setStringList('recent_individual_contacts_filter', recentContactsJson);
+      debugPrint('[SearchableContactWidget] Saved recent individual contact: $contact');
 
     } catch (e) {
       debugPrint('[SearchableContactWidget] Error saving recent contact: $e');
@@ -429,15 +432,10 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       final prefs = await SharedPreferences.getInstance();
       final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
 
-      // Create group data
-      final groupData = {
-        'id': group.id,
-        'name': group.name,
-        'parentId': group.parentId,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      };
+      // Convert group to JSON using the model's toJson method
+      final groupJson = json.encode(group.toJson());
 
-      // Remove if already exists
+      // Remove if already exists (by id)
       recentGroupsJson.removeWhere((item) {
         try {
           final data = json.decode(item);
@@ -448,7 +446,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       });
 
       // Add to beginning
-      recentGroupsJson.insert(0, json.encode(groupData));
+      recentGroupsJson.insert(0, groupJson);
 
       // Keep only last 6 items
       if (recentGroupsJson.length > 6) {
@@ -456,7 +454,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       }
 
       await prefs.setStringList('recent_contact_groups_filter', recentGroupsJson);
-      debugPrint('[SearchableContactWidget] Saved recent contact group: ${group.name}');
+      debugPrint('[SearchableContactWidget] Saved recent contact group: ${group.name} (isMainGroup: ${group.isMainGroup})');
 
     } catch (e) {
       debugPrint('[SearchableContactWidget] Error saving recent contact group: $e');
@@ -611,10 +609,13 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       if (hasSearchQuery) {
         // Group results
         for (int i = 0; i < _groupResults.length; i++) {
-          allItems.add(_buildGroupItem(_groupResults[i], uiController));
+           if( _groupResults[i].parentId != null) {
+           allItems.add(_buildGroupItem(_groupResults[i], uiController));
           if (i < _groupResults.length - 1 || _searchResults.isNotEmpty) {
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
+         }
+         
         }
         // Individual contact results
         for (int i = 0; i < _searchResults.length; i++) {
@@ -625,11 +626,16 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         }
       } else {
         // Recent contacts
+        
         for (int i = 0; i < _recentContacts.length; i++) {
-          allItems.add(_buildContactItem(_recentContacts[i], uiController));
+           final isGroup = _recentContactGroups.contains(_recentContacts[i]);
+           if(!isGroup) {
+ allItems.add(_buildContactItem(_recentContacts[i], uiController));
           if (i < _recentContacts.length - 1) {
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
+           }
+         
         }
       }
     }
@@ -643,7 +649,8 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   Widget _buildContactItem(String contact, UiController uiController) {
     // Check if this item is a group (exists in _recentContactGroups)
     final isGroup = _recentContactGroups.contains(contact);
-    
+    if(isGroup)
+    return Container();
     return InkWell(
       onTap: () => _selectContact(contact, isGroup),
       child: Container(
@@ -681,7 +688,8 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   Widget _buildGroupItem(ContactGroup group, UiController uiController) {
     // Check if this is a main category (parentId is null)
     final isMainCategory = group.parentId == null;
-
+ if(isMainCategory)
+    return Container();
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(

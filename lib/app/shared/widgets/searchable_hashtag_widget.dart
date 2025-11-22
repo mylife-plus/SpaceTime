@@ -244,9 +244,9 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   Future<void> _loadRecentHashtags() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final recentHashtagsJson = prefs.getStringList('recent_hashtags_filter') ?? [];
 
-      // Load recent hashtags (individual hashtags)
+      // Load recent individual hashtags (stored as simple strings)
+      final recentHashtagsJson = prefs.getStringList('recent_individual_hashtags_filter') ?? [];
       final recentHashtags = <String>[];
       for (final hashtagJson in recentHashtagsJson) {
         try {
@@ -259,24 +259,27 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         }
       }
 
-      // Load recent hashtag groups
+      // Load recent hashtag groups (stored as full HashtagGroup objects)
       final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
-      final recentGroups = <String>[];
-      final mainCategoryGroups = <String>[]; // Track which groups are main categories (parentId is null)
+      final recentGroupObjects = <HashtagGroup>[];
       for (final groupJson in recentGroupsJson) {
         try {
           final groupData = json.decode(groupJson);
-          if (groupData is Map<String, dynamic> && groupData.containsKey('name')) {
-            recentGroups.add(groupData['name']);
-            // Check if this is a main category (parentId is null)
-            if (groupData['parentId'] == null) {
-              mainCategoryGroups.add(groupData['name']);
-            }
+          if (groupData is Map<String, dynamic>) {
+            final group = HashtagGroup.fromJson(groupData);
+            recentGroupObjects.add(group);
           }
         } catch (e) {
           debugPrint('[SearchableHashtagWidget] Error parsing recent hashtag group: $e');
         }
       }
+
+      // Extract group names for display
+      final recentGroups = recentGroupObjects.map((g) => g.name).toList();
+      final mainCategoryGroups = recentGroupObjects
+          .where((g) => g.isMainGroup)
+          .map((g) => g.name)
+          .toList();
 
       // Combine recent hashtags and groups, prioritizing groups (max 6 items total)
       final combinedRecent = <String>[];
@@ -390,7 +393,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   Future<void> _saveRecentHashtag(String hashtag) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final recentHashtagsJson = prefs.getStringList('recent_hashtags_filter') ?? [];
+      final recentHashtagsJson = prefs.getStringList('recent_individual_hashtags_filter') ?? [];
 
       // Create hashtag data
       final hashtagData = {
@@ -416,8 +419,8 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         recentHashtagsJson.removeRange(10, recentHashtagsJson.length);
       }
 
-      await prefs.setStringList('recent_hashtags_filter', recentHashtagsJson);
-      debugPrint('[SearchableHashtagWidget] Saved recent hashtag: $hashtag');
+      await prefs.setStringList('recent_individual_hashtags_filter', recentHashtagsJson);
+      debugPrint('[SearchableHashtagWidget] Saved recent individual hashtag: $hashtag');
 
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error saving recent hashtag: $e');
@@ -429,15 +432,10 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       final prefs = await SharedPreferences.getInstance();
       final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
 
-      // Create group data
-      final groupData = {
-        'id': group.id,
-        'name': group.name,
-        'parentId': group.parentId,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      };
+      // Convert group to JSON using the model's toJson method
+      final groupJson = json.encode(group.toJson());
 
-      // Remove if already exists
+      // Remove if already exists (by id)
       recentGroupsJson.removeWhere((item) {
         try {
           final data = json.decode(item);
@@ -448,7 +446,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       });
 
       // Add to beginning
-      recentGroupsJson.insert(0, json.encode(groupData));
+      recentGroupsJson.insert(0, groupJson);
 
       // Keep only last 6 items
       if (recentGroupsJson.length > 6) {
@@ -456,7 +454,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       }
 
       await prefs.setStringList('recent_hashtag_groups_filter', recentGroupsJson);
-      debugPrint('[SearchableHashtagWidget] Saved recent hashtag group: ${group.name}');
+      debugPrint('[SearchableHashtagWidget] Saved recent hashtag group: ${group.name} (isMainGroup: ${group.isMainGroup})');
 
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error saving recent hashtag group: $e');
@@ -611,8 +609,10 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       if (hasSearchQuery) {
         // Group results
         for (int i = 0; i < _groupResults.length; i++) {
+         
           allItems.add(_buildGroupItem(_groupResults[i], uiController));
           if (i < _groupResults.length - 1 || _searchResults.isNotEmpty) {
+            
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
         }
@@ -626,10 +626,16 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       } else {
         // Recent hashtags
         for (int i = 0; i < _recentHashtags.length; i++) {
-          allItems.add(_buildHashtagItem(_recentHashtags[i], uiController));
+          
+              final isGroup = _recentHashtagGroups.contains(_recentHashtags[i]);
+
+          if(!isGroup) {
+  allItems.add(_buildHashtagItem(_recentHashtags[i], uiController));
           if (i < _recentHashtags.length - 1) {
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
+          }
+        
         }
       }
     }
@@ -643,7 +649,8 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   Widget _buildHashtagItem(String hashtag, UiController uiController) {
     // Check if this item is a group (exists in _recentHashtagGroups)
     final isGroup = _recentHashtagGroups.contains(hashtag);
-
+    if(isGroup)
+    return Container();
     return InkWell(
       onTap: () => 
       
@@ -687,7 +694,8 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   Widget _buildGroupItem(HashtagGroup group, UiController uiController) {
     // Check if this is a main category (parentId is null)
     final isMainCategory = group.parentId == null;
-
+    if(isMainCategory)
+    return Container();
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
