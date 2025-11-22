@@ -464,6 +464,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             initialKeyword: keyword,
             searchNotifier: _searchNotifier!,
             onEditingComplete: _removeIncompleteTextAndClosePopup,
+            onCancel: _removeIncompleteTextAndClosePopup,
             excludedItems: _tags, // Pass already added tags
             isEditingExisting: isEditingExisting, // Pass editing state
               ),
@@ -527,6 +528,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             initialKeyword: keyword,
             searchNotifier: _searchNotifier!,
             onEditingComplete: _removeIncompleteTextAndClosePopup,
+            onCancel: _removeIncompleteTextAndClosePopup,
             excludedItems: _mentions, // Pass already added mentions
             isEditingExisting: isEditingExisting, // Pass editing state
               ),

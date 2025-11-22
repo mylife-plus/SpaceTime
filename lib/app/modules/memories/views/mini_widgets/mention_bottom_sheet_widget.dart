@@ -21,6 +21,7 @@ class TagMentionBottomSheet extends StatefulWidget {
   final String initialKeyword;
   final ValueNotifier<String> searchNotifier;
   final VoidCallback? onEditingComplete;
+  final VoidCallback? onCancel;
   final List<String>? excludedItems; // Items already added to the description
   final bool isEditingExisting; // True when editing an existing hashtag/mention
 
@@ -31,6 +32,7 @@ class TagMentionBottomSheet extends StatefulWidget {
     required this.searchNotifier,
     this.isTagMode = true,
     this.onEditingComplete,
+    this.onCancel,
     this.excludedItems,
     this.isEditingExisting = false,
   });
@@ -267,7 +269,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                 TextButton(
                                   onPressed: () {
                                     controller.cancelEditing();
-                                    widget.onEditingComplete?.call();
+                                    widget.onCancel?.call();
                                   },
                                   child: Text(
                                     'Cancel',
