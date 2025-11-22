@@ -223,73 +223,73 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   void _onTextChanged() {
     // Clean up tags and mentions that are no longer in the text
-    // _cleanupRemovedItems();
+    _cleanupRemovedItems();
 
     // // Always rebuild the widget when text changes (even from external sources)
-    // if (mounted) {
-    //   setState(() {});
-    // }
+    if (mounted) {
+      setState(() {});
+    }
 
     // debugPrint('[_onTextChanged] Text: "${widget.controller.text}"');
     // debugPrint('[_onTextChanged] Cursor position: ${widget.controller.selection.baseOffset}');
 
-    // if (!_focusNode.hasFocus) {
-    //   _removePopup();
-    //   return;
-    // }
+    if (!_focusNode.hasFocus) {
+      _removePopup();
+      return;
+    }
 
     final text = widget.controller.text;
     final selection = widget.controller.selection;
 
-    // if (selection.baseOffset <= 0 || text.isEmpty) {
-    //   _removePopup();
-    //   return;
-    // }
+    if (selection.baseOffset <= 0 || text.isEmpty) {
+      _removePopup();
+      return;
+    }
 
-    // final cursorPos = selection.baseOffset;
-    // final triggerIndex = _getLastTriggerIndex(text, cursorPos);
+    final cursorPos = selection.baseOffset;
+    final triggerIndex = _getLastTriggerIndex(text, cursorPos);
 
-    // debugPrint('[_onTextChanged] Trigger index: $triggerIndex, Cursor pos: $cursorPos');
+    debugPrint('[_onTextChanged] Trigger index: $triggerIndex, Cursor pos: $cursorPos');
 
-    // if (triggerIndex == -1 || triggerIndex >= cursorPos) {
-    //   _removePopup();
-    //   return;
-    // }
+    if (triggerIndex == -1 || triggerIndex >= cursorPos) {
+      _removePopup();
+      return;
+    }
 
-    // final triggerChar = text[triggerIndex];
-    // final keyword = text.substring(triggerIndex + 1, cursorPos);
+    final triggerChar = text[triggerIndex];
+    final keyword = text.substring(triggerIndex + 1, cursorPos);
 
-    // if (keyword.contains(' ') || keyword.contains('\n')) {
-    //   _removePopup();
-    //   return;
-    // }
+    if (keyword.contains(' ') || keyword.contains('\n')) {
+      _removePopup();
+      return;
+    }
 
-    // if (cursorPos == triggerIndex + 1) {
-    //   if (triggerChar == '@') {
-    //     _showMentionPopup('');
-    //   } else if (triggerChar == '#') {
-    //     _showTagPopup('');
-    //   }
-    //   return;
-    // }
+    if (cursorPos == triggerIndex + 1) {
+      if (triggerChar == '@') {
+        _showMentionPopup('');
+      } else if (triggerChar == '#') {
+        _showTagPopup('');
+      }
+      return;
+    }
 
-    // if (cursorPos > triggerIndex + 1) {
-    //   final trimmedKeyword = keyword.trim();
+    if (cursorPos > triggerIndex + 1) {
+      final trimmedKeyword = keyword.trim();
 
-    //   if (_isPopupOpen && _searchNotifier != null) {
-    //     _searchNotifier!.value = trimmedKeyword;
-    //     return;
-    //   }
+      if (_isPopupOpen && _searchNotifier != null) {
+        _searchNotifier!.value = trimmedKeyword;
+        return;
+      }
 
-    //   if (triggerChar == '@') {
-    //     _showMentionPopup(trimmedKeyword);
-    //   } else if (triggerChar == '#') {
-    //     _showTagPopup(trimmedKeyword);
-    //   }
-    //   return;
-    // }
+      if (triggerChar == '@') {
+        _showMentionPopup(trimmedKeyword);
+      } else if (triggerChar == '#') {
+        _showTagPopup(trimmedKeyword);
+      }
+      return;
+    }
 
-    // _removePopup();
+    _removePopup();
   }
 
   int _getLastTriggerIndex(String text, int cursorPos) {
@@ -525,18 +525,24 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         '$text ',
       );
 
-      // Position cursor right after the inserted text, before the trailing space
-      final newCursorPosition = triggerIndex + text.length;
+      // Position cursor right after the inserted text AND the trailing space
+      final newCursorPosition = triggerIndex + text.length + 1;
 
       debugPrint('[_insertTextAtCursor] New text: "$newText"');
       debugPrint('[_insertTextAtCursor] Text length: ${text.length}');
-      debugPrint('[_insertTextAtCursor] New cursor position: $newCursorPosition (before trailing space)');
+      debugPrint('[_insertTextAtCursor] New cursor position: $newCursorPosition (after trailing space)');
       debugPrint('[_insertTextAtCursor] Character at cursor: "${newText.length > newCursorPosition ? newText[newCursorPosition] : 'END'}"');
 
-      widget.controller.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: newCursorPosition),
-      );
+      // Schedule the cursor update for the next frame to avoid conflicts with setState
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.controller.text == newText) {
+          widget.controller.selection = TextSelection.collapsed(offset: newCursorPosition);
+          debugPrint('[_insertTextAtCursor] Cursor position set in post-frame callback');
+        }
+      });
+
+      // Set the text first
+      widget.controller.text = newText;
 
       debugPrint('[_insertTextAtCursor] ===== END =====');
     }
@@ -651,32 +657,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               },
               behavior:
                   HitTestBehavior.opaque, // Prevent parent from receiving tap
-              child: Stack(
-                children: [
-                  // Show hint text when empty
-                  if (widget.controller.text.isEmpty)
-                    Text(
-                      'my memory... ',
-                      style: GoogleFonts.kumbhSans(
-                        fontWeight: FontWeight.w500,
-                        color:
-                            controller.darkMode.value
-                                ? Colors.white
-                                : Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                  // The visible rich text
-                  if (widget.controller.text.isNotEmpty)
-                    RichText(
-                      text: TextSpan(
-                        children: _parseText(widget.controller.text),
-                      ),
-                    ),
-
-                  // The text field for input with visible cursor
-                  TextField(
+              child: TextField(
                     controller: widget.controller,
                     focusNode: _focusNode,
                     maxLines: 50,
@@ -704,20 +685,27 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                         _requestFocusWithDelay();
                       }
                     },
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
-                      hintText: '', // Empty hint to avoid conflicts
+                      hintText: 'my memory... ',
+                      hintStyle: GoogleFonts.kumbhSans(
+                        fontWeight: FontWeight.w500,
+                        color: controller.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.5)
+                            : Colors.grey,
+                        fontSize: 16,
+                      ),
                     ),
                     style: GoogleFonts.kumbhSans(
                       fontSize: 16,
                       height: 1.5,
-                      color: Colors.transparent,
+                      color: controller.darkMode.value
+                          ? Colors.white
+                          : Colors.black,
                     ),
                   ),
-                ],
-              ),
             ),
           ),
         ),
