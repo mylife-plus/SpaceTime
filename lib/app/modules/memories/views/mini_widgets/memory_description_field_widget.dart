@@ -30,41 +30,33 @@ class ColoredTextEditingController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    final text = this.text;
+    final text = value.text;
 
     if (text.isEmpty) {
       return TextSpan(text: '', style: style);
     }
 
-    final spans = <TextSpan>[];
     final defaultStyle = style ?? _getDefaultStyle();
 
-    // Parse character by character to maintain exact alignment
-    int i = 0;
-    while (i < text.length) {
-      // Check if we're at the start of a hashtag or mention
-      if ((text[i] == '#' || text[i] == '@') && i + 1 < text.length) {
-        final trigger = text[i];
-        final startIndex = i;
-        i++; // Move past the trigger character
+    // Split by spaces to process word by word
+    final words = text.split(' ');
+    final spans = <TextSpan>[];
 
-        // Find the end of the word (until space, newline, or end of text)
-        while (i < text.length && text[i] != ' ' && text[i] != '\n') {
-          i++;
-        }
+    for (int i = 0; i < words.length; i++) {
+      final word = words[i];
 
-        final word = text.substring(startIndex, i);
-        final name = word.substring(1); // Remove trigger character
-
-        // Check if this is a valid tag or mention
-        Color? color;
-
-        if (trigger == '#' && validTags.contains(name)) {
-          color = Colors.green;
-        } else if (trigger == '@' && validMentions.contains(name)) {
-          color = Colors.blue;
-        }
-
+      if (word.startsWith('#')) {
+        final tag = word.substring(1);
+        final color = validTags.contains(tag) ? Colors.green : null;
+        spans.add(
+          TextSpan(
+            text: word,
+            style: color != null ? defaultStyle.copyWith(color: color) : defaultStyle,
+          ),
+        );
+      } else if (word.startsWith('@')) {
+        final mention = word.substring(1);
+        final color = validMentions.contains(mention) ? Colors.blue : null;
         spans.add(
           TextSpan(
             text: word,
@@ -72,15 +64,19 @@ class ColoredTextEditingController extends TextEditingController {
           ),
         );
       } else {
-        // Regular character - collect until we hit a trigger or end
-        final startIndex = i;
-        while (i < text.length && text[i] != '#' && text[i] != '@') {
-          i++;
-        }
-
         spans.add(
           TextSpan(
-            text: text.substring(startIndex, i),
+            text: word,
+            style: defaultStyle,
+          ),
+        );
+      }
+
+      // Add space after each word except the last one
+      if (i < words.length - 1) {
+        spans.add(
+          TextSpan(
+            text: ' ',
             style: defaultStyle,
           ),
         );
