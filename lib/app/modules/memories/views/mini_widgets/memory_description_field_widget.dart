@@ -340,19 +340,12 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     return lastAt > lastHash ? lastAt : lastHash;
   }
 
-  void _showTagPopup(String keyword) {
+  void _showTagPopup(String keyword) async {
     _removePopup();
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.attached) return;
 
     _isPopupOpen = true;
     widget.onPopupStateChanged?.call(true);
     _searchNotifier = ValueNotifier<String>(keyword);
-
-    final position = renderBox.localToGlobal(Offset.zero);
-    final screenHeight = MediaQuery.of(context).size.height;
-    final popupHeight = screenHeight * 0.4;
-    final topOffset = position.dy - popupHeight - 10;
 
     // Check if we're editing an existing tag (case-insensitive)
     final String? oldTag = keyword.isNotEmpty
@@ -360,72 +353,52 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         : null;
     final bool isEditingExisting = oldTag != null;
 
-    _overlayEntry = OverlayEntry(
-      builder:
-          (context) => Stack(
-            children: [
-              // Barrier to close popup when tapped outside
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () {
-                    _removeIncompleteTextAndClosePopup();
-                  },
-                  child: Container(
-                    color: Colors.transparent,
-                  ),
-                ),
-              ),
-              // Popup content
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 100,
-                child: Material(
-                  elevation: 8,
-                  color: Colors.transparent,
-                  child: TagMentionBottomSheet(
-                    onEditingCancelled: _removeIncompleteTextAndClosePopup,
-                onItemSelected: (item) {
-                  // Remove old tag if we're replacing
-                  if (oldTag != null) {
-                    _tags.remove(oldTag);
-                  }
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => TagMentionBottomSheet(
+        onEditingCancelled: () {
+          Navigator.of(context).pop();
+          _removeIncompleteTextAndClosePopup();
+        },
+        onItemSelected: (item) {
+          // Remove old tag if we're replacing
+          if (oldTag != null) {
+            _tags.remove(oldTag);
+          }
 
-                  _insertTextAtCursor(item);
-                  final clean = item.substring(1);
-                  widget.onTagAdded(clean);
-                  _tags.add(clean); // ✅ Add to tag list
-                  _forceRemovePopup();
-                },
-                isTagMode: true,
-                initialKeyword: keyword,
-                searchNotifier: _searchNotifier!,
-                onEditingComplete: _removeIncompleteTextAndClosePopup,
-                excludedItems: _tags, // Pass already added tags
-                isEditingExisting: isEditingExisting, // Pass editing state
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _insertTextAtCursor(item);
+          final clean = item.substring(1);
+          widget.onTagAdded(clean);
+          _tags.add(clean); // ✅ Add to tag list
+          Navigator.of(context).pop();
+          _forceRemovePopup();
+        },
+        isTagMode: true,
+        initialKeyword: keyword,
+        searchNotifier: _searchNotifier!,
+        onEditingComplete: () {
+          Navigator.of(context).pop();
+          _removeIncompleteTextAndClosePopup();
+        },
+        excludedItems: _tags, // Pass already added tags
+        isEditingExisting: isEditingExisting, // Pass editing state
+      ),
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
+    // Clean up after bottom sheet is dismissed
+    _forceRemovePopup();
   }
 
-  void _showMentionPopup(String keyword) {
+  void _showMentionPopup(String keyword) async {
     _removePopup();
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.attached) return;
 
     _isPopupOpen = true;
     widget.onPopupStateChanged?.call(true);
     _searchNotifier = ValueNotifier<String>(keyword);
-
-    final position = renderBox.localToGlobal(Offset.zero);
-    final screenHeight = MediaQuery.of(context).size.height;
-    final popupHeight = screenHeight * 0.4;
-    final topOffset = position.dy - popupHeight - 10;
 
     // Check if we're editing an existing mention (case-insensitive)
     final String? oldMention = keyword.isNotEmpty
@@ -433,57 +406,44 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         : null;
     final bool isEditingExisting = oldMention != null;
 
-    _overlayEntry = OverlayEntry(
-      builder:
-          (context) => Stack(
-            children: [
-              // Barrier to close popup when tapped outside
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () {
-                    _removeIncompleteTextAndClosePopup();
-                  },
-                  child: Container(
-                    color: Colors.transparent,
-                  ),
-                ),
-              ),
-              // Popup content
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 100,
-                child: Material(
-                  elevation: 8,
-                  color: Colors.transparent,
-                  child: TagMentionBottomSheet(
-                onItemSelected: (item) {
-                  // Remove old mention if we're replacing
-                  if (oldMention != null) {
-                    _mentions.remove(oldMention);
-                  }
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => TagMentionBottomSheet(
+        onItemSelected: (item) {
+          // Remove old mention if we're replacing
+          if (oldMention != null) {
+            _mentions.remove(oldMention);
+          }
 
-                  _insertTextAtCursor(item);
-                  final clean = item.substring(1);
-                  widget.onMentionAdded(clean);
-                  _mentions.add(clean); // ✅ Add to mention list
-                  _forceRemovePopup();
-                },
-                isTagMode: false,
-                initialKeyword: keyword,
-                searchNotifier: _searchNotifier!,
-                onEditingComplete: _removeIncompleteTextAndClosePopup,
-                onEditingCancelled: _removeIncompleteTextAndClosePopup,
-                excludedItems: _mentions, // Pass already added mentions
-                isEditingExisting: isEditingExisting, // Pass editing state
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _insertTextAtCursor(item);
+          final clean = item.substring(1);
+          widget.onMentionAdded(clean);
+          _mentions.add(clean); // ✅ Add to mention list
+          Navigator.of(context).pop();
+          _forceRemovePopup();
+        },
+        isTagMode: false,
+        initialKeyword: keyword,
+        searchNotifier: _searchNotifier!,
+        onEditingComplete: () {
+          Navigator.of(context).pop();
+          _removeIncompleteTextAndClosePopup();
+        },
+        onEditingCancelled: () {
+          Navigator.of(context).pop();
+          _removeIncompleteTextAndClosePopup();
+        },
+        excludedItems: _mentions, // Pass already added mentions
+        isEditingExisting: isEditingExisting, // Pass editing state
+      ),
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
+    // Clean up after bottom sheet is dismissed
+    _forceRemovePopup();
   }
 
   void _removePopup() {
@@ -510,10 +470,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     // Close the keyboard when bottom sheet is closed
     FocusScope.of(context).unfocus();
-  }
-
-  void _closePopup() {
-    _removePopup();
   }
 
   void _checkCursorInMention() {
