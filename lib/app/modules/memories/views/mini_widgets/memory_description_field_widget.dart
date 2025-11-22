@@ -525,10 +525,13 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         '$text ',
       );
 
-      final newCursorPosition = triggerIndex + text.length + 1;
+      // Position cursor right after the inserted text, before the trailing space
+      final newCursorPosition = triggerIndex + text.length;
 
       debugPrint('[_insertTextAtCursor] New text: "$newText"');
-      debugPrint('[_insertTextAtCursor] New cursor position: $newCursorPosition');
+      debugPrint('[_insertTextAtCursor] Text length: ${text.length}');
+      debugPrint('[_insertTextAtCursor] New cursor position: $newCursorPosition (before trailing space)');
+      debugPrint('[_insertTextAtCursor] Character at cursor: "${newText.length > newCursorPosition ? newText[newCursorPosition] : 'END'}"');
 
       widget.controller.value = TextEditingValue(
         text: newText,
