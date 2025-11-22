@@ -11,6 +11,95 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../controllers/memory_controller.dart';
 import 'mention_bottom_sheet_widget.dart';
 
+/// Custom TextEditingController that colors hashtags and mentions
+class ColoredTextEditingController extends TextEditingController {
+  final List<String> validTags;
+  final List<String> validMentions;
+  final bool isDarkMode;
+
+  ColoredTextEditingController({
+    required this.validTags,
+    required this.validMentions,
+    required this.isDarkMode,
+    String? text,
+  }) : super(text: text);
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final text = this.text;
+
+    if (text.isEmpty) {
+      return TextSpan(text: '', style: style);
+    }
+
+    final spans = <TextSpan>[];
+    final defaultStyle = style ?? _getDefaultStyle();
+
+    // Parse character by character to maintain exact alignment
+    int i = 0;
+    while (i < text.length) {
+      // Check if we're at the start of a hashtag or mention
+      if ((text[i] == '#' || text[i] == '@') && i + 1 < text.length) {
+        final trigger = text[i];
+        final startIndex = i;
+        i++; // Move past the trigger character
+
+        // Find the end of the word (until space, newline, or end of text)
+        while (i < text.length && text[i] != ' ' && text[i] != '\n') {
+          i++;
+        }
+
+        final word = text.substring(startIndex, i);
+        final name = word.substring(1); // Remove trigger character
+
+        // Check if this is a valid tag or mention
+        Color? color;
+
+        if (trigger == '#' && validTags.contains(name)) {
+          color = Colors.green;
+        } else if (trigger == '@' && validMentions.contains(name)) {
+          color = Colors.blue;
+        }
+
+        spans.add(
+          TextSpan(
+            text: word,
+            style: color != null ? defaultStyle.copyWith(color: color) : defaultStyle,
+          ),
+        );
+      } else {
+        // Regular character - collect until we hit a trigger or end
+        final startIndex = i;
+        while (i < text.length && text[i] != '#' && text[i] != '@') {
+          i++;
+        }
+
+        spans.add(
+          TextSpan(
+            text: text.substring(startIndex, i),
+            style: defaultStyle,
+          ),
+        );
+      }
+    }
+
+    return TextSpan(children: spans, style: style);
+  }
+
+  TextStyle _getDefaultStyle() {
+    return GoogleFonts.kumbhSans(
+      fontSize: 16,
+      height: 1.5,
+      fontWeight: FontWeight.w500,
+      color: isDarkMode ? Colors.white : Colors.black,
+    );
+  }
+}
+
 class MemoryDescriptionField extends StatefulWidget {
   final TextEditingController controller;
   final List<String> existingTags;
@@ -41,10 +130,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   OverlayEntry? _overlayEntry;
   bool _isPopupOpen = false;
   ValueNotifier<String>? _searchNotifier;
-  TagMentionController? _currentController;
 
   final List<String> _tags = [];
   final List<String> _mentions = [];
+
+  late ColoredTextEditingController _coloredController;
 
   List<String> getTags() => _tags;
   List<String> getMentions() => _mentions;
@@ -166,6 +256,25 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   @override
   void initState() {
     super.initState();
+
+    // Create colored controller with initial text from widget controller
+    final uiController = Get.find<UiController>();
+    _coloredController = ColoredTextEditingController(
+      validTags: _tags,
+      validMentions: _mentions,
+      isDarkMode: uiController.darkMode.value,
+      text: widget.controller.text,
+    );
+
+    // Sync colored controller changes to widget controller
+    _coloredController.addListener(() {
+      if (_coloredController.text != widget.controller.text) {
+        widget.controller.text = _coloredController.text;
+        widget.controller.selection = _coloredController.selection;
+      }
+    });
+
+    // Sync widget controller changes to colored controller
     widget.controller.addListener(_onTextChanged);
     _focusNode.addListener(_onFocusChange);
   }
@@ -222,6 +331,12 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _onTextChanged() {
+    // Sync widget controller to colored controller
+    if (_coloredController.text != widget.controller.text) {
+      _coloredController.text = widget.controller.text;
+      _coloredController.selection = widget.controller.selection;
+    }
+
     // Clean up tags and mentions that are no longer in the text
     _cleanupRemovedItems();
 
@@ -437,7 +552,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     widget.onPopupStateChanged?.call(false);
     _searchNotifier?.dispose();
     _searchNotifier = null;
-    _currentController = null;
     Get.delete<TagMentionController>();
 
     // Close the keyboard when bottom sheet is closed
@@ -445,8 +559,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _insertTextAtCursor(String text) {
-    final currentText = widget.controller.text;
-    final selection = widget.controller.selection;
+    final currentText = _coloredController.text;
+    final selection = _coloredController.selection;
 
     if (selection.baseOffset >= 0) {
       final triggerIndex = _getLastTriggerIndex(
@@ -469,88 +583,17 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         '$text ',
       );
 
-      widget.controller.text = newText;
-      widget.controller.selection = TextSelection.collapsed(
+      _coloredController.text = newText;
+      _coloredController.selection = TextSelection.collapsed(
         offset: triggerIndex + text.length + 1,
       );
     }
   }
 
-  List<TextSpan> _parseText(String text) {
-    if (text.isEmpty) {
-      return [TextSpan(text: '', style: _getDefaultStyle())];
-    }
-
-    final spans = <TextSpan>[];
-    final defaultStyle = _getDefaultStyle();
-
-    // Parse character by character to maintain exact alignment with TextField
-    int i = 0;
-    while (i < text.length) {
-      // Check if we're at the start of a hashtag or mention
-      if ((text[i] == '#' || text[i] == '@') && i + 1 < text.length) {
-        final trigger = text[i];
-        final startIndex = i;
-        i++; // Move past the trigger character
-
-        // Find the end of the word (until space, newline, or end of text)
-        while (i < text.length && text[i] != ' ' && text[i] != '\n') {
-          i++;
-        }
-
-        final word = text.substring(startIndex, i);
-        final name = word.substring(1); // Remove trigger character
-
-        // Check if this is a valid tag or mention
-        bool isValid = false;
-        Color? color;
-
-        if (trigger == '#' && _tags.contains(name)) {
-          isValid = true;
-          color = Colors.green;
-        } else if (trigger == '@' && _mentions.contains(name)) {
-          isValid = true;
-          color = Colors.blue;
-        }
-
-        spans.add(
-          TextSpan(
-            text: word,
-            style: isValid ? defaultStyle.copyWith(color: color) : defaultStyle,
-          ),
-        );
-      } else {
-        // Regular character - collect until we hit a trigger or end
-        final startIndex = i;
-        while (i < text.length && text[i] != '#' && text[i] != '@') {
-          i++;
-        }
-
-        spans.add(
-          TextSpan(
-            text: text.substring(startIndex, i),
-            style: defaultStyle,
-          ),
-        );
-      }
-    }
-
-    return spans;
-  }
-
-  TextStyle _getDefaultStyle() {
-    final controller = Get.find<UiController>();
-    return GoogleFonts.kumbhSans(
-      fontSize: 16,
-      height: 1.5,
-      fontWeight: FontWeight.w500,
-      color: controller.darkMode.value ? Colors.white : Colors.black,
-    );
-  }
-
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
+    _coloredController.dispose();
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     _removePopup();
@@ -593,72 +636,51 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               },
               behavior:
                   HitTestBehavior.opaque, // Prevent parent from receiving tap
-              child: Stack(
-                children: [
-                  // Show hint text when empty
-                  if (widget.controller.text.isEmpty)
-                    Text(
-                      'my memory... ',
-                      style: GoogleFonts.kumbhSans(
-                        fontWeight: FontWeight.w500,
-                        color:
-                            controller.darkMode.value
-                                ? Colors.white
-                                : Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                  // The visible rich text
-                  if (widget.controller.text.isNotEmpty)
-                    RichText(
-                      text: TextSpan(
-                        children: _parseText(widget.controller.text),
-                      ),
-                    ),
-
-                  // The text field for input with visible cursor
-                  TextField(
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    maxLines: 50,
-                    minLines: 8,
-                    keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.done,
-                    autocorrect: true,
-                    enableSuggestions: true,
-                    showCursor: true,
-                    cursorColor: controller.primaryColor ?? Colors.blue,
-                    cursorWidth: 2.0,
-                    cursorHeight: 20.0,
-                    cursorRadius: const Radius.circular(1.0),
-                    onSubmitted: (_) {
-                      // Hide keyboard when done is pressed
-                      _focusNode.unfocus();
-                    },
-                    onChanged: (text) {
-                      setState(() {}); // Rebuild to update RichText
-                      _onTextChanged();
-                    },
-                    onTap: () {
-                      // Additional focus handling for iOS
-                      if (!_focusNode.hasFocus) {
-                        _requestFocusWithDelay();
-                      }
-                    },
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      hintText: '', // Empty hint to avoid conflicts
-                    ),
-                    style: GoogleFonts.kumbhSans(
-                      fontSize: 16,
-                      height: 1.5,
-                      color: Colors.transparent,
-                    ),
+              child: TextField(
+                controller: _coloredController,
+                focusNode: _focusNode,
+                maxLines: 50,
+                minLines: 8,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.done,
+                autocorrect: true,
+                enableSuggestions: true,
+                showCursor: true,
+                cursorColor: controller.primaryColor ?? Colors.blue,
+                cursorWidth: 2.0,
+                cursorHeight: 20.0,
+                cursorRadius: const Radius.circular(1.0),
+                onSubmitted: (_) {
+                  // Hide keyboard when done is pressed
+                  _focusNode.unfocus();
+                },
+                onChanged: (text) {
+                  setState(() {}); // Rebuild to update colors
+                  _onTextChanged();
+                },
+                onTap: () {
+                  // Additional focus handling for iOS
+                  if (!_focusNode.hasFocus) {
+                    _requestFocusWithDelay();
+                  }
+                },
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: 'my memory... ',
+                  hintStyle: GoogleFonts.kumbhSans(
+                    fontWeight: FontWeight.w500,
+                    color: controller.darkMode.value ? Colors.white : Colors.grey,
+                    fontSize: 16,
                   ),
-                ],
+                ),
+                style: GoogleFonts.kumbhSans(
+                  fontSize: 16,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                  color: controller.darkMode.value ? Colors.white : Colors.black,
+                ),
               ),
             ),
           ),
