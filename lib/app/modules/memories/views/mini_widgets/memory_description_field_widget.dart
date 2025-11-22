@@ -433,41 +433,57 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     _overlayEntry = OverlayEntry(
       builder:
-          (context) => Positioned(
-            left: 20,
-            right: 20,
-            top: 100,
-            child: Material(
-              elevation: 8,
-              color: Colors.transparent,
-              child: TagMentionBottomSheet(
-            onItemSelected: (item) {
-              // Remove old tag if we're replacing
-              if (oldTag != null) {
-                _tags.remove(oldTag);
-              }
-
-              _insertTextAtCursor(item);
-              final clean = item.substring(1);
-              widget.onTagAdded(clean);
-              _tags.add(clean); // ✅ Add to tag list
-              _forceRemovePopup();
-
-              // Refocus the input field after a short delay
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (mounted) {
-                  _focusNode.requestFocus();
-                }
-              });
-            },
-            isTagMode: true,
-            initialKeyword: keyword,
-            searchNotifier: _searchNotifier!,
-            onEditingComplete: _removeIncompleteTextAndClosePopup,
-            excludedItems: _tags, // Pass already added tags
-            isEditingExisting: isEditingExisting, // Pass editing state
+          (context) => Stack(
+            children: [
+              // Non-dismissible barrier
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () {
+                    // Do nothing - prevent dismissal on tap outside
+                  },
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.3),
+                  ),
+                ),
               ),
-            ),
+              // Popup content
+              Positioned(
+                left: 20,
+                right: 20,
+                top: 100,
+                child: Material(
+                  elevation: 8,
+                  color: Colors.transparent,
+                  child: TagMentionBottomSheet(
+                onItemSelected: (item) {
+                  // Remove old tag if we're replacing
+                  if (oldTag != null) {
+                    _tags.remove(oldTag);
+                  }
+
+                  _insertTextAtCursor(item);
+                  final clean = item.substring(1);
+                  widget.onTagAdded(clean);
+                  _tags.add(clean); // ✅ Add to tag list
+                  _forceRemovePopup();
+
+                  // Refocus the input field after a short delay
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (mounted) {
+                      _focusNode.requestFocus();
+                    }
+                  });
+                },
+                isTagMode: true,
+                initialKeyword: keyword,
+                searchNotifier: _searchNotifier!,
+                onEditingComplete: _removeIncompleteTextAndClosePopup,
+                excludedItems: _tags, // Pass already added tags
+                isEditingExisting: isEditingExisting, // Pass editing state
+                  ),
+                ),
+              ),
+            ],
           ),
     );
 
