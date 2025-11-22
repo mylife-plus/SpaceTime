@@ -335,8 +335,13 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   int _getLastTriggerIndex(String text, int cursorPos) {
-    final lastAt = text.lastIndexOf('@', cursorPos - 1);
-    final lastHash = text.lastIndexOf('#', cursorPos - 1);
+    if (cursorPos <= 0 || text.isEmpty) return -1;
+
+    final searchPos = cursorPos - 1;
+    if (searchPos < 0) return -1;
+
+    final lastAt = text.lastIndexOf('@', searchPos);
+    final lastHash = text.lastIndexOf('#', searchPos);
     return lastAt > lastHash ? lastAt : lastHash;
   }
 
@@ -579,9 +584,16 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     // Get current cursor position and remove text until last @ or #
     final text = _customController.text;
     final cursorPos = _customController.selection.baseOffset;
+
+    // Safety check for invalid cursor position
+    if (cursorPos < 0 || text.isEmpty) {
+      _forceRemovePopup();
+      return;
+    }
+
     final triggerIndex = _getLastTriggerIndex(text, cursorPos);
 
-    if (triggerIndex != -1) {
+    if (triggerIndex != -1 && triggerIndex < cursorPos) {
       // Remove from trigger character to cursor position
       final newText = text.substring(0, triggerIndex) + text.substring(cursorPos);
       _customController.value = TextEditingValue(
