@@ -670,6 +670,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       if (triggerIndex == -1) return;
 
       // Check if there's a space before the trigger character
+      // Only add space when inserting the selected item, not while searching
       final needsSpaceBefore = triggerIndex > 0 &&
                                 currentText[triggerIndex - 1] != ' ' &&
                                 currentText[triggerIndex - 1] != '\n';
@@ -682,18 +683,30 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         endIndex++;
       }
 
-      // Build the replacement text with space before if needed
-      final replacementText = needsSpaceBefore ? ' $text ' : '$text ';
+      // Build the replacement text
+      // If we need space before, insert it at the trigger position
+      String replacementText;
+      int startIndex;
+
+      if (needsSpaceBefore) {
+        // Insert space before the trigger character
+        replacementText = ' $text ';
+        startIndex = triggerIndex;
+      } else {
+        // No space needed, just replace from trigger
+        replacementText = '$text ';
+        startIndex = triggerIndex;
+      }
 
       final newText = currentText.replaceRange(
-        triggerIndex,
+        startIndex,
         endIndex,
         replacementText,
       );
 
       _coloredController.text = newText;
       _coloredController.selection = TextSelection.collapsed(
-        offset: triggerIndex + replacementText.length,
+        offset: startIndex + replacementText.length,
       );
     }
   }
