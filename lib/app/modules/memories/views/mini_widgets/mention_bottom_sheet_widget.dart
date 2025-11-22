@@ -21,8 +21,6 @@ class TagMentionBottomSheet extends StatefulWidget {
   final String initialKeyword;
   final ValueNotifier<String> searchNotifier;
   final VoidCallback? onEditingComplete;
-  
-  final VoidCallback? onEditingCancelled;
   final List<String>? excludedItems; // Items already added to the description
   final bool isEditingExisting; // True when editing an existing hashtag/mention
 
@@ -31,7 +29,6 @@ class TagMentionBottomSheet extends StatefulWidget {
     required this.onItemSelected,
     required this.initialKeyword,
     required this.searchNotifier,
-    this.onEditingCancelled,
     this.isTagMode = true,
     this.onEditingComplete,
     this.excludedItems,
@@ -103,19 +100,14 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   }
 
   void _showAddGroupPopup(BuildContext context, String searchText) {
-    // Close the main overlay before showing the add popup
-    widget.onEditingComplete?.call();
-
     showDialog(
       context: context,
       barrierDismissible: false,
-      useRootNavigator: true,
       builder: (BuildContext context) {
         return _AddGroupPopupDialog(
           isTagMode: widget.isTagMode,
           initialName: searchText,
           onItemSelected: widget.onItemSelected,
-          onEditingCancelled: widget.onEditingCancelled,
           onComplete: widget.onEditingComplete,
         );
       },
@@ -123,20 +115,15 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   }
 
   void _showEditGroupPopup(BuildContext context, Map<String, dynamic> item) {
-    // Close the main overlay before showing the edit popup
-    widget.onEditingComplete?.call();
-
     showDialog(
       context: context,
       barrierDismissible: false,
-      useRootNavigator: true,
       builder: (BuildContext context) {
         return _AddGroupPopupDialog(
           isTagMode: widget.isTagMode,
           initialName: item['name'],
           onItemSelected: widget.onItemSelected,
           onComplete: widget.onEditingComplete,
-          onEditingCancelled: widget.onEditingCancelled,
           editItemId: item['id'],
           editParentId: item['parentId']?.toString(),
         );
@@ -191,7 +178,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color:
-
+                    
                         // ? (
                             (uiController.darkMode.value
                                 ? Colors.black
@@ -251,19 +238,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                         disabledBorder: InputBorder.none, // Remove border when disabled
                       ),
                     ),
-                  ),
-                  // Close button
-                  IconButton(
-                    icon: Icon(
-                      Icons.close,
-                      color: uiController.darkMode.value ? Colors.white : Colors.black,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      widget.onEditingCancelled?.call();
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
@@ -395,8 +369,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                           ),
                                           child: InkWell(
                                             onTap: () {
-                                                                // widget.onEditingCancelled?.call();
-                                              // 
                                               _showAddGroupPopup(context, trimmedSearchText);
                                             },
                                             child: Padding(
@@ -573,32 +545,27 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               ),
               child: GestureDetector(
                 onTap: () async {
-                  // Store the callback before closing popup
-                  final onItemSelected = widget.onItemSelected;
-                  final isTagMode = widget.isTagMode;
-
-                  // Close the current popup before navigating
+                  // Close the current popup
                   widget.onEditingComplete?.call();
 
                   // Navigate to the appropriate groups screen
-                  final result = isTagMode
+                  final result = widget.isTagMode
                       ? await Get.toNamed('/hashtag-groups')
                       : await Get.toNamed('/contact-groups');
 
                   // Handle the returned result
                   if (result != null) {
-                    final prefixChar = isTagMode ? '#' : '@';
+                    final prefixChar = widget.isTagMode ? '#' : '@';
                     String itemName = '';
 
-                    if (isTagMode && result is HashtagGroup) {
+                    if (widget.isTagMode && result is HashtagGroup) {
                       itemName = result.name;
-                    } else if (!isTagMode && result is ContactGroup) {
+                    } else if (!widget.isTagMode && result is ContactGroup) {
                       itemName = result.name;
                     }
 
                     if (itemName.isNotEmpty) {
-                      // Call the stored callback after navigation
-                      onItemSelected('$prefixChar$itemName');
+                      widget.onItemSelected('$prefixChar$itemName');
                     }
                   }
                 },
@@ -637,7 +604,6 @@ class _AddGroupPopupDialog extends StatefulWidget {
   final VoidCallback? onComplete;
   final int? editItemId;
   final String? editParentId;
-  final VoidCallback? onEditingCancelled;
 
   const _AddGroupPopupDialog({
     required this.isTagMode,
@@ -645,7 +611,7 @@ class _AddGroupPopupDialog extends StatefulWidget {
     required this.onItemSelected,
     this.onComplete,
     this.editItemId,
-    this.editParentId, this.onEditingCancelled,
+    this.editParentId,
   });
 
   @override
@@ -1136,10 +1102,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               children: [
                 // Close button
                 GestureDetector(
-                  onTap: () {
-                    widget.onEditingCancelled?.call();
-                     Navigator.of(context).pop();
-                  },
+                  onTap: () => Navigator.of(context).pop(),
                   child: Container(
                     // padding: const EdgeInsets.all(8),
                     child: Icon(
