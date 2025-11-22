@@ -369,6 +369,18 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       return;
     }
 
+    // Check if there's a valid character before the trigger
+    // Trigger should only work if preceded by space, newline, or at start of text
+    if (triggerIndex > 0) {
+      final charBeforeTrigger = text[triggerIndex - 1];
+      if (charBeforeTrigger != ' ' && charBeforeTrigger != '\n') {
+        // There's text directly before @ or # (like "hello#" or "hello@")
+        // Treat it as normal text, don't show popup
+        _removePopup();
+        return;
+      }
+    }
+
     final triggerChar = text[triggerIndex];
     final keyword = text.substring(triggerIndex + 1, cursorPos);
 
