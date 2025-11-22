@@ -501,15 +501,30 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         endIndex++;
       }
 
+      // Check if we need to add a preceding space
+      final needsPrecedingSpace = triggerIndex > 0 &&
+                                   currentText[triggerIndex - 1] != ' ' &&
+                                   currentText[triggerIndex - 1] != '\n';
+
+      // Check if we need to add a trailing space
+      final needsTrailingSpace = endIndex < currentText.length &&
+                                  currentText[endIndex] != ' ' &&
+                                  currentText[endIndex] != '\n';
+
+      // Build the replacement text with appropriate spacing
+      final precedingSpace = needsPrecedingSpace ? ' ' : '';
+      final trailingSpace = needsTrailingSpace || endIndex == currentText.length ? ' ' : '';
+      final replacementText = '$precedingSpace$text$trailingSpace';
+
       final newText = currentText.replaceRange(
         triggerIndex,
         endIndex,
-        '$text ',
+        replacementText,
       );
 
       widget.controller.text = newText;
       widget.controller.selection = TextSelection.collapsed(
-        offset: triggerIndex + text.length + 1,
+        offset: triggerIndex + replacementText.length,
       );
     }
   }
