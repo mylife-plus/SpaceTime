@@ -372,8 +372,25 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final triggerChar = text[triggerIndex];
     final keyword = text.substring(triggerIndex + 1, cursorPos);
 
+    // Check if keyword contains space or newline
     if (keyword.contains(' ') || keyword.contains('\n')) {
-      _removePopup();
+      // Show snackbar
+      Get.snackbar(
+        'Space Not Allowed',
+        'Spaces are not allowed in ${triggerChar == '#' ? 'hashtags' : 'mentions'}',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+
+      // Remove the space from the text field
+      final newText = text.substring(0, cursorPos - 1) + text.substring(cursorPos);
+      _coloredController.text = newText;
+      _coloredController.selection = TextSelection.collapsed(
+        offset: cursorPos - 1,
+      );
+
       return;
     }
 
