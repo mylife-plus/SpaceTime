@@ -556,46 +556,42 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final spans = <TextSpan>[];
     final defaultStyle = _getDefaultStyle();
 
-    // Simple approach: split by spaces and check each word
-    final words = text.split(' ');
+    // Use regex to parse text character by character, preserving exact spacing
+    final pattern = RegExp(r'(@\w+|#\w+|\s+|.)');
+    final matches = pattern.allMatches(text);
 
-    for (int i = 0; i < words.length; i++) {
-      final word = words[i];
+    for (final match in matches) {
+      final matchText = match.group(0)!;
 
-      if (word.startsWith('#') && word.length > 1) {
-        // Check if this hashtag was actually selected/added from dropdown
-        final tagName = word.substring(1); // Remove # prefix
+      if (matchText.startsWith('#') && matchText.length > 1) {
+        // Hashtag
+        final tagName = matchText.substring(1);
         final isValidTag = _tags.contains(tagName);
 
         spans.add(
           TextSpan(
-            text: word,
+            text: matchText,
             style: isValidTag
                 ? defaultStyle.copyWith(color: Colors.green)
-                : defaultStyle, // Show as regular text if not selected
+                : defaultStyle,
           ),
         );
-      } else if (word.startsWith('@') && word.length > 1) {
-        // Check if this mention was actually selected/added from dropdown
-        final mentionName = word.substring(1); // Remove @ prefix
+      } else if (matchText.startsWith('@') && matchText.length > 1) {
+        // Mention
+        final mentionName = matchText.substring(1);
         final isValidMention = _mentions.contains(mentionName);
 
         spans.add(
           TextSpan(
-            text: word,
+            text: matchText,
             style: isValidMention
                 ? defaultStyle.copyWith(color: Colors.blue)
-                : defaultStyle, // Show as regular text if not selected
+                : defaultStyle,
           ),
         );
       } else {
-        // Regular word
-        spans.add(TextSpan(text: word, style: defaultStyle));
-      }
-
-      // Add space after each word except the last one
-      if (i < words.length - 1) {
-        spans.add(TextSpan(text: ' ', style: defaultStyle));
+        // Regular character, space, or newline
+        spans.add(TextSpan(text: matchText, style: defaultStyle));
       }
     }
 
@@ -674,9 +670,12 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
                   // The visible rich text with colored hashtags and mentions
                   if (widget.controller.text.isNotEmpty)
-                    RichText(
-                      text: TextSpan(
-                        children: _parseText(widget.controller.text),
+                    IgnorePointer(
+                      child: RichText(
+                        maxLines: 50,
+                        text: TextSpan(
+                          children: _parseText(widget.controller.text),
+                        ),
                       ),
                     ),
 
