@@ -669,6 +669,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       );
       if (triggerIndex == -1) return;
 
+      // Check if there's a space before the trigger character
+      final needsSpaceBefore = triggerIndex > 0 &&
+                                currentText[triggerIndex - 1] != ' ' &&
+                                currentText[triggerIndex - 1] != '\n';
+
       // Find the end of the current word (tag/mention) to replace the entire word
       int endIndex = selection.baseOffset;
       while (endIndex < currentText.length &&
@@ -677,15 +682,18 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         endIndex++;
       }
 
+      // Build the replacement text with space before if needed
+      final replacementText = needsSpaceBefore ? ' $text ' : '$text ';
+
       final newText = currentText.replaceRange(
         triggerIndex,
         endIndex,
-        '$text ',
+        replacementText,
       );
 
       _coloredController.text = newText;
       _coloredController.selection = TextSelection.collapsed(
-        offset: triggerIndex + text.length + 1,
+        offset: triggerIndex + replacementText.length,
       );
     }
   }
