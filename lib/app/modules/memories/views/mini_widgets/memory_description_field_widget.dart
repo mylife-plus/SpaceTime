@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mention_tag_text_field/mention_tag_text_field.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import '../../controllers/memory_controller.dart';
@@ -42,6 +43,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   bool _isPopupOpen = false;
   ValueNotifier<String>? _searchNotifier;
   TagMentionController? _currentController;
+
+  late MentionTagTextEditingController _mentionController;
 
   final List<String> _tags = [];
   final List<String> _mentions = [];
@@ -166,6 +169,17 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   @override
   void initState() {
     super.initState();
+    _mentionController = MentionTagTextEditingController();
+    // Sync initial text from widget.controller to _mentionController
+    if (widget.controller.text.isNotEmpty) {
+      _mentionController.setText = widget.controller.text;
+    }
+    // Listen to _mentionController changes and sync to widget.controller
+    _mentionController.addListener(() {
+      if (widget.controller.text != _mentionController.text) {
+        widget.controller.text = _mentionController.text;
+      }
+    });
     widget.controller.addListener(_onTextChanged);
     _focusNode.addListener(_onFocusChange);
   }
@@ -469,27 +483,33 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     // FocusScope.of(context).unfocus();
   }
 
+  void _closePopup() {
+    _removePopup();
+  }
+
   void _removeIncompleteTextAndClosePopup() {
     // Get current cursor position and remove text until last @ or #
-    final text = widget.controller.text;
-    final cursorPos = widget.controller.selection.baseOffset;
+    final text = _mentionController.text;
+    final cursorPos = _mentionController.selection.baseOffset;
     final triggerIndex = _getLastTriggerIndex(text, cursorPos);
 
     if (triggerIndex != -1) {
       // Remove from trigger character to cursor position
       final newText = text.substring(0, triggerIndex) + text.substring(cursorPos);
-      widget.controller.value = TextEditingValue(
+      _mentionController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: triggerIndex),
       );
+      // Sync to widget.controller
+      widget.controller.text = newText;
     }
 
     _forceRemovePopup();
   }
 
   void _insertTextAtCursor(String text) {
-    final currentText = widget.controller.text;
-    final selection = widget.controller.selection;
+    final currentText = _mentionController.text;
+    final selection = _mentionController.selection;
 
     debugPrint('[_insertTextAtCursor] ===== START =====');
     debugPrint('[_insertTextAtCursor] Text to insert: "$text"');
@@ -508,111 +528,38 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         return;
       }
 
-      // Find the end of the current word (tag/mention) to replace the entire word
-      int endIndex = selection.baseOffset;
-      while (endIndex < currentText.length &&
-             currentText[endIndex] != ' ' &&
-             currentText[endIndex] != '\n') {
-        endIndex++;
-      }
+      // Determine if it's a hashtag or mention
+      final trigger = currentText[triggerIndex];
+      final isHashtag = trigger == '#';
 
-      debugPrint('[_insertTextAtCursor] End index: $endIndex');
-      debugPrint('[_insertTextAtCursor] Text to replace: "${currentText.substring(triggerIndex, endIndex)}"');
-
-      final newText = currentText.replaceRange(
-        triggerIndex,
-        endIndex,
-        '$text ',
+      // Use MentionTagTextField's addMention method with custom styling
+      _mentionController.addMention(
+        label: text,
+        data: text,
+        stylingWidget: Text(
+          text,
+          style: GoogleFonts.kumbhSans(
+            fontSize: 16,
+            height: 1.5,
+            fontWeight: FontWeight.w500,
+            color: isHashtag ? Colors.green : Colors.blue,
+          ),
+        ),
       );
 
-      // Position cursor right after the inserted text AND the trailing space
-      final newCursorPosition = triggerIndex + text.length + 1;
-
-      debugPrint('[_insertTextAtCursor] New text: "$newText"');
-      debugPrint('[_insertTextAtCursor] Text length: ${text.length}');
-      debugPrint('[_insertTextAtCursor] New cursor position: $newCursorPosition (after trailing space)');
-      debugPrint('[_insertTextAtCursor] Character at cursor: "${newText.length > newCursorPosition ? newText[newCursorPosition] : 'END'}"');
-
-      // Schedule the cursor update for the next frame to avoid conflicts with setState
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.controller.text == newText) {
-          widget.controller.selection = TextSelection.collapsed(offset: newCursorPosition);
-          debugPrint('[_insertTextAtCursor] Cursor position set in post-frame callback');
-        }
-      });
-
-      // Set the text first
-      widget.controller.text = newText;
-
+      debugPrint('[_insertTextAtCursor] Added mention with ${isHashtag ? "green" : "blue"} color');
       debugPrint('[_insertTextAtCursor] ===== END =====');
     }
   }
 
-  List<TextSpan> _parseText(String text) {
-    if (text.isEmpty) {
-      return [TextSpan(text: '', style: _getDefaultStyle())];
-    }
 
-    final spans = <TextSpan>[];
-    final defaultStyle = _getDefaultStyle();
-
-    // Use regex to parse text character by character, preserving exact spacing
-    final pattern = RegExp(r'(@\w+|#\w+|\s+|.)');
-    final matches = pattern.allMatches(text);
-
-    for (final match in matches) {
-      final matchText = match.group(0)!;
-
-      if (matchText.startsWith('#') && matchText.length > 1) {
-        // Hashtag
-        final tagName = matchText.substring(1);
-        final isValidTag = _tags.contains(tagName);
-
-        spans.add(
-          TextSpan(
-            text: matchText,
-            style: isValidTag
-                ? defaultStyle.copyWith(color: Colors.green)
-                : defaultStyle,
-          ),
-        );
-      } else if (matchText.startsWith('@') && matchText.length > 1) {
-        // Mention
-        final mentionName = matchText.substring(1);
-        final isValidMention = _mentions.contains(mentionName);
-
-        spans.add(
-          TextSpan(
-            text: matchText,
-            style: isValidMention
-                ? defaultStyle.copyWith(color: Colors.blue)
-                : defaultStyle,
-          ),
-        );
-      } else {
-        // Regular character, space, or newline
-        spans.add(TextSpan(text: matchText, style: defaultStyle));
-      }
-    }
-
-    return spans;
-  }
-
-  TextStyle _getDefaultStyle() {
-    final controller = Get.find<UiController>();
-    return GoogleFonts.kumbhSans(
-      fontSize: 16,
-      height: 1.5,
-      fontWeight: FontWeight.w500,
-      color: controller.darkMode.value ? Colors.white : Colors.black,
-    );
-  }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
+    _mentionController.dispose();
     _removePopup();
     super.dispose();
   }
@@ -653,74 +600,99 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               },
               behavior:
                   HitTestBehavior.opaque, // Prevent parent from receiving tap
-              child: Stack(
-                children: [
-                  // Show hint text when empty
-                  if (widget.controller.text.isEmpty)
-                    Text(
-                      'my memory... ',
-                      style: GoogleFonts.kumbhSans(
-                        fontWeight: FontWeight.w500,
-                        color: controller.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                  // The visible rich text with colored hashtags and mentions
-                  if (widget.controller.text.isNotEmpty)
-                    IgnorePointer(
-                      child: RichText(
-                        maxLines: 50,
-                        text: TextSpan(
-                          children: _parseText(widget.controller.text),
-                        ),
-                      ),
-                    ),
-
-                  // The text field for input with visible cursor (text is transparent)
-                  TextField(
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    maxLines: 50,
-                    minLines: 8,
-                    keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.done,
-                    autocorrect: true,
-                    enableSuggestions: true,
-                    showCursor: true,
-                    cursorColor: controller.primaryColor ?? Colors.blue,
-                    cursorWidth: 2.0,
-                    cursorHeight: 20.0,
-                    cursorRadius: const Radius.circular(1.0),
-                    onSubmitted: (_) {
-                      // Hide keyboard when done is pressed
-                      _focusNode.unfocus();
-                    },
-                    onChanged: (text) {
-                      setState(() {}); // Rebuild to update RichText
-                      _onTextChanged();
-                    },
-                    onTap: () {
-                      // Additional focus handling for iOS
-                      if (!_focusNode.hasFocus) {
-                        _requestFocusWithDelay();
+              child: MentionTagTextField(
+                controller: _mentionController,
+                focusNode: _focusNode,
+                maxLines: 50,
+                minLines: 8,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.done,
+                autocorrect: true,
+                enableSuggestions: true,
+                cursorColor: controller.primaryColor ?? Colors.blue,
+                cursorWidth: 2.0,
+                cursorHeight: 20.0,
+                // onMention callback - triggered when @ or # is typed
+                onMention: (value) async {
+                  if (value != null) {
+                    // Determine if it's a hashtag or mention
+                    final text = _mentionController.text;
+                    final selection = _mentionController.selection;
+                    if (selection.baseOffset > 0) {
+                      final triggerIndex = _getLastTriggerIndex(text, selection.baseOffset);
+                      if (triggerIndex >= 0) {
+                        final trigger = text[triggerIndex];
+                        if (trigger == '#') {
+                          _showTagPopup(value);
+                        } else if (trigger == '@') {
+                          _showMentionPopup(value);
+                        }
                       }
-                    },
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      hintText: '',
-                    ),
-                    style: GoogleFonts.kumbhSans(
-                      fontSize: 16,
-                      height: 1.5,
-                      color: Colors.transparent, // Make TextField text transparent
-                    ),
+                    }
+                  } else {
+                    // Mention ended, close popup
+                    _closePopup();
+                  }
+                },
+                mentionTagDecoration: MentionTagDecoration(
+                  // Define list of symbols where mention will be triggered
+                  mentionStart: ['@', '#'],
+                  // The character which will be inserted automatically after the mention
+                  mentionBreak: ' ',
+                  // Enable removing mention decrementally instead of all at once
+                  allowDecrement: true,
+                  // Prevent mention triggering if mention symbol is embedded in the text
+                  allowEmbedding: false,
+                  // Show mention symbol with mentions in the textfield
+                  showMentionStartSymbol: true,
+                  // Max words a mention can have
+                  maxWords: null,
+                  // TextStyle for mentions - we'll use green as default
+                  // Note: The library doesn't support different colors for @ and #
+                  // We'll need to use custom styling widgets when adding mentions
+                  mentionTextStyle: GoogleFonts.kumbhSans(
+                    fontSize: 16,
+                    height: 1.5,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.green,
                   ),
-                ],
+                ),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: 'my memory... ',
+                  hintStyle: GoogleFonts.kumbhSans(
+                    fontWeight: FontWeight.w500,
+                    color: controller.darkMode.value
+                        ? Colors.white.withValues(alpha: 0.5)
+                        : Colors.grey,
+                    fontSize: 16,
+                  ),
+                ),
+                style: GoogleFonts.kumbhSans(
+                  fontSize: 16,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                  color: controller.darkMode.value ? Colors.white : Colors.black,
+                ),
+                onSubmitted: (_) {
+                  // Hide keyboard when done is pressed
+                  _focusNode.unfocus();
+                },
+                onChanged: (text) {
+                  setState(() {}); // Rebuild if needed
+                  // Sync to widget.controller
+                  if (widget.controller.text != text) {
+                    widget.controller.text = text;
+                  }
+                },
+                onTap: () {
+                  // Additional focus handling for iOS
+                  if (!_focusNode.hasFocus) {
+                    _requestFocusWithDelay();
+                  }
+                },
               ),
             ),
           ),
