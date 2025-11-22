@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/models/hashtag_group_model.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
-import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
@@ -218,13 +217,18 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       try {
         final controller = Get.find<AddMemoriesController>();
         _allHashtags = List.from(controller.getAvailableHashtags);
-        debugPrint('[SearchableHashtagWidget] Loaded ${_allHashtags.length} hashtags from AddMemoriesController');
       } catch (e) {
-        debugPrint('[SearchableHashtagWidget] AddMemoriesController not found, loading from database: $e');
-        // Fallback: Load actual hashtags from database
-        final databaseHelper = DatabaseHelper.instance;
-        _allHashtags = await databaseHelper.getPopularTags(limit: 100);
-        debugPrint('[SearchableHashtagWidget] Loaded ${_allHashtags.length} hashtags from database');
+        debugPrint('[SearchableHashtagWidget] AddMemoriesController not found, using group names: $e');
+        // Fallback: Extract hashtag names from groups (both main groups and subgroups)
+        _allHashtags = [];
+        for (final group in _allGroups) {
+          _allHashtags.add(group.name);
+          if (group.subgroups != null) {
+            for (final subgroup in group.subgroups!) {
+              _allHashtags.add(subgroup.name);
+            }
+          }
+        }
       }
 
       // Load recent hashtags from SharedPreferences
@@ -241,7 +245,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Load recent individual hashtags only (no groups)
+      // Load recent individual hashtags (stored as simple strings)
       final recentHashtagsJson = prefs.getStringList('recent_individual_hashtags_filter') ?? [];
       final recentHashtags = <String>[];
       for (final hashtagJson in recentHashtagsJson) {
@@ -255,10 +259,42 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         }
       }
 
-      // Only show individual hashtags (max 6 items)
-      _recentHashtags.value = recentHashtags.take(6).toList();
-      _recentHashtagGroups.value = []; // No groups in recents
-      debugPrint('[SearchableHashtagWidget] Loaded ${_recentHashtags.length} recent hashtags');
+      // Load recent hashtag groups (stored as full HashtagGroup objects)
+      final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
+      final recentGroupObjects = <HashtagGroup>[];
+      for (final groupJson in recentGroupsJson) {
+        try {
+          final groupData = json.decode(groupJson);
+          if (groupData is Map<String, dynamic>) {
+            final group = HashtagGroup.fromJson(groupData);
+            recentGroupObjects.add(group);
+          }
+        } catch (e) {
+          debugPrint('[SearchableHashtagWidget] Error parsing recent hashtag group: $e');
+        }
+      }
+
+      // Extract group names for display
+      final recentGroups = recentGroupObjects.map((g) => g.name).toList();
+      final mainCategoryGroups = recentGroupObjects
+          .where((g) => g.isMainGroup)
+          .map((g) => g.name)
+          .toList();
+
+      // Combine recent hashtags and groups, prioritizing groups (max 6 items total)
+      final combinedRecent = <String>[];
+      final groupNames = <String>[];
+
+      combinedRecent.addAll(recentGroups.take(6)); // Max 6 groups
+      groupNames.addAll(mainCategoryGroups.take(6)); // Track which are MAIN CATEGORY groups (not subcategories)
+
+      if (combinedRecent.length < 6) {
+        combinedRecent.addAll(recentHashtags.take(6 - combinedRecent.length)); // Fill remaining with hashtags
+      }
+
+      _recentHashtags.value = combinedRecent;
+      _recentHashtagGroups.value = groupNames; // Store which items are main category groups
+      debugPrint('[SearchableHashtagWidget] Loaded ${combinedRecent.length} recent items (${groupNames.length} main category groups)');
 
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error loading recent hashtags: $e');
@@ -540,7 +576,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
 
   Widget _buildResultsList(UiController uiController) {
     final hasSearchQuery = _searchController.text.isNotEmpty;
-    final hasResults = _searchResults.isNotEmpty; // Only check individual hashtag results (no groups)
+    final hasResults = _searchResults.isNotEmpty || _groupResults.isNotEmpty;
     final hasRecent = _recentHashtags.isNotEmpty;
 
     final allItems = <Widget>[];
@@ -569,17 +605,51 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         ),
       ));
     } else {
+
       // Add search results or recent hashtags
       if (hasSearchQuery) {
-        // Individual hashtag results only
-        for (int i = 0; i < _searchResults.length; i++) {
-          allItems.add(_buildHashtagItem(_searchResults[i], uiController, i));
-          if (i < _searchResults.length - 1) {
+
+        bool hasAtleastOneHashtag = false;
+        // Group results
+
+        //  for (int i = 0; i < _searchResults.length; i++) {
+        //    hasAtleastOneHashtag = true;
+        //   allItems.add(_buildHashtagItem(_searchResults[i], uiController));
+        //   if (i < _searchResults.length - 1) {
+        //     allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+        //   }
+        // }
+
+      
+        for (int i = 0; i < _groupResults.length; i++) {
+         
+         if(!_groupResults[i].isMainGroup) {
+          hasAtleastOneHashtag = true;
+          allItems.add(_buildGroupItem(_groupResults[i], uiController));
+          if (i < _groupResults.length - 1 || _searchResults.isNotEmpty) {
+            
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
+         }
+
+        
+         
         }
+
+         if(!hasAtleastOneHashtag) {
+          allItems.add(Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        child: const Text(
+          'No hashtags found',
+          style: TextStyle(color: Colors.grey),
+        ),
+      ));
+         }
+        // Individual hashtag results
+       
       } else {
-        // Recent hashtags only
+        // Recent hashtags
         for (int i = 0; i < _recentHashtags.length; i++) {
           allItems.add(_buildHashtagItem(_recentHashtags[i], uiController));
           if (i < _recentHashtags.length - 1) {
@@ -595,9 +665,53 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     );
   }
 
-  Widget _buildHashtagItem(String hashtag, UiController uiController, [int? i]) {
+  Widget _buildHashtagItem(String hashtag, UiController uiController) {
+    // Check if this item is a main group (exists in _recentHashtagGroups which stores main category groups)
+    final isMainGroup = _recentHashtagGroups.contains(hashtag);
+    
     return InkWell(
-      onTap: () => _selectHashtag(hashtag, false),
+      onTap: () => _selectHashtag(hashtag, isMainGroup),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            if (isMainGroup)
+              Icon(
+                Icons.folder_outlined,
+                size: 16,
+                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
+              ),
+            if (!isMainGroup)
+              Text(
+                '#',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+                ),
+              ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                hashtag,
+                style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupItem(HashtagGroup group, UiController uiController) {
+    // In search results, only show subgroups (not main groups)
+    // Main groups are shown in recents via _buildHashtagItem
+    if (group.isMainGroup) {
+      return Container();
+    }
+
+    return InkWell(
+      onTap: () => _selectGroup(group),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
@@ -605,7 +719,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
             Text(
               '#',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
               ),
@@ -613,7 +727,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                hashtag,
+                group.name,
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),

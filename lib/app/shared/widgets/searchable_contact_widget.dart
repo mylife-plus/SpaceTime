@@ -612,30 +612,51 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       // Add search results or recent contacts
       if (hasSearchQuery) {
         // Group results
+        bool containsAtlestOneHashtag = false;
+
         for (int i = 0; i < _groupResults.length; i++) {
            if( _groupResults[i].parentId != null) {
+            containsAtlestOneHashtag = true;
            allItems.add(_buildGroupItem(_groupResults[i], uiController));
           if (i < _groupResults.length - 1 || _searchResults.isNotEmpty) {
             allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
           }
-         }
-         
-        }
+         } 
+        } 
         // Individual contact results
         for (int i = 0; i < _searchResults.length; i++) {
-          allItems.add(_buildContactItem(_searchResults[i], uiController));
-          if (i < _searchResults.length - 1) {
-            allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+          final isMainGroup = _recentMainCategoryGroups.contains(_searchResults[i]);
+          if(!isMainGroup) {
+            containsAtlestOneHashtag = true;
+            allItems.add(_buildContactItem(_searchResults[i], uiController));
+            if (i < _searchResults.length - 1) {
+              allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+            }
           }
         }
+      if(!containsAtlestOneHashtag){
+        allItems.add(Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              child: const Text(
+                'No contacts found',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ));
+      }
+              
+
       } else {
         // Recent contacts
 
         for (int i = 0; i < _recentContacts.length; i++) {
-          allItems.add(_buildContactItem(_recentContacts[i], uiController));
-          if (i < _recentContacts.length - 1) {
-            allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
-          }
+
+          // if(!isMainGroup) {
+            allItems.add(_buildContactItem(_recentContacts[i], uiController));
+            if (i < _recentContacts.length - 1) {
+              allItems.add(Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)));
+            }
+          // }
         }
       }
     }
