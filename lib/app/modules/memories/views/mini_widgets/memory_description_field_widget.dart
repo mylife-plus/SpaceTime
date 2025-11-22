@@ -608,44 +608,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       final trigger = currentText[triggerIndex];
       final isHashtag = trigger == '#';
 
-      // Find the end of the current word (tag/mention) to replace the entire word
-      int endIndex = selection.baseOffset;
-      while (endIndex < currentText.length &&
-             currentText[endIndex] != ' ' &&
-             currentText[endIndex] != '\n') {
-        endIndex++;
-      }
-
-      debugPrint('[_insertTextAtCursor] End index: $endIndex');
-      debugPrint('[_insertTextAtCursor] Text to replace: "${currentText.substring(triggerIndex, endIndex)}"');
-
-      // Remove the incomplete text (from trigger to end of word)
-      final beforeTrigger = currentText.substring(0, triggerIndex);
-      final afterWord = currentText.substring(endIndex);
-      final textWithoutIncomplete = beforeTrigger + afterWord;
-
-      debugPrint('[_insertTextAtCursor] Text without incomplete: "$textWithoutIncomplete"');
-
-      // Update the text first (remove incomplete mention/tag)
-      _mentionController.value = TextEditingValue(
-        text: textWithoutIncomplete,
-        selection: TextSelection.collapsed(offset: triggerIndex),
-      );
-
-      // Sync to widget.controller
-      widget.controller.text = textWithoutIncomplete;
-      widget.controller.selection = TextSelection.collapsed(offset: triggerIndex);
-
-      // Now add the mention using the library's method
-      // The library expects label without @ or # symbol
-      final label = text.startsWith('#') || text.startsWith('@')
-          ? text.substring(1)
-          : text;
-
-      debugPrint('[_insertTextAtCursor] Adding mention with label: "$label"');
-
+      // Use MentionTagTextField's addMention method with custom styling
       _mentionController.addMention(
-        label: label,
+        label: text,
         data: text,
         stylingWidget: Text(
           text,
@@ -659,7 +624,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       );
 
       debugPrint('[_insertTextAtCursor] Added mention with ${isHashtag ? "green" : "blue"} color');
-      debugPrint('[_insertTextAtCursor] Final text: "${_mentionController.text}"');
       debugPrint('[_insertTextAtCursor] ===== END =====');
     }
   }
