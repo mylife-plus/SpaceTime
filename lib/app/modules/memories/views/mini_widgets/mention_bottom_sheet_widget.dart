@@ -100,6 +100,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   }
 
   void _showAddGroupPopup(BuildContext context, String searchText) {
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -109,12 +110,15 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
           initialName: searchText,
           onItemSelected: widget.onItemSelected,
           onComplete: widget.onEditingComplete,
+          onCancel: _onPopupCancelled,
         );
       },
     );
+
   }
 
   void _showEditGroupPopup(BuildContext context, Map<String, dynamic> item) {
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -124,11 +128,19 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
           initialName: item['name'],
           onItemSelected: widget.onItemSelected,
           onComplete: widget.onEditingComplete,
+          onCancel: _onPopupCancelled,
           editItemId: item['id'],
           editParentId: item['parentId']?.toString(),
         );
       },
     );
+
+  }
+
+  void _onPopupCancelled() {
+    // This will be called when the add/edit popup is cancelled
+    // The parent widget (MemoryDescriptionField) will handle clearing the incomplete text
+    widget.onEditingComplete?.call();
   }
 
   void _navigateToGroupsScreen(String groupName) {
@@ -183,18 +195,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                             (uiController.darkMode.value
                                 ? Colors.black
                                 : Color(0xFFF4FFF5)),
-                        // : Colors.black,
-
-                // color:
-                //     widget.isTagMode
-                //         ? uiController.darkMode.value
-                //             ? uiController.mainColor.value == 'blue'
-                //                 ? widget.isTagMode
-                //                     ? Color(0xBAC8FDC7)
-                //                     : Color(0xBA8FB3F3)
-                //                 : uiController.secondaryColor
-                //             : uiController.primaryColor
-                //         : uiController.getPopUpColors(widget.isTagMode),
                 border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
               ),
               child: Row(
@@ -602,6 +602,7 @@ class _AddGroupPopupDialog extends StatefulWidget {
   final String initialName;
   final Function(String) onItemSelected;
   final VoidCallback? onComplete;
+  final VoidCallback? onCancel;
   final int? editItemId;
   final String? editParentId;
 
@@ -610,6 +611,7 @@ class _AddGroupPopupDialog extends StatefulWidget {
     required this.initialName,
     required this.onItemSelected,
     this.onComplete,
+    this.onCancel,
     this.editItemId,
     this.editParentId,
   });
@@ -1102,7 +1104,10 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               children: [
                 // Close button
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    widget.onCancel?.call();
+                  },
                   child: Container(
                     // padding: const EdgeInsets.all(8),
                     child: Icon(

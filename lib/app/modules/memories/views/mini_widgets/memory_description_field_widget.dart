@@ -463,7 +463,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             isTagMode: true,
             initialKeyword: keyword,
             searchNotifier: _searchNotifier!,
-            onEditingComplete: _forceRemovePopup,
+            onEditingComplete: _removeIncompleteTextAndClosePopup,
             excludedItems: _tags, // Pass already added tags
             isEditingExisting: isEditingExisting, // Pass editing state
               ),
@@ -526,7 +526,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             isTagMode: false,
             initialKeyword: keyword,
             searchNotifier: _searchNotifier!,
-            onEditingComplete: _forceRemovePopup,
+            onEditingComplete: _removeIncompleteTextAndClosePopup,
             excludedItems: _mentions, // Pass already added mentions
             isEditingExisting: isEditingExisting, // Pass editing state
               ),
@@ -559,6 +559,54 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     // Close the keyboard when bottom sheet is closed
     // FocusScope.of(context).unfocus();
+  }
+
+  void _removeIncompleteTextAndClosePopup() {
+    // Clear the incomplete text from trigger character to cursor
+    _clearIncompleteText();
+
+    // Then close the popup
+    _forceRemovePopup();
+
+    // Refocus the input field
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
+  void _clearIncompleteText() {
+    final currentText = _coloredController.text;
+    final selection = _coloredController.selection;
+
+    if (selection.baseOffset >= 0) {
+      final triggerIndex = _getLastTriggerIndex(
+        currentText,
+        selection.baseOffset,
+      );
+      if (triggerIndex == -1) return;
+
+      // Find the end of the current word (tag/mention) to remove the entire incomplete word
+      int endIndex = selection.baseOffset;
+      while (endIndex < currentText.length &&
+             currentText[endIndex] != ' ' &&
+             currentText[endIndex] != '\n') {
+        endIndex++;
+      }
+
+      // Remove the incomplete text from trigger to end of word
+      final newText = currentText.replaceRange(
+        triggerIndex,
+        endIndex,
+        '',
+      );
+
+      _coloredController.text = newText;
+      _coloredController.selection = TextSelection.collapsed(
+        offset: triggerIndex,
+      );
+    }
   }
 
   void _insertTextAtCursor(String text) {
