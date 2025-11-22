@@ -484,46 +484,54 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final spans = <TextSpan>[];
     final defaultStyle = _getDefaultStyle();
 
-    // Simple approach: split by spaces and check each word
-    final words = text.split(' ');
+    // Parse character by character to maintain exact alignment with TextField
+    int i = 0;
+    while (i < text.length) {
+      // Check if we're at the start of a hashtag or mention
+      if ((text[i] == '#' || text[i] == '@') && i + 1 < text.length) {
+        final trigger = text[i];
+        final startIndex = i;
+        i++; // Move past the trigger character
 
-    for (int i = 0; i < words.length; i++) {
-      final word = words[i];
+        // Find the end of the word (until space, newline, or end of text)
+        while (i < text.length && text[i] != ' ' && text[i] != '\n') {
+          i++;
+        }
 
-      if (word.startsWith('#') && word.length > 1) {
-        // Check if this hashtag was actually selected/added from dropdown
-        final tagName = word.substring(1); // Remove # prefix
-        final isValidTag = _tags.contains(tagName);
+        final word = text.substring(startIndex, i);
+        final name = word.substring(1); // Remove trigger character
+
+        // Check if this is a valid tag or mention
+        bool isValid = false;
+        Color? color;
+
+        if (trigger == '#' && _tags.contains(name)) {
+          isValid = true;
+          color = Colors.green;
+        } else if (trigger == '@' && _mentions.contains(name)) {
+          isValid = true;
+          color = Colors.blue;
+        }
 
         spans.add(
           TextSpan(
             text: word,
-            style: isValidTag
-                ? defaultStyle.copyWith(color: Colors.green)
-                : defaultStyle, // Show as regular text if not selected
-          ),
-        );
-      } else if (word.startsWith('@') && word.length > 1) {
-        // Check if this mention was actually selected/added from dropdown
-        final mentionName = word.substring(1); // Remove @ prefix
-        final isValidMention = _mentions.contains(mentionName);
-
-        spans.add(
-          TextSpan(
-            text: word,
-            style: isValidMention
-                ? defaultStyle.copyWith(color: Colors.blue)
-                : defaultStyle, // Show as regular text if not selected
+            style: isValid ? defaultStyle.copyWith(color: color) : defaultStyle,
           ),
         );
       } else {
-        // Regular word
-        spans.add(TextSpan(text: word, style: defaultStyle));
-      }
+        // Regular character - collect until we hit a trigger or end
+        final startIndex = i;
+        while (i < text.length && text[i] != '#' && text[i] != '@') {
+          i++;
+        }
 
-      // Add space after each word except the last one
-      if (i < words.length - 1) {
-        spans.add(TextSpan(text: ' ', style: defaultStyle));
+        spans.add(
+          TextSpan(
+            text: text.substring(startIndex, i),
+            style: defaultStyle,
+          ),
+        );
       }
     }
 
