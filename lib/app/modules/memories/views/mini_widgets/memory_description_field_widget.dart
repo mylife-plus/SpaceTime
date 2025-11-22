@@ -49,6 +49,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   final List<String> _tags = [];
   final List<String> _mentions = [];
 
+  int _lastCursorPosition = -1;
+  String _lastText = '';
+
   List<String> getTags() => _tags;
   List<String> getMentions() => _mentions;
 
@@ -181,6 +184,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       if (widget.controller.text != _mentionController.text) {
         widget.controller.text = _mentionController.text;
       }
+      // Check if cursor is within an existing mention/hashtag
+      _checkCursorInMention();
     });
     _focusNode.addListener(_onFocusChange);
   }
@@ -486,6 +491,76 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   void _closePopup() {
     _removePopup();
+  }
+
+  void _checkCursorInMention() {
+    if (!_focusNode.hasFocus) return;
+
+    final text = _mentionController.text;
+    final selection = _mentionController.selection;
+
+    if (!selection.isCollapsed || selection.baseOffset <= 0) return;
+
+    final cursorPos = selection.baseOffset;
+
+    // Only check if cursor position changed but text didn't (i.e., user tapped/moved cursor)
+    if (text == _lastText && cursorPos == _lastCursorPosition) {
+      return; // No change, skip
+    }
+
+    final bool textChanged = text != _lastText;
+    final bool cursorMoved = cursorPos != _lastCursorPosition;
+
+    _lastText = text;
+    _lastCursorPosition = cursorPos;
+
+    // Only proceed if cursor moved without text changing (user tapped to reposition cursor)
+    if (textChanged) {
+      return; // Text changed, don't open popup (handled by _onTextChanged)
+    }
+
+    if (!cursorMoved) {
+      return; // Cursor didn't move
+    }
+
+    // Check if cursor is within a mention/hashtag
+    // Find the start of the current word (look backwards for @ or #)
+    int start = cursorPos - 1;
+    while (start >= 0 && text[start] != ' ' && text[start] != '\n') {
+      start--;
+    }
+    start++; // Move to the first character of the word
+
+    // Find the end of the current word
+    int end = cursorPos;
+    while (end < text.length && text[end] != ' ' && text[end] != '\n') {
+      end++;
+    }
+
+    // Check if the word starts with @ or #
+    if (start < text.length && (text[start] == '@' || text[start] == '#')) {
+      final word = text.substring(start, end);
+      final trigger = text[start];
+      final keyword = word.substring(1); // Remove @ or # prefix
+
+      // Check if this is an existing mention/hashtag
+      bool isExisting = false;
+      if (trigger == '#') {
+        isExisting = _tags.contains(keyword);
+      } else if (trigger == '@') {
+        isExisting = _mentions.contains(keyword);
+      }
+
+      // Only show popup if it's an existing mention/hashtag
+      if (isExisting && !_isPopupOpen) {
+        debugPrint('[_checkCursorInMention] Cursor moved to existing ${trigger == '#' ? 'hashtag' : 'mention'}: $keyword');
+        if (trigger == '#') {
+          _showTagPopup(keyword);
+        } else if (trigger == '@') {
+          _showMentionPopup(keyword);
+        }
+      }
+    }
   }
 
   void _removeIncompleteTextAndClosePopup() {
