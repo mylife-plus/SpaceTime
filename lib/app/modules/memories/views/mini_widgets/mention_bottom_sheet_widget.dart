@@ -104,7 +104,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
 
   void _showAddGroupPopup(BuildContext context, String searchText) {
     showDialog(
-      context: context,
+      context: Get.context!,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return _AddGroupPopupDialog(
@@ -120,7 +120,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
 
   void _showEditGroupPopup(BuildContext context, Map<String, dynamic> item) {
     showDialog(
-      context: context,
+      context: Get.context!,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return _AddGroupPopupDialog(
