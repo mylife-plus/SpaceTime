@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/models/hashtag_group_model.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
+import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
@@ -217,18 +218,13 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
       try {
         final controller = Get.find<AddMemoriesController>();
         _allHashtags = List.from(controller.getAvailableHashtags);
+        debugPrint('[SearchableHashtagWidget] Loaded ${_allHashtags.length} hashtags from AddMemoriesController');
       } catch (e) {
-        debugPrint('[SearchableHashtagWidget] AddMemoriesController not found, using group names: $e');
-        // Fallback: Extract hashtag names from groups (both main groups and subgroups)
-        _allHashtags = [];
-        for (final group in _allGroups) {
-          _allHashtags.add(group.name);
-          if (group.subgroups != null) {
-            for (final subgroup in group.subgroups!) {
-              _allHashtags.add(subgroup.name);
-            }
-          }
-        }
+        debugPrint('[SearchableHashtagWidget] AddMemoriesController not found, loading from database: $e');
+        // Fallback: Load actual hashtags from database
+        final databaseHelper = DatabaseHelper.instance;
+        _allHashtags = await databaseHelper.getPopularTags(limit: 100);
+        debugPrint('[SearchableHashtagWidget] Loaded ${_allHashtags.length} hashtags from database');
       }
 
       // Load recent hashtags from SharedPreferences
