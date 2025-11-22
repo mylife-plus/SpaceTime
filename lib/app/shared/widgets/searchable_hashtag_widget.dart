@@ -241,7 +241,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Load recent individual hashtags (stored as simple strings)
+      // Load recent individual hashtags only (no groups)
       final recentHashtagsJson = prefs.getStringList('recent_individual_hashtags_filter') ?? [];
       final recentHashtags = <String>[];
       for (final hashtagJson in recentHashtagsJson) {
@@ -255,42 +255,10 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         }
       }
 
-      // Load recent hashtag groups (stored as full HashtagGroup objects)
-      final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
-      final recentGroupObjects = <HashtagGroup>[];
-      for (final groupJson in recentGroupsJson) {
-        try {
-          final groupData = json.decode(groupJson);
-          if (groupData is Map<String, dynamic>) {
-            final group = HashtagGroup.fromJson(groupData);
-            recentGroupObjects.add(group);
-          }
-        } catch (e) {
-          debugPrint('[SearchableHashtagWidget] Error parsing recent hashtag group: $e');
-        }
-      }
-
-      // Extract group names for display
-      final recentGroups = recentGroupObjects.map((g) => g.name).toList();
-      final mainCategoryGroups = recentGroupObjects
-          .where((g) => g.isMainGroup)
-          .map((g) => g.name)
-          .toList();
-
-      // Combine recent hashtags and groups, prioritizing groups (max 6 items total)
-      final combinedRecent = <String>[];
-      final groupNames = <String>[];
-
-      combinedRecent.addAll(recentGroups.take(6)); // Max 6 groups
-      groupNames.addAll(mainCategoryGroups.take(6)); // Track which are MAIN CATEGORY groups (not subcategories)
-
-      if (combinedRecent.length < 6) {
-        combinedRecent.addAll(recentHashtags.take(6 - combinedRecent.length)); // Fill remaining with hashtags
-      }
-
-      _recentHashtags.value = combinedRecent;
-      _recentHashtagGroups.value = groupNames; // Store which items are main category groups
-      debugPrint('[SearchableHashtagWidget] Loaded ${combinedRecent.length} recent items (${groupNames.length} main category groups)');
+      // Only show individual hashtags (max 6 items)
+      _recentHashtags.value = recentHashtags.take(6).toList();
+      _recentHashtagGroups.value = []; // No groups in recents
+      debugPrint('[SearchableHashtagWidget] Loaded ${_recentHashtags.length} recent hashtags');
 
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error loading recent hashtags: $e');
