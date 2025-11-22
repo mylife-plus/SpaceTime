@@ -372,7 +372,37 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final triggerChar = text[triggerIndex];
     final keyword = text.substring(triggerIndex + 1, cursorPos);
 
+    // Check if keyword contains space or newline
     if (keyword.contains(' ') || keyword.contains('\n')) {
+      // Only show snackbar if popup is currently open (user is actively searching)
+      // Don't show snackbar if popup is not open (space added after item selection)
+      if (_isPopupOpen) {
+        // Check if the last character typed was a space (user just typed it)
+        final lastChar = cursorPos > 0 ? text[cursorPos - 1] : '';
+
+        if (lastChar == ' ' || lastChar == '\n') {
+          // Show snackbar and remove the space
+          Get.snackbar(
+            'Space Not Allowed',
+            'Spaces are not allowed in ${triggerChar == '#' ? 'hashtags' : 'mentions'}',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 2),
+            snackPosition: SnackPosition.BOTTOM,
+          );
+
+          // Remove the space from the text field
+          final newText = text.substring(0, cursorPos - 1) + text.substring(cursorPos);
+          _coloredController.text = newText;
+          _coloredController.selection = TextSelection.collapsed(
+            offset: cursorPos - 1,
+          );
+
+          return;
+        }
+      }
+
+      // Close popup (either space wasn't just typed, or popup wasn't open)
       _removePopup();
       return;
     }
