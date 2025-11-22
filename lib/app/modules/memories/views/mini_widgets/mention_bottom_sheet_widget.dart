@@ -245,6 +245,17 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       ),
                     ),
                   ),
+                  // Close button
+                  GestureDetector(
+                    onTap: () {
+                      widget.onEditingComplete?.call();
+                    },
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.red,
+                      size: 24,
+                    ),
+                  ),
                 ],
               ),
             ),
