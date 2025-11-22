@@ -165,7 +165,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   /// Clean up tags and mentions that are no longer present in the text
   void _cleanupRemovedItems() {
-    final text = widget.controller.text;
+    final text = _coloredController.text;
 
     // Remove tags that are no longer in the text
     _tags.removeWhere((tag) => !text.contains('#$tag'));
@@ -267,16 +267,29 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     );
 
     // Sync colored controller changes to widget controller
-    _coloredController.addListener(() {
-      if (_coloredController.text != widget.controller.text) {
-        widget.controller.text = _coloredController.text;
-        widget.controller.selection = _coloredController.selection;
-      }
-    });
+    _coloredController.addListener(_onColoredControllerChanged);
 
-    // Sync widget controller changes to colored controller
-    widget.controller.addListener(_onTextChanged);
+    // Sync widget controller changes to colored controller (for external updates)
+    widget.controller.addListener(_onWidgetControllerChanged);
+
     _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onColoredControllerChanged() {
+    // Sync to widget controller
+    if (_coloredController.text != widget.controller.text) {
+      widget.controller.value = _coloredController.value;
+    }
+
+    // Handle text changes for popup logic
+    _onTextChanged();
+  }
+
+  void _onWidgetControllerChanged() {
+    // Sync from widget controller to colored controller (for external updates)
+    if (_coloredController.text != widget.controller.text) {
+      _coloredController.value = widget.controller.value;
+    }
   }
 
   double? _scrollOffsetBeforeFocus;
@@ -331,12 +344,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _onTextChanged() {
-    // Sync widget controller to colored controller
-    if (_coloredController.text != widget.controller.text) {
-      _coloredController.text = widget.controller.text;
-      _coloredController.selection = widget.controller.selection;
-    }
-
     // Clean up tags and mentions that are no longer in the text
     _cleanupRemovedItems();
 
@@ -350,8 +357,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       return;
     }
 
-    final text = widget.controller.text;
-    final selection = widget.controller.selection;
+    final text = _coloredController.text;
+    final selection = _coloredController.selection;
 
     if (selection.baseOffset <= 0 || text.isEmpty) {
       _removePopup();
@@ -592,7 +599,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onTextChanged);
+    widget.controller.removeListener(_onWidgetControllerChanged);
+    _coloredController.removeListener(_onColoredControllerChanged);
     _coloredController.dispose();
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
