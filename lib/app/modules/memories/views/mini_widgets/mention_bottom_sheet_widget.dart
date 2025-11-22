@@ -565,27 +565,32 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               ),
               child: GestureDetector(
                 onTap: () async {
+                  // Store the callback before closing popup
+                  final onItemSelected = widget.onItemSelected;
+                  final isTagMode = widget.isTagMode;
+
                   // Close the current popup before navigating
                   widget.onEditingComplete?.call();
 
                   // Navigate to the appropriate groups screen
-                  final result = widget.isTagMode
+                  final result = isTagMode
                       ? await Get.toNamed('/hashtag-groups')
                       : await Get.toNamed('/contact-groups');
 
                   // Handle the returned result
                   if (result != null) {
-                    final prefixChar = widget.isTagMode ? '#' : '@';
+                    final prefixChar = isTagMode ? '#' : '@';
                     String itemName = '';
 
-                    if (widget.isTagMode && result is HashtagGroup) {
+                    if (isTagMode && result is HashtagGroup) {
                       itemName = result.name;
-                    } else if (!widget.isTagMode && result is ContactGroup) {
+                    } else if (!isTagMode && result is ContactGroup) {
                       itemName = result.name;
                     }
 
                     if (itemName.isNotEmpty) {
-                      widget.onItemSelected('$prefixChar$itemName');
+                      // Call the stored callback after navigation
+                      onItemSelected('$prefixChar$itemName');
                     }
                   }
                 },
