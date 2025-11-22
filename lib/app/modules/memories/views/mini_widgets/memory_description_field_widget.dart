@@ -225,71 +225,71 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     // Clean up tags and mentions that are no longer in the text
     _cleanupRemovedItems();
 
-    // Always rebuild the widget when text changes (even from external sources)
-    if (mounted) {
-      setState(() {});
-    }
+    // // Always rebuild the widget when text changes (even from external sources)
+    // if (mounted) {
+    //   setState(() {});
+    // }
 
-    debugPrint('[_onTextChanged] Text: "${widget.controller.text}"');
-    debugPrint('[_onTextChanged] Cursor position: ${widget.controller.selection.baseOffset}');
+    // debugPrint('[_onTextChanged] Text: "${widget.controller.text}"');
+    // debugPrint('[_onTextChanged] Cursor position: ${widget.controller.selection.baseOffset}');
 
-    if (!_focusNode.hasFocus) {
-      _removePopup();
-      return;
-    }
+    // if (!_focusNode.hasFocus) {
+    //   _removePopup();
+    //   return;
+    // }
 
     final text = widget.controller.text;
     final selection = widget.controller.selection;
 
-    if (selection.baseOffset <= 0 || text.isEmpty) {
-      _removePopup();
-      return;
-    }
+    // if (selection.baseOffset <= 0 || text.isEmpty) {
+    //   _removePopup();
+    //   return;
+    // }
 
-    final cursorPos = selection.baseOffset;
-    final triggerIndex = _getLastTriggerIndex(text, cursorPos);
+    // final cursorPos = selection.baseOffset;
+    // final triggerIndex = _getLastTriggerIndex(text, cursorPos);
 
-    debugPrint('[_onTextChanged] Trigger index: $triggerIndex, Cursor pos: $cursorPos');
+    // debugPrint('[_onTextChanged] Trigger index: $triggerIndex, Cursor pos: $cursorPos');
 
-    if (triggerIndex == -1 || triggerIndex >= cursorPos) {
-      _removePopup();
-      return;
-    }
+    // if (triggerIndex == -1 || triggerIndex >= cursorPos) {
+    //   _removePopup();
+    //   return;
+    // }
 
-    final triggerChar = text[triggerIndex];
-    final keyword = text.substring(triggerIndex + 1, cursorPos);
+    // final triggerChar = text[triggerIndex];
+    // final keyword = text.substring(triggerIndex + 1, cursorPos);
 
-    if (keyword.contains(' ') || keyword.contains('\n')) {
-      _removePopup();
-      return;
-    }
+    // if (keyword.contains(' ') || keyword.contains('\n')) {
+    //   _removePopup();
+    //   return;
+    // }
 
-    if (cursorPos == triggerIndex + 1) {
-      if (triggerChar == '@') {
-        _showMentionPopup('');
-      } else if (triggerChar == '#') {
-        _showTagPopup('');
-      }
-      return;
-    }
+    // if (cursorPos == triggerIndex + 1) {
+    //   if (triggerChar == '@') {
+    //     _showMentionPopup('');
+    //   } else if (triggerChar == '#') {
+    //     _showTagPopup('');
+    //   }
+    //   return;
+    // }
 
-    if (cursorPos > triggerIndex + 1) {
-      final trimmedKeyword = keyword.trim();
+    // if (cursorPos > triggerIndex + 1) {
+    //   final trimmedKeyword = keyword.trim();
 
-      if (_isPopupOpen && _searchNotifier != null) {
-        _searchNotifier!.value = trimmedKeyword;
-        return;
-      }
+    //   if (_isPopupOpen && _searchNotifier != null) {
+    //     _searchNotifier!.value = trimmedKeyword;
+    //     return;
+    //   }
 
-      if (triggerChar == '@') {
-        _showMentionPopup(trimmedKeyword);
-      } else if (triggerChar == '#') {
-        _showTagPopup(trimmedKeyword);
-      }
-      return;
-    }
+    //   if (triggerChar == '@') {
+    //     _showMentionPopup(trimmedKeyword);
+    //   } else if (triggerChar == '#') {
+    //     _showTagPopup(trimmedKeyword);
+    //   }
+    //   return;
+    // }
 
-    _removePopup();
+    // _removePopup();
   }
 
   int _getLastTriggerIndex(String text, int cursorPos) {
