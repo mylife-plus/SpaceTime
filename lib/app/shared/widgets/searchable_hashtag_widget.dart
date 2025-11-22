@@ -681,26 +681,27 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   }
 
   Widget _buildGroupItem(HashtagGroup group, UiController uiController) {
-    // In search results, only show subgroups (not main groups)
-    // Main groups are shown in recents via _buildHashtagItem
-    if (group.isMainGroup) {
-      return Container();
-    }
-
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            Text(
-              '#',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+            if (group.isMainGroup)
+              Icon(
+                Icons.folder_outlined,
+                size: 16,
+                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
               ),
-            ),
+            if (!group.isMainGroup)
+              Text(
+                '#',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+                ),
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
