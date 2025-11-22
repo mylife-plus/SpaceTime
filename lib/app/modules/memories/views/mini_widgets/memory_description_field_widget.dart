@@ -46,6 +46,10 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   final List<String> _tags = [];
   final List<String> _mentions = [];
 
+  // Track trigger position to remove incomplete tag/mention on cancel
+  int? _triggerStartIndex;
+  bool _itemWasSelected = false;
+
   List<String> getTags() => _tags;
   List<String> getMentions() => _mentions;
 
@@ -301,6 +305,12 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     _isPopupOpen = true;
     widget.onPopupStateChanged?.call(true);
     _searchNotifier = ValueNotifier<String>(keyword);
+    _itemWasSelected = false; // Reset selection flag
+
+    // Track trigger position for removal on cancel
+    final text = widget.controller.text;
+    final cursorPos = widget.controller.selection.baseOffset;
+    _triggerStartIndex = _getLastTriggerIndex(text, cursorPos);
 
     final position = renderBox.localToGlobal(Offset.zero);
     final screenHeight = MediaQuery.of(context).size.height;
@@ -338,6 +348,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   color: Colors.transparent,
                   child: TagMentionBottomSheet(
                 onItemSelected: (item) {
+                  // Mark that an item was selected
+                  _itemWasSelected = true;
+
                   // Remove old tag if we're replacing
                   if (oldTag != null) {
                     _tags.remove(oldTag);
@@ -373,6 +386,12 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     _isPopupOpen = true;
     widget.onPopupStateChanged?.call(true);
     _searchNotifier = ValueNotifier<String>(keyword);
+    _itemWasSelected = false; // Reset selection flag
+
+    // Track trigger position for removal on cancel
+    final text = widget.controller.text;
+    final cursorPos = widget.controller.selection.baseOffset;
+    _triggerStartIndex = _getLastTriggerIndex(text, cursorPos);
 
     final position = renderBox.localToGlobal(Offset.zero);
     final screenHeight = MediaQuery.of(context).size.height;
@@ -410,6 +429,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   color: Colors.transparent,
                   child: TagMentionBottomSheet(
                 onItemSelected: (item) {
+                  // Mark that an item was selected
+                  _itemWasSelected = true;
+
                   // Remove old mention if we're replacing
                   if (oldMention != null) {
                     _mentions.remove(oldMention);
@@ -449,6 +471,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _forceRemovePopup() {
+    // Remove incomplete tag/mention if no item was selected
+    if (!_itemWasSelected && _triggerStartIndex != null) {
+      _removeIncompleteTrigger();
+    }
+
     _overlayEntry?.remove();
     _overlayEntry = null;
     _isPopupOpen = false;
@@ -456,10 +483,40 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     _searchNotifier?.dispose();
     _searchNotifier = null;
     _currentController = null;
+    _triggerStartIndex = null;
+    _itemWasSelected = false;
     Get.delete<TagMentionController>();
 
     // Close the keyboard when bottom sheet is closed
     // FocusScope.of(context).unfocus();
+  }
+
+  void _removeIncompleteTrigger() {
+    if (_triggerStartIndex == null) return;
+
+    final text = widget.controller.text;
+    final cursorPos = widget.controller.selection.baseOffset;
+
+    // Find the end of the incomplete tag/mention (up to cursor or next space/newline)
+    int endIndex = _triggerStartIndex! + 1;
+    while (endIndex < text.length &&
+           endIndex <= cursorPos &&
+           text[endIndex] != ' ' &&
+           text[endIndex] != '\n') {
+      endIndex++;
+    }
+
+    // Remove the trigger character and any text typed after it
+    final newText = text.substring(0, _triggerStartIndex!) +
+                    text.substring(endIndex);
+
+    // Update the text and cursor position
+    widget.controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: _triggerStartIndex!),
+    );
+
+    debugPrint('[MemoryDescriptionField] Removed incomplete trigger from index $_triggerStartIndex to $endIndex');
   }
 
   void _insertTextAtCursor(String text) {
