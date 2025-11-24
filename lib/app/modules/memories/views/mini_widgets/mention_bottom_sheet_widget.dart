@@ -1226,23 +1226,23 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
     final uiController = Get.find<UiController>();
     final prefixChar = widget.isTagMode ? '#' : '@';
 
-    return Stack(
-      children: [
-        // Barrier
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: () {}, // Non-dismissible
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.5),
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          // Barrier
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {}, // Non-dismissible
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.5),
+              ),
             ),
           ),
-        ),
-        // Dialog content
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Material(
-              color: Colors.transparent,
+          // Dialog content
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
@@ -1471,13 +1471,13 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               ),
             ),
           ],
-        ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+        ), // Column
+              ), // Container
+            ), // Padding
+          ), // Center
+        ], // Stack children
+      ), // Stack
+    ); // Material
   }
 
   /// Update all memories that contain the old mention with the new mention
