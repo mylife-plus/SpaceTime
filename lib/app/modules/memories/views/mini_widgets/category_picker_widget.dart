@@ -716,6 +716,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         fromMemoryView: true, // Enable parent category dropdown
         editCategory: category,
         onCategoryAdded: (updatedCategory) async {
+          // Update the category in recents list if it exists
+          await _updateCategoryInRecents(category.id!, updatedCategory);
+
           // Refresh categories from database
           await _refreshCategoriesFromDatabase();
           _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
@@ -898,6 +901,43 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     } catch (e) {
       debugPrint('[CategoryPickerWidget] Error getting recent subcategories: $e');
       return [];
+    }
+  }
+
+  /// Update a category in the recents list (when edited)
+  Future<void> _updateCategoryInRecents(int categoryId, PlaceCategory updatedCategory) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get existing recent categories
+      List<PlaceCategory> recentCategories = await getRecentlySelectedSubcategories();
+
+      // Find and update the category if it exists in recents
+      final index = recentCategories.indexWhere((cat) => cat.id == categoryId);
+      if (index != -1) {
+        // Replace with updated category
+        recentCategories[index] = updatedCategory;
+
+        // Convert to the same format for storage
+        final List<Map<String, dynamic>> recentList = recentCategories.map((cat) => {
+          'id': cat.id,
+          'name': cat.name,
+          'emoji': cat.emoji,
+          'parentId': cat.parentId,
+          'order': cat.order,
+          'isCustom': cat.isCustom,
+          'createdAt': cat.createdAt.toIso8601String(),
+          'updatedAt': cat.updatedAt.toIso8601String(),
+        }).toList();
+
+        await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
+
+        debugPrint('[CategoryPickerWidget] Updated category in recents: ${updatedCategory.emoji} ${updatedCategory.name} (${updatedCategory.id})');
+      } else {
+        debugPrint('[CategoryPickerWidget] Category not found in recents, skipping update');
+      }
+    } catch (e) {
+      debugPrint('[CategoryPickerWidget] Error updating category in recents: $e');
     }
   }
 
