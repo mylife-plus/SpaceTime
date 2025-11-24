@@ -328,11 +328,16 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         if (!_focusNode.hasFocus && mounted) {
           try {
             final controller = Get.find<TagMentionController>();
-            if (!controller.isEditing.value) {
+            // Only remove popup if it's not open OR if user is not editing
+            // This keeps popup visible when keyboard is dismissed via Done button
+            if (!controller.isEditing.value && !_isPopupOpen) {
               _removePopup();
             }
           } catch (_) {
-            _removePopup();
+            // Only remove popup if it's not currently open
+            if (!_isPopupOpen) {
+              _removePopup();
+            }
           }
         }
       });
@@ -766,11 +771,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             cursorHeight: 20.0,
             cursorRadius: const Radius.circular(1.0),
             onSubmitted: (_) {
-              // Only hide keyboard if popup is not open
-              // If popup is open, keep focus and popup visible
-              if (!_isPopupOpen) {
-                _focusNode.unfocus();
-              }
+              // Hide keyboard when done is pressed
+              // Popup will be kept open by _onFocusChange logic
+              _focusNode.unfocus();
             },
             onChanged: (text) {
               setState(() {}); // Rebuild to update colors
