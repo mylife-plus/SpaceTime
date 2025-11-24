@@ -766,8 +766,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             cursorHeight: 20.0,
             cursorRadius: const Radius.circular(1.0),
             onSubmitted: (_) {
-              // Hide keyboard when done is pressed
-              _focusNode.unfocus();
+              // Only hide keyboard if popup is not open
+              // If popup is open, keep focus and popup visible
+              if (!_isPopupOpen) {
+                _focusNode.unfocus();
+              }
             },
             onChanged: (text) {
               setState(() {}); // Rebuild to update colors
