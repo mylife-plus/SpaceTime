@@ -408,13 +408,7 @@ class _MemoryViewState extends State<MemoryView> {
         // Mark this index as deleted (using the original index before any UI changes)
         _deletedAudioIndices.add(index);
         debugPrint('Marked audio at index $index for deletion in edit mode');
-
-        // Refresh add memories view in real-time if controller exists
-        if (Get.isRegistered<AddMemoriesController>()) {
-          final addMemoriesController = Get.find<AddMemoriesController>();
-          addMemoriesController.onAgainInit();
-          debugPrint('Add memories view refreshed after audio deletion');
-        }
+        // Note: Add memories view will be refreshed only after save is successful
       }
 
       // Remove from controller lists (this handles the UI and file deletion)
@@ -1237,6 +1231,14 @@ class _MemoryViewState extends State<MemoryView> {
         debugPrint('MemoryView: handleSave - CREATE MODE - Clearing controller data');
         memoryController.clearAllData();
         debugPrint('MemoryView: handleSave - CREATE MODE - Controller data cleared');
+
+        // Refresh the memories list after creation
+        debugPrint('MemoryView: handleSave - CREATE MODE - Refreshing AddMemoriesController');
+        if (Get.isRegistered<AddMemoriesController>()) {
+          final addMemoriesController = Get.find<AddMemoriesController>();
+          addMemoriesController.onAgainInit();
+          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
+        }
 
         // Show success snackbar before popping
         debugPrint('MemoryView: handleSave - CREATE MODE - Showing success snackbar');
