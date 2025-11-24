@@ -164,107 +164,155 @@ class MemoryAudioWidget extends StatelessWidget {
                     itemBuilder: (context, index) {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8.0),
-                        child: GestureDetector(
-                          onLongPress: () {
-                            showDeleteConfirmationDialog(
-                              title: 'Delete Audio',
-                              message: 'Do you want to delete this audio?',
-                              onConfirm: () {
-                                if (onAudioDelete != null) {
-                                  // Use custom deletion handler if provided (for edit mode)
-                                  onAudioDelete!(index);
-                                } else {
-                                  // Use default controller method (for new memories)
-                                  controller.removeAudio(index);
-                                }
-                                // Snackbar removed as per user request
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            GestureDetector(
+                              onLongPress: () {
+                                showDeleteConfirmationDialog(
+                                  title: 'Delete Audio',
+                                  message: 'Do you want to delete this audio?',
+                                  onConfirm: () {
+                                    if (onAudioDelete != null) {
+                                      // Use custom deletion handler if provided (for edit mode)
+                                      onAudioDelete!(index);
+                                    } else {
+                                      // Use default controller method (for new memories)
+                                      controller.removeAudio(index);
+                                    }
+                                    // Snackbar removed as per user request
+                                  },
+                                );
                               },
-                            );
-                          },
-                          onTap: () async {
-                            debugPrint('🎵 Audio item tapped: index $index');
-                            debugPrint(
-                              '🎵 Total audio paths: ${controller.recordedAudioPaths.length}',
-                            );
-                            debugPrint(
-                              '🎵 Total audio durations: ${controller.recordedAudios.length}',
-                            );
+                              onTap: () async {
+                                debugPrint('🎵 Audio item tapped: index $index');
+                                debugPrint(
+                                  '🎵 Total audio paths: ${controller.recordedAudioPaths.length}',
+                                );
+                                debugPrint(
+                                  '🎵 Total audio durations: ${controller.recordedAudios.length}',
+                                );
 
-                            // Show audio player popup
-                            if (index < controller.recordedAudioPaths.length) {
-                              final audioPath =
-                                  controller.recordedAudioPaths[index];
-                              final duration =
-                                  index < controller.recordedAudios.length
-                                      ? controller.recordedAudios[index]
-                                      : 'Unknown';
+                                // Show audio player popup
+                                if (index < controller.recordedAudioPaths.length) {
+                                  final audioPath =
+                                      controller.recordedAudioPaths[index];
+                                  final duration =
+                                      index < controller.recordedAudios.length
+                                          ? controller.recordedAudios[index]
+                                          : 'Unknown';
 
-                              debugPrint('🎵 Playing audio: $audioPath');
-                              debugPrint('🎵 Duration: $duration');
+                                  debugPrint('🎵 Playing audio: $audioPath');
+                                  debugPrint('🎵 Duration: $duration');
 
-                              await AudioPlayerHelper.showAudioPlayerFromList(
-                                audioPaths: controller.recordedAudioPaths,
-                                index: index,
-                                durations: controller.recordedAudios,
-                              );
-                            } else {
-                              debugPrint('❌ Invalid audio index: $index');
-                              AudioPlayerHelper.showAudioNotAvailable();
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color:
-                                  uiController.darkMode.value
-                                      ? Colors.black
-                                      : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color:
-                                    uiController.darkMode.value
-                                        ? Colors.white.withValues(alpha: 0.3)
-                                        : Colors.transparent,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
+                                  await AudioPlayerHelper.showAudioPlayerFromList(
+                                    audioPaths: controller.recordedAudioPaths,
+                                    index: index,
+                                    durations: controller.recordedAudios,
+                                  );
+                                } else {
+                                  debugPrint('❌ Invalid audio index: $index');
+                                  AudioPlayerHelper.showAudioNotAvailable();
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
                                   color:
                                       uiController.darkMode.value
-                                          ? Colors.white.withValues(alpha: 0.1)
-                                          : Colors.black.withValues(alpha: 0.2),
-                                  blurRadius: 6,
-                                  spreadRadius: 0.2,
-                                  offset: const Offset(0, 0),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Image.asset(
-                                  AppImages.audioWaves,
-                                  width: 32,
-                                  height: 32,
-                                  color:
-                                      uiController.darkMode.value
-                                          ? Colors.white
-                                          : Colors.grey[700],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  controller.recordedAudios[index],
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                                          ? Colors.black
+                                          : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
                                     color:
                                         uiController.darkMode.value
-                                            ? Colors.white
-                                            : Colors.grey[700],
+                                            ? Colors.white.withValues(alpha: 0.3)
+                                            : Colors.transparent,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(alpha: 0.1)
+                                              : Colors.black.withValues(alpha: 0.2),
+                                      blurRadius: 6,
+                                      spreadRadius: 0.2,
+                                      offset: const Offset(0, 0),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.asset(
+                                      AppImages.audioWaves,
+                                      width: 32,
+                                      height: 32,
+                                      color:
+                                          uiController.darkMode.value
+                                              ? Colors.white
+                                              : Colors.grey[700],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      controller.recordedAudios[index],
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color:
+                                            uiController.darkMode.value
+                                                ? Colors.white
+                                                : Colors.grey[700],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Delete icon at top-right corner
+                            Positioned(
+                              top: -4,
+                              right: -4,
+                              child: GestureDetector(
+                                onTap: () {
+                                  showDeleteConfirmationDialog(
+                                    title: 'Delete Audio',
+                                    message: 'Do you want to delete this audio?',
+                                    onConfirm: () {
+                                      if (onAudioDelete != null) {
+                                        // Use custom deletion handler if provided (for edit mode)
+                                        onAudioDelete!(index);
+                                      } else {
+                                        // Use default controller method (for new memories)
+                                        controller.removeAudio(index);
+                                      }
+                                      // Snackbar removed as per user request
+                                    },
+                                  );
+                                },
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.9),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.3),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Colors.white,
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       );
                     },
