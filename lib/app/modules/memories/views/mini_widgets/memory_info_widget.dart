@@ -110,6 +110,7 @@ class MemoryInfoWidget extends StatelessWidget {
               onTap: () {
                 FocusScope.of(context).unfocus();
               },
+              behavior: HitTestBehavior.opaque, // Prevent tap from propagating
               child: SearchableCategoryWidget(
                 selectedCategory: controller.selectedCategory.value,
                 onCategorySelected: (category) {
@@ -427,8 +428,9 @@ class _InfoContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque, // Prevent tap from propagating to widgets below
       child: Obx(
         () => Container(
           padding: const EdgeInsets.all(12),
