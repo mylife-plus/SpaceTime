@@ -101,54 +101,59 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     );
   }
 
-  void _showAddGroupPopup(BuildContext context, String searchText) {
+  OverlayEntry? _popupOverlayEntry;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return _AddGroupPopupDialog(
-          isTagMode: widget.isTagMode,
-          initialName: searchText,
-          onItemSelected: widget.onItemSelected,
-          onComplete: _onPopupCompleted,
-          onCancel: _onPopupCancelled,
-        );
-      },
+  void _showAddGroupPopup(BuildContext context, String searchText) {
+    // Create a new overlay entry on top of the existing one
+    _popupOverlayEntry = OverlayEntry(
+      builder: (context) => _AddGroupPopupDialog(
+        isTagMode: widget.isTagMode,
+        initialName: searchText,
+        onItemSelected: widget.onItemSelected,
+        onComplete: _onPopupCompleted,
+        onCancel: _onPopupCancelled,
+      ),
     );
 
+    // Insert the popup overlay on top
+    Overlay.of(context).insert(_popupOverlayEntry!);
   }
 
   void _showEditGroupPopup(BuildContext context, Map<String, dynamic> item) {
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return _AddGroupPopupDialog(
-          isTagMode: widget.isTagMode,
-          initialName: item['name'],
-          onItemSelected: widget.onItemSelected,
-          onComplete: _onPopupCompleted,
-          onCancel: _onPopupCancelled,
-          editItemId: item['id'],
-          editParentId: item['parentId']?.toString(),
-        );
-      },
+    // Create a new overlay entry on top of the existing one
+    _popupOverlayEntry = OverlayEntry(
+      builder: (context) => _AddGroupPopupDialog(
+        isTagMode: widget.isTagMode,
+        initialName: item['name'],
+        onItemSelected: widget.onItemSelected,
+        onComplete: _onPopupCompleted,
+        onCancel: _onPopupCancelled,
+        editItemId: item['id'],
+        editParentId: item['parentId']?.toString(),
+      ),
     );
 
+    // Insert the popup overlay on top
+    Overlay.of(context).insert(_popupOverlayEntry!);
   }
 
   void _onPopupCompleted() {
     // This will be called when the add/edit popup is completed successfully
     // Just close the popup without clearing text (text was already inserted by onItemSelected)
     // Don't call widget.onEditingComplete here as it would clear the inserted text
+    _removePopupOverlay();
   }
 
   void _onPopupCancelled() {
     // This will be called when the add/edit popup is cancelled
     // The parent widget (MemoryDescriptionField) will handle clearing the incomplete text
+    _removePopupOverlay();
     widget.onEditingComplete?.call();
+  }
+
+  void _removePopupOverlay() {
+    _popupOverlayEntry?.remove();
+    _popupOverlayEntry = null;
   }
 
   void _navigateToGroupsScreen(String groupName) {
@@ -243,6 +248,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     widget.searchNotifier.removeListener(_onSearchChanged);
     editController.dispose();
     searchController.dispose();
+    _removePopupOverlay();
     super.dispose();
   }
 
@@ -948,9 +954,6 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         widget.onItemSelected('$prefixChar$newName');
 
         // Close the dialog
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
         widget.onComplete?.call();
         return;
       } catch (e) {
@@ -1198,9 +1201,6 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
       widget.onItemSelected('$prefixChar$subcategoryName');
 
       // Close the dialog
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
       widget.onComplete?.call();
 
     } catch (e) {
@@ -1226,36 +1226,49 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
     final uiController = Get.find<UiController>();
     final prefixChar = widget.isTagMode ? '#' : '@';
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: uiController.darkMode.value ? Colors.grey[900] : Colors.white,
-          borderRadius: BorderRadius.circular(4),
+    return Stack(
+      children: [
+        // Barrier
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: () {}, // Non-dismissible
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.5),
+            ),
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header with close and check buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Close button
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    widget.onCancel?.call();
-                  },
-                  child: Image.asset(
-                    'assets/images/ic_cross.png',
-                    width: 28,
-                    height: 28,
-                    color: Colors.red,
-                  ),
+        // Dialog content
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+                  borderRadius: BorderRadius.circular(4),
                 ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header with close and check buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Close button
+                        GestureDetector(
+                          onTap: () {
+                            widget.onCancel?.call();
+                          },
+                          child: Image.asset(
+                            'assets/images/ic_cross.png',
+                            width: 28,
+                            height: 28,
+                            color: Colors.red,
+                          ),
+                        ),
                 // Title
                 Text(
                   widget.editItemId != null
@@ -1459,7 +1472,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             ),
           ],
         ),
-      ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
