@@ -31,14 +31,30 @@ class MemoryInfoWidget extends StatelessWidget {
               children: [
                 Expanded(
                   child: Obx(
-                    () => _InfoContainer(
-                      imagePath: AppImages.calendar,
-                      text:
-                          controller.selectedDate.value != null
-                              ? "${controller.selectedDate.value!.day.toString().padLeft(2, '0')}.${controller.selectedDate.value!.month.toString().padLeft(2, '0')}.${controller.selectedDate.value!.year}"
-                              : "Pick Date",
-                      onTap: () => _pickDate(context, controller),
-                    ),
+                    () {
+                      String dateText = "Pick Date";
+                      if (controller.selectedDate.value != null) {
+                        final selectedDate = controller.selectedDate.value!;
+                        final now = DateTime.now();
+                        final today = DateTime(now.year, now.month, now.day);
+                        final yesterday = today.subtract(const Duration(days: 1));
+                        final selected = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+
+                        if (selected == today) {
+                          dateText = "Today";
+                        } else if (selected == yesterday) {
+                          dateText = "Yesterday";
+                        } else {
+                          dateText = "${selectedDate.day.toString().padLeft(2, '0')}.${selectedDate.month.toString().padLeft(2, '0')}.${selectedDate.year}";
+                        }
+                      }
+
+                      return _InfoContainer(
+                        imagePath: AppImages.calendar,
+                        text: dateText,
+                        onTap: () => _pickDate(context, controller),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 5),
