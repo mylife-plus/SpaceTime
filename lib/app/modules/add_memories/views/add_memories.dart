@@ -257,7 +257,7 @@ class AddMemoriesView extends GetView<AddMemoriesController>
                               alpha: 0.8,
                             ),
                             colorText: Colors.white,
-                            duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
                           );
                         }
                       },

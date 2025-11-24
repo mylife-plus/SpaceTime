@@ -353,7 +353,8 @@ class _InternetRequiredLocationPickerScreenState
                                 errorMessage,
                                 backgroundColor: Colors.red.withValues(
                                   alpha: 0.9,
-                                ),
+                                ),        duration: const Duration(seconds: 2),
+
                                 colorText: Colors.white,
                                 snackPosition: SnackPosition.BOTTOM,
                                 margin: const EdgeInsets.all(16),

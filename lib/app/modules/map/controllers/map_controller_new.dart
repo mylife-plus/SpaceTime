@@ -1052,7 +1052,8 @@ class MapControllerNew extends GetxController {
         'Clustering Error',
         'Failed to create memory clusters: $e',
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -1164,7 +1165,8 @@ void _resetTapState() {
           'No memory data available for this location. This might be a clustering issue.',
           backgroundColor: Colors.orange.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -1207,7 +1209,8 @@ void _resetTapState() {
             'Error',
             'Failed to load memory data: ${memoryError.toString()}',
             backgroundColor: Colors.red.withValues(alpha: 0.8),
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
         }
       } else if (cluster.count > 1) {
@@ -1225,7 +1228,8 @@ void _resetTapState() {
           'Info',
           'This location doesn\'t have accessible memory data (count: ${cluster.count})',
           backgroundColor: Colors.blue.withValues(alpha: 0.8),
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -1241,7 +1245,7 @@ void _resetTapState() {
         'Failed to open memory details. Please try again.',
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -1262,7 +1266,8 @@ void _resetTapState() {
           'Error',
           'No memories found in this cluster',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -1300,7 +1305,8 @@ void _resetTapState() {
           'Error',
           'No valid location data found for these memories',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -1330,7 +1336,8 @@ void _resetTapState() {
           'Error',
           'Failed to process memory data',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -1363,7 +1370,8 @@ void _resetTapState() {
         'Error',
         'Failed to show cluster details: ${e.toString()}',
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -1406,7 +1414,8 @@ void _resetTapState() {
           'Error',
           'Invalid memory data',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -1476,7 +1485,8 @@ void _resetTapState() {
         'Error',
         'Failed to open memory: ${e.toString()}',
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -1705,7 +1715,7 @@ void _resetTapState() {
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       );
       return;
     }
@@ -1718,7 +1728,7 @@ void _resetTapState() {
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       );
       return;
     }
@@ -3612,7 +3622,7 @@ void _resetTapState() {
             'Location: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
             backgroundColor: Colors.blue.withValues(alpha: 0.8),
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
           );
         }
       });

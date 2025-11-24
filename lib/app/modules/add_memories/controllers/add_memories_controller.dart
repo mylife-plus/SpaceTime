@@ -1663,7 +1663,7 @@ class AddMemoriesController extends GetxController {
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       );
       return;
     }
@@ -1676,7 +1676,7 @@ class AddMemoriesController extends GetxController {
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       );
       return;
     }

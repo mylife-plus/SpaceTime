@@ -310,7 +310,8 @@ class OfflineMapCoordinatorService extends GetxService {
         'Failed to download offline maps: $e',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -330,7 +331,8 @@ class OfflineMapCoordinatorService extends GetxService {
           'Map is now using online tiles',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green.withValues(alpha: 0.8),
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else {
         final tileCount = _offlineMapService!.downloadedTileCount.value;
@@ -344,7 +346,8 @@ class OfflineMapCoordinatorService extends GetxService {
             'Map is now using offline tiles ($tileCount tiles)',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.blue.withValues(alpha: 0.8),
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
         } else {
           Get.snackbar(
@@ -352,7 +355,8 @@ class OfflineMapCoordinatorService extends GetxService {
             'No offline tiles available. Please download tiles first.',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.orange.withValues(alpha: 0.8),
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
         }
       }
@@ -375,7 +379,8 @@ class OfflineMapCoordinatorService extends GetxService {
         'All offline map data has been cleared',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
 
       debugPrint('[OfflineMapCoordinator] ✅ Offline data cleared');

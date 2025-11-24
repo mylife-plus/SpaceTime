@@ -2730,7 +2730,8 @@ class MapController extends GetxController with WidgetsBindingObserver {
             'Test Marker',
             'This is a test marker. Add memories with location data to see real clustering.',
             backgroundColor: Colors.blue.withValues(alpha: 0.8),
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
         }),
       );

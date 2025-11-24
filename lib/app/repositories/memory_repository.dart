@@ -90,7 +90,7 @@ class MemoryRepository extends GetxService {
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       );
     } finally {
       isLoadingMemories.value = false;

@@ -554,7 +554,8 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                               .withValues(alpha: 0.9),
                           colorText: Colors.white,
                           borderRadius: 12,
-                          margin: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.all(16),        duration: const Duration(seconds: 2),
+
                         );
                       },
                     ),
@@ -576,7 +577,8 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                               .withValues(alpha: 0.9),
                           colorText: Colors.white,
                           borderRadius: 12,
-                          margin: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.all(16),        duration: const Duration(seconds: 2),
+
                         );
                       },
                     ),

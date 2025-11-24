@@ -49,7 +49,7 @@ class MapRefreshFab extends StatelessWidget {
                         'Error',
                         'Failed to refresh map view: $e',
                         snackPosition: SnackPosition.BOTTOM,
-                        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
                         backgroundColor: Colors.red.withValues(alpha: 0.8),
                         colorText: Colors.white,
                         margin: const EdgeInsets.all(16),

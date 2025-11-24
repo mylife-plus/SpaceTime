@@ -244,7 +244,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           'Validation Error',
           'Category name required',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -262,7 +263,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           'Validation Error',
           'Category name required',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -277,7 +279,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         'Validation Error',
         'Please enter a place name',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -291,7 +294,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         'Validation Error',
         'Please select an icon',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -326,7 +330,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             'Validation Error',
             'Please enter a place category name',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -343,7 +348,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             'Error',
             'Failed to add Place category',
             backgroundColor: Colors.red,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -352,7 +358,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             'Duplicate Place category',
             'Place category with this name already exists.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -361,7 +368,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             'Name Conflict',
             'This name is already used by a Place in another Place category.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -396,7 +404,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             'Error',
             'Failed to add Place',
             backgroundColor: Colors.red,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -405,7 +414,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             'Duplicate Place',
             'Place with this name already exists.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -414,7 +424,8 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             'Name Conflict',
             'This name is already used by the Place category.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -445,7 +456,8 @@ Navigator.of(context).pop();
           'Validation Error',
           'Please select a Place category',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         _isLoading.value = false;
         return;
@@ -456,7 +468,8 @@ Navigator.of(context).pop();
         'Error',
         'Failed to add place: $e',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     } finally {
       _isLoading.value = false;
@@ -477,7 +490,8 @@ Navigator.of(context).pop();
         'Validation Error',
         'Please enter a place name',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -490,7 +504,8 @@ Navigator.of(context).pop();
           'Validation Error',
           'Category name required',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -502,7 +517,8 @@ Navigator.of(context).pop();
         'Validation Error',
         'Please select an icon',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -517,7 +533,8 @@ Navigator.of(context).pop();
         'Validation Error',
         'Please select a Place Category',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -543,7 +560,8 @@ Navigator.of(context).pop();
             'Error',
             'Failed to add Place category',
             backgroundColor: Colors.red,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -552,7 +570,8 @@ Navigator.of(context).pop();
             'Duplicate Place category',
             'Place category with this name already exists.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -561,7 +580,8 @@ Navigator.of(context).pop();
             'Name Conflict',
             'This name is already used by a Place in another Place category.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -611,7 +631,8 @@ Navigator.of(context).pop();
           'Error',
           'Failed to update Place',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -621,21 +642,24 @@ Navigator.of(context).pop();
           'Duplicate Place',
           'Place with this name already exists.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
         Get.snackbar(
           'Name Conflict',
           'This name is already used by the Place category.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else {
         Get.snackbar(
           'Error',
           'Failed to update Place',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } finally {
@@ -1351,7 +1375,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
           'Validation Error',
           'Category name required',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         _isLoading.value = false;
         return;
@@ -1367,7 +1392,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
         'Validation Error',
         'Please enter a place name',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
                 _isLoading.value = false;
 
@@ -1383,7 +1409,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
         'Validation Error',
         'Please select an icon',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
                 _isLoading.value = false;
 
@@ -1422,7 +1449,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
             'Validation Error',
             'Please enter a place category name',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1441,7 +1469,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
             'Error',
             'Failed to add Place category',
             backgroundColor: Colors.red,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1452,7 +1481,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
             'Duplicate Place category',
             'Place category with this name already exists.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1463,7 +1493,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
             'Name Conflict',
             'This name is already used by a Place in another Place category.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1499,7 +1530,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
           Get.snackbar(
             'Error',
             'Failed to add Place',
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.red,        duration: const Duration(seconds: 2),
+
             colorText: Colors.white,
           );
           _isLoading.value = false;
@@ -1509,7 +1541,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
             'Duplicate Place',
             'Place with this name already exists.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1518,7 +1551,8 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
             'Name Conflict',
             'This name is already used by the Place category.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1551,7 +1585,8 @@ Navigator.of(context).pop();
           'Validation Error',
           'Please select a Place category',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         _isLoading.value = false;
         return;
@@ -1562,7 +1597,8 @@ Navigator.of(context).pop();
         'Error',
         'Failed to add place: $e',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     } finally {
       _isLoading.value = false;
@@ -1583,7 +1619,8 @@ Navigator.of(context).pop();
         'Validation Error',
         'Please enter a place name',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -1596,7 +1633,8 @@ Navigator.of(context).pop();
           'Validation Error',
           'Category name required',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -1608,7 +1646,8 @@ Navigator.of(context).pop();
         'Validation Error',
         'Please select an icon',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -1624,7 +1663,8 @@ Navigator.of(context).pop();
         'Validation Error',
         'Please select a Place Category',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -1650,7 +1690,8 @@ Navigator.of(context).pop();
             'Error',
             'Failed to add Place category',
             backgroundColor: Colors.red,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1659,7 +1700,8 @@ Navigator.of(context).pop();
             'Duplicate Place category',
             'Place category with this name already exists.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1668,7 +1710,8 @@ Navigator.of(context).pop();
             'Name Conflict',
             'This name is already used by a Place in another Place category.',
             backgroundColor: Colors.orange,
-            colorText: Colors.white,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
           );
           _isLoading.value = false;
           return;
@@ -1718,7 +1761,8 @@ Navigator.of(context).pop();
           'Error',
           'Failed to update Place',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -1728,20 +1772,23 @@ Navigator.of(context).pop();
           'Duplicate Place',
           'Place with this name already exists.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
         Get.snackbar(
           'Name Conflict',
           'This name is already used by the Place category.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else {
         Get.snackbar(
           'Error',
           'Failed to update Place',
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.red,        duration: const Duration(seconds: 2),
+
           colorText: Colors.white,
         );
       }

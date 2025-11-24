@@ -653,7 +653,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Validation Error',
         'Please enter a Place category name',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -687,7 +688,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         Get.snackbar(
           'Error',
           'Failed to add Place Category',
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.red,        duration: const Duration(seconds: 2),
+
           colorText: Colors.white,
         );
       }
@@ -697,7 +699,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Error',
         'Failed to add Place Category: $e',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -746,7 +749,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Validation Error',
         'Please enter a Place category',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -756,7 +760,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Validation Error',
         'Please select an icon',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -791,7 +796,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           'Error',
           'Failed to update Place',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -800,7 +806,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Error',
         'Failed to update Place: $e',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -953,7 +960,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Validation Error',
         'Please enter a place name',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -963,7 +971,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Validation Error',
         'Please select an icon',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -984,7 +993,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           'Error',
           'Failed to add Place',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newCategory.id == -1) {
@@ -993,7 +1003,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           'Duplicate Place',
           'Place with this name already exists.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newCategory.id == -4) {
@@ -1002,7 +1013,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           'Name Conflict',
           'This name is already used by the Place Category.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -1044,7 +1056,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Validation Error',
         'Please enter both name and icon',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -1090,7 +1103,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           'Error',
           'Failed to add Place',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -1099,7 +1113,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Error',
         'Failed to add Place',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -1139,7 +1154,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Validation Error',
         'Please enter both name and icon',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -1181,7 +1197,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           'Error',
           'Failed to update Place',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -1190,7 +1207,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Error',
         'Failed to update Place: $e',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -1279,7 +1297,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           'Error',
           'Failed to delete Place',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -1288,7 +1307,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'Error',
         'Failed to delete Place: $e',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }

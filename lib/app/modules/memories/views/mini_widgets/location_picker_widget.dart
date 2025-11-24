@@ -580,7 +580,7 @@ Future<bool> _checkOfflineTileCount() async {
                 '📍 Location permission needed to get current location. You can manually tap on the map to select a location.',
               ),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 2),
               action: SnackBarAction(
                 label: 'Grant Permission',
                 textColor: Colors.white,
@@ -681,7 +681,7 @@ Future<bool> _checkOfflineTileCount() async {
           SnackBar(
             content: Text('Unable to get your current location. Please check your location settings or select a location manually on the map.'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+        duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -1127,7 +1127,7 @@ Future<bool> _checkOfflineTileCount() async {
           SnackBar(
             content: Text('Unable to move to the selected location. Please try again.'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -1702,7 +1702,8 @@ Future<bool> _checkOfflineTileCount() async {
         'Unable to Get Location',
         'Unable to get location details. Please try again.',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }

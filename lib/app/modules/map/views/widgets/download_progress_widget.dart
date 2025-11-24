@@ -293,7 +293,8 @@ class TileQuotaWidget extends StatelessWidget {
       'Download Started',
       'Downloading tiles for current area in background',
       backgroundColor: Colors.green,
-      colorText: Colors.white,
+      colorText: Colors.white,        duration: const Duration(seconds: 2),
+
     );
   }
 

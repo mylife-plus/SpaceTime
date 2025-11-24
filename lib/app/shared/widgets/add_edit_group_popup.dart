@@ -64,7 +64,8 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
         'Validation Error',
         'Please enter a name',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }

@@ -173,7 +173,8 @@ class GeocodingInfoButton extends StatelessWidget {
                       : 'Failed to initialize',
                   backgroundColor:
                       service.isInitialized.value ? Colors.green : Colors.red,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               },
               child: const Text('Retry Init'),

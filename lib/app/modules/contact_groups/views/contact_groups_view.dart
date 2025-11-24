@@ -214,7 +214,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Unable to load contact groups. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 2),
       );
 
       // Set empty contact groups to prevent UI errors
@@ -258,6 +258,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Unable to refresh contact groups. Please try again.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+
       );
     }
     debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] ===== REFRESH COMPLETED =====');
@@ -422,6 +424,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Contact group deleted successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+
         );
       } else if (result == null) {
         // Cannot delete due to memories
@@ -441,6 +445,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Unable to delete contact group. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -450,6 +456,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Unable to delete contact group. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -588,7 +596,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               Get.snackbar(
                 'Validation Error',
                 'Please enter a contact group name',
-                backgroundColor: Colors.orange,
+                backgroundColor: Colors.orange,        duration: const Duration(seconds: 2),
+
                 colorText: Colors.white,
               );
               return;
@@ -615,6 +624,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Contact group "$newName" updated successfully!',
                   backgroundColor: Colors.green,
                   colorText: Colors.white,
+                          duration: const Duration(seconds: 2),
+
                 );
               } else {
                 Get.snackbar(
@@ -622,6 +633,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Unable to update contact group. Please try again.',
                   backgroundColor: Colors.red,
                   colorText: Colors.white,
+                          duration: const Duration(seconds: 2),
+
                 );
               }
             } catch (e) {
@@ -631,6 +644,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Unable to update contact group. Please try again.',
                 backgroundColor: Colors.red,
                 colorText: Colors.white,
+                        duration: const Duration(seconds: 2),
+
               );
             }
           },
@@ -667,6 +682,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Contact deleted successfully!',
           backgroundColor: Colors.green,
           colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+
         );
       } else if (result == null) {
         // Cannot delete due to memories
@@ -679,6 +696,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Unable to delete contact. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -688,6 +707,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Unable to delete contact. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -892,7 +913,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Invalid Name',
                 'Contact name cannot be empty',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
               return;
             }
@@ -908,7 +930,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Unable to Add',
                   'Unable to add contact. Please try again.',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               } else if (newSubgroup.id == -1) {
@@ -917,7 +940,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Duplicate Contact',
                   'Contact with this name already exists.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               } else if (newSubgroup.id == -4) {
@@ -926,7 +950,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Name Conflict',
                   'This name is already used by the parent group.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               }
@@ -937,7 +962,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Success',
                 'Contact added successfully',
                 backgroundColor: Colors.green,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             } catch (e) {
               debugPrint('[ContactGroupsView] Error adding subgroup: $e');
@@ -945,7 +971,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Unable to Add',
                 'Unable to add contact. Please try again.',
                 backgroundColor: Colors.red,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             }
           },
@@ -1875,7 +1902,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Invalid Name',
                 'Contact group name cannot be empty',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
               return;
             }
@@ -1892,7 +1920,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Success',
                 'Contact updated successfully',
                 backgroundColor: Colors.green,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             } catch (e) {
               debugPrint('[ContactGroupsView] Error updating contact group: $e');
@@ -1904,28 +1933,32 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Duplicate Contact',
                   message,
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
                 Get.snackbar(
                   'Name Conflict',
                   'This name is already used by a contact in another group.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
                 Get.snackbar(
                   'Name Conflict',
                   'This name is already used by the parent group.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               } else {
                 Get.snackbar(
                   'Unable to Update',
                   'Unable to update contact group. Please try again.',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               }
             }
@@ -2060,7 +2093,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Invalid Name',
         'Contact group name cannot be empty',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -2078,7 +2112,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Success',
         'Contact updated successfully',
         backgroundColor: Colors.green,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error updating contact group: $e');
@@ -2090,28 +2125,32 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Duplicate Contact',
           message,
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
         Get.snackbar(
           'Name Conflict',
           'This name is already used by a contact in another group.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
         Get.snackbar(
           'Name Conflict',
           'This name is already used by the parent group.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else {
         Get.snackbar(
           'Unable to Update',
           'Unable to update contact group. Please try again.',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     }
@@ -2140,7 +2179,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Invalid Name',
                 'Contact group name cannot be empty',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
               return;
             }
@@ -2153,7 +2193,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Unable to Add',
                   'Unable to add contact group. Please try again.',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               } else if (newGroup.id == -1) {
@@ -2162,7 +2203,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Duplicate Contact',
                   'Contact Group with this name already exists.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               } else if (newGroup.id == -3) {
@@ -2171,7 +2213,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   'Name Conflict',
                   'This name is already used by a contact in another group.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               }
@@ -2182,7 +2225,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Success',
                 'Contact group "$name" added successfully!',
                 backgroundColor: Colors.green,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             } catch (e) {
               debugPrint('[ContactGroupsView] Error adding main contact group: $e');
@@ -2190,7 +2234,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 'Unable to Add',
                 'Unable to add contact group. Please try again.',
                 backgroundColor: Colors.red,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             }
           },
@@ -2214,7 +2259,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Invalid Name',
         'Contact group name cannot be empty',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -2227,7 +2273,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Unable to Add',
           'Unable to add contact group. Please try again.',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newGroup.id == -1) {
@@ -2236,7 +2283,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Duplicate Contact',
           'Contact Group with this name already exists.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newGroup.id == -3) {
@@ -2245,7 +2293,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Name Conflict',
           'This name is already used by a contact in another group.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -2257,7 +2306,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Success',
         'Contact group "$name" added successfully!',
         backgroundColor: Colors.green,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding main contact group: $e');
@@ -2265,7 +2315,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Unable to Add',
         'Unable to add contact group. Please try again.',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -2388,7 +2439,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Invalid Name',
         'Contact name cannot be empty',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -2404,7 +2456,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Unable to Add',
           'Unable to add contact. Please try again.',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newSubgroup.id == -1) {
@@ -2413,7 +2466,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Duplicate Contact',
           'Contact with this name already exists.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newSubgroup.id == -4) {
@@ -2422,7 +2476,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           'Name Conflict',
           'This name is already used by the parent group.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -2434,7 +2489,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Success',
         'Contact added successfully',
         backgroundColor: Colors.green,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding subgroup: $e');
@@ -2442,7 +2498,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         'Unable to Add',
         'Unable to add contact. Please try again.',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }

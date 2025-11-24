@@ -612,7 +612,7 @@ class MemoryProcessingIsolateService extends GetxService {
       'Failed to process memories: ${message['error']}',
       backgroundColor: Colors.red,
       colorText: Colors.white,
-      duration: Duration(seconds: 5),
+        duration: const Duration(seconds: 2),
     );
   }
 

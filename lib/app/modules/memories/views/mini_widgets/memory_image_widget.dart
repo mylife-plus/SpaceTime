@@ -88,7 +88,8 @@ class MemoryImageWidget extends StatelessWidget {
                           snackPosition: SnackPosition.BOTTOM,
                           backgroundColor: Colors.red.shade400,
                           colorText: Colors.white,
-                          margin: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
+
                         );
                       },
                     );

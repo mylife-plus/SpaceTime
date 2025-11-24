@@ -157,7 +157,7 @@ class MemoryAudioWidget extends StatelessWidget {
               if (controller.recordedAudios.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 80,
+                  height: 100,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: controller.recordedAudios.length,
@@ -244,16 +244,18 @@ class MemoryAudioWidget extends StatelessWidget {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                                                        const SizedBox(height: 4),
+
                                     Image.asset(
                                       AppImages.audioWaves,
-                                      width: 32,
-                                      height: 32,
+                                      width: 42,
+                                      height: 60,
                                       color:
                                           uiController.darkMode.value
                                               ? Colors.white
                                               : Colors.grey[700],
                                     ),
-                                    const SizedBox(height: 4),
+                                    // const SizedBox(height: 4),
                                     Text(
                                       controller.recordedAudios[index],
                                       style: TextStyle(
@@ -271,8 +273,8 @@ class MemoryAudioWidget extends StatelessWidget {
                             ),
                             // Delete icon at top-right corner
                             Positioned(
-                              top: 4,
-                              right: 4,
+                              top: 2,
+                              right: 2,
                               child: GestureDetector(
                                 onTap: () {
                                   showDeleteConfirmationDialog(

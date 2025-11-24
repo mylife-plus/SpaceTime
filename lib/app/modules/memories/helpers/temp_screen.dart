@@ -66,7 +66,7 @@ class DebugDatabaseViewer extends StatelessWidget {
               await DatabaseHelper.instance.getAllMemoriesWithDetails();
           final text = memories.map((m) => m.toString()).join('\n\n');
           await Clipboard.setData(ClipboardData(text: text));
-          Get.snackbar('Copied!', 'Database contents copied to clipboard');
+          Get.snackbar('Copied!', 'Database contents copied to clipboard',         duration: const Duration(seconds: 2));
         },
       ),
     );

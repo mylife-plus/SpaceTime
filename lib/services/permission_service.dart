@@ -330,7 +330,7 @@ class PermissionService extends GetxController {
       message,
       backgroundColor: color.withValues(alpha: 0.8),
       colorText: Colors.white,
-      duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
       snackPosition: SnackPosition.BOTTOM,
       margin: const EdgeInsets.all(16),
     );

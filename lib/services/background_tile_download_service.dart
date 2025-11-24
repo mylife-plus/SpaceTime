@@ -975,7 +975,7 @@ class BackgroundTileDownloadService extends GetxService {
       'Maximum tiles downloaded (${totalTilesDownloaded.value}). App now running in offline mode.',
       backgroundColor: Colors.blue,
       colorText: Colors.white,
-      duration: Duration(seconds: 5),
+        duration: const Duration(seconds: 2),
     );
 
     debugPrint(

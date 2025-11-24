@@ -767,7 +767,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
     if (_nameController.text.trim().isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          SnackBar(        duration: const Duration(seconds: 2),
+
             content: Text(
               'Please enter a ${widget.isTagMode ? 'hashtag' : 'mention'} name',
               style: GoogleFonts.kumbhSans(),
@@ -785,7 +786,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
       if (_selectedCategoryId == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            SnackBar(        duration: const Duration(seconds: 2),
+
               content: Text(
                 'Please select a ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
                 style: GoogleFonts.kumbhSans(),
@@ -800,7 +802,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
       if (_selectedCategoryId == 'add_new_category' && _newCategoryController.text.trim().isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            SnackBar(        duration: const Duration(seconds: 2),
+
               content: Text(
                 widget.isTagMode ? 'Please enter a new Hashtag Group name' : 'Please enter a new Contact Group name',
                 style: GoogleFonts.kumbhSans(),
@@ -829,7 +832,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             } else if (newGroup.id == -1) {
               // Duplicate hashtag group name
               if (mounted) {
-                Get.snackbar(
+                Get.snackbar(        duration: const Duration(seconds: 2),
+
                   'Duplicate Hashtag',
                   'Hashtag Group with this name already exists.',
                   backgroundColor: Colors.orange,
@@ -840,7 +844,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             } else if (newGroup.id == -3) {
               // Main group name conflicts with existing subgroup
               if (mounted) {
-                Get.snackbar(
+                Get.snackbar(        duration: const Duration(seconds: 2),
+
                   'Name Conflict',
                   'This name is already used by a hashtag in another group.',
                   backgroundColor: Colors.orange,
@@ -858,7 +863,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             } else if (newGroup.id == -1) {
               // Duplicate contact group name
               if (mounted) {
-                Get.snackbar(
+                Get.snackbar(        duration: const Duration(seconds: 2),
+
                   'Duplicate Contact',
                   'Contact Group with this name already exists.',
                   backgroundColor: Colors.orange,
@@ -869,7 +875,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             } else if (newGroup.id == -3) {
               // Main group name conflicts with existing subgroup
               if (mounted) {
-                Get.snackbar(
+                Get.snackbar(        duration: const Duration(seconds: 2),
+
                   'Name Conflict',
                   'This name is already used by a contact in another group.',
                   backgroundColor: Colors.orange,
@@ -932,7 +939,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             final message = widget.editParentId == null
                 ? 'Hashtag Group with this name already exists.'
                 : 'Hashtag with this name already exists.';
-            Get.snackbar(
+            Get.snackbar(        duration: const Duration(seconds: 2),
+
               'Duplicate Hashtag',
               message,
               backgroundColor: Colors.orange,
@@ -941,7 +949,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           }
         } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
           if (mounted) {
-            Get.snackbar(
+            Get.snackbar(        duration: const Duration(seconds: 2),
+
               'Name Conflict',
               'This name is already used by a hashtag in another group.',
               backgroundColor: Colors.orange,
@@ -950,7 +959,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           }
         } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
           if (mounted) {
-            Get.snackbar(
+            Get.snackbar(        duration: const Duration(seconds: 2),
+
               'Name Conflict',
               'This name is already used by the parent group.',
               backgroundColor: Colors.orange,
@@ -962,7 +972,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             final message = widget.editParentId == null
                 ? 'Contact Group with this name already exists.'
                 : 'Contact with this name already exists.';
-            Get.snackbar(
+            Get.snackbar(        duration: const Duration(seconds: 2),
+
               'Duplicate Contact',
               message,
               backgroundColor: Colors.orange,
@@ -972,7 +983,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+              SnackBar(        duration: const Duration(seconds: 2),
+
                 content: Text(
                   'Failed to update ${widget.isTagMode ? 'hashtag' : 'contact'}',
                   style: GoogleFonts.kumbhSans(),
@@ -990,7 +1002,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
     if (_selectedCategoryId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          SnackBar(        duration: const Duration(seconds: 2),
+
             content: Text(
               'Please select a ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group or add a new ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
               style: GoogleFonts.kumbhSans(),
@@ -1005,7 +1018,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
     if (_selectedCategoryId == 'add_new_category' && _newCategoryController.text.trim().isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          SnackBar(        duration: const Duration(seconds: 2),
+
             content: Text(
               widget.isTagMode ? 'Please enter a new Hashtag Group name' : 'Please enter a new Contact Group name',
               style: GoogleFonts.kumbhSans(),
@@ -1034,7 +1048,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           } else if (newGroup.id == -1) {
             // Duplicate hashtag group name
             if (mounted) {
-              Get.snackbar(
+              Get.snackbar(        duration: const Duration(seconds: 2),
+
                 'Duplicate Hashtag',
                 'Hashtag Group with this name already exists.',
                 backgroundColor: Colors.orange,
@@ -1045,7 +1060,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           } else if (newGroup.id == -3) {
             // Main group name conflicts with existing subgroup
             if (mounted) {
-              Get.snackbar(
+              Get.snackbar(        duration: const Duration(seconds: 2),
+
                 'Name Conflict',
                 'This name is already used by a hashtag in another group.',
                 backgroundColor: Colors.orange,
@@ -1064,7 +1080,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           } else if (newGroup.id == -1) {
             // Duplicate contact group name
             if (mounted) {
-              Get.snackbar(
+              Get.snackbar(        duration: const Duration(seconds: 2),
+
                 'Duplicate Contact',
                 'Contact Group with this name already exists.',
                 backgroundColor: Colors.orange,
@@ -1075,7 +1092,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           } else if (newGroup.id == -3) {
             // Main group name conflicts with existing subgroup
             if (mounted) {
-              Get.snackbar(
+              Get.snackbar(        duration: const Duration(seconds: 2),
+
                 'Name Conflict',
                 'This name is already used by a contact in another group.',
                 backgroundColor: Colors.orange,
@@ -1100,7 +1118,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         } else if (newSubgroup.id == -1) {
           // Duplicate hashtag subcategory name
           if (mounted) {
-            Get.snackbar(
+            Get.snackbar(        duration: const Duration(seconds: 2),
+
               'Duplicate Hashtag',
               'Hashtag with this name already exists.',
               backgroundColor: Colors.orange,
@@ -1111,7 +1130,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         } else if (newSubgroup.id == -4) {
           // Subcategory name conflicts with parent group
           if (mounted) {
-            Get.snackbar(
+            Get.snackbar(        duration: const Duration(seconds: 2),
+
               'Name Conflict',
               'This name is already used by the parent group.',
               backgroundColor: Colors.orange,
@@ -1128,7 +1148,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         } else if (newSubgroup.id == -1) {
           // Duplicate contact subcategory name
           if (mounted) {
-            Get.snackbar(
+            Get.snackbar(        duration: const Duration(seconds: 2),
+
               'Duplicate Contact',
               'Contact with this name already exists.',
               backgroundColor: Colors.orange,
@@ -1139,7 +1160,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         } else if (newSubgroup.id == -4) {
           // Subcategory name conflicts with parent group
           if (mounted) {
-            Get.snackbar(
+            Get.snackbar(        duration: const Duration(seconds: 2),
+
               'Name Conflict',
               'This name is already used by the parent group.',
               backgroundColor: Colors.orange,
@@ -1165,7 +1187,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
       // Show error message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          SnackBar(        duration: const Duration(seconds: 2),
+
             content: Text(
               'Failed to add ${widget.isTagMode ? 'Hashtag' : 'Contact'} ${_selectedCategoryId == 'add_new_category' ? 'Group and ${widget.isTagMode ? 'Hashtag' : 'Contact'}' : ''}',
               style: GoogleFonts.kumbhSans(),

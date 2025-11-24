@@ -214,7 +214,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Unable to load hashtag groups. Please try again.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 2),
       );
 
       // Set empty hashtag groups to prevent UI errors
@@ -257,7 +257,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Unable to Refresh',
         'Unable to refresh hashtag groups. Please try again.',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
     debugPrint('[HashtagGroupsView][_refreshHashtagGroupsFromDatabase] ===== REFRESH COMPLETED =====');
@@ -428,7 +429,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Success',
           'Hashtag group deleted successfully!',
           backgroundColor: Colors.green,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else if (result == null) {
         // Cannot delete due to memories
@@ -446,7 +448,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Unable to Delete',
           'Unable to delete hashtag group. Please try again.',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -455,7 +458,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Unable to Delete',
         'Unable to delete hashtag group. Please try again.',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -595,7 +599,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Validation Error',
                 'Please enter a hashtag group name',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
               return;
             }
@@ -620,14 +625,16 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   'Success',
                   'Hashtag group "$newName" updated successfully!',
                   backgroundColor: Colors.green,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               } else {
                 Get.snackbar(
                   'Unable to Update',
                   'Unable to update hashtag group. Please try again.',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               }
             } catch (e) {
@@ -636,7 +643,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Unable to Update',
                 'Unable to update hashtag group. Please try again.',
                 backgroundColor: Colors.red,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             }
           },
@@ -672,7 +680,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Success',
           'Hashtag deleted successfully!',
           backgroundColor: Colors.green,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else if (result == null) {
         // Cannot delete due to memories
@@ -684,7 +693,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Unable to Delete',
           'Unable to delete hashtag. Please try again.',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     } catch (e) {
@@ -693,7 +703,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Unable to Delete',
         'Unable to delete hashtag. Please try again.',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -892,7 +903,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Invalid Name',
                 'Hashtag name cannot be empty',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
               return;
             }
@@ -908,7 +920,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   'Unable to Add',
                   'Unable to add hashtag. Please try again.',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               } else if (newSubgroup.id == -1) {
@@ -917,7 +930,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   'Duplicate Hashtag',
                   'Hashtag with this name already exists.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               } else if (newSubgroup.id == -4) {
@@ -926,7 +940,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   'Name Conflict',
                   'This name is already used by the parent group.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               }
@@ -937,7 +952,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Success',
                 'Hashtag added successfully',
                 backgroundColor: Colors.green,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             } catch (e) {
               debugPrint('[HashtagGroupsView] Error adding subgroup: $e');
@@ -945,7 +961,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Unable to Add',
                 'Unable to add hashtag. Please try again.',
                 backgroundColor: Colors.red,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             }
           },
@@ -1838,7 +1855,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Invalid Name',
                 'Hashtag group name cannot be empty',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
               return;
             }
@@ -1855,7 +1873,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Success',
                 'Hashtag updated successfully',
                 backgroundColor: Colors.green,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             } catch (e) {
               debugPrint('[HashtagGroupsView] Error updating hashtag group: $e');
@@ -1867,28 +1886,32 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   'Duplicate Hashtag',
                   message,
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
                 Get.snackbar(
                   'Name Conflict',
                   'This name is already used by a hashtag in another group.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
                 Get.snackbar(
                   'Name Conflict',
                   'This name is already used by the parent group.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               } else {
                 Get.snackbar(
                   'Unable to Update',
                   'Unable to update hashtag group. Please try again.',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
               }
             }
@@ -2023,7 +2046,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Invalid Name',
         'Hashtag group name cannot be empty',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -2041,7 +2065,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Success',
         'Hashtag updated successfully',
         backgroundColor: Colors.green,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     } catch (e) {
       debugPrint('[HashtagGroupsView] Error updating hashtag group: $e');
@@ -2053,28 +2078,32 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Duplicate Hashtag',
           message,
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
         Get.snackbar(
           'Name Conflict',
           'This name is already used by a hashtag in another group.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
         Get.snackbar(
           'Name Conflict',
           'This name is already used by the parent group.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       } else {
         Get.snackbar(
           'Unable to Update',
           'Unable to update hashtag group. Please try again.',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       }
     }
@@ -2103,7 +2132,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Invalid Name',
                 'Hashtag group name cannot be empty',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
               return;
             }
@@ -2116,7 +2146,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   'Unable to Add',
                   'Unable to add hashtag group. Please try again.',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               } else if (newGroup.id == -1) {
@@ -2125,7 +2156,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   'Duplicate Hashtag',
                   'Hashtag Group with this name already exists.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               } else if (newGroup.id == -3) {
@@ -2134,7 +2166,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   'Name Conflict',
                   'This name is already used by a hashtag in another group.',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                 );
                 return;
               }
@@ -2145,7 +2178,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Success',
                 'Hashtag group "$name" added successfully!',
                 backgroundColor: Colors.green,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             } catch (e) {
               debugPrint('[HashtagGroupsView] Error adding main hashtag group: $e');
@@ -2153,7 +2187,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                 'Error',
                 'Failed to add hashtag group',
                 backgroundColor: Colors.red,
-                colorText: Colors.white,
+                colorText: Colors.white,        duration: const Duration(seconds: 2),
+
               );
             }
           },
@@ -2177,7 +2212,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Invalid Name',
         'Hashtag group name cannot be empty',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -2190,7 +2226,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Unable to Add',
           'Unable to add hashtag group. Please try again.',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newGroup.id == -1) {
@@ -2199,7 +2236,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Duplicate Hashtag',
           'Hashtag Group with this name already exists.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newGroup.id == -3) {
@@ -2208,7 +2246,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Name Conflict',
           'This name is already used by a hashtag in another group.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -2220,7 +2259,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Success',
         'Hashtag group "$name" added successfully!',
         backgroundColor: Colors.green,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     } catch (e) {
       debugPrint('[HashtagGroupsView] Error adding main hashtag group: $e');
@@ -2228,7 +2268,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Unable to Add',
         'Unable to add hashtag group. Please try again.',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -2353,7 +2394,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Invalid Name',
         'Hashtag name cannot be empty',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
       return;
     }
@@ -2369,7 +2411,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Unable to Add',
           'Unable to add hashtag. Please try again.',
           backgroundColor: Colors.red,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newSubgroup.id == -1) {
@@ -2378,7 +2421,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Duplicate Hashtag',
           'Hashtag with this name already exists.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       } else if (newSubgroup.id == -4) {
@@ -2387,7 +2431,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           'Name Conflict',
           'This name is already used by the parent group.',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
         return;
       }
@@ -2399,7 +2444,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Success',
         'Hashtag added successfully',
         backgroundColor: Colors.green,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     } catch (e) {
       debugPrint('[HashtagGroupsView] Error adding subgroup: $e');
@@ -2407,7 +2453,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
         'Unable to Add',
         'Unable to add hashtag. Please try again.',
         backgroundColor: Colors.red,
-        colorText: Colors.white,
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
+
       );
     }
   }

@@ -57,7 +57,7 @@ class AudioPlayerHelper {
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       );
       return;
     }
@@ -119,7 +119,7 @@ class AudioPlayerHelper {
       colorText: Colors.white,
       margin: const EdgeInsets.all(12),
       snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
     );
   }
 }

@@ -375,7 +375,8 @@ class PermissionRequiredScreen extends StatelessWidget {
                                       colorText: Colors.white,
                                       snackPosition: SnackPosition.BOTTOM,
                                       margin: const EdgeInsets.all(16),
-                                      borderRadius: 12,
+                                      borderRadius: 12,        duration: const Duration(seconds: 2),
+
                                     );
                                   }
                                 },

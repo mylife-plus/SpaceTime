@@ -807,7 +807,7 @@ class MemoryController extends GetxController {
           colorText: Colors.white,
           margin: const EdgeInsets.all(12),
           snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
         );
         return;
       }
@@ -876,7 +876,7 @@ class MemoryController extends GetxController {
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -933,7 +933,7 @@ class MemoryController extends GetxController {
                 colorText: Colors.white,
                 margin: const EdgeInsets.all(12),
                 snackPosition: SnackPosition.TOP,
-                duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
               );
             } else {
               // Convert absolute path to relative path for storage
@@ -994,7 +994,7 @@ class MemoryController extends GetxController {
               colorText: Colors.white,
               margin: const EdgeInsets.all(12),
               snackPosition: SnackPosition.TOP,
-              duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
             );
           }
         } else {
@@ -1012,7 +1012,7 @@ class MemoryController extends GetxController {
             colorText: Colors.white,
             margin: const EdgeInsets.all(12),
             snackPosition: SnackPosition.TOP,
-            duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
           );
         }
       } else {
@@ -1030,7 +1030,7 @@ class MemoryController extends GetxController {
           colorText: Colors.white,
           margin: const EdgeInsets.all(12),
           snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
         );
       }
     } catch (e) {
@@ -1047,7 +1047,7 @@ class MemoryController extends GetxController {
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       );
     }
   }

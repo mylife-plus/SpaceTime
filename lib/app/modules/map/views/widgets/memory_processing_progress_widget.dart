@@ -240,7 +240,8 @@ class MemoryProcessingStatusWidget extends StatelessWidget {
           'Processing Complete',
           'Processed ${memories.length} memories into ${clusters.length} clusters',
           backgroundColor: Colors.green,
-          colorText: Colors.white,
+          colorText: Colors.white,        duration: const Duration(seconds: 2),
+
         );
       },
     );
