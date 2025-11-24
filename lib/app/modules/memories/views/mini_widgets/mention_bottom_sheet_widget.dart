@@ -339,33 +339,40 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                     );
 
                     if (matchedItem != null && searchText.isNotEmpty) {
-                      return GestureDetector(
-                        onTap: () async {
-                          // Save to recents with parent information
-                          await _saveItemToRecents(matchedItem);
+                      return Row(
+                        children: [
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              // Save to recents with parent information
+                              await _saveItemToRecents(matchedItem);
 
-                          // Select the matched item
-                          final prefixChar = widget.isTagMode ? '#' : '@';
-                          widget.onItemSelected('$prefixChar${matchedItem['name']}');
-                        },
-                        child: Icon(
-                          Icons.check,
-                          color: Colors.green,
-                          size: 24,
-                        ),
+                              // Select the matched item
+                              final prefixChar = widget.isTagMode ? '#' : '@';
+                              widget.onItemSelected('$prefixChar${matchedItem['name']}');
+                            },
+                            child: Image.asset(
+                              'assets/images/ic_tick.png',
+                              width: 24,
+                              height: 24,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
                       );
                     }
-                    return SizedBox.shrink();
+                    return const SizedBox.shrink();
                   }),
                   // Close button
                   GestureDetector(
                     onTap: () {
                       widget.onEditingComplete?.call();
                     },
-                    child: Icon(
-                      Icons.close,
+                    child: Image.asset(
+                      'assets/images/ic_cross.png',
+                      width: 24,
+                      height: 24,
                       color: Colors.red,
-                      size: 24,
                     ),
                   ),
                 ],
