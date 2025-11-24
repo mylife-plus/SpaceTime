@@ -655,6 +655,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               ),
               child: GestureDetector(
                 onTap: () async {
+                  // Close the current popup
+                  widget.onEditingComplete?.call();
+
                   // Navigate to the appropriate groups screen
                   final result = widget.isTagMode
                       ? await Get.toNamed('/hashtag-groups')
@@ -1238,13 +1241,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                     Navigator.of(context).pop();
                     widget.onCancel?.call();
                   },
-                  child: Container(
-                    // padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      Icons.close,
-                      color: Colors.red,
-                      size: 28,
-                    ),
+                  child: Image.asset(
+                    'assets/images/ic_cross.png',
+                    width: 28,
+                    height: 28,
+                    color: Colors.red,
                   ),
                 ),
                 // Title
@@ -1261,13 +1262,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 // Check button
                 GestureDetector(
                   onTap: _addSubcategory,
-                  child: Container(
-                    // padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      Icons.check,
-                      color: Colors.green,
-                      size: 28,
-                    ),
+                  child: Image.asset(
+                    'assets/images/ic_tick.png',
+                    width: 28,
+                    height: 28,
+                    color: Colors.green,
                   ),
                 ),
               ],
