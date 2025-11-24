@@ -45,7 +45,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   final TextEditingController editController = TextEditingController();
   final TextEditingController searchController = TextEditingController();
   late TagMentionController controller;
-  final RxString currentSearchText = ''.obs;
 
   @override
   void initState() {
@@ -62,7 +61,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
 
     // Set initial search text
     searchController.text = widget.initialKeyword;
-    currentSearchText.value = widget.initialKeyword;
 
     // Listen to search notifier changes
     widget.searchNotifier.addListener(_onSearchChanged);
@@ -89,9 +87,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     if (searchController.text != searchText) {
       searchController.text = searchText;
     }
-
-    // Update reactive search text for Obx
-    currentSearchText.value = searchText;
   }
 
   /// Helper function to check if an item is already added (excluded)
@@ -327,54 +322,18 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       ),
                     ),
                   ),
-                  // Check icon - only show if search text matches a subcategory
-                  Obx(() {
-                    final searchText = currentSearchText.value.trim();
-
-                    // Find exact match in subcategories only
-                    final matchedItem = controller.filteredItems.firstWhereOrNull(
-                      (item) =>
-                        item['type'] == 'subgroup' &&
-                        item['name'].toString().toLowerCase() == searchText.toLowerCase()
-                    );
-
-                    if (matchedItem != null && searchText.isNotEmpty) {
-                      return Row(
-                        children: [
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () async {
-                              // Save to recents with parent information
-                              await _saveItemToRecents(matchedItem);
-
-                              // Select the matched item
-                              final prefixChar = widget.isTagMode ? '#' : '@';
-                              widget.onItemSelected('$prefixChar${matchedItem['name']}');
-                            },
-                            child: Image.asset(
-                              'assets/images/ic_tick.png',
-                              width: 24,
-                              height: 24,
-                              color: Colors.green,
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  }),
                   // Close button
                   GestureDetector(
                     onTap: () {
                       widget.onEditingComplete?.call();
                     },
-                    child: Image.asset(
-                      'assets/images/ic_cross.png',
-                      width: 24,
-                      height: 24,
+                    child: Icon(
+                      Icons.close,
                       color: Colors.red,
+                      size: 24,
                     ),
                   ),
+                 
                 ],
               ),
             ),
@@ -696,9 +655,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               ),
               child: GestureDetector(
                 onTap: () async {
-                  // Close the current popup
-                  widget.onEditingComplete?.call();
-
                   // Navigate to the appropriate groups screen
                   final result = widget.isTagMode
                       ? await Get.toNamed('/hashtag-groups')
