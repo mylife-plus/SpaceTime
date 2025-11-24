@@ -759,6 +759,8 @@ return;
                   'Memory deleted successfully',
                   backgroundColor: Colors.red.withValues(alpha: 0.8),
                   colorText: Colors.white,
+                          duration: const Duration(seconds: 2),
+
                 );
               } catch (e) {
                 Get.snackbar(
@@ -766,6 +768,8 @@ return;
                   'Failed to delete memory: $e',
                   backgroundColor: Colors.red,
                   colorText: Colors.white,
+                          duration: const Duration(seconds: 2),
+
                 );
               }
             },
@@ -1004,12 +1008,11 @@ return;
 
             // Audio durations - only show if valid audio durations exist
             if (widget.audioDurations != null && widget.audioDurations!.isNotEmpty)
-              GestureDetector(
-                
-                onLongPress: () {
-                  _handleLongPress();
-                },
-                child: AudioDurationList(durations: widget.audioDurations!, audioPaths: widget.audioPaths)),
+              AudioDurationList(
+                durations: widget.audioDurations!,
+                audioPaths: widget.audioPaths,
+                onLongPress: _handleLongPress,
+              ),
         
           ],
         ),

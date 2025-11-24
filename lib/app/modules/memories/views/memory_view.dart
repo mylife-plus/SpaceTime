@@ -334,7 +334,8 @@ class _MemoryViewState extends State<MemoryView> {
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
+        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
+
       );
 
       debugPrint(
@@ -348,7 +349,8 @@ class _MemoryViewState extends State<MemoryView> {
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
+        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -375,7 +377,8 @@ class _MemoryViewState extends State<MemoryView> {
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
+        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
+
       );
 
       debugPrint(
@@ -389,7 +392,8 @@ class _MemoryViewState extends State<MemoryView> {
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
+        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -404,6 +408,13 @@ class _MemoryViewState extends State<MemoryView> {
         // Mark this index as deleted (using the original index before any UI changes)
         _deletedAudioIndices.add(index);
         debugPrint('Marked audio at index $index for deletion in edit mode');
+
+        // Refresh add memories view in real-time if controller exists
+        if (Get.isRegistered<AddMemoriesController>()) {
+          final addMemoriesController = Get.find<AddMemoriesController>();
+          addMemoriesController.onAgainInit();
+          debugPrint('Add memories view refreshed after audio deletion');
+        }
       }
 
       // Remove from controller lists (this handles the UI and file deletion)
@@ -420,7 +431,8 @@ class _MemoryViewState extends State<MemoryView> {
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
+        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
+
       );
     }
   }
@@ -925,7 +937,8 @@ class _MemoryViewState extends State<MemoryView> {
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Draft saved successfully!'),
+                            content: Text('Draft saved successfully!'),        duration: const Duration(seconds: 2),
+
                           ),
                         );
                       },
@@ -1169,7 +1182,8 @@ class _MemoryViewState extends State<MemoryView> {
           SnackBar(
             content: const Text('Memory updated successfully!'),
             backgroundColor: Colors.blue.shade400,
-            margin: const EdgeInsets.all(12),
+            margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
+
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -1346,7 +1360,8 @@ class _MemoryViewState extends State<MemoryView> {
                     'Success',
                     'Memory deleted successfully',
                     backgroundColor: Colors.red.withValues(alpha: 0.8),
-                    colorText: Colors.white,
+                    colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                   );
 
                   // Navigate back to memories list and refresh
@@ -1362,7 +1377,8 @@ class _MemoryViewState extends State<MemoryView> {
                     'Unable to Delete',
                     'Unable to delete memory. Please try again.',
                     backgroundColor: Colors.red,
-                    colorText: Colors.white,
+                    colorText: Colors.white,        duration: const Duration(seconds: 2),
+
                   );
                 }
 
@@ -1555,7 +1571,8 @@ class _MemoryViewState extends State<MemoryView> {
         ],
       );
     } catch (e) {
-      Get.snackbar('Unable to Load', 'Unable to load data. Please try again.');
+      Get.snackbar('Unable to Load', 'Unable to load data. Please try again.'  ,      duration: const Duration(seconds: 2),
+);
     }
   }
 

@@ -177,14 +177,7 @@ class MemoryAudioWidget extends StatelessWidget {
                                   // Use default controller method (for new memories)
                                   controller.removeAudio(index);
                                 }
-                                Get.snackbar(
-                                  'Deleted',
-                                  'Your audio has been successfully deleted.',
-                                  snackPosition: SnackPosition.BOTTOM,
-                                  backgroundColor: Colors.red.shade400,
-                                  colorText: Colors.white,
-                                  margin: const EdgeInsets.all(12),
-                                );
+                                // Snackbar removed as per user request
                               },
                             );
                           },

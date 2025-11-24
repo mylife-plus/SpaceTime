@@ -11,10 +11,12 @@ import 'audio_player_helper.dart';
 class AudioDurationList extends StatefulWidget {
   final List<String> durations;
   final List<String>? audioPaths;
+  final VoidCallback? onLongPress;
 
   const AudioDurationList({
     required this.durations,
     this.audioPaths,
+    this.onLongPress,
     super.key,
   });
 
@@ -65,9 +67,7 @@ class _AudioDurationListState extends State<AudioDurationList>
                     AudioPlayerHelper.showAudioNotAvailable();
                   }
                 },
-                onLongPress: () {
-                  Get.to(() => MemoryView(), binding: MemoryBinding());
-                },
+                onLongPress: widget.onLongPress,
                 child: Container(
                   padding: const EdgeInsets.all(1.5),
                   decoration: BoxDecoration(
