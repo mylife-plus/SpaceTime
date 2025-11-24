@@ -1234,43 +1234,64 @@ class AddMemoriesController extends GetxController {
   /// Replace all selected categories with new selection from picker
   void replaceSelectedCategories(List<PlaceCategory> categories) {
     debugPrint('[AddMemoriesController] Replacing selected categories with ${categories.length} new categories');
+    debugPrint('[AddMemoriesController] Before clear: ${selectedCategories.length} categories');
     selectedCategories.clear();
+    debugPrint('[AddMemoriesController] After clear: ${selectedCategories.length} categories');
 
     for (final category in categories) {
       final categoryWithEmoji = category.emoji.isNotEmpty
           ? '${category.emoji} ${category.name}'
           : category.name;
       selectedCategories.add(categoryWithEmoji);
+      debugPrint('[AddMemoriesController] Added category: $categoryWithEmoji');
     }
+
+    // Force refresh of the observable list
+    selectedCategories.refresh();
 
     _updateFilterStatus();
     debugPrint('[AddMemoriesController] Categories replaced. Total: ${selectedCategories.length}');
+    debugPrint('[AddMemoriesController] Final categories: ${selectedCategories.join(", ")}');
   }
 
   /// Replace all selected hashtags with new selection from picker
   void replaceSelectedHashtags(List<HashtagGroup> groups) {
     debugPrint('[AddMemoriesController] Replacing selected hashtags with ${groups.length} new groups');
+    debugPrint('[AddMemoriesController] Before clear: ${selectedHashtags.length} hashtags');
     selectedHashtags.clear();
+    debugPrint('[AddMemoriesController] After clear: ${selectedHashtags.length} hashtags');
 
     for (final group in groups) {
       selectedHashtags.add(group.name);
+      debugPrint('[AddMemoriesController] Added hashtag: ${group.name}');
     }
+
+    // Force refresh of the observable list
+    selectedHashtags.refresh();
 
     _updateFilterStatus();
     debugPrint('[AddMemoriesController] Hashtags replaced. Total: ${selectedHashtags.length}');
+    debugPrint('[AddMemoriesController] Final hashtags: ${selectedHashtags.join(", ")}');
   }
 
   /// Replace all selected contacts with new selection from picker
   void replaceSelectedContacts(List<ContactGroup> groups) {
     debugPrint('[AddMemoriesController] Replacing selected contacts with ${groups.length} new groups');
+    debugPrint('[AddMemoriesController] Before clear: ${selectedContacts.length} contacts');
     selectedContacts.clear();
+    debugPrint('[AddMemoriesController] After clear: ${selectedContacts.length} contacts');
 
     for (final group in groups) {
       selectedContacts.add(group.name);
+      debugPrint('[AddMemoriesController] Added contact: ${group.name}');
     }
+
+    // Force refresh of the observable list
+    selectedContacts.refresh();
 
     _updateFilterStatus();
     debugPrint('[AddMemoriesController] Contacts replaced. Total: ${selectedContacts.length}');
+    debugPrint('[AddMemoriesController] Final contacts: ${selectedContacts.join(", ")}');
   }
 
   void _updateFilterStatus() {
