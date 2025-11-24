@@ -178,6 +178,9 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   final RxList<String> _recentMainCategoryGroups = <String>[].obs; // Track which groups are main categories
   final RxBool _isLoading = false.obs;
 
+  // Store parent information for contacts
+  final RxMap<String, String> _contactParentMap = <String, String>{}.obs; // contact name -> parent group name
+
   List<String> _allContacts = [];
   List<ContactGroup> _allGroups = [];
 
@@ -246,14 +249,21 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Load recent individual contacts (stored as simple strings)
+      // Load recent individual contacts (stored with parent information)
       final recentContactsJson = prefs.getStringList('recent_individual_contacts_filter') ?? [];
       final recentContacts = <String>[];
+      final recentContactsWithParent = <Map<String, String>>[];
+
       for (final contactJson in recentContactsJson) {
         try {
           final contactData = json.decode(contactJson);
           if (contactData is Map<String, dynamic> && contactData.containsKey('name')) {
             recentContacts.add(contactData['name']);
+            // Store contact with parent information for display
+            recentContactsWithParent.add({
+              'name': contactData['name'],
+              'parentName': contactData['parentName'] ?? '',
+            });
           }
         } catch (e) {
           debugPrint('[SearchableContactWidget] Error parsing recent contact: $e');
@@ -281,6 +291,21 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
           .where((g) => g.isMainGroup)
           .map((g) => g.name)
           .toList();
+
+      // Populate the parent map for contacts
+      _contactParentMap.clear();
+      for (final contactData in recentContactsWithParent) {
+        _contactParentMap[contactData['name']!] = contactData['parentName']!;
+      }
+
+      // Also add parent information for all loaded groups
+      for (final group in _allGroups) {
+        if (group.subgroups != null) {
+          for (final subgroup in group.subgroups!) {
+            _contactParentMap[subgroup.name] = group.name;
+          }
+        }
+      }
 
       // Combine recent contacts and groups, prioritizing groups (max 6 items total)
       final combinedRecent = <String>[];
@@ -313,30 +338,52 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
     }
 
     final lowerQuery = query.toLowerCase();
-    
-    // Search individual contacts
+
+    // Search individual contacts (by name or parent group name)
     final contactResults = _allContacts
-        .where((contact) => contact.toLowerCase().contains(lowerQuery))
+        .where((contact) {
+          final contactLower = contact.toLowerCase();
+          final parentName = _contactParentMap[contact] ?? '';
+          final parentLower = parentName.toLowerCase();
+          return contactLower.contains(lowerQuery) || parentLower.contains(lowerQuery);
+        })
         .take(10)
         .toList();
-    
+
     // Search groups (both main groups and subgroups)
+    // When searching for a main group, include all its subgroups
     final groupResults = <ContactGroup>[];
+    final addedSubgroupIds = <int>{};
+
     for (final group in _allGroups) {
+      // Check if main group matches
       if (group.name.toLowerCase().contains(lowerQuery)) {
         groupResults.add(group);
-      }
-      if (group.subgroups != null) {
-        for (final subgroup in group.subgroups!) {
-          if (subgroup.name.toLowerCase().contains(lowerQuery)) {
-            groupResults.add(subgroup);
+        // Add all subgroups of this main group
+        if (group.subgroups != null) {
+          for (final subgroup in group.subgroups!) {
+            if (!addedSubgroupIds.contains(subgroup.id)) {
+              groupResults.add(subgroup);
+              addedSubgroupIds.add(subgroup.id!);
+            }
+          }
+        }
+      } else {
+        // Check subgroups
+        if (group.subgroups != null) {
+          for (final subgroup in group.subgroups!) {
+            if (subgroup.name.toLowerCase().contains(lowerQuery) &&
+                !addedSubgroupIds.contains(subgroup.id)) {
+              groupResults.add(subgroup);
+              addedSubgroupIds.add(subgroup.id!);
+            }
           }
         }
       }
     }
-    
+
     _searchResults.value = contactResults;
-    _groupResults.value = groupResults.take(5).toList();
+    _groupResults.value = groupResults.take(10).toList();
   }
 
   Future<void> _selectContact(String contact, bool isGroup) async {
@@ -670,6 +717,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   Widget _buildContactItem(String contact, UiController uiController) {
     // Check if this item is a main group (exists in _recentMainCategoryGroups)
     final isMainGroup = _recentMainCategoryGroups.contains(contact);
+    final parentName = _contactParentMap[contact] ?? '';
 
     return InkWell(
       onTap: () => _selectContact(contact, isMainGroup),
@@ -699,6 +747,15 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
+            // Show parent group name if available
+            if (parentName.isNotEmpty && !isMainGroup)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Text(
+                  parentName,
+                  style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+                ),
+              ),
           ],
         ),
       ),
@@ -706,6 +763,8 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
   }
 
   Widget _buildGroupItem(ContactGroup group, UiController uiController) {
+    final parentName = _contactParentMap[group.name] ?? '';
+
     return InkWell(
       onTap: () => _selectGroup(group),
       child: Container(
@@ -734,6 +793,15 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
+            // Show parent group name if available
+            if (parentName.isNotEmpty && !group.isMainGroup)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Text(
+                  parentName,
+                  style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+                ),
+              ),
           ],
         ),
       ),

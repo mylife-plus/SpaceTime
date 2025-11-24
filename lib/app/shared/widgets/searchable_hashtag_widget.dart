@@ -300,6 +300,21 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         });
       }
 
+      // Populate the parent map for hashtags
+      _hashtagParentMap.clear();
+      for (final hashtagData in recentHashtagsWithParent) {
+        _hashtagParentMap[hashtagData['name']!] = hashtagData['parentName']!;
+      }
+
+      // Also add parent information for all loaded groups
+      for (final group in _allGroups) {
+        if (group.subgroups != null) {
+          for (final subgroup in group.subgroups!) {
+            _hashtagParentMap[subgroup.name] = group.name;
+          }
+        }
+      }
+
       // Combine recent hashtags and groups, prioritizing groups (max 6 items total)
       final combinedRecent = <String>[];
       final groupNames = <String>[];
@@ -330,30 +345,52 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     }
 
     final lowerQuery = query.toLowerCase();
-    
-    // Search individual hashtags
+
+    // Search individual hashtags (by name or parent group name)
     final hashtagResults = _allHashtags
-        .where((hashtag) => hashtag.toLowerCase().contains(lowerQuery))
+        .where((hashtag) {
+          final hashtagLower = hashtag.toLowerCase();
+          final parentName = _hashtagParentMap[hashtag] ?? '';
+          final parentLower = parentName.toLowerCase();
+          return hashtagLower.contains(lowerQuery) || parentLower.contains(lowerQuery);
+        })
         .take(10)
         .toList();
-    
+
     // Search groups (both main groups and subgroups)
+    // When searching for a main group, include all its subgroups
     final groupResults = <HashtagGroup>[];
+    final addedSubgroupIds = <int>{};
+
     for (final group in _allGroups) {
+      // Check if main group matches
       if (group.name.toLowerCase().contains(lowerQuery)) {
         groupResults.add(group);
-      }
-      if (group.subgroups != null) {
-        for (final subgroup in group.subgroups!) {
-          if (subgroup.name.toLowerCase().contains(lowerQuery)) {
-            groupResults.add(subgroup);
+        // Add all subgroups of this main group
+        if (group.subgroups != null) {
+          for (final subgroup in group.subgroups!) {
+            if (!addedSubgroupIds.contains(subgroup.id)) {
+              groupResults.add(subgroup);
+              addedSubgroupIds.add(subgroup.id!);
+            }
+          }
+        }
+      } else {
+        // Check subgroups
+        if (group.subgroups != null) {
+          for (final subgroup in group.subgroups!) {
+            if (subgroup.name.toLowerCase().contains(lowerQuery) &&
+                !addedSubgroupIds.contains(subgroup.id)) {
+              groupResults.add(subgroup);
+              addedSubgroupIds.add(subgroup.id!);
+            }
           }
         }
       }
     }
-    
+
     _searchResults.value = hashtagResults;
-    _groupResults.value = groupResults.take(5).toList();
+    _groupResults.value = groupResults.take(10).toList();
   }
 
   Future<void> _selectHashtag(String hashtag, bool isGroup) async {
@@ -687,7 +724,8 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   Widget _buildHashtagItem(String hashtag, UiController uiController) {
     // Check if this item is a main group (exists in _recentHashtagGroups which stores main category groups)
     final isMainGroup = _recentHashtagGroups.contains(hashtag);
-    
+    final parentName = _hashtagParentMap[hashtag] ?? '';
+
     return InkWell(
       onTap: () => _selectHashtag(hashtag, isMainGroup),
       child: Container(
@@ -716,6 +754,15 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
+            // Show parent group name if available
+            if (parentName.isNotEmpty && !isMainGroup)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Text(
+                  parentName,
+                  style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+                ),
+              ),
           ],
         ),
       ),
@@ -728,6 +775,8 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     if (group.isMainGroup) {
       return Container();
     }
+
+    final parentName = _hashtagParentMap[group.name] ?? '';
 
     return InkWell(
       onTap: () => _selectGroup(group),
@@ -750,6 +799,15 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 style: AppFonts.medium(18, color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
             ),
+            // Show parent group name if available
+            if (parentName.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Text(
+                  parentName,
+                  style: AppFonts.regular(15, color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!),
+                ),
+              ),
           ],
         ),
       ),

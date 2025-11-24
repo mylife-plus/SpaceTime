@@ -16,17 +16,11 @@ class PlaceCategoryService {
   /// Get all main categories (parent categories)
   Future<List<PlaceCategory>> getMainCategories() async {
     try {
-      debugPrint(
-        '[PlaceCategoryService][getMainCategories] Fetching main categories',
-      );
       final maps = await _databaseHelper.getMainPlaceCategories();
       final categories = PlaceCategoryHelper.fromMapList(maps);
-      debugPrint(
-        '[PlaceCategoryService][getMainCategories] Found ${categories.length} main categories',
-      );
       return PlaceCategoryHelper.sortCategories(categories);
     } catch (e) {
-      debugPrint('[PlaceCategoryService][getMainCategories] Error: $e');
+      // debugPrint('[PlaceCategoryService][getMainCategories] Error: $e');
       return [];
     }
   }
@@ -34,17 +28,13 @@ class PlaceCategoryService {
   /// Get subcategories for a specific parent category
   Future<List<PlaceCategory>> getSubcategories(int parentId) async {
     try {
-      debugPrint(
-        '[PlaceCategoryService][getSubcategories] Fetching subcategories for parent ID: $parentId',
-      );
+      
       final maps = await _databaseHelper.getSubPlaceCategories(parentId);
       final categories = PlaceCategoryHelper.fromMapList(maps);
-      debugPrint(
-        '[PlaceCategoryService][getSubcategories] Found ${categories.length} subcategories',
-      );
+      
       return PlaceCategoryHelper.sortCategories(categories);
     } catch (e) {
-      debugPrint('[PlaceCategoryService][getSubcategories] Error: $e');
+      // debugPrint('[PlaceCategoryService][getSubcategories] Error: $e');
       return [];
     }
   }
@@ -52,9 +42,6 @@ class PlaceCategoryService {
   /// Get a single category by ID
   Future<PlaceCategory?> getCategoryById(int categoryId) async {
     try {
-      debugPrint(
-        '[PlaceCategoryService][getCategoryById] Fetching category ID: $categoryId',
-      );
 
       // Get all categories and find the one with matching ID
       final allCategories = await getAllCategoriesHierarchical();
@@ -75,12 +62,8 @@ class PlaceCategoryService {
         }
       }
 
-      debugPrint(
-        '[PlaceCategoryService][getCategoryById] Category not found for ID: $categoryId',
-      );
       return null;
     } catch (e) {
-      debugPrint('[PlaceCategoryService][getCategoryById] Error: $e');
       return null;
     }
   }
@@ -88,20 +71,9 @@ class PlaceCategoryService {
   /// Get all categories in hierarchical structure
   Future<List<PlaceCategory>> getAllCategoriesHierarchical() async {
     try {
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesHierarchical] Fetching hierarchical categories',
-      );
-
-      // ALTERNATIVE APPROACH: Build hierarchy manually instead of using database helper
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesHierarchical] Using alternative approach - building hierarchy manually',
-      );
 
       // Step 1: Get main categories only (without subcategories)
       final mainCategoryMaps = await _databaseHelper.getMainPlaceCategories();
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesHierarchical] Got ${mainCategoryMaps.length} main category maps',
-      );
 
       // Step 2: Convert main categories to PlaceCategory objects
       final mainCategories = <PlaceCategory>[];
@@ -109,16 +81,10 @@ class PlaceCategoryService {
         try {
           // Create main category without subcategories first
           final mainCategory = PlaceCategory.fromMap(mainCategoryMap);
-          debugPrint(
-            '[PlaceCategoryService][getAllCategoriesHierarchical] Converted main category: ${mainCategory.name}',
-          );
 
           // Step 3: Get subcategories for this main category
           final subcategoryMaps = await _databaseHelper.getSubPlaceCategories(
             mainCategory.id!,
-          );
-          debugPrint(
-            '[PlaceCategoryService][getAllCategoriesHierarchical] Got ${subcategoryMaps.length} subcategories for ${mainCategory.name}',
           );
 
           // Step 4: Convert subcategories to PlaceCategory objects
@@ -128,9 +94,6 @@ class PlaceCategoryService {
               final subcategory = PlaceCategory.fromMap(subcategoryMap);
               subcategories.add(subcategory);
             } catch (subError) {
-              debugPrint(
-                '[PlaceCategoryService][getAllCategoriesHierarchical] Error converting subcategory: $subError',
-              );
             }
           }
 
@@ -148,34 +111,14 @@ class PlaceCategoryService {
           );
           mainCategories.add(mainCategoryWithSubs);
         } catch (mainError) {
-          debugPrint(
-            '[PlaceCategoryService][getAllCategoriesHierarchical] Error converting main category: $mainError',
-          );
         }
       }
-
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesHierarchical] Successfully built ${mainCategories.length} hierarchical categories',
-      );
 
       final sortedCategories = PlaceCategoryHelper.sortCategories(
         mainCategories,
       );
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesHierarchical] After sorting: ${sortedCategories.length} categories',
-      );
-
       return sortedCategories;
     } catch (e) {
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesHierarchical] Error: $e',
-      );
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesHierarchical] Error type: ${e.runtimeType}',
-      );
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesHierarchical] Stack trace: ${StackTrace.current}',
-      );
       return [];
     }
   }
@@ -183,17 +126,13 @@ class PlaceCategoryService {
   /// Get all categories as a flat list
   Future<List<PlaceCategory>> getAllCategoriesFlat() async {
     try {
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesFlat] Fetching all categories as flat list',
-      );
+     
       final hierarchical = await getAllCategoriesHierarchical();
       final flattened = PlaceCategoryHelper.flattenHierarchy(hierarchical);
-      debugPrint(
-        '[PlaceCategoryService][getAllCategoriesFlat] Flattened to ${flattened.length} total categories',
-      );
+    
       return flattened;
     } catch (e) {
-      debugPrint('[PlaceCategoryService][getAllCategoriesFlat] Error: $e');
+      // debugPrint('[PlaceCategoryService][getAllCategoriesFlat] Error: $e');
       return [];
     }
   }
@@ -204,9 +143,7 @@ class PlaceCategoryService {
     int limit = 20,
   }) async {
     try {
-      debugPrint(
-        '[PlaceCategoryService][searchCategories] Searching for: "$query"',
-      );
+    
 
       // Get all categories that match the search query
       final maps = await _databaseHelper.searchPlaceCategories(
@@ -214,10 +151,7 @@ class PlaceCategoryService {
         limit: limit,
       );
       final directMatches = PlaceCategoryHelper.fromMapList(maps);
-      debugPrint(
-        '[PlaceCategoryService][searchCategories] Found ${directMatches.length} direct matches',
-      );
-
+      
       final searchResults = <PlaceCategory>[];
       final addedIds = <int>{};
 
@@ -225,17 +159,12 @@ class PlaceCategoryService {
       for (final match in directMatches) {
         if (match.isMainCategory) {
           // If it's a main category match, add all its subcategories instead
-          debugPrint(
-            '[PlaceCategoryService][searchCategories] Main category match: ${match.name}, fetching subcategories',
-          );
-
+          
           try {
             final subcategoryMaps = await _databaseHelper.getSubPlaceCategories(
               match.id!,
             );
-            debugPrint(
-              '[PlaceCategoryService][searchCategories] Found ${subcategoryMaps.length} subcategories for ${match.name}',
-            );
+           
 
             for (final subcategoryMap in subcategoryMaps) {
               try {
@@ -243,39 +172,29 @@ class PlaceCategoryService {
                 if (!addedIds.contains(subcategory.id)) {
                   searchResults.add(subcategory);
                   addedIds.add(subcategory.id!);
-                  debugPrint(
-                    '[PlaceCategoryService][searchCategories] Added subcategory: ${subcategory.name}',
-                  );
+                  
                 }
               } catch (subError) {
-                debugPrint(
-                  '[PlaceCategoryService][searchCategories] Error converting subcategory: $subError',
-                );
+                
               }
             }
           } catch (subFetchError) {
-            debugPrint(
-              '[PlaceCategoryService][searchCategories] Error fetching subcategories for ${match.name}: $subFetchError',
-            );
+          
           }
         } else {
           // If it's a subcategory match, add it directly
           if (!addedIds.contains(match.id)) {
             searchResults.add(match);
             addedIds.add(match.id!);
-            debugPrint(
-              '[PlaceCategoryService][searchCategories] Added subcategory match: ${match.name}',
-            );
+            
           }
         }
       }
 
-      debugPrint(
-        '[PlaceCategoryService][searchCategories] Final search results: ${searchResults.length} subcategories',
-      );
+      
       return searchResults;
     } catch (e) {
-      debugPrint('[PlaceCategoryService][searchCategories] Error: $e');
+      // debugPrint('[PlaceCategoryService][searchCategories] Error: $e');
       return [];
     }
   }
@@ -288,9 +207,9 @@ class PlaceCategoryService {
     int order = 0,
   }) async {
     try {
-      debugPrint(
-        '[PlaceCategoryService][addCustomCategory] Adding custom category: $name ($emoji)',
-      );
+      // debugPrint(
+      //   '[PlaceCategoryService][addCustomCategory] Adding custom category: $name ($emoji)',
+      // );
 
       // Check for duplicate category name (case-insensitive)
       final allCategories = await getAllCategoriesFlat();
@@ -298,9 +217,9 @@ class PlaceCategoryService {
 
       for (final category in allCategories) {
         if (category.name.toLowerCase() == nameLower) {
-          debugPrint(
-            '[PlaceCategoryService][addCustomCategory] Duplicate category name found: ${category.name}',
-          );
+          // debugPrint(
+          //   '[PlaceCategoryService][addCustomCategory] Duplicate category name found: ${category.name}',
+          // );
           // Return a special marker to indicate duplicate
           // We'll use a category with id = -1 to signal duplicate
           return PlaceCategory(
@@ -322,9 +241,7 @@ class PlaceCategoryService {
         // Adding a main category - check if this name exists as any subcategory
         for (final category in allCategories) {
           if (category.parentId != null && category.name.toLowerCase() == nameLower) {
-            debugPrint(
-              '[PlaceCategoryService][addCustomCategory] Main category name conflicts with existing subcategory: ${category.name}',
-            );
+            
             // Return id = -3 to signal main category conflicts with subcategory
             return PlaceCategory(
               id: -3,
@@ -342,9 +259,7 @@ class PlaceCategoryService {
         // Adding a subcategory - check if name conflicts with parent category or any other subcategory under same parent
         final parentCategory = await getCategoryById(parentId);
         if (parentCategory != null && parentCategory.name.toLowerCase() == nameLower) {
-          debugPrint(
-            '[PlaceCategoryService][addCustomCategory] Subcategory name conflicts with parent category: ${parentCategory.name}',
-          );
+          
           // Return id = -4 to signal subcategory conflicts with parent category
           return PlaceCategory(
             id: -4,
@@ -379,18 +294,14 @@ class PlaceCategoryService {
           updatedAt: now,
         );
 
-        debugPrint(
-          '[PlaceCategoryService][addCustomCategory] Successfully added category with ID: $categoryId',
-        );
+       
         return newCategory;
       } else {
-        debugPrint(
-          '[PlaceCategoryService][addCustomCategory] Failed to add category',
-        );
+        
         return null;
       }
     } catch (e) {
-      debugPrint('[PlaceCategoryService][addCustomCategory] Error: $e');
+      // debugPrint('[PlaceCategoryService][addCustomCategory] Error: $e');
       return null;
     }
   }
@@ -404,9 +315,8 @@ class PlaceCategoryService {
     int? parentId,
   }) async {
     try {
-      debugPrint(
-        '[PlaceCategoryService][updateCategory] Updating category ID: $categoryId',
-      );
+      // debugPrint(
+     
 
       // Always get current category data before update for memory synchronization
       final currentCategory = await getCategoryById(categoryId);
