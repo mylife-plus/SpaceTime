@@ -10,6 +10,7 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
 import 'package:spacetime/app/services/contact_group_service.dart';
+import 'package:spacetime/app/services/memory_db.dart';
 
 /// Popup for adding/editing groups (place categories, hashtag groups, or contact groups)
 class AddEditGroupPopupNew extends StatefulWidget {
@@ -1224,18 +1225,20 @@ Navigator.of(context).pop();
         parentId = int.tryParse(_selectedParentId.value);
       }
 
-      // Update the hashtag group
+      // Update the hashtag group name
       await _hashtagGroupService.updateGroup(
         widget.editHashtagGroup!.id!,
         hashtagName,
       );
 
-      // If parent changed, we need to update it in the database
+      // If parent changed, update it in the database
       if (parentId != widget.editHashtagGroup!.parentId) {
-        // Note: HashtagGroupService.updateGroup doesn't support changing parent
-        // We need to delete and recreate, or add a new method
-        // For now, just update the name
-        debugPrint('[AddEditGroupPopupNew] Warning: Changing parent group not yet supported for hashtags');
+        debugPrint('[AddEditGroupPopupNew] Updating parent group from ${widget.editHashtagGroup!.parentId} to $parentId');
+        final databaseHelper = DatabaseHelper.instance;
+        await databaseHelper.updateHashtagGroup(widget.editHashtagGroup!.id!, {
+          'hashtag_group_parent_id': parentId,
+          'hashtag_group_updated_at': DateTime.now().toIso8601String(),
+        });
       }
 
       Get.back();
@@ -1378,18 +1381,20 @@ Navigator.of(context).pop();
         parentId = int.tryParse(_selectedParentId.value);
       }
 
-      // Update the contact group
+      // Update the contact group name
       await _contactGroupService.updateGroup(
         widget.editContactGroup!.id!,
         contactName,
       );
 
-      // If parent changed, we need to update it in the database
+      // If parent changed, update it in the database
       if (parentId != widget.editContactGroup!.parentId) {
-        // Note: ContactGroupService.updateGroup doesn't support changing parent
-        // We need to delete and recreate, or add a new method
-        // For now, just update the name
-        debugPrint('[AddEditGroupPopupNew] Warning: Changing parent group not yet supported for contacts');
+        debugPrint('[AddEditGroupPopupNew] Updating parent group from ${widget.editContactGroup!.parentId} to $parentId');
+        final databaseHelper = DatabaseHelper.instance;
+        await databaseHelper.updateContactGroup(widget.editContactGroup!.id!, {
+          'contact_group_parent_id': parentId,
+          'contact_group_updated_at': DateTime.now().toIso8601String(),
+        });
       }
 
       Get.back();

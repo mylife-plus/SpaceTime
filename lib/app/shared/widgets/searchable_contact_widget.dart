@@ -133,8 +133,8 @@ class SearchableContactWidget extends StatefulWidget {
     }
   }
 
-  /// Update contact group name in recent contact groups
-  static Future<void> updateContactGroupInRecents(int groupId, String newName) async {
+  /// Update contact group name and parent in recent contact groups
+  static Future<void> updateContactGroupInRecents(int groupId, String newName, {int? newParentId}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final recentGroupsJson = prefs.getStringList('recent_contact_groups_filter') ?? [];
@@ -145,6 +145,9 @@ class SearchableContactWidget extends StatefulWidget {
           final data = json.decode(item);
           if (data['id'] == groupId) {
             data['name'] = newName;
+            if (newParentId != null) {
+              data['parent_id'] = newParentId;
+            }
             data['timestamp'] = DateTime.now().millisecondsSinceEpoch;
             updated = true;
             return json.encode(data);
@@ -157,7 +160,7 @@ class SearchableContactWidget extends StatefulWidget {
 
       if (updated) {
         await prefs.setStringList('recent_contact_groups_filter', updatedList);
-        debugPrint('[SearchableContactWidget] Updated contact group ID $groupId to "$newName" in recent contact groups');
+        debugPrint('[SearchableContactWidget] Updated contact group ID $groupId to "$newName" (parent: $newParentId) in recent contact groups');
       }
     } catch (e) {
       debugPrint('[SearchableContactWidget] Error updating contact group in recents: $e');

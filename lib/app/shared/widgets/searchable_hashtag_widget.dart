@@ -133,8 +133,8 @@ class SearchableHashtagWidget extends StatefulWidget {
     }
   }
 
-  /// Update hashtag group name in recent hashtag groups
-  static Future<void> updateHashtagGroupInRecents(int groupId, String newName) async {
+  /// Update hashtag group name and parent in recent hashtag groups
+  static Future<void> updateHashtagGroupInRecents(int groupId, String newName, {int? newParentId}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final recentGroupsJson = prefs.getStringList('recent_hashtag_groups_filter') ?? [];
@@ -145,6 +145,9 @@ class SearchableHashtagWidget extends StatefulWidget {
           final data = json.decode(item);
           if (data['id'] == groupId) {
             data['name'] = newName;
+            if (newParentId != null) {
+              data['parent_id'] = newParentId;
+            }
             data['timestamp'] = DateTime.now().millisecondsSinceEpoch;
             updated = true;
             return json.encode(data);
@@ -157,7 +160,7 @@ class SearchableHashtagWidget extends StatefulWidget {
 
       if (updated) {
         await prefs.setStringList('recent_hashtag_groups_filter', updatedList);
-        debugPrint('[SearchableHashtagWidget] Updated hashtag group ID $groupId to "$newName" in recent hashtag groups');
+        debugPrint('[SearchableHashtagWidget] Updated hashtag group ID $groupId to "$newName" (parent: $newParentId) in recent hashtag groups');
       }
     } catch (e) {
       debugPrint('[SearchableHashtagWidget] Error updating hashtag group in recents: $e');

@@ -1840,10 +1840,11 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           editHashtagGroup: hashtagGroup,
           fromMemoryView: true,
           onHashtagGroupAdded: (updatedGroup) async {
-            // Update in recents if it exists
+            // Update in recents if it exists (including parent information)
             await SearchableHashtagWidget.updateHashtagGroupInRecents(
               updatedGroup.id!,
               updatedGroup.name,
+              newParentId: updatedGroup.parentId,
             );
 
             await _refreshHashtagGroupsFromDatabase();
@@ -1995,8 +1996,12 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     try {
       await _hashtagGroupService.updateGroup(hashtagGroup.id!, newName);
 
-      // Update in recents if it exists
-      await SearchableHashtagWidget.updateHashtagGroupInRecents(hashtagGroup.id!, newName);
+      // Update in recents if it exists (parent stays the same)
+      await SearchableHashtagWidget.updateHashtagGroupInRecents(
+        hashtagGroup.id!,
+        newName,
+        newParentId: hashtagGroup.parentId,
+      );
 
       _cancelInlineEdit(hashtagGroup.id!);
       await _refreshHashtagGroupsFromDatabase();

@@ -910,22 +910,23 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           // First update the group name (this will check for duplicates)
           await hashtagGroupService.updateGroup(widget.editItemId!, newName);
 
-          // Update in recents if it exists
-          await SearchableHashtagWidget.updateHashtagGroupInRecents(widget.editItemId!, newName);
-
           // Then update the parent category
           final databaseHelper = DatabaseHelper.instance;
           await databaseHelper.updateHashtagGroup(widget.editItemId!, {
             'hashtag_group_parent_id': parentId,
             'hashtag_group_updated_at': DateTime.now().toIso8601String(),
           });
+
+          // Update in recents if it exists (including parent information)
+          await SearchableHashtagWidget.updateHashtagGroupInRecents(
+            widget.editItemId!,
+            newName,
+            newParentId: parentId,
+          );
         } else {
           final contactGroupService = ContactGroupService();
           // First update the group name (this will check for duplicates)
           await contactGroupService.updateGroup(widget.editItemId!, newName);
-
-          // Update in recents if it exists
-          await SearchableContactWidget.updateContactGroupInRecents(widget.editItemId!, newName);
 
           // Then update the parent category
           final databaseHelper = DatabaseHelper.instance;
@@ -933,6 +934,13 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             'contact_group_parent_id': parentId,
             'contact_group_updated_at': DateTime.now().toIso8601String(),
           });
+
+          // Update in recents if it exists (including parent information)
+          await SearchableContactWidget.updateContactGroupInRecents(
+            widget.editItemId!,
+            newName,
+            newParentId: parentId,
+          );
         }
 
         // Call the onItemSelected callback with the updated item

@@ -1887,10 +1887,11 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           editContactGroup: contactGroup,
           fromMemoryView: true,
           onContactGroupAdded: (updatedGroup) async {
-            // Update in recents if it exists
+            // Update in recents if it exists (including parent information)
             await SearchableContactWidget.updateContactGroupInRecents(
               updatedGroup.id!,
               updatedGroup.name,
+              newParentId: updatedGroup.parentId,
             );
 
             await _refreshContactGroupsFromDatabase();
@@ -2042,8 +2043,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     try {
       await _contactGroupService.updateGroup(contactGroup.id!, newName);
 
-      // Update in recents if it exists
-      await SearchableContactWidget.updateContactGroupInRecents(contactGroup.id!, newName);
+      // Update in recents if it exists (parent stays the same)
+      await SearchableContactWidget.updateContactGroupInRecents(
+        contactGroup.id!,
+        newName,
+        newParentId: contactGroup.parentId,
+      );
 
       _cancelInlineEdit(contactGroup.id!);
       await _refreshContactGroupsFromDatabase();
