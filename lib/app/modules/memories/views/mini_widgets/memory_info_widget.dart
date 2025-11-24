@@ -52,7 +52,10 @@ class MemoryInfoWidget extends StatelessWidget {
                       return _InfoContainer(
                         imagePath: AppImages.calendar,
                         text: dateText,
-                        onTap: () => _pickDate(context, controller),
+                        onTap: () {
+                          FocusScope.of(context).unfocus();
+                          _pickDate(context, controller);
+                        },
                       );
                     },
                   ),
@@ -66,7 +69,10 @@ class MemoryInfoWidget extends StatelessWidget {
                           controller.selectedTime.value != null
                               ? controller.selectedTime.value!.format(context)
                               : "Pick Time",
-                      onTap: () => _pickTime(context, controller),
+                      onTap: () {
+                        FocusScope.of(context).unfocus();
+                        _pickTime(context, controller);
+                      },
                     ),
                   ),
                 ),
@@ -83,6 +89,7 @@ class MemoryInfoWidget extends StatelessWidget {
                         ? '${controller.locationFlag.value} ${controller.locationCity.value}, ${controller.locationCountry.value}'
                         : 'Pick Location *',
                 onTap: () async {
+                  FocusScope.of(context).unfocus();
                   var data = await Get.to(() => const MemoryLocationPickerWidget());
 
                   // Only update location if user pressed done (data is not null)
@@ -99,18 +106,23 @@ class MemoryInfoWidget extends StatelessWidget {
             const SizedBox(height: 5),
 
             // Place Category - Searchable
-            SearchableCategoryWidget(
-              selectedCategory: controller.selectedCategory.value,
-              onCategorySelected: (category) {
-                final categoryWithEmoji = category.emoji.isNotEmpty
-                    ? '${category.emoji} ${category.name}'
-                    : category.name;
-                controller.setCategory(categoryWithEmoji);
+            GestureDetector(
+              onTap: () {
+                FocusScope.of(context).unfocus();
               },
-              backgroundColor: controller2.darkMode.value
-                  ? Colors.black.withValues(alpha: 0.5)
-                  : Colors.white,
-              allowMultipleSelectionInPicker: false, // Single selection mode for Memory Info Widget
+              child: SearchableCategoryWidget(
+                selectedCategory: controller.selectedCategory.value,
+                onCategorySelected: (category) {
+                  final categoryWithEmoji = category.emoji.isNotEmpty
+                      ? '${category.emoji} ${category.name}'
+                      : category.name;
+                  controller.setCategory(categoryWithEmoji);
+                },
+                backgroundColor: controller2.darkMode.value
+                    ? Colors.black.withValues(alpha: 0.5)
+                    : Colors.white,
+                allowMultipleSelectionInPicker: false, // Single selection mode for Memory Info Widget
+              ),
             ),
           ],
         ),
