@@ -730,84 +730,71 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
 
-    return GestureDetector(
-      // Outer gesture detector to handle taps outside and dismiss keyboard
-      onTap: () {
-        if (_focusNode.hasFocus) {
-          _dismissKeyboard();
-        }
-      },
-      child: CompositedTransformTarget(
-        link: _layerLink,
-        child: GestureDetector(
-          onTap: () {
-            // Focus the text field when tapping on it
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: GestureDetector(
+        onTap: () {
+          // Only focus if not already focused
+          // This prevents auto-focus on rebuild after returning from pickers
+          if (!_focusNode.hasFocus) {
             _requestFocusWithDelay();
-          },
-          // Prevent the outer GestureDetector from receiving this tap
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            decoration: BoxDecoration(
-              color:
-                  controller.darkMode.value
-                      ? Colors.black.withValues(alpha: 0.2)
-                      : Colors.white,
-              borderRadius: BorderRadius.circular(0),
-            ),
-            padding: const EdgeInsets.all(16),
-            child: GestureDetector(
-              // Additional tap handler for iOS - focus the text field
-              onTap: () {
+          }
+        },
+        // Prevent the outer GestureDetector from receiving this tap
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          decoration: BoxDecoration(
+            color:
+                controller.darkMode.value
+                    ? Colors.black.withValues(alpha: 0.2)
+                    : Colors.white,
+            borderRadius: BorderRadius.circular(0),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            controller: _coloredController,
+            focusNode: _focusNode,
+            maxLines: 50,
+            minLines: 8,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.done,
+            autocorrect: true,
+            enableSuggestions: true,
+            showCursor: true,
+            cursorColor: controller.primaryColor ?? Colors.blue,
+            cursorWidth: 2.0,
+            cursorHeight: 20.0,
+            cursorRadius: const Radius.circular(1.0),
+            onSubmitted: (_) {
+              // Hide keyboard when done is pressed
+              _focusNode.unfocus();
+            },
+            onChanged: (text) {
+              setState(() {}); // Rebuild to update colors
+              _onTextChanged();
+            },
+            onTap: () {
+              // Additional focus handling for iOS
+              if (!_focusNode.hasFocus) {
                 _requestFocusWithDelay();
-              },
-              behavior:
-                  HitTestBehavior.opaque, // Prevent parent from receiving tap
-              child: TextField(
-                controller: _coloredController,
-                focusNode: _focusNode,
-                maxLines: 50,
-                minLines: 8,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.done,
-                autocorrect: true,
-                enableSuggestions: true,
-                showCursor: true,
-                cursorColor: controller.primaryColor ?? Colors.blue,
-                cursorWidth: 2.0,
-                cursorHeight: 20.0,
-                cursorRadius: const Radius.circular(1.0),
-                onSubmitted: (_) {
-                  // Hide keyboard when done is pressed
-                  _focusNode.unfocus();
-                },
-                onChanged: (text) {
-                  setState(() {}); // Rebuild to update colors
-                  _onTextChanged();
-                },
-                onTap: () {
-                  // Additional focus handling for iOS
-                  if (!_focusNode.hasFocus) {
-                    _requestFocusWithDelay();
-                  }
-                },
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                  hintText: 'my memory... ',
-                  hintStyle: GoogleFonts.kumbhSans(
-                    fontWeight: FontWeight.w500,
-                    color: controller.darkMode.value ? Colors.white : Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-                style: GoogleFonts.kumbhSans(
-                  fontSize: 16,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                  color: controller.darkMode.value ? Colors.white : Colors.black,
-                ),
+              }
+            },
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              hintText: 'my memory... ',
+              hintStyle: GoogleFonts.kumbhSans(
+                fontWeight: FontWeight.w500,
+                color: controller.darkMode.value ? Colors.white : Colors.grey,
+                fontSize: 16,
               ),
+            ),
+            style: GoogleFonts.kumbhSans(
+              fontSize: 16,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+              color: controller.darkMode.value ? Colors.white : Colors.black,
             ),
           ),
         ),
