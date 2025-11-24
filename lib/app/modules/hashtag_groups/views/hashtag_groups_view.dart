@@ -9,6 +9,7 @@ import 'package:spacetime/app/services/hashtag_group_service.dart';
 import 'package:spacetime/app/models/hashtag_group_model.dart';
 import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
+import 'package:spacetime/app/shared/widgets/add_edit_group_pop_new.dart';
 import '../../../config/app_text.dart';
 
 class HashtagGroupsView extends StatefulWidget {
@@ -1828,93 +1829,32 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
   /// Show popup for editing a subgroup
   void _startInlineEditing(HashtagGroup hashtagGroup) async {
-    // Get parent group name if this is a subgroup
-    String? parentGroupName;
-    if (hashtagGroup.parentId != null) {
-      final parentGroup = await _hashtagGroupService.getGroupById(hashtagGroup.parentId!);
-      parentGroupName = parentGroup?.name;
-    }
-
     if (!mounted) return;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AddEditGroupPopup(
-          isHashtagMode: true,
-          isMainGroup: hashtagGroup.parentId == null,
-          initialName: hashtagGroup.name,
-          editItemId: hashtagGroup.id,
-          parentId: hashtagGroup.parentId,
-          parentGroupName: parentGroupName,
-          onSave: (newName, parentId) async {
-            // Use the existing save logic
-            if (newName.isEmpty) {
-              Get.snackbar(
-                'Invalid Name',
-                'Hashtag group name cannot be empty',
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
+        return AddEditGroupPopupNew(
+          mode: 'hashtag',
+          editHashtagGroup: hashtagGroup,
+          fromMemoryView: true,
+          onHashtagGroupAdded: (updatedGroup) async {
+            // Update in recents if it exists
+            await SearchableHashtagWidget.updateHashtagGroupInRecents(
+              updatedGroup.id!,
+              updatedGroup.name,
+            );
 
-              );
-              return;
-            }
+            await _refreshHashtagGroupsFromDatabase();
 
-            try {
-              await _hashtagGroupService.updateGroup(hashtagGroup.id!, newName);
-
-              // Update in recents if it exists
-              await SearchableHashtagWidget.updateHashtagGroupInRecents(hashtagGroup.id!, newName);
-
-              await _refreshHashtagGroupsFromDatabase();
-
-              Get.snackbar(
-                'Success',
-                'Hashtag updated successfully',
-                backgroundColor: Colors.green,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-              );
-            } catch (e) {
-              debugPrint('[HashtagGroupsView] Error updating hashtag group: $e');
-              if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
-                final message = hashtagGroup.parentId == null
-                    ? 'Hashtag Group with this name already exists.'
-                    : 'Hashtag with this name already exists.';
-                Get.snackbar(
-                  'Duplicate Hashtag',
-                  message,
-                  backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
-              } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
-                Get.snackbar(
-                  'Name Conflict',
-                  'This name is already used by a hashtag in another group.',
-                  backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
-              } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
-                Get.snackbar(
-                  'Name Conflict',
-                  'This name is already used by the parent group.',
-                  backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
-              } else {
-                Get.snackbar(
-                  'Unable to Update',
-                  'Unable to update hashtag group. Please try again.',
-                  backgroundColor: Colors.red,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
-              }
-            }
+            Get.snackbar(
+              'Success',
+              'Hashtag updated successfully',
+              backgroundColor: Colors.green,
+              colorText: Colors.white,
+              duration: const Duration(seconds: 2),
+            );
           },
         );
       },

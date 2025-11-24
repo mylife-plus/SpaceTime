@@ -9,6 +9,7 @@ import 'package:spacetime/app/services/contact_group_service.dart';
 import 'package:spacetime/app/models/contact_group_model.dart';
 import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
+import 'package:spacetime/app/shared/widgets/add_edit_group_pop_new.dart';
 import '../../../config/app_text.dart';
 
 class ContactGroupsView extends StatefulWidget {
@@ -1875,93 +1876,32 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
   /// Show popup for editing a subgroup
   void _startInlineEditing(ContactGroup contactGroup) async {
-    // Get parent group name if this is a subgroup
-    String? parentGroupName;
-    if (contactGroup.parentId != null) {
-      final parentGroup = await _contactGroupService.getGroupById(contactGroup.parentId!);
-      parentGroupName = parentGroup?.name;
-    }
-
     if (!mounted) return;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AddEditGroupPopup(
-          isHashtagMode: false,
-          isMainGroup: contactGroup.parentId == null,
-          initialName: contactGroup.name,
-          editItemId: contactGroup.id,
-          parentId: contactGroup.parentId,
-          parentGroupName: parentGroupName,
-          onSave: (newName, parentId) async {
-            // Use the existing save logic
-            if (newName.isEmpty) {
-              Get.snackbar(
-                'Invalid Name',
-                'Contact group name cannot be empty',
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
+        return AddEditGroupPopupNew(
+          mode: 'contact',
+          editContactGroup: contactGroup,
+          fromMemoryView: true,
+          onContactGroupAdded: (updatedGroup) async {
+            // Update in recents if it exists
+            await SearchableContactWidget.updateContactGroupInRecents(
+              updatedGroup.id!,
+              updatedGroup.name,
+            );
 
-              );
-              return;
-            }
+            await _refreshContactGroupsFromDatabase();
 
-            try {
-              await _contactGroupService.updateGroup(contactGroup.id!, newName);
-
-              // Update in recents if it exists
-              await SearchableContactWidget.updateContactGroupInRecents(contactGroup.id!, newName);
-
-              await _refreshContactGroupsFromDatabase();
-
-              Get.snackbar(
-                'Success',
-                'Contact updated successfully',
-                backgroundColor: Colors.green,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-              );
-            } catch (e) {
-              debugPrint('[ContactGroupsView] Error updating contact group: $e');
-              if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
-                final message = contactGroup.parentId == null
-                    ? 'Contact Group with this name already exists.'
-                    : 'Contact with this name already exists.';
-                Get.snackbar(
-                  'Duplicate Contact',
-                  message,
-                  backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
-              } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
-                Get.snackbar(
-                  'Name Conflict',
-                  'This name is already used by a contact in another group.',
-                  backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
-              } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
-                Get.snackbar(
-                  'Name Conflict',
-                  'This name is already used by the parent group.',
-                  backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
-              } else {
-                Get.snackbar(
-                  'Unable to Update',
-                  'Unable to update contact group. Please try again.',
-                  backgroundColor: Colors.red,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
-              }
-            }
+            Get.snackbar(
+              'Success',
+              'Contact updated successfully',
+              backgroundColor: Colors.green,
+              colorText: Colors.white,
+              duration: const Duration(seconds: 2),
+            );
           },
         );
       },
