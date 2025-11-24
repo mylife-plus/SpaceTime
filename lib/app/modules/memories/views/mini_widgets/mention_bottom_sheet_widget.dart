@@ -45,6 +45,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   final TextEditingController editController = TextEditingController();
   final TextEditingController searchController = TextEditingController();
   late TagMentionController controller;
+  final RxString currentSearchText = ''.obs;
 
   @override
   void initState() {
@@ -61,6 +62,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
 
     // Set initial search text
     searchController.text = widget.initialKeyword;
+    currentSearchText.value = widget.initialKeyword;
 
     // Listen to search notifier changes
     widget.searchNotifier.addListener(_onSearchChanged);
@@ -87,6 +89,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     if (searchController.text != searchText) {
       searchController.text = searchText;
     }
+
+    // Update reactive search text for Obx
+    currentSearchText.value = searchText;
   }
 
   /// Helper function to check if an item is already added (excluded)
@@ -322,6 +327,36 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       ),
                     ),
                   ),
+                  // Check icon - only show if search text matches a subcategory
+                  Obx(() {
+                    final searchText = currentSearchText.value.trim();
+
+                    // Find exact match in subcategories only
+                    final matchedItem = controller.filteredItems.firstWhereOrNull(
+                      (item) =>
+                        item['type'] == 'subgroup' &&
+                        item['name'].toString().toLowerCase() == searchText.toLowerCase()
+                    );
+
+                    if (matchedItem != null && searchText.isNotEmpty) {
+                      return GestureDetector(
+                        onTap: () async {
+                          // Save to recents with parent information
+                          await _saveItemToRecents(matchedItem);
+
+                          // Select the matched item
+                          final prefixChar = widget.isTagMode ? '#' : '@';
+                          widget.onItemSelected('$prefixChar${matchedItem['name']}');
+                        },
+                        child: Icon(
+                          Icons.check,
+                          color: Colors.green,
+                          size: 24,
+                        ),
+                      );
+                    }
+                    return SizedBox.shrink();
+                  }),
                   // Close button
                   GestureDetector(
                     onTap: () {
