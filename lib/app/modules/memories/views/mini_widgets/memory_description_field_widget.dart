@@ -122,10 +122,9 @@ class MemoryDescriptionField extends StatefulWidget {
 
 class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   final FocusNode _focusNode = FocusNode();
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlayEntry;
   bool _isPopupOpen = false;
   ValueNotifier<String>? _searchNotifier;
+  int _savedCursorPosition = 0; // Store cursor position when popup opens
 
   final List<String> _tags = [];
   final List<String> _mentions = [];
@@ -463,14 +462,12 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.attached) return;
 
+    // Save current cursor position
+    _savedCursorPosition = _coloredController.selection.baseOffset;
+
     _isPopupOpen = true;
     widget.onPopupStateChanged?.call(true);
     _searchNotifier = ValueNotifier<String>(keyword);
-
-    final position = renderBox.localToGlobal(Offset.zero);
-    final screenHeight = MediaQuery.of(context).size.height;
-    final popupHeight = screenHeight * 0.4;
-    final topOffset = position.dy - popupHeight - 10;
 
     // Check if we're editing an existing tag (case-insensitive)
     final String? oldTag = keyword.isNotEmpty
@@ -478,41 +475,33 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         : null;
     final bool isEditingExisting = oldTag != null;
 
-    _overlayEntry = OverlayEntry(
-      builder:
-          (context) => Stack(
-            children: [
-              // Non-dismissible barrier
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () {
-                    // Do nothing - prevent dismissal on tap outside
-                  },
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-              // Popup content
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 100,
-                child: Material(
-                  elevation: 8,
-                  color: Colors.transparent,
-                  child: TagMentionBottomSheet(
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.3),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 100),
+            child: Material(
+              elevation: 8,
+              color: Colors.transparent,
+              child: TagMentionBottomSheet(
                 onItemSelected: (item) {
                   // Remove old tag if we're replacing
                   if (oldTag != null) {
                     _tags.remove(oldTag);
                   }
 
-                  _insertTextAtCursor(item);
+                  _insertTextAtSavedCursor(item);
                   final clean = item.substring(1);
                   widget.onTagAdded(clean);
                   _tags.add(clean); // ✅ Add to tag list
-                  _forceRemovePopup();
+                  Navigator.of(context).pop();
+                  _onDialogClosed();
 
                   // Refocus the input field after a short delay
                   Future.delayed(const Duration(milliseconds: 100), () {
@@ -524,17 +513,23 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 isTagMode: true,
                 initialKeyword: keyword,
                 searchNotifier: _searchNotifier!,
-                onEditingComplete: _removeIncompleteTextAndClosePopup,
+                onEditingComplete: () {
+                  Navigator.of(context).pop();
+                  _removeIncompleteTextAndClosePopup();
+                },
                 excludedItems: _tags, // Pass already added tags
                 isEditingExisting: isEditingExisting, // Pass editing state
-                  ),
-                ),
               ),
-            ],
+            ),
           ),
-    );
-
-    Overlay.of(context).insert(_overlayEntry!);
+        );
+      },
+    ).then((_) {
+      // Ensure cleanup happens when dialog is dismissed
+      if (_isPopupOpen) {
+        _onDialogClosed();
+      }
+    });
   }
 
   void _showMentionPopup(String keyword) {
@@ -542,14 +537,12 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.attached) return;
 
+    // Save current cursor position
+    _savedCursorPosition = _coloredController.selection.baseOffset;
+
     _isPopupOpen = true;
     widget.onPopupStateChanged?.call(true);
     _searchNotifier = ValueNotifier<String>(keyword);
-
-    final position = renderBox.localToGlobal(Offset.zero);
-    final screenHeight = MediaQuery.of(context).size.height;
-    final popupHeight = screenHeight * 0.4;
-    final topOffset = position.dy - popupHeight - 10;
 
     // Check if we're editing an existing mention (case-insensitive)
     final String? oldMention = keyword.isNotEmpty
@@ -557,41 +550,33 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         : null;
     final bool isEditingExisting = oldMention != null;
 
-    _overlayEntry = OverlayEntry(
-      builder:
-          (context) => Stack(
-            children: [
-              // Non-dismissible barrier
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () {
-                    // Do nothing - prevent dismissal on tap outside
-                  },
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-              // Popup content
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 100,
-                child: Material(
-                  elevation: 8,
-                  color: Colors.transparent,
-                  child: TagMentionBottomSheet(
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.3),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 100),
+            child: Material(
+              elevation: 8,
+              color: Colors.transparent,
+              child: TagMentionBottomSheet(
                 onItemSelected: (item) {
                   // Remove old mention if we're replacing
                   if (oldMention != null) {
                     _mentions.remove(oldMention);
                   }
 
-                  _insertTextAtCursor(item);
+                  _insertTextAtSavedCursor(item);
                   final clean = item.substring(1);
                   widget.onMentionAdded(clean);
                   _mentions.add(clean); // ✅ Add to mention list
-                  _forceRemovePopup();
+                  Navigator.of(context).pop();
+                  _onDialogClosed();
 
                   // Refocus the input field after a short delay
                   Future.delayed(const Duration(milliseconds: 100), () {
@@ -603,41 +588,48 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 isTagMode: false,
                 initialKeyword: keyword,
                 searchNotifier: _searchNotifier!,
-                onEditingComplete: _removeIncompleteTextAndClosePopup,
+                onEditingComplete: () {
+                  Navigator.of(context).pop();
+                  _removeIncompleteTextAndClosePopup();
+                },
                 excludedItems: _mentions, // Pass already added mentions
                 isEditingExisting: isEditingExisting, // Pass editing state
-                  ),
-                ),
               ),
-            ],
+            ),
           ),
-    );
-
-    Overlay.of(context).insert(_overlayEntry!);
+        );
+      },
+    ).then((_) {
+      // Ensure cleanup happens when dialog is dismissed
+      if (_isPopupOpen) {
+        _onDialogClosed();
+      }
+    });
   }
 
-  void _removePopup() {
-    if (_overlayEntry != null) {
-      try {
-        final controller = Get.find<TagMentionController>();
-        if (controller.isEditing.value) return;
-      } catch (_) {}
-
-      _forceRemovePopup();
-    }
-  }
-
-  void _forceRemovePopup() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+  void _onDialogClosed() {
     _isPopupOpen = false;
     widget.onPopupStateChanged?.call(false);
     _searchNotifier?.dispose();
     _searchNotifier = null;
     Get.delete<TagMentionController>();
+  }
 
-    // Close the keyboard when bottom sheet is closed
-    // FocusScope.of(context).unfocus();
+  void _removePopup() {
+    // No longer needed with showDialog, but kept for compatibility
+    if (_isPopupOpen) {
+      try {
+        final controller = Get.find<TagMentionController>();
+        if (controller.isEditing.value) return;
+      } catch (_) {}
+
+      _onDialogClosed();
+    }
+  }
+
+  void _forceRemovePopup() {
+    // No longer needed with showDialog, but kept for compatibility
+    _onDialogClosed();
   }
 
   void _removeIncompleteTextAndClosePopup() {
@@ -720,6 +712,37 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     }
   }
 
+  void _insertTextAtSavedCursor(String text) {
+    final currentText = _coloredController.text;
+
+    if (_savedCursorPosition >= 0) {
+      final triggerIndex = _getLastTriggerIndex(
+        currentText,
+        _savedCursorPosition,
+      );
+      if (triggerIndex == -1) return;
+
+      // Find the end of the current word (tag/mention) to replace the entire word
+      int endIndex = _savedCursorPosition;
+      while (endIndex < currentText.length &&
+             currentText[endIndex] != ' ' &&
+             currentText[endIndex] != '\n') {
+        endIndex++;
+      }
+
+      final newText = currentText.replaceRange(
+        triggerIndex,
+        endIndex,
+        '$text ',
+      );
+
+      _coloredController.text = newText;
+      _coloredController.selection = TextSelection.collapsed(
+        offset: triggerIndex + text.length + 1,
+      );
+    }
+  }
+
   @override
   void dispose() {
     widget.controller.removeListener(_onWidgetControllerChanged);
@@ -735,19 +758,17 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
 
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: GestureDetector(
-        onTap: () {
-          // Only focus if not already focused
-          // This prevents auto-focus on rebuild after returning from pickers
-          if (!_focusNode.hasFocus) {
-            _requestFocusWithDelay();
-          }
-        },
-        // Prevent the outer GestureDetector from receiving this tap
-        behavior: HitTestBehavior.opaque,
-        child: Container(
+    return GestureDetector(
+      onTap: () {
+        // Only focus if not already focused
+        // This prevents auto-focus on rebuild after returning from pickers
+        if (!_focusNode.hasFocus) {
+          _requestFocusWithDelay();
+        }
+      },
+      // Prevent the outer GestureDetector from receiving this tap
+      behavior: HitTestBehavior.opaque,
+      child: Container(
           decoration: BoxDecoration(
             color:
                 controller.darkMode.value
@@ -802,9 +823,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               fontWeight: FontWeight.w500,
               color: controller.darkMode.value ? Colors.white : Colors.black,
             ),
-          ),
-        ),
-      ),
+          ), // TextField
+        ), // Container
+      // ), // GestureDetector
     );
   }
 }

@@ -294,7 +294,11 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                   Expanded(
                     child: TextField(
                       controller: searchController,
-                      enabled: false, // Disable clicks and editing
+                      autofocus: true,
+                      onChanged: (value) {
+                        // Update the search notifier to filter the list
+                        widget.searchNotifier.value = value;
+                      },
                       style: GoogleFonts.kumbhSans(
                         color: uiController.darkMode.value
                             ? Colors.white
@@ -314,7 +318,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
-                        disabledBorder: InputBorder.none, // Remove border when disabled
                       ),
                     ),
                   ),
