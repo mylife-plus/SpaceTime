@@ -711,8 +711,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Show popup for editing subcategory
     Get.dialog(
-      AddPlaceCategoryPopupForCategoryPicker(
+      AddPlaceCategoryPopup(
         shouldOnlyShowEditSubCategory: true,
+        fromMemoryView: true, // Enable parent category dropdown
         editCategory: category,
         onCategoryAdded: (updatedCategory) async {
           // Refresh categories from database
