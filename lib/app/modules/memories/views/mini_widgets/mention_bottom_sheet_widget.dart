@@ -603,6 +603,18 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                       ),
                                                     ),
                                                   ),
+                                                // Green tick icon for already selected items
+                                                if (widget.excludedItems != null &&
+                                                    widget.excludedItems!.contains(item['name']))
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(left: 8),
+                                                    child: Image.asset(
+                                                      'assets/images/ic_tick.png',
+                                                      width: 18,
+                                                      height: 18,
+                                                      color: AppColors.green,
+                                                    ),
+                                                  ),
                                                 // Edit icon
                                                 const SizedBox(width: 8),
                                                 GestureDetector(
