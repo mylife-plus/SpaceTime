@@ -403,19 +403,31 @@ class _MemoryViewState extends State<MemoryView> {
     try {
       final memoryController = Get.find<MemoryController>();
 
-      // If in edit mode, mark the audio for deletion instead of immediately deleting from database
+      // If in edit mode, mark the audio for deletion (file will be deleted on save)
       if (widget.editMode && _editingMemoryId != null) {
         // Mark this index as deleted (using the original index before any UI changes)
         _deletedAudioIndices.add(index);
         debugPrint('Marked audio at index $index for deletion in edit mode');
-        // Note: Add memories view will be refreshed only after save is successful
+        // Note: File deletion and database update will happen when save button is pressed
+
+        // Only remove from UI lists, don't delete the file yet
+        if (index < memoryController.recordedAudioPaths.length) {
+          memoryController.recordedAudioPaths.removeAt(index);
+        }
+        if (index < memoryController.recordedAudios.length) {
+          memoryController.recordedAudios.removeAt(index);
+        }
+
+        // Force UI update
+        memoryController.recordedAudios.refresh();
+        memoryController.recordedAudioPaths.refresh();
+      } else {
+        // For new memories (not in edit mode), delete immediately
+        memoryController.removeAudio(index);
       }
 
-      // Remove from controller lists (this handles the UI and file deletion)
-      memoryController.removeAudio(index);
-
       debugPrint(
-        'Audio deleted and UI refreshed. Remaining: ${memoryController.recordedAudios.length}',
+        'Audio removed from UI. Remaining: ${memoryController.recordedAudios.length}',
       );
     } catch (e) {
       debugPrint('Error deleting audio: $e');
@@ -628,6 +640,23 @@ class _MemoryViewState extends State<MemoryView> {
           widget.memoryData?['audioPaths'] as List<String>? ?? [];
       final originalAudioDurations =
           widget.memoryData?['audioDurations'] as List<String>? ?? [];
+
+      // Delete the actual audio files that were marked for deletion
+      for (int i in _deletedAudioIndices) {
+        if (i < originalAudioPaths.length) {
+          final filePath = originalAudioPaths[i];
+          try {
+            final absolutePath = await memoryController.getAbsolutePath(filePath);
+            final file = File(absolutePath);
+            if (file.existsSync()) {
+              file.deleteSync();
+              debugPrint('🗑️ Deleted audio file: $absolutePath');
+            }
+          } catch (e) {
+            debugPrint('❌ Error deleting audio file: $e');
+          }
+        }
+      }
 
       // Create a list of audio files to save (original audios minus deleted ones + new audios)
       final List<String> finalAudioPaths = [];
