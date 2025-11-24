@@ -921,6 +921,11 @@ class MemoryController extends GetxController {
                 debugPrint('❌ Error deleting short file: $deleteError');
               }
 
+              // Reset recording duration and seconds
+              recordingDuration.value = '0:00';
+              _recordingSeconds = 0;
+              debugPrint('🔄 Recording duration reset to 0:00 (too short)');
+
               Get.snackbar(
                 'Recording Too Short',
                 'Recording must be at least 1 second long. Please try again.',
@@ -951,6 +956,11 @@ class MemoryController extends GetxController {
               debugPrint('  Size: $fileSize bytes');
               debugPrint('  Total recordings: ${recordedAudios.length}');
 
+              // Reset recording duration and seconds after successful save
+              recordingDuration.value = '0:00';
+              _recordingSeconds = 0;
+              debugPrint('🔄 Recording duration reset to 0:00');
+
               // // Show success feedback
               // Get.snackbar(
               //   'Recording Saved',
@@ -972,6 +982,11 @@ class MemoryController extends GetxController {
               debugPrint('❌ Error deleting empty file: $deleteError');
             }
 
+            // Reset recording duration and seconds
+            recordingDuration.value = '0:00';
+            _recordingSeconds = 0;
+            debugPrint('🔄 Recording duration reset to 0:00 (empty file)');
+
             Get.snackbar(
               'Recording Failed',
               'Audio recording is empty. Please try again.',
@@ -984,6 +999,12 @@ class MemoryController extends GetxController {
           }
         } else {
           debugPrint('❌ Audio file does not exist after recording');
+
+          // Reset recording duration and seconds
+          recordingDuration.value = '0:00';
+          _recordingSeconds = 0;
+          debugPrint('🔄 Recording duration reset to 0:00 (file not found)');
+
           Get.snackbar(
             'Recording Failed',
             'Audio file was not created. Please try again.',
@@ -996,6 +1017,12 @@ class MemoryController extends GetxController {
         }
       } else {
         debugPrint('❌ Recording path is null');
+
+        // Reset recording duration and seconds
+        recordingDuration.value = '0:00';
+        _recordingSeconds = 0;
+        debugPrint('🔄 Recording duration reset to 0:00 (path is null)');
+
         Get.snackbar(
           'Recording Failed',
           'Failed to save audio recording. Please try again.',
