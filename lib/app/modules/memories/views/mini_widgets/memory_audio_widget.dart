@@ -271,8 +271,8 @@ class MemoryAudioWidget extends StatelessWidget {
                             ),
                             // Delete icon at top-right corner
                             Positioned(
-                              top: -4,
-                              right: -4,
+                              top: 4,
+                              right: 4,
                               child: GestureDetector(
                                 onTap: () {
                                   showDeleteConfirmationDialog(
@@ -294,20 +294,13 @@ class MemoryAudioWidget extends StatelessWidget {
                                   width: 24,
                                   height: 24,
                                   decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.9),
+                                    color: Colors.black.withValues(alpha: 0.6),
                                     shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.3),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
                                   ),
                                   child: const Icon(
                                     Icons.close,
-                                    size: 16,
                                     color: Colors.white,
+                                    size: 16,
                                   ),
                                 ),
                               ),
