@@ -1101,11 +1101,10 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     final uiController = Get.find<UiController>();
 
     return PopScope(
-      canPop: !widget.allowMultipleSelection || _selectedHashtagGroups.isEmpty,
+      canPop: !widget.allowMultipleSelection,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop &&
-            widget.allowMultipleSelection &&
-            _selectedHashtagGroups.isNotEmpty) {
+        if (!didPop && widget.allowMultipleSelection) {
+          // Call _onDonePressed even when selection is empty to properly clear filters
           _onDonePressed();
         }
       },
@@ -1115,10 +1114,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
               widget.allowMultipleSelection
                   ? Obx(
                     () => IconButton(
-                      onPressed:
-                          _selectedHashtagGroups.isNotEmpty
-                              ? _onDonePressed
-                              : () => Get.back(),
+                      onPressed: _onDonePressed,
                       icon: const Icon(Icons.arrow_back),
                       tooltip: _selectedHashtagGroups.isNotEmpty ? 'Done' : 'Back',
                     ),

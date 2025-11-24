@@ -1136,11 +1136,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final uiController = Get.find<UiController>();
 
     return PopScope(
-      canPop: !widget.allowMultipleSelection || _selectedContactGroups.isEmpty,
+      canPop: !widget.allowMultipleSelection,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop &&
-            widget.allowMultipleSelection &&
-            _selectedContactGroups.isNotEmpty) {
+        if (!didPop && widget.allowMultipleSelection) {
+          // Call _onDonePressed even when selection is empty to properly clear filters
           _onDonePressed();
         }
       },
@@ -1150,10 +1149,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               widget.allowMultipleSelection
                   ? Obx(
                     () => IconButton(
-                      onPressed:
-                          _selectedContactGroups.isNotEmpty
-                              ? _onDonePressed
-                              : () => Get.back(),
+                      onPressed: _onDonePressed,
                       icon: const Icon(Icons.arrow_back),
                       tooltip: _selectedContactGroups.isNotEmpty ? 'Done' : 'Back',
                     ),

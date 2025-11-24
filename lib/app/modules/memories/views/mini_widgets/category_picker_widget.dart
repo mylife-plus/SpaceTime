@@ -1681,11 +1681,10 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     final uiController = Get.find<UiController>();
 
     return PopScope(
-      canPop: !widget.allowMultipleSelection || _selectedCategories.isEmpty,
+      canPop: !widget.allowMultipleSelection,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop &&
-            widget.allowMultipleSelection &&
-            _selectedCategories.isNotEmpty) {
+        if (!didPop && widget.allowMultipleSelection) {
+          // Call _onDonePressed even when selection is empty to properly clear filters
           _onDonePressed();
         }
       },
@@ -1695,10 +1694,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
               widget.allowMultipleSelection
                   ? Obx(
                     () => IconButton(
-                      onPressed:
-                          _selectedCategories.isNotEmpty
-                              ? _onDonePressed
-                              : () => Get.back(),
+                      onPressed: _onDonePressed,
                       icon: const Icon(Icons.arrow_back),
                       tooltip: _selectedCategories.isNotEmpty ? 'Done' : 'Back',
                     ),
