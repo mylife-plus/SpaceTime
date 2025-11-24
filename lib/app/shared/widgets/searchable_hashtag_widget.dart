@@ -177,6 +177,9 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
   final RxList<String> _recentHashtagGroups = <String>[].obs; // Track which recent items are groups
   final RxBool _isLoading = false.obs;
 
+  // Store parent information for hashtags
+  final RxMap<String, String> _hashtagParentMap = <String, String>{}.obs; // hashtag name -> parent group name
+
   List<String> _allHashtags = [];
   List<HashtagGroup> _allGroups = [];
 
@@ -245,14 +248,21 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Load recent individual hashtags (stored as simple strings)
+      // Load recent individual hashtags (stored with parent information)
       final recentHashtagsJson = prefs.getStringList('recent_individual_hashtags_filter') ?? [];
       final recentHashtags = <String>[];
+      final recentHashtagsWithParent = <Map<String, String>>[];
+
       for (final hashtagJson in recentHashtagsJson) {
         try {
           final hashtagData = json.decode(hashtagJson);
           if (hashtagData is Map<String, dynamic> && hashtagData.containsKey('name')) {
             recentHashtags.add(hashtagData['name']);
+            // Store hashtag with parent information for display
+            recentHashtagsWithParent.add({
+              'name': hashtagData['name'],
+              'parentName': hashtagData['parentName'] ?? '',
+            });
           }
         } catch (e) {
           debugPrint('[SearchableHashtagWidget] Error parsing recent hashtag: $e');
@@ -280,6 +290,15 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
           .where((g) => g.isMainGroup)
           .map((g) => g.name)
           .toList();
+
+      // Store parent information for groups
+      final recentGroupsWithParent = <Map<String, String>>[];
+      for (final group in recentGroupObjects) {
+        recentGroupsWithParent.add({
+          'name': group.name,
+          'parentName': '', // Groups don't have parents in this context
+        });
+      }
 
       // Combine recent hashtags and groups, prioritizing groups (max 6 items total)
       final combinedRecent = <String>[];

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/config/app_colors.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
@@ -158,6 +160,81 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
       Get.toNamed('/hashtag-groups', arguments: {'newGroupName': groupName});
     } else {
       Get.toNamed('/contact-groups', arguments: {'newGroupName': groupName});
+    }
+  }
+
+  /// Save hashtag or contact to recents with parent group information
+  Future<void> _saveItemToRecents(Map<String, dynamic> item) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      if (widget.isTagMode) {
+        // Save hashtag with parent information
+        final recentHashtagsJson = prefs.getStringList('recent_individual_hashtags_filter') ?? [];
+
+        // Create hashtag data with parent information
+        final hashtagData = {
+          'name': item['name'],
+          'parentId': item['parentId'],
+          'parentName': item['parentName'] ?? '',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        };
+
+        // Remove if already exists
+        recentHashtagsJson.removeWhere((jsonItem) {
+          try {
+            final data = json.decode(jsonItem);
+            return data['name'] == item['name'];
+          } catch (e) {
+            return false;
+          }
+        });
+
+        // Add to beginning
+        recentHashtagsJson.insert(0, json.encode(hashtagData));
+
+        // Keep only last 10 items
+        if (recentHashtagsJson.length > 10) {
+          recentHashtagsJson.removeRange(10, recentHashtagsJson.length);
+        }
+
+        await prefs.setStringList('recent_individual_hashtags_filter', recentHashtagsJson);
+        debugPrint('[TagMentionBottomSheet] Saved hashtag "${item['name']}" with parent "${item['parentName']}" to recents');
+      } else {
+        // Save contact with parent information
+        final recentContactsJson = prefs.getStringList('recent_individual_contacts_filter') ?? [];
+
+        // Create contact data with parent information
+        final contactData = {
+          'name': item['name'],
+          'parentId': item['parentId'],
+          'parentName': item['parentName'] ?? '',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        };
+
+        // Remove if already exists
+        recentContactsJson.removeWhere((jsonItem) {
+          try {
+            final data = json.decode(jsonItem);
+            return data['name'] == item['name'];
+          } catch (e) {
+            return false;
+          }
+        });
+
+        // Add to beginning
+        recentContactsJson.insert(0, json.encode(contactData));
+
+        // Keep only last 10 items
+        if (recentContactsJson.length > 10) {
+          recentContactsJson.removeRange(10, recentContactsJson.length);
+        }
+
+        await prefs.setStringList('recent_individual_contacts_filter', recentContactsJson);
+        debugPrint('[TagMentionBottomSheet] Saved contact "${item['name']}" with parent "${item['parentName']}" to recents');
+      }
+    } catch (e) {
+      debugPrint('[TagMentionBottomSheet] Error saving item to recents: $e');
     }
   }
 
@@ -454,7 +531,10 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                           vertical: 2,
                                         ),
                                         child: InkWell(
-                                          onTap: () {
+                                          onTap: () async {
+                                            // Save to recents with parent information
+                                            await _saveItemToRecents(item);
+
                                             widget.onItemSelected(
                                               '$prefixChar${item['name']}',
                                             );
