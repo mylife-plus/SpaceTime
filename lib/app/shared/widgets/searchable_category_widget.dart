@@ -85,13 +85,19 @@ class SearchableCategoryWidget extends StatefulWidget {
 
   @override
   State<SearchableCategoryWidget> createState() => _SearchableCategoryWidgetState();
+
+  /// Static method to trigger refresh of recents list from external sources (e.g., category picker)
+  static void triggerRecentsRefresh() {
+    _SearchableCategoryWidgetState._globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
+    debugPrint('[SearchableCategoryWidget] Triggered global recents refresh');
+  }
 }
 
 class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
   final TextEditingController _searchController = TextEditingController();
   final PlaceCategoryService _categoryService = PlaceCategoryService();
   final FocusNode _focusNode = FocusNode();
-  
+
   // Reactive state variables
   final RxList<PlaceCategory> _searchResults = <PlaceCategory>[].obs;
   final RxList<PlaceCategory> _recentCategories = <PlaceCategory>[].obs;
@@ -103,6 +109,9 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
   static const String _recentSubcategoriesKey = 'recent_subcategories';
   static const int _maxRecentItems = 6;
 
+  // Global refresh notifier for external updates
+  static final RxInt _globalRefreshNotifier = 0.obs;
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +119,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     _focusNode.addListener(_onFocusChanged);
     if (widget.saveToRecent) {
       _loadRecentCategories();
+
+      // Listen for global refresh triggers from category picker
+      ever(_globalRefreshNotifier, (timestamp) {
+        if (timestamp > 0) {
+          debugPrint('[SearchableCategoryWidget] Global refresh triggered, reloading recents...');
+          _loadRecentCategories();
+        }
+      });
     }
   }
 

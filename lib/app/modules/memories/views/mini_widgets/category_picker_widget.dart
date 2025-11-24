@@ -10,6 +10,7 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/shared/widgets/add_place_category_popup.dart';
+import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 
 class CategoryPickerWidget extends StatefulWidget {
   final Function(PlaceCategory)? onCategorySelected;
@@ -718,6 +719,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         onCategoryAdded: (updatedCategory) async {
           // Update the category in recents list if it exists
           await _updateCategoryInRecents(category.id!, updatedCategory);
+
+          // Trigger refresh of recents in SearchableCategoryWidget (Memory View)
+          SearchableCategoryWidget.triggerRecentsRefresh();
 
           // Refresh categories from database
           await _refreshCategoriesFromDatabase();
