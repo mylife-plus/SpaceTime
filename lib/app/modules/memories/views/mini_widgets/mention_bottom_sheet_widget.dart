@@ -45,6 +45,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   final TextEditingController editController = TextEditingController();
   final TextEditingController searchController = TextEditingController();
   late TagMentionController controller;
+  bool _isUpdatingFromNotifier = false; // Flag to prevent circular updates
 
   @override
   void initState() {
@@ -85,7 +86,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
 
     // Update search controller if needed
     if (searchController.text != searchText) {
+      _isUpdatingFromNotifier = true;
       searchController.text = searchText;
+      _isUpdatingFromNotifier = false;
     }
   }
 
@@ -296,8 +299,11 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       controller: searchController,
                       autofocus: true,
                       onChanged: (value) {
-                        // Update the search notifier to filter the list
-                        widget.searchNotifier.value = value;
+                        // Only update the search notifier if we're not already updating from the notifier
+                        // This prevents circular updates
+                        if (!_isUpdatingFromNotifier) {
+                          widget.searchNotifier.value = value;
+                        }
                       },
                       style: GoogleFonts.kumbhSans(
                         color: uiController.darkMode.value
