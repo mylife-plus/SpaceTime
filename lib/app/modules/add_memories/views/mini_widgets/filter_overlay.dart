@@ -441,24 +441,8 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                     }
               
                                     return Chip(
-                                      avatar: emoji.isNotEmpty
-                                          ? CircleAvatar(
-                                              backgroundColor: Colors.transparent,
-                                              radius: 10,
-                                              child: Text(
-                                                emoji,
-                                                style: const TextStyle(fontSize: 12),
-                                              ),
-                                            )
-                                          : Icon(
-                                              Icons.place,
-                                              size: 14,
-                                              color: uiController.darkMode.value
-                                                  ? Colors.white.withValues(alpha: 0.7)
-                                                  : Colors.grey[600],
-                                            ),
                                       label: Text(
-                                        displayName.isNotEmpty ? displayName : categoryName,
+                                        displayName.isNotEmpty ? '$emoji $displayName' : '$categoryName',
                                         style: const TextStyle(fontSize: 12),
                                       ),
                                       deleteIcon: const Icon(Icons.close, size: 16),

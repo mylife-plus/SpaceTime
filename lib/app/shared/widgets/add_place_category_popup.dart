@@ -1921,13 +1921,13 @@ Navigator.of(context).pop();
                     Obx(() => Row(
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                           child: Text(
                             getCategoryName(widget.editCategory != null
                                 ? widget.editCategory!.parentId
                                 : widget.parentCategoryId),
                             style: GoogleFonts.kumbhSans(
-                              fontSize: 14,
+                              fontSize: 16,
                               color: uiController.darkMode.value ? Colors.white : Colors.black87,
                             ),
                           ),

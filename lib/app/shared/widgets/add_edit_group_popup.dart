@@ -153,15 +153,16 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
               ],
             ),
              if (!widget.isMainGroup && widget.parentGroupName != null)
+
                       Row(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: 4, left: 12, right: 12),
+                            padding: const EdgeInsets.only(top: 4, right: 12),
                             child: Text(
                               '📁 ${widget.parentGroupName}',
                               style: GoogleFonts.kumbhSans(
                                 color: uiController.darkMode.value ? Colors.white : Colors.black,
-                                fontSize: 14,
+                                fontSize: 16,
                               ),
                             ),
                           ),
@@ -174,11 +175,11 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: const EdgeInsets.only(left: 8, bottom: 4),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   widget.isMainGroup
                       ? '${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Group'
-                      : widget.isHashtagMode ? 'Hashtag' : 'Contact',
+                      : widget.isHashtagMode ? 'Hashtag Name' : 'Contact Name',
                   style: GoogleFonts.kumbhSans(
                     fontSize: 15,
                     color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
