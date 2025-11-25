@@ -362,7 +362,8 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
 
                   // Tick button (shown when there's an exact match)
                   Obx(() {
-                    final trimmedSearchText = searchController.text.trim();
+                    // Access controller.searchQuery to make Obx react to search changes
+                    final trimmedSearchText = controller.searchQuery.value.trim();
 
                     debugPrint('[TickButton] searchText: "$trimmedSearchText"');
                     debugPrint('[TickButton] filteredItems count: ${controller.filteredItems.length}');
