@@ -23,6 +23,7 @@ class TagMentionBottomSheet extends StatefulWidget {
   final String initialKeyword;
   final ValueNotifier<String> searchNotifier;
   final VoidCallback? onEditingComplete;
+  final VoidCallback? onSeeListTapped; // Called when "See list" is tapped (closes without removing text)
   final List<String>? excludedItems; // Items already added to the description
   final bool isEditingExisting; // True when editing an existing hashtag/mention
 
@@ -33,6 +34,7 @@ class TagMentionBottomSheet extends StatefulWidget {
     required this.searchNotifier,
     this.isTagMode = true,
     this.onEditingComplete,
+    this.onSeeListTapped,
     this.excludedItems,
     this.isEditingExisting = false,
   });
@@ -660,8 +662,8 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               ),
               child: GestureDetector(
                 onTap: () async {
-                  // Close the current popup
-                  widget.onEditingComplete?.call();
+                  // Close the current popup WITHOUT removing text
+                  widget.onSeeListTapped?.call();
 
                   // Navigate to the appropriate groups screen
                   final result = widget.isTagMode

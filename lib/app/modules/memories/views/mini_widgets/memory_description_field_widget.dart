@@ -501,7 +501,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   final clean = item.substring(1);
                   widget.onTagAdded(clean);
                   _tags.add(clean); // ✅ Add to tag list
-                  Navigator.of(context).pop();
+
+                  // Only pop if dialog is still open
+                  if (_isPopupOpen) {
+                    Navigator.of(context).pop();
+                  }
                   _onDialogClosed();
 
                   // Refocus the input field after a short delay
@@ -517,6 +521,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 onEditingComplete: () {
                   Navigator.of(context).pop();
                   _removeIncompleteTextAndClosePopup();
+                },
+                onSeeListTapped: () {
+                  // Close popup without removing text
+                  Navigator.of(context).pop();
+                  _onDialogClosed();
                 },
                 excludedItems: _tags, // Pass already added tags
                 isEditingExisting: isEditingExisting, // Pass editing state
@@ -577,7 +586,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   final clean = item.substring(1);
                   widget.onMentionAdded(clean);
                   _mentions.add(clean); // ✅ Add to mention list
-                  Navigator.of(context).pop();
+
+                  // Only pop if dialog is still open
+                  if (_isPopupOpen) {
+                    Navigator.of(context).pop();
+                  }
                   _onDialogClosed();
 
                   // Refocus the input field after a short delay
@@ -593,6 +606,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 onEditingComplete: () {
                   Navigator.of(context).pop();
                   _removeIncompleteTextAndClosePopup();
+                },
+                onSeeListTapped: () {
+                  // Close popup without removing text
+                  Navigator.of(context).pop();
+                  _onDialogClosed();
                 },
                 excludedItems: _mentions, // Pass already added mentions
                 isEditingExisting: isEditingExisting, // Pass editing state
