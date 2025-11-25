@@ -1383,6 +1383,20 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             // New category input field (shown when "Add New Category" is selected)
             if (_showNewCategoryInput) ...[
               const SizedBox(height: 6),
+              // New Group Name label
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8, bottom: 4),
+                  child: Text(
+                    '${widget.isTagMode ? 'Hashtag' : 'Contact'} Group Name',
+                    style: GoogleFonts.kumbhSans(
+                      fontSize: 15,
+                      color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                    ),
+                  ),
+                ),
+              ),
               Container(
                 decoration: BoxDecoration(
                   // color: Colors.white,

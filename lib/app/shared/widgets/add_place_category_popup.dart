@@ -860,6 +860,20 @@ Navigator.of(context).pop();
                       if (_selectedParentId.value == 'add_new_main_category') {
                         return Column(
                           children: [
+                            // Category Name label
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  'Category Name',
+                                  style: GoogleFonts.kumbhSans(
+                                    fontSize: 15,
+                                    color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                                  ),
+                                ),
+                              ),
+                            ),
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),

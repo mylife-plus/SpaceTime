@@ -170,6 +170,23 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
 
             const SizedBox(height: 8),
 
+            // Name label
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8, bottom: 4),
+                child: Text(
+                  widget.isMainGroup
+                      ? '${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Group'
+                      : widget.isHashtagMode ? 'Hashtag' : 'Contact',
+                  style: GoogleFonts.kumbhSans(
+                    fontSize: 15,
+                    color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                  ),
+                ),
+              ),
+            ),
+
             // Name input field
             Container(
               width: double.infinity,
