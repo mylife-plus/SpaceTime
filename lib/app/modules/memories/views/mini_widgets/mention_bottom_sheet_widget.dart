@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -355,6 +356,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                             TextField(
                               controller: editController,
                               autofocus: true,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
+                              ],
                               style: GoogleFonts.kumbhSans(
                                 color: uiController.darkMode.value ? Colors.white : Colors.black,
                                 fontSize: 16,
@@ -1393,6 +1397,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                   ),
                   child: TextField(
                     controller: _newCategoryController,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
+                    ],
                     decoration: InputDecoration(
                       hintText: widget.isTagMode ? 'Enter new Hashtag Group name' : 'Enter new Contact Group name',
                       hintStyle: GoogleFonts.kumbhSans(
@@ -1449,6 +1456,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 ),
                 child: TextField(
                   controller: _nameController,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
+                  ],
                   style: GoogleFonts.kumbhSans(
                             color: (uiController.darkMode.value) ?  Colors.white :  Colors.black,
                     fontSize: 16,
