@@ -525,6 +525,10 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   _removeIncompleteTextAndClosePopup();
                 },
                 onSeeListTapped: () {
+                  // If initialKeyword is empty, remove text from trigger to cursor
+                  if (keyword.isEmpty) {
+                    _clearIncompleteText();
+                  }
                   // Close popup without removing text
                   Navigator.of(context).pop();
                   // Don't call _onDialogClosed() here - let the .then() handler do it
@@ -612,6 +616,10 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   _removeIncompleteTextAndClosePopup();
                 },
                 onSeeListTapped: () {
+                  // If initialKeyword is empty, remove text from trigger to cursor
+                  if (keyword.isEmpty) {
+                    _clearIncompleteText();
+                  }
                   // Close popup without removing text
                   Navigator.of(context).pop();
                   // Don't call _onDialogClosed() here - let the .then() handler do it
