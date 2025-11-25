@@ -145,23 +145,24 @@ Align(
 
 **Labels Implemented:**
 
-#### A. Group Dropdown Label (Line 1296-1310)
+#### A. Group Dropdown Label (Line 1296-1309)
 - **Label Text:** "Hashtag Group" or "Contact Group"
 - **Positioned:** Above the group dropdown
-- **Font Weight:** `FontWeight.w500` (slightly bolder than other labels)
-- **Color:** `uiController.darkMode.value ? Colors.white : Colors.black`
+- **Font Size:** 15
+- **Color:** `uiController.darkMode.value ? Colors.white70 : Colors.grey[700]`
 
 #### B. New Group Name Label (Line 1387-1400)
 - **Label Text:** "Hashtag Group Name" or "Contact Group Name"
 - **Visibility:** Shows when "Add New Group" is selected from dropdown
 - **Positioned:** Above the new group name input field
+- **Font Size:** 15
 - **Color:** `uiController.darkMode.value ? Colors.white70 : Colors.grey[700]`
 
-#### C. Subcategory Name Label (Line 1440-1454)
+#### C. Subcategory Name Label (Line 1439-1452)
 - **Label Text:** "Hashtag" or "Contact"
 - **Positioned:** Above the hashtag/contact name input field
-- **Font Weight:** `FontWeight.w500`
-- **Color:** `uiController.darkMode.value ? Colors.white : Colors.black`
+- **Font Size:** 15
+- **Color:** `uiController.darkMode.value ? Colors.white70 : Colors.grey[700]`
 
 ---
 

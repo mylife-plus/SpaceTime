@@ -1301,9 +1301,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 child: Text(
                   '${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
                   style: GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                    color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
                   ),
                 ),
               ),
@@ -1445,9 +1444,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 child: Text(
                   widget.isTagMode ? 'Hashtag' : 'Contact',
                   style: GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                    color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
                   ),
                 ),
               ),
