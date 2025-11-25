@@ -104,9 +104,7 @@ class _InternetRequiredScreenLocationPickerState extends State<InternetRequiredS
 
   Future<void> _verifyInternetAndDismiss() async {
     try {
-      debugPrint(
-        '[InternetRequiredScreenLocationPicker] Verifying internet connectivity...',
-      );
+     
 
       // Check if we have internet connectivity
       final hasInternet = await connectivityService.hasInternetQuickCheck();

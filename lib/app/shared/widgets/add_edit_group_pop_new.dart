@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' as emoji_picker;
@@ -1743,6 +1744,9 @@ Navigator.of(context).pop();
                               child: TextField(
                                 controller: _nameController,
                                 focusNode: _nameFocusNode,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
+                                ],
                                 style: GoogleFonts.kumbhSans(
                                   fontSize: 16,
                                   color: uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -1859,6 +1863,9 @@ Navigator.of(context).pop();
                                 child: TextField(
                                   controller: _nameController,
                                   focusNode: _nameFocusNode,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
+                                  ],
                                   style: GoogleFonts.kumbhSans(
                                     fontSize: 16,
                                     color: uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -1961,6 +1968,9 @@ Navigator.of(context).pop();
                           child: TextField(
                             controller: _placeNameController,
                             focusNode: widget.isMainCategory ? _nameFocusNode : null,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
+                            ],
                             style: GoogleFonts.kumbhSans(
                               fontSize: 16,
                               color: uiController.darkMode.value ? Colors.white : Colors.black87,

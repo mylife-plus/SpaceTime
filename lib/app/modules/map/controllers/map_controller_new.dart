@@ -127,10 +127,7 @@ class MapControllerNew extends GetxController {
     );
 
     // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
-    debugPrint(
-      '[MapControllerNew] 🌐 Skipping internet connectivity check - using offline tiles',
-    );
-
+   
     _initializeServices();
     _initializeMap();
 

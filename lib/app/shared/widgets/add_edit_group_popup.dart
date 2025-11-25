@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -157,7 +158,7 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                           Padding(
                             padding: const EdgeInsets.only(top: 4, left: 12, right: 12),
                             child: Text(
-                              '${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Group: ${widget.parentGroupName}',
+                              '📁 ${widget.parentGroupName}',
                               style: GoogleFonts.kumbhSans(
                                 color: uiController.darkMode.value ? Colors.white : Colors.black,
                                 fontSize: 14,
@@ -186,6 +187,9 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                 child: TextField(
                   controller: _nameController,
                   focusNode: _nameFocusNode,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
+                  ],
                   style: GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 16,

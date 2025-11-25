@@ -56,7 +56,7 @@ class ConnectivityService extends GetxController {
 
   /// Handle connectivity changes
   void _handleConnectivityChange(List<ConnectivityResult> results) {
-    debugPrint('🌐 Connectivity changed: $results');
+    // debugPrint('🌐 Connectivity changed: $results');
 
     // Store previous connectivity state
     final wasConnected = isConnected.value;
@@ -86,14 +86,10 @@ class ConnectivityService extends GetxController {
       if (!wasConnected &&
           isConnected.value &&
           connectionType.value != 'none') {
-        debugPrint(
-          '🌐 Connectivity restored: $previousConnectionType → ${connectionType.value}',
-        );
+       
         _notifyConnectivityRestored();
       } else if (wasConnected && !isConnected.value) {
-        debugPrint(
-          '🌐 Connectivity lost: $previousConnectionType → ${connectionType.value}',
-        );
+        
       }
     });
   }
@@ -135,7 +131,7 @@ class ConnectivityService extends GetxController {
 
   Future<void> _verifyInternetConnectivity() async {
     try {
-      debugPrint('🌐 Verifying internet connectivity...');
+      // debugPrint('🌐 Verifying internet connectivity...');
 
       // Must be a hostname, not URL
       final result = await InternetAddress.lookup(
@@ -143,40 +139,33 @@ class ConnectivityService extends GetxController {
       ).timeout(const Duration(seconds: 5));
 
       final hasInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-      debugPrint(
-        '🌐 Internet lookup result: hasInternet=$hasInternet, resultCount=${result.length}',
-      );
+      // debugPrint(
+      //   '🌐 Internet lookup result: hasInternet=$hasInternet, resultCount=${result.length}',
+      // );
 
       if (hasInternet) {
         // If internet is available but connectionType is 'none', refresh from system
         if (connectionType.value == 'none') {
-          debugPrint(
-            '🌐 Internet restored but connectionType is none - refreshing from system',
-          );
+          // debugPrint(
+          //   '🌐 Internet restored but connectionType is none - refreshing from system',
+          // );
           await _updateConnectionTypeFromSystem();
         }
 
         // Ensure we have a valid connection type
         if (connectionType.value == 'none' || connectionType.value.isEmpty) {
-          debugPrint(
-            '🌐 Internet available but no connection type - setting to "other"',
-          );
+        
           connectionType.value = 'other';
         }
 
         isConnected.value = true;
-        debugPrint(
-          '🌐 Internet connectivity verified: true (${connectionType.value})',
-        );
+        
       } else {
         isConnected.value = false;
         connectionType.value = 'none';
-        debugPrint(
-          '🌐 Internet connectivity verified: false - setting connectionType to none',
-        );
+       
       }
     } catch (e) {
-      debugPrint('🌐 No internet connectivity: $e');
       isConnected.value = false;
       connectionType.value = 'none';
     }

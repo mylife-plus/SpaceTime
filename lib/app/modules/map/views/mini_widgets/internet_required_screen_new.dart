@@ -90,15 +90,11 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
 
   Future<void> _verifyInternetAndDismiss() async {
     try {
-      debugPrint(
-        '[InternetRequiredScreenNew] Verifying internet connectivity...',
-      );
+     
 
       // First check basic connectivity
       if (!connectivityService.isConnected.value) {
-        debugPrint(
-          '[InternetRequiredScreenNew] No basic connectivity, staying on screen',
-        );
+       
         return;
       }
 
@@ -106,9 +102,7 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
       bool hasInternet = await connectivityService.hasInternetQuickCheck();
 
       if (hasInternet) {
-        debugPrint(
-          '[InternetRequiredScreenNew] Internet verified, dismissing screen',
-        );
+        
 
         // Update map controller state
         // mapController.hasInternetConnection.value = true;
@@ -117,12 +111,10 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
         // Retry map initialization
         await mapController.retryLocationPermission();
       } else {
-        debugPrint(
-          '[InternetRequiredScreenNew] Internet verification failed, staying on screen',
-        );
+       
       }
     } catch (e) {
-      debugPrint('[InternetRequiredScreenNew] Error verifying internet: $e');
+      // debugPrint('[InternetRequiredScreenNew] Error verifying internet: $e');
     }
   }
 

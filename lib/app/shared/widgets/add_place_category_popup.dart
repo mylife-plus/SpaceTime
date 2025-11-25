@@ -2253,7 +2253,7 @@ Navigator.of(context).pop();
     final category = _mainCategories.firstWhereOrNull((cat) => cat.id == parentCategoryId);
 
     if (category != null) {
-      return 'Place Category: ${category.name}';
+      return '📁 ${category.name}';
     }
 
     return '';
