@@ -2022,6 +2022,20 @@ Navigator.of(context).pop();
                       if (_selectedParentId.value == 'add_new_main_category') {
                         return Column(
                           children: [
+                            // Category Name label
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  'Category Name',
+                                  style: GoogleFonts.kumbhSans(
+                                    fontSize: 15,
+                                    color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                                  ),
+                                ),
+                              ),
+                            ),
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
@@ -2138,6 +2152,20 @@ Navigator.of(context).pop();
                         if (_selectedParentId.value == 'add_new_main_category') {
                           return Column(
                             children: [
+                              // Category Name label
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    'Category Name',
+                                    style: GoogleFonts.kumbhSans(
+                                      fontSize: 15,
+                                      color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                                    ),
+                                  ),
+                                ),
+                              ),
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
@@ -2174,7 +2202,24 @@ Navigator.of(context).pop();
                     ],
 
                   // Memory View Mode: Subcategory name label
-                
+                  if ((!widget.isMainCategory &&
+                      _selectedParentId.value != 'add_new_main_category') ||
+                      widget.fromMemoryView ||
+                      widget.shouldOnlyShowEditSubCategory)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'Place Name',
+                          style: GoogleFonts.kumbhSans(
+                            fontSize: 15,
+                            color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                    ),
+
                   // Place name input
                   Container(
                     width: double.infinity,

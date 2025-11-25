@@ -114,7 +114,31 @@ Align(
 
 ---
 
-### 4. TagMentionBottomSheet (_AddGroupPopupDialog)
+### 4. AddPlaceCategoryPopupForCategoryPicker
+**File:** `lib/app/shared/widgets/add_place_category_popup.dart`
+
+**Purpose:** Add/edit place categories and places from category picker widget
+
+**Labels Implemented:**
+
+#### A. Category Name Label (Line 2025-2038)
+- **Label Text:** "Category Name"
+- **Visibility:** Shows when "Add New Category" is selected from dropdown (first instance)
+- **Positioned:** Above the new category name input field
+
+#### B. Category Name Label (Line 2155-2168)
+- **Label Text:** "Category Name"
+- **Visibility:** Shows when "Add New Category" is selected from dropdown (second instance in different mode)
+- **Positioned:** Above the new category name input field
+
+#### C. Place Name Label (Line 2204-2220)
+- **Label Text:** "Place Name"
+- **Visibility:** Shows when adding subcategories or in Memory View mode or editing subcategories
+- **Positioned:** Above the place name input field with emoji picker
+
+---
+
+### 5. TagMentionBottomSheet (_AddGroupPopupDialog)
 **File:** `lib/app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart`
 
 **Purpose:** Add hashtags/mentions from memory description field
@@ -148,9 +172,10 @@ Align(
 | AddEditGroupPopup | add_edit_group_popup.dart | 1 | Name label |
 | AddEditGroupPopupNew | add_edit_group_pop_new.dart | 3 | Category/Group, New Name, Item Name |
 | AddPlaceCategoryPopup | add_place_category_popup.dart | 3 | Category, Category Name, Place Name |
+| AddPlaceCategoryPopupForCategoryPicker | add_place_category_popup.dart | 3 | Category Name (2x), Place Name |
 | TagMentionBottomSheet | mention_bottom_sheet_widget.dart | 3 | Group, New Group Name, Item Name |
 
-**Total Labels Implemented:** 10 labels across 4 popup types
+**Total Labels Implemented:** 13 labels across 5 popup types
 
 ---
 
@@ -177,6 +202,37 @@ When adding new input fields or dropdowns to any popup:
 4. Maintain consistent spacing (4px bottom padding)
 5. Use appropriate color based on dark mode state
 6. Keep font size at 15 for consistency
+
+---
+
+## Views Using These Popups
+
+### HashtagGroupsView
+**File:** `lib/app/modules/hashtag_groups/views/hashtag_groups_view.dart`
+
+**Popups Used:**
+- `AddEditGroupPopup` - For editing hashtag groups and subgroups (lines 589, 895, 2070)
+- `AddEditGroupPopupNew` - For editing from filter mode with parent dropdown (line 1838)
+
+### ContactGroupsView
+**File:** `lib/app/modules/contact_groups/views/contact_groups_view.dart`
+
+**Popups Used:**
+- `AddEditGroupPopup` - For editing contact groups and subgroups (lines 587, 905, 2117)
+- `AddEditGroupPopupNew` - For editing from filter mode with parent dropdown (line 1885)
+
+### CategoryPickerWidget
+**File:** `lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart`
+
+**Popups Used:**
+- `AddPlaceCategoryPopupForCategoryPicker` - For adding/editing place categories and subcategories (lines 593, 628, 1176)
+- `AddPlaceCategoryPopup` - For editing subcategories with parent dropdown (line 715)
+
+### MemoryView (via Memory Description Field)
+**File:** `lib/app/modules/memories/views/mini_widgets/memory_description_field_widget.dart`
+
+**Popups Used:**
+- `TagMentionBottomSheet` - For adding hashtags and mentions from description field
 
 ---
 
