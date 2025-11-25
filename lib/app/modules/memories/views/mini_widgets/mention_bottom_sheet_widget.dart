@@ -336,6 +336,22 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       },
                     ),
                   ),
+
+                    GestureDetector(
+                    onTap: () {
+                      widget.onEditingComplete?.call();
+                    },
+                   child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Image.asset(
+                            'assets/images/ic_cross.png',
+                            width: 24,
+                            height: 24,
+                            color: Colors.red,
+                          ),
+                        ),
+                  ),
+
                   // Tick button (shown when there's an exact match)
                   ValueListenableBuilder<String>(
                     valueListenable: widget.searchNotifier,
@@ -364,7 +380,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                           );
                         },
                         child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.only(right: 0),
                           child: Image.asset(
                             'assets/images/ic_tick.png',
                             width: 24,
@@ -376,17 +392,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                     },
                   ),
                   // Close button
-                  GestureDetector(
-                    onTap: () {
-                      widget.onEditingComplete?.call();
-                    },
-                    child: Icon(
-                      Icons.close,
-                      color: Colors.red,
-                      size: 24,
-                    ),
-                  ),
-
+                
                 ],
               ),
             ),
@@ -661,19 +667,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                     ),
                                                   ),
                                                 // Green tick icon for already selected items
-                                                if (widget.excludedItems != null &&
-                                                    widget.excludedItems!.contains(item['name']))
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(left: 8),
-                                                    child: Image.asset(
-                                                      'assets/images/ic_tick.png',
-                                                      width: 18,
-                                                      height: 18,
-                                                      color: AppColors.green,
-                                                    ),
-                                                  ),
-                                                // Edit icon
-                                                const SizedBox(width: 8),
+                                               const SizedBox(width: 8),
                                                 GestureDetector(
                                                   onTap: () {
                                                     _showEditGroupPopup(context, item);
