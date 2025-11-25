@@ -502,9 +502,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   widget.onTagAdded(clean);
                   _tags.add(clean); // ✅ Add to tag list
 
-                  // Only pop if dialog is still open
-                  if (_isPopupOpen) {
+                  // Always try to pop - if dialog is already closed, this will fail silently
+                  try {
                     Navigator.of(context).pop();
+                  } catch (e) {
+                    // Dialog already closed (e.g., after "See list" navigation)
                   }
                   _onDialogClosed();
 
@@ -525,7 +527,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 onSeeListTapped: () {
                   // Close popup without removing text
                   Navigator.of(context).pop();
-                  _onDialogClosed();
+                  // Don't call _onDialogClosed() here - let the .then() handler do it
                 },
                 excludedItems: _tags, // Pass already added tags
                 isEditingExisting: isEditingExisting, // Pass editing state
@@ -587,9 +589,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   widget.onMentionAdded(clean);
                   _mentions.add(clean); // ✅ Add to mention list
 
-                  // Only pop if dialog is still open
-                  if (_isPopupOpen) {
+                  // Always try to pop - if dialog is already closed, this will fail silently
+                  try {
                     Navigator.of(context).pop();
+                  } catch (e) {
+                    // Dialog already closed (e.g., after "See list" navigation)
                   }
                   _onDialogClosed();
 
@@ -610,7 +614,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                 onSeeListTapped: () {
                   // Close popup without removing text
                   Navigator.of(context).pop();
-                  _onDialogClosed();
+                  // Don't call _onDialogClosed() here - let the .then() handler do it
                 },
                 excludedItems: _mentions, // Pass already added mentions
                 isEditingExisting: isEditingExisting, // Pass editing state
