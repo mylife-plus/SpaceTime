@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -275,7 +276,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color:
-                    
+
                         // ? (
                             (uiController.darkMode.value
                                 ? Colors.black
@@ -298,37 +299,81 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                   ),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: TextField(
-                      controller: searchController,
-                      autofocus: true,
-                      onChanged: (value) {
-                        // Only update the search notifier if we're not already updating from the notifier
-                        // This prevents circular updates
-                        if (!_isUpdatingFromNotifier) {
-                          widget.searchNotifier.value = value;
-                        }
+                    child: ValueListenableBuilder<String>(
+                      valueListenable: widget.searchNotifier,
+                      builder: (context, searchText, child) {
+                        return TextField(
+                          controller: searchController,
+                          autofocus: true,
+                          onChanged: (value) {
+                            // Only update the search notifier if we're not already updating from the notifier
+                            // This prevents circular updates
+                            if (!_isUpdatingFromNotifier) {
+                              widget.searchNotifier.value = value;
+                            }
+                          },
+                          style: GoogleFonts.kumbhSans(
+                            color: uiController.darkMode.value
+                                ? Colors.white
+                                : Colors.black,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search...',
+                            hintStyle: GoogleFonts.kumbhSans(
+                              color: uiController.darkMode.value
+                                  ? Colors.grey
+                                  : Colors.black.withValues(alpha: 0.5),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        );
                       },
-                      style: GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value
-                            ? Colors.white
-                            : Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        hintStyle: GoogleFonts.kumbhSans(
-                          color: uiController.darkMode.value
-                              ? Colors.grey
-                              : Colors.black.withValues(alpha: 0.5),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
                     ),
+                  ),
+                  // Tick button (shown when there's an exact match)
+                  ValueListenableBuilder<String>(
+                    valueListenable: widget.searchNotifier,
+                    builder: (context, searchText, child) {
+                      final trimmedSearchText = searchText.trim();
+
+                      // Check if there's an exact match in the filtered items
+                      final exactMatchItem = controller.filteredItems.firstWhereOrNull(
+                        (item) => item['name'].toString().toLowerCase() == trimmedSearchText.toLowerCase()
+                      );
+
+                      final hasExactMatch = exactMatchItem != null && trimmedSearchText.isNotEmpty;
+
+                      if (!hasExactMatch) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return GestureDetector(
+                        onTap: () async {
+                          // Save to recents with parent information
+                          await _saveItemToRecents(exactMatchItem);
+
+                          // Call the same function as list item click
+                          widget.onItemSelected(
+                            '$prefixChar${exactMatchItem['name']}',
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Image.asset(
+                            'assets/images/ic_tick.png',
+                            width: 24,
+                            height: 24,
+                            color: AppColors.green,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   // Close button
                   GestureDetector(
@@ -341,7 +386,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       size: 24,
                     ),
                   ),
-                 
+
                 ],
               ),
             ),

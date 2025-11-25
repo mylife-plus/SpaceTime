@@ -832,7 +832,7 @@ Navigator.of(context).pop();
                                 return DropdownMenuItem<String>(
                                   value: category.id.toString(),
                                   child: Text(
-                                    '${category.emoji} ${category.name}',
+                                    '${category.name}',
                                     style: GoogleFonts.kumbhSans(
                                       fontSize: 16,
                                       color: uiController.darkMode.value ? Colors.white : Colors.black87,
