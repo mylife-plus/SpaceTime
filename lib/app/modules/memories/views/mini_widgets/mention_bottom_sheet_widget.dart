@@ -55,6 +55,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   @override
   void initState() {
     super.initState();
+
+    debugPrint('[TagMentionBottomSheet] initState - initialKeyword: "${widget.initialKeyword}"');
+
     controller = Get.put(TagMentionController(
       isTagMode: widget.isTagMode,
       excludedItems: widget.excludedItems,
@@ -62,15 +65,19 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
       isEditingExisting: widget.isEditingExisting,
     ));
 
-    // Load saved items - this will automatically filter by initialKeyword if provided
-    controller.loadSavedItems();
-
-    // Set initial search text and notify listeners
+    // Set initial search text
     searchController.text = widget.initialKeyword;
+
+    // Listen to search notifier changes BEFORE setting the value
+    widget.searchNotifier.addListener(_onSearchChanged);
+
+    debugPrint('[TagMentionBottomSheet] Setting searchNotifier.value to: "${widget.initialKeyword}"');
+
+    // Set the initial value - this will trigger the listener
     widget.searchNotifier.value = widget.initialKeyword;
 
-    // Listen to search notifier changes
-    widget.searchNotifier.addListener(_onSearchChanged);
+    // Load saved items - this will automatically filter by initialKeyword if provided
+    controller.loadSavedItems();
 
     // Listen to editing state changes
     ever(controller.isEditing, (isEditing) {
@@ -360,12 +367,19 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       builder: (context, searchText, child) {
                         final trimmedSearchText = searchText.trim();
 
+                        debugPrint('[TickButton] searchText: "$trimmedSearchText"');
+                        debugPrint('[TickButton] filteredItems count: ${controller.filteredItems.length}');
+
                         // Check if there's an exact match in the filtered items
                         final exactMatchItem = controller.filteredItems.firstWhereOrNull(
                           (item) => item['name'].toString().toLowerCase() == trimmedSearchText.toLowerCase()
                         );
 
+                        debugPrint('[TickButton] exactMatchItem: ${exactMatchItem?['name']}');
+
                         final hasExactMatch = exactMatchItem != null && trimmedSearchText.isNotEmpty;
+
+                        debugPrint('[TickButton] hasExactMatch: $hasExactMatch');
 
                         if (!hasExactMatch) {
                           return const SizedBox.shrink();
