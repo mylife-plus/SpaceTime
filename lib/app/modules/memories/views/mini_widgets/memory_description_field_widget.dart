@@ -458,12 +458,13 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _showTagPopup(String keyword) {
-    _removePopup();
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.attached) return;
+    // Prevent opening popup if already open
+    if (_isPopupOpen) return;
 
     // Save current cursor position
     _savedCursorPosition = _coloredController.selection.baseOffset;
+
+    _removePopup();
 
     _isPopupOpen = true;
     widget.onPopupStateChanged?.call(true);
@@ -533,12 +534,13 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _showMentionPopup(String keyword) {
-    _removePopup();
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.attached) return;
+    // Prevent opening popup if already open
+    if (_isPopupOpen) return;
 
     // Save current cursor position
     _savedCursorPosition = _coloredController.selection.baseOffset;
+
+    _removePopup();
 
     _isPopupOpen = true;
     widget.onPopupStateChanged?.call(true);
