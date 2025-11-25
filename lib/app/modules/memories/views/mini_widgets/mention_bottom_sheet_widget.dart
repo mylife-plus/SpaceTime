@@ -362,55 +362,50 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
 
                   // Tick button (shown when there's an exact match)
                   Obx(() {
-                    return ValueListenableBuilder<String>(
-                      valueListenable: widget.searchNotifier,
-                      builder: (context, searchText, child) {
-                        final trimmedSearchText = searchText.trim();
+                    final trimmedSearchText = searchController.text.trim();
 
-                        debugPrint('[TickButton] searchText: "$trimmedSearchText"');
-                        debugPrint('[TickButton] filteredItems count: ${controller.filteredItems.length}');
+                    debugPrint('[TickButton] searchText: "$trimmedSearchText"');
+                    debugPrint('[TickButton] filteredItems count: ${controller.filteredItems.length}');
 
-                        // Check if there's an exact match in the filtered items
-                        final exactMatchItem = controller.filteredItems.firstWhereOrNull(
-                          (item) => item['name'].toString().toLowerCase() == trimmedSearchText.toLowerCase()
-                        );
+                    // Check if there's an exact match in the filtered items
+                    final exactMatchItem = controller.filteredItems.firstWhereOrNull(
+                      (item) => item['name'].toString().toLowerCase() == trimmedSearchText.toLowerCase()
+                    );
 
-                        debugPrint('[TickButton] exactMatchItem: ${exactMatchItem?['name']}');
+                    debugPrint('[TickButton] exactMatchItem: ${exactMatchItem?['name']}');
 
-                        final hasExactMatch = exactMatchItem != null && trimmedSearchText.isNotEmpty;
+                    final hasExactMatch = exactMatchItem != null && trimmedSearchText.isNotEmpty;
 
-                        debugPrint('[TickButton] hasExactMatch: $hasExactMatch');
+                    debugPrint('[TickButton] hasExactMatch: $hasExactMatch');
 
-                        if (!hasExactMatch) {
-                          return const SizedBox.shrink();
-                        }
+                    if (!hasExactMatch) {
+                      return const SizedBox.shrink();
+                    }
 
-                        return Row(
-                          children: [
-                            const SizedBox(width: 5),
-                            GestureDetector(
-                              onTap: () async {
-                                // Save to recents with parent information
-                                await _saveItemToRecents(exactMatchItem);
+                    return Row(
+                      children: [
+                        const SizedBox(width: 5),
+                        GestureDetector(
+                          onTap: () async {
+                            // Save to recents with parent information
+                            await _saveItemToRecents(exactMatchItem);
 
-                                // Call the same function as list item click
-                                widget.onItemSelected(
-                                  '$prefixChar${exactMatchItem['name']}',
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: Image.asset(
-                                  'assets/images/ic_tick.png',
-                                  width: 24,
-                                  height: 24,
-                                  color: AppColors.green,
-                                ),
-                              ),
+                            // Call the same function as list item click
+                            widget.onItemSelected(
+                              '$prefixChar${exactMatchItem['name']}',
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Image.asset(
+                              'assets/images/ic_tick.png',
+                              width: 24,
+                              height: 24,
+                              color: AppColors.green,
                             ),
-                          ],
-                        );
-                      },
+                          ),
+                        ),
+                      ],
                     );
                   }),
                   // Close button
