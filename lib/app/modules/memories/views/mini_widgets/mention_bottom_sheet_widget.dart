@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:nativewrappers/_internal/vm/lib/async_patch.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,8 +65,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     // Load saved items - this will automatically filter by initialKeyword if provided
     controller.loadSavedItems();
 
-    // Set initial search text
+    // Set initial search text and notify listeners
     searchController.text = widget.initialKeyword;
+    widget.searchNotifier.value = widget.initialKeyword;
 
     // Listen to search notifier changes
     widget.searchNotifier.addListener(_onSearchChanged);
@@ -336,7 +338,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       },
                     ),
                   ),
-
                     GestureDetector(
                     onTap: () {
                       widget.onEditingComplete?.call();
@@ -357,10 +358,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                     return ValueListenableBuilder<String>(
                       valueListenable: widget.searchNotifier,
                       builder: (context, searchText, child) {
-                        // Use searchController.text if searchNotifier is empty (for initialKeyword case)
-                        final trimmedSearchText = searchText.trim().isEmpty
-                            ? searchController.text.trim()
-                            : searchText.trim();
+                        final trimmedSearchText = searchText.trim();
 
                         // Check if there's an exact match in the filtered items
                         final exactMatchItem = controller.filteredItems.firstWhereOrNull(
@@ -373,25 +371,30 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                           return const SizedBox.shrink();
                         }
 
-                        return GestureDetector(
-                          onTap: () async {
-                            // Save to recents with parent information
-                            await _saveItemToRecents(exactMatchItem);
+                        return Row(
+                          children: [
+                            const SizedBox(width: 5),
+                            GestureDetector(
+                              onTap: () async {
+                                // Save to recents with parent information
+                                await _saveItemToRecents(exactMatchItem);
 
-                            // Call the same function as list item click
-                            widget.onItemSelected(
-                              '$prefixChar${exactMatchItem['name']}',
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 0),
-                            child: Image.asset(
-                              'assets/images/ic_tick.png',
-                              width: 24,
-                              height: 24,
-                              color: AppColors.green,
+                                // Call the same function as list item click
+                                widget.onItemSelected(
+                                  '$prefixChar${exactMatchItem['name']}',
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Image.asset(
+                                  'assets/images/ic_tick.png',
+                                  width: 24,
+                                  height: 24,
+                                  color: AppColors.green,
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         );
                       },
                     );
@@ -672,7 +675,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                     ),
                                                   ),
                                                 // Green tick icon for already selected items
-                                               const SizedBox(width: 8),
+                                               
+                                                // Edit icon
+                                                const SizedBox(width: 8),
                                                 GestureDetector(
                                                   onTap: () {
                                                     _showEditGroupPopup(context, item);
