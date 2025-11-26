@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:nativewrappers/_internal/vm/lib/async_patch.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -66,18 +65,13 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     ));
 
     // Set initial search text
-    searchController.text = widget.initialKeyword;
-
-    // Listen to search notifier changes BEFORE setting the value
-    widget.searchNotifier.addListener(_onSearchChanged);
-
-    debugPrint('[TagMentionBottomSheet] Setting searchNotifier.value to: "${widget.initialKeyword}"');
-
-    // Set the initial value - this will trigger the listener
-    widget.searchNotifier.value = widget.initialKeyword;
+    searchController.text = widget.initialKeyword ?? '';
 
     // Load saved items - this will automatically filter by initialKeyword if provided
     controller.loadSavedItems();
+
+    // Add listener to searchNotifier to update when search changes
+    widget.searchNotifier.addListener(_onSearchChanged);
 
     // Listen to editing state changes
     ever(controller.isEditing, (isEditing) {
@@ -360,6 +354,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                         ),
                   ),
 
+                
                   // Tick button (shown when there's an exact match)
                   Obx(() {
                     // Access controller.searchQuery to make Obx react to search changes
