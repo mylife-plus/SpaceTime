@@ -47,13 +47,13 @@ class MemoryInfoWidget extends StatelessWidget {
                         final yesterday = today.subtract(const Duration(days: 1));
                         final selected = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
 
-                        if (selected == today) {
-                          dateText = "Today";
-                        } else if (selected == yesterday) {
-                          dateText = "Yesterday";
-                        } else {
+                        // if (selected == today) {
+                        //   dateText = "Today";
+                        // } else if (selected == yesterday) {
+                        //   dateText = "Yesterday";
+                        // } else {
                           dateText = "${selectedDate.day.toString().padLeft(2, '0')}.${selectedDate.month.toString().padLeft(2, '0')}.${selectedDate.year}";
-                        }
+                        // }
                       }
 
                       return _InfoContainer(
