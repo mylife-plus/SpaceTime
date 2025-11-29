@@ -142,10 +142,16 @@ class MemoryInfoWidget extends StatelessWidget {
                     onCategorySelected!();
                   }
                 },
+                onSelectedCategoryDeleted: () {
+                  // Clear the selected category when it's deleted
+                  controller.setCategory('');
+                  debugPrint('[MemoryInfoWidget] Cleared selected category after deletion');
+                },
                 backgroundColor: controller2.darkMode.value
                     ? Colors.black.withValues(alpha: 0.5)
                     : Colors.white,
-                allowMultipleSelectionInPicker: false, // Single selection mode for Memory Info Widget
+                allowMultipleSelectionInPicker: false,
+                saveToRecent: true, // Single selection mode for Memory Info Widget
               ),
             ),
           ],

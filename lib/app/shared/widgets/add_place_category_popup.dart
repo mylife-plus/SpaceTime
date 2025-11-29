@@ -343,6 +343,10 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           parentId: null,
         );
 
+
+
+
+
         if (newCategory == null) {
           Get.snackbar(
             'Error',
@@ -374,6 +378,53 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           _isLoading.value = false;
           return;
         }
+
+if(newCategory != null && newCategory.id != null) {
+var newCategory1 = await _categoryService.addCustomCategory(
+          name: placeName,
+          emoji: placeEmoji, // Default emoji for main categories
+          parentId: newCategory.id!,
+        );
+
+
+        if (newCategory1 == null) {
+          Get.snackbar(
+            'Error',
+            'Failed to add Place',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
+          );
+          _isLoading.value = false;
+          return;
+        } else if (newCategory1.id == -1) {
+          Get.snackbar(
+            'Duplicate Place',
+            'Place with this name already exists.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
+          );
+          _isLoading.value = false;
+          return;
+        } else if (newCategory1.id == -4) {
+          Get.snackbar(
+            'Name Conflict',
+            'This name is already used by the Place category.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,        duration: const Duration(seconds: 2),
+
+          );
+          _isLoading.value = false;
+          return;
+        }
+          Get.back(); // Close popup
+        widget.onCategoryAdded?.call(newCategory1!);
+         if (!widget.fromMemoryView) {
+          await _categoryService.refreshMemoryControllersAfterMemoryChange();
+        }
+return;
+}
 
         Get.back(); // Close popup
         widget.onCategoryAdded?.call(newCategory);

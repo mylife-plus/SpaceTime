@@ -14,6 +14,8 @@ import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 
 class CategoryPickerWidget extends StatefulWidget {
   final Function(PlaceCategory)? onCategorySelected;
+
+  final Function(PlaceCategory)? onCategoryDeleted;
   final PlaceCategory? selectedCategory;
 
   // Multiple selection mode parameters
@@ -27,7 +29,7 @@ class CategoryPickerWidget extends StatefulWidget {
     this.selectedCategory,
     this.allowMultipleSelection = false,
     this.selectedCategories,
-    this.onMultipleCategoriesSelected,
+    this.onMultipleCategoriesSelected, this.onCategoryDeleted,
   });
 
   @override
@@ -61,6 +63,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
   // Multiple selection state
   final RxList<PlaceCategory> _selectedCategories = <PlaceCategory>[].obs;
+
+  // Track deleted categories to return to previous screen
+  final List<PlaceCategory> _deletedCategories = [];
 
   // Memory count cache for categories
   final RxMap<int, int> _categoryMemoryCount = <int, int>{}.obs;
@@ -437,7 +442,11 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             '${category.emoji} ${category.name}';
       }
 
-      Get.back(result: category);
+      // Return both selected category and deleted categories
+      Get.back(result: {
+        'selected': category,
+        'deleted': _deletedCategories,
+      });
     }
   }
 
@@ -563,12 +572,19 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     debugPrint(
       '[CategoryPickerWidget][_onDonePressed] Subcategories: ${subcategoriesOnly.map((c) => c.name).join(", ")}',
     );
+    debugPrint(
+      '[CategoryPickerWidget][_onDonePressed] Deleted categories: ${_deletedCategories.length}',
+    );
 
     if (widget.onMultipleCategoriesSelected != null) {
       widget.onMultipleCategoriesSelected!(subcategoriesOnly);
     }
 
-    Get.back(result: subcategoriesOnly);
+    // Return both selected and deleted categories
+    Get.back(result: {
+      'selected': subcategoriesOnly,
+      'deleted': _deletedCategories,
+    });
   }
 
   /// Toggle expansion state of a main category
@@ -1303,12 +1319,29 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         '[CategoryPickerWidget][_deleteCategory] Deleting category ID: $categoryId',
       );
 
+      // Get category details before deletion to track it
+      final categoryToDelete = await _categoryService.getCategoryById(categoryId);
+
+if (categoryToDelete != null) {
+          if(widget.onCategoryDeleted != null) {
+          widget.onCategoryDeleted!(categoryToDelete!);
+
+          }
+          debugPrint(
+            '[CategoryPickerWidget][_deleteCategory] Added to deleted list: ${categoryToDelete.emoji} ${categoryToDelete.name}',
+          );
+        }
       final result = await _categoryService.deleteCategory(categoryId);
 
       if (result == true) {
         // Successfully deleted
         // Get.back(); // Close confirmation dialog
         // Get.back(); // Close edit dialog
+
+        // Track deleted category
+
+      
+        
 
         // Remove from recent subcategories
         await removeFromRecentSubcategories(categoryId);

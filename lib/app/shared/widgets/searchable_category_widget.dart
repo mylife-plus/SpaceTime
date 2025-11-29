@@ -37,6 +37,9 @@ class SearchableCategoryWidget extends StatefulWidget {
   /// Callback when focus state changes (optional)
   final Function(bool isFocused)? onFocusChanged;
 
+  /// Callback when selected category is deleted (optional)
+  final VoidCallback? onSelectedCategoryDeleted;
+
   /// Whether to show the "See all" and "Add new" buttons (default: true)
   final bool showActionButtons;
 
@@ -71,6 +74,7 @@ class SearchableCategoryWidget extends StatefulWidget {
     required this.onCategorySelected,
     this.onMultipleCategoriesSelectedFromPicker,
     this.onFocusChanged,
+    this.onSelectedCategoryDeleted,
     this.showActionButtons = true,
     this.showAddNewButton = true,
     this.iconPath,
@@ -314,6 +318,54 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     }
   }
 
+  /// Handle deleted categories from CategoryPickerWidget
+  Future<void> _handleDeletedCategories(List<PlaceCategory> deletedCategories) async {
+    debugPrint('[SearchableCategoryWidget] Handling ${deletedCategories.length} deleted categories');
+
+    bool selectedCategoryWasDeleted = false;
+
+    for (final deletedCategory in deletedCategories) {
+      debugPrint('[SearchableCategoryWidget] Processing deleted category: ${deletedCategory.emoji} ${deletedCategory.name} (ID: ${deletedCategory.id}, isSubcategory: ${deletedCategory.isSubcategory})');
+
+      // Remove from recents
+      if (deletedCategory.id != null) {
+        await _removeCategoryFromRecents(deletedCategory.id!);
+      }
+
+      // Check if the currently selected category was deleted
+      // This works for both main categories and subcategories
+      if (widget.selectedCategory != null && widget.selectedCategory!.isNotEmpty) {
+        final selectedCategoryName = _extractCategoryName(widget.selectedCategory!);
+
+        // Check if the deleted category matches the selected category
+        if (selectedCategoryName == deletedCategory.name) {
+          debugPrint('[SearchableCategoryWidget] Currently selected category "${deletedCategory.name}" was deleted, clearing selection');
+          selectedCategoryWasDeleted = true;
+        }
+      }
+    }
+
+    // Reload recent categories to reflect the deletions
+    await _loadRecentCategories();
+
+    // Notify parent if selected category was deleted
+    if (selectedCategoryWasDeleted && widget.onSelectedCategoryDeleted != null) {
+
+      widget.onSelectedCategoryDeleted!();
+    }
+  }
+
+  /// Extract category name from "emoji name" format
+  String _extractCategoryName(String categoryString) {
+    if (categoryString.contains(' ')) {
+      final parts = categoryString.split(' ');
+      if (parts.length >= 2) {
+        return parts.sublist(1).join(' ');
+      }
+    }
+    return categoryString;
+  }
+
   /// Remove a category from the recents list (when deleted)
   Future<void> _removeCategoryFromRecents(int categoryId) async {
     if (!widget.saveToRecent) return;
@@ -357,9 +409,9 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     widget.onCategorySelected(category);
 
     // Save to recent categories if enabled
-    if (widget.saveToRecent) {
+    // if (widget.saveToRecent) {
       _saveRecentlySelectedSubcategory(category);
-    }
+    // }
 
     // Clear search and hide results
     _searchController.clear();
@@ -437,12 +489,32 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
           onCategorySelected: (category) {
             _selectCategory(category);
           },
+           onCategoryDeleted: (category) {
+            _handleDeletedCategories([category]);
+          },
         ),
       );
 
       // Handle result if returned via Get.back
-      if (result != null && result is PlaceCategory) {
-        _selectCategory(result);
+      if (result != null) {
+        if (result is Map) {
+          // New format: {selected: category, deleted: [categories]}
+          final selectedCategory = result['selected'] as PlaceCategory?;
+          final deletedCategories = result['deleted'] as List<PlaceCategory>?;
+
+          // Handle deleted categories
+          if (deletedCategories != null && deletedCategories.isNotEmpty) {
+            await _handleDeletedCategories(deletedCategories);
+          }
+
+          // Handle selected category
+          if (selectedCategory != null) {
+            _selectCategory(selectedCategory);
+          }
+        } else if (result is PlaceCategory) {
+          // Legacy format: just the category
+          _selectCategory(result);
+        }
       }
     }
   }
@@ -508,17 +580,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
       AddPlaceCategoryPopup(
         fromMemoryView: true, // Enable Memory View mode for adding
         onCategoryAdded: (category) async {
+          debugPrint('[SearchableCategoryWidget] Category added: ${category.emoji} ${category.name} (ID: ${category.id}, isSubcategory: ${category.isSubcategory})');
+
           // Refresh the recent categories list
           await _loadRecentCategories();
 
-          // Auto-select the newly created category
-          widget.onCategorySelected(category);
-
-          // Move to top of recents list
-          if (widget.saveToRecent) {
-            await _saveRecentlySelectedSubcategory(category);
-            await _loadRecentCategories();
-          }
+          // Auto-select the newly created category using _selectCategory
+          // This ensures proper formatting and saving to recents
+          _selectCategory(category);
         },
         allowSubcategories: true,
       ),
@@ -533,13 +602,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         editCategory: category,
         fromMemoryView: true, // Enable Memory View mode for editing
         onCategoryAdded: (updatedCategory) async {
-          debugPrint('[SearchableCategoryWidget] Category updated: ${updatedCategory.emoji} ${updatedCategory.name}');
+          debugPrint('[SearchableCategoryWidget] Category updated: ${updatedCategory.emoji} ${updatedCategory.name} (ID: ${updatedCategory.id}, isSubcategory: ${updatedCategory.isSubcategory})');
 
           // Update the category in SharedPreferences if it exists in recents
           await _updateCategoryInRecents(category.id!, updatedCategory);
 
-          // Auto-select the updated category
-          widget.onCategorySelected(updatedCategory);
+          // Auto-select the updated category using _selectCategory
+          // This ensures proper formatting and saving to recents
+          _selectCategory(updatedCategory);
 
           // Move to top of recents list
           if (widget.saveToRecent) {
