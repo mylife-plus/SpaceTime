@@ -66,7 +66,7 @@ class SearchableCategoryWidget extends StatefulWidget {
 
   const SearchableCategoryWidget({
     super.key,
-    this.title = 'Places',
+    this.title = 'Place',
     this.selectedCategory,
     required this.onCategorySelected,
     this.onMultipleCategoriesSelectedFromPicker,

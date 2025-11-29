@@ -663,7 +663,8 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
       if (hasSearchQuery) {
         // Group results
         bool containsAtlestOneHashtag = false;
-
+// 
+        // filter group results and search results make sure there are is no duplication
         for (int i = 0; i < _groupResults.length; i++) {
            if( _groupResults[i].parentId != null) {
             containsAtlestOneHashtag = true;

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -80,7 +81,7 @@ class _MemoryViewState extends State<MemoryView> {
   @override
   void initState() {
     super.initState();
-    print('Init State Called:');
+    // print('Init State Called:');
     final memoryController = Get.find<MemoryController>();
     memoryController.setTime(TimeOfDay.now());
 
@@ -1011,6 +1012,28 @@ class _MemoryViewState extends State<MemoryView> {
     );
   }
 
+  /// Unfocus the description field when interacting with other widgets
+  void _unfocusDescriptionField() {
+    
+    print('Unfocuing');
+    if (_descriptionFieldKey.currentState != null) {
+      _descriptionFieldKey.currentState!.closePopup();
+      _descriptionFieldKey.currentState!.preventAutoFocusTemporarily();
+    }
+
+    //  _focusNode.unfocus();
+      FocusScope.of(context).unfocus();
+
+      // For iOS, sometimes we need to be more aggressive
+      if (Theme.of(context).platform == TargetPlatform.iOS) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        SystemChannels.textInput.invokeMethod('TextInput.hide');
+      }
+    
+    
+    // FocusScope.of(context).unfocus();
+  }
+
   void _handleSave() async {
     try {
       debugPrint('MemoryView: handleSave - Method called');
@@ -1658,7 +1681,10 @@ class _MemoryViewState extends State<MemoryView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const MemoryInfoWidget(),
+                          MemoryInfoWidget(
+                            onCategorySelected: _unfocusDescriptionField,
+                            onAnyWidgetTapped: _unfocusDescriptionField,
+                          ),
                           const SizedBox(height: 2),
                           Container(
                             color:

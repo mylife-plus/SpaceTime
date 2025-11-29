@@ -125,6 +125,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   bool _isPopupOpen = false;
   ValueNotifier<String>? _searchNotifier;
   int _savedCursorPosition = 0; // Store cursor position when popup opens
+  bool _preventAutoFocus = false; // Prevent auto-focus after navigation
 
   final List<String> _tags = [];
   final List<String> _mentions = [];
@@ -175,6 +176,17 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     if (_isPopupOpen) {
       _forceRemovePopup();
     }
+  }
+
+  /// Prevent auto-focus temporarily (e.g., after navigation)
+  void preventAutoFocusTemporarily() {
+    _preventAutoFocus = true;
+    // Reset after a short delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _preventAutoFocus = false;
+      }
+    });
   }
 
   // iOS-compatible focus request method
@@ -252,6 +264,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   void initState() {
     super.initState();
 
+    print('Init State Called: for child');
     // Create colored controller with initial text from widget controller
     final uiController = Get.find<UiController>();
     _coloredController = ColoredTextEditingController(
@@ -290,6 +303,8 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   double? _scrollOffsetBeforeFocus;
 
   void _onFocusChange() {
+
+    print('Init State Called: for child');
     if (_focusNode.hasFocus) {
       // When field gains focus, save current position and scroll up by 100 points
       if (widget.scrollController != null && widget.scrollController!.hasClients) {
@@ -792,9 +807,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     return GestureDetector(
       onTap: () {
-        // Only focus if not already focused
+        // Only focus if not already focused and auto-focus is not prevented
         // This prevents auto-focus on rebuild after returning from pickers
-        if (!_focusNode.hasFocus) {
+        if (!_focusNode.hasFocus && !_preventAutoFocus) {
           _requestFocusWithDelay();
         }
       },
@@ -834,7 +849,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             },
             onTap: () {
               // Additional focus handling for iOS
-              if (!_focusNode.hasFocus) {
+              if (!_focusNode.hasFocus && !_preventAutoFocus) {
                 _requestFocusWithDelay();
               }
             },

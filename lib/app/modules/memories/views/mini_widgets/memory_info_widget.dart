@@ -8,7 +8,14 @@ import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 class MemoryInfoWidget extends StatelessWidget {
-  const MemoryInfoWidget({super.key});
+  final VoidCallback? onCategorySelected;
+  final VoidCallback? onAnyWidgetTapped;
+
+  const MemoryInfoWidget({
+    super.key,
+    this.onCategorySelected,
+    this.onAnyWidgetTapped,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +59,13 @@ class MemoryInfoWidget extends StatelessWidget {
                       return _InfoContainer(
                         imagePath: AppImages.calendar,
                         text: dateText,
-                        onTap: () {
-                          FocusScope.of(context).unfocus();
+                        onTap: () async {
+                          if (onAnyWidgetTapped != null) {
+                            onAnyWidgetTapped!();
+                          }
+                          
+                          // await Future.delayed(Duration(seconds: 2));
+
                           _pickDate(context, controller);
                         },
                       );
@@ -70,7 +82,9 @@ class MemoryInfoWidget extends StatelessWidget {
                               ? controller.selectedTime.value!.format(context)
                               : "Pick Time",
                       onTap: () {
-                        FocusScope.of(context).unfocus();
+                        if (onAnyWidgetTapped != null) {
+                          onAnyWidgetTapped!();
+                        }
                         _pickTime(context, controller);
                       },
                     ),
@@ -89,7 +103,9 @@ class MemoryInfoWidget extends StatelessWidget {
                         ? '${controller.locationFlag.value} ${controller.locationCity.value}, ${controller.locationCountry.value}'
                         : 'Pick Location *',
                 onTap: () async {
-                  FocusScope.of(context).unfocus();
+                  if (onAnyWidgetTapped != null) {
+                    onAnyWidgetTapped!();
+                  }
                   var data = await Get.to(() => const MemoryLocationPickerWidget());
 
                   // Only update location if user pressed done (data is not null)
@@ -108,7 +124,9 @@ class MemoryInfoWidget extends StatelessWidget {
             // Place Category - Searchable
             GestureDetector(
               onTap: () {
-                FocusScope.of(context).unfocus();
+                if (onAnyWidgetTapped != null) {
+                  onAnyWidgetTapped!();
+                }
               },
               behavior: HitTestBehavior.opaque, // Prevent tap from propagating
               child: SearchableCategoryWidget(
@@ -118,6 +136,11 @@ class MemoryInfoWidget extends StatelessWidget {
                       ? '${category.emoji} ${category.name}'
                       : category.name;
                   controller.setCategory(categoryWithEmoji);
+
+                  // Unfocus description field after category selection
+                  if (onCategorySelected != null) {
+                    onCategorySelected!();
+                  }
                 },
                 backgroundColor: controller2.darkMode.value
                     ? Colors.black.withValues(alpha: 0.5)
