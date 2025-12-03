@@ -51,6 +51,29 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   late TagMentionController controller;
   bool _isUpdatingFromNotifier = false; // Flag to prevent circular updates
 
+  /// Custom text input formatter that denies spaces and shows a popup
+  TextInputFormatter _createNoSpaceFormatter() {
+    return TextInputFormatter.withFunction((oldValue, newValue) {
+      // Check if the new value contains a space that wasn't in the old value
+      if (newValue.text.contains(' ')) {
+        // Show popup message
+        Get.snackbar(
+          'Spaces Not Allowed',
+          '${widget.isTagMode ? 'Hashtags' : 'Mentions'} cannot contain spaces',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+          snackPosition: SnackPosition.TOP,
+          margin: const EdgeInsets.all(16),
+        );
+        // Return the old value (reject the change)
+        return oldValue;
+      }
+      // Accept the change
+      return newValue;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -156,6 +179,39 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
     // The parent widget (MemoryDescriptionField) will handle clearing the incomplete text
     widget.onEditingComplete?.call();
   }
+
+  /// Called when keyboard done button is pressed
+  Future<void> _onKeyboardDonePressed() async {
+
+        final prefixChar = widget.isTagMode ? '#' : '@';
+
+    debugPrint('[TagMentionBottomSheet] Keyboard done button pressed');
+   final trimmedSearchText = controller.searchQuery.value.trim();
+
+                    debugPrint('[TickButton] searchText: "$trimmedSearchText"');
+                    debugPrint('[TickButton] filteredItems count: ${controller.filteredItems.length}');
+
+                    // Check if there's an exact match in the filtered items
+                    final exactMatchItem = controller.filteredItems.firstWhereOrNull(
+                      (item) => item['name'].toString().toLowerCase() == trimmedSearchText.toLowerCase()
+                    );
+
+                    debugPrint('[TickButton] exactMatchItem: ${exactMatchItem?['name']}');
+
+                    final hasExactMatch = exactMatchItem != null && trimmedSearchText.isNotEmpty;
+
+                    debugPrint('[TickButton] hasExactMatch: $hasExactMatch');
+
+                    if (hasExactMatch) {
+                        await _saveItemToRecents(exactMatchItem);
+
+                            // Call the same function as list item click
+                            widget.onItemSelected(
+                              '${prefixChar}${exactMatchItem['name']}',
+                            );
+                    }
+
+                   }
 
   void _navigateToGroupsScreen(String groupName) {
     // Close the current popup first
@@ -308,12 +364,20 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                         return TextField(
                           controller: searchController,
                           autofocus: true,
+                          textInputAction: TextInputAction.done,
+                          inputFormatters: [
+                            _createNoSpaceFormatter(),
+                          ],
                           onChanged: (value) {
                             // Only update the search notifier if we're not already updating from the notifier
                             // This prevents circular updates
                             if (!_isUpdatingFromNotifier) {
                               widget.searchNotifier.value = value;
                             }
+                          },
+                          onSubmitted: (value) {
+                            // Called when keyboard done button is pressed
+                            _onKeyboardDonePressed();
                           },
                           style: GoogleFonts.kumbhSans(
                             color: uiController.darkMode.value

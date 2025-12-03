@@ -11,6 +11,7 @@ class FilterPanel extends StatefulWidget {
   final VoidCallback onApply;
   final VoidCallback? onBack;
   final ScrollController? scrollController;
+  final bool hideButtons; // Hide reset and filter buttons when search is focused
 
   const FilterPanel({
     super.key,
@@ -19,6 +20,7 @@ class FilterPanel extends StatefulWidget {
     required this.onApply,
     this.onBack,
     this.scrollController,
+    this.hideButtons = false,
   });
 
   @override
@@ -124,75 +126,76 @@ class _FilterPanelState extends State<FilterPanel> {
                       ...widget.children,
                       const SizedBox(height: 10),
                       // if (!_isKeyboardVisible)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                color: controller.darkMode.value
-                    ? controller.mainColor.value == 'blue'
-                        ? const Color(0xFF001937)
-                        : controller.iconColor2
-                    : controller.mainColor.value == 'blue'
-                        ? const Color(0xFF92C3FF)
-                        : controller.primaryColor,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(120, 44),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+          if (!widget.hideButtons) // Hide buttons when search is focused
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: controller.darkMode.value
+                      ? controller.mainColor.value == 'blue'
+                          ? const Color(0xFF001937)
+                          : controller.iconColor2
+                      : controller.mainColor.value == 'blue'
+                          ? const Color(0xFF92C3FF)
+                          : controller.primaryColor,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(120, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        backgroundColor: controller.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.2)
+                            : Colors.white,
+                        side: BorderSide(
+                          color: controller.darkMode.value
+                              ? Colors.red.withValues(alpha: 0.5)
+                              : Colors.red,
+                        ),
                       ),
-                      backgroundColor: controller.darkMode.value
-                          ? Colors.white.withValues(alpha: 0.2)
-                          : Colors.white,
-                      side: BorderSide(
-                        color: controller.darkMode.value
-                            ? Colors.red.withValues(alpha: 0.5)
-                            : Colors.red,
-                      ),
-                    ),
-                    onPressed: widget.onReset,
-                    child: Text(
-                      'reset',
-                      style: GoogleFonts.kumbhSans(
-                        fontSize: 16,
-                        color: controller.darkMode.value ? Colors.red : Colors.red,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(120, 44),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      backgroundColor: controller.darkMode.value
-                          ? Colors.white.withValues(alpha: 0.2)
-                          : Colors.white,
-                      side: const BorderSide(color: Colors.blue),
-                    ),
-                    onPressed: widget.onApply,
-                    child: Text(
-                      'filter',
-                      style: GoogleFonts.kumbhSans(
-                        fontSize: 16,
-                        color: Colors.blue,
-                        fontWeight: FontWeight.w500,
+                      onPressed: widget.onReset,
+                      child: Text(
+                        'reset',
+                        style: GoogleFonts.kumbhSans(
+                          fontSize: 16,
+                          color: controller.darkMode.value ? Colors.red : Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 20),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(120, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        backgroundColor: controller.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.2)
+                            : Colors.white,
+                        side: const BorderSide(color: Colors.blue),
+                      ),
+                      onPressed: widget.onApply,
+                      child: Text(
+                        'filter',
+                        style: GoogleFonts.kumbhSans(
+                          fontSize: 16,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
          
                     ],
                   ),

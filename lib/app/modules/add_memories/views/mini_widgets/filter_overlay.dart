@@ -22,11 +22,32 @@ class MemoriesFilterOverlay extends StatefulWidget {
 }
 
 class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
+  // Track which search field is focused
+  final RxString _focusedSearchField = ''.obs; // Values: '', 'categories', 'hashtags', 'contacts'
+
   @override
   void initState() {
     super.initState();
     // Always sync filters bidirectionally when opening filter overlay
     _syncFiltersBidirectionally();
+  }
+
+  /// Handle focus changes from category search field
+  void _onCategorySearchFocusChanged(bool isFocused) {
+    _focusedSearchField.value = isFocused ? 'categories' : '';
+    debugPrint('[FilterOverlay] Category search field focus changed: $isFocused');
+  }
+
+  /// Handle focus changes from hashtag search field
+  void _onHashtagSearchFocusChanged(bool isFocused) {
+    _focusedSearchField.value = isFocused ? 'hashtags' : '';
+    debugPrint('[FilterOverlay] Hashtag search field focus changed: $isFocused');
+  }
+
+  /// Handle focus changes from contact search field
+  void _onContactSearchFocusChanged(bool isFocused) {
+    _focusedSearchField.value = isFocused ? 'contacts' : '';
+    debugPrint('[FilterOverlay] Contact search field focus changed: $isFocused');
   }
 
   void _syncFiltersBidirectionally() {
@@ -168,7 +189,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                 right: 0,
                 bottom: 0,
                 child: SafeArea(
-                  child: FilterPanel(
+                  child: Obx(() => FilterPanel(
                         onBack: () {
                           controller.closeFilter();
                           mapController?.isFilterOpen.value = false;
@@ -185,183 +206,197 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                             mapController?.handleFilterApplyFromMap();
                           }
                         },
+                        hideButtons: _focusedSearchField.value.isNotEmpty, // Hide buttons when any search field is focused
                         children: [
-                          // Date range filters
-                          const Row(
-                            children: [
-                              Expanded(
-                                child: MemoriesFilterTextFieldRow(
-                                  imagePath: AppImages.calendar,
-                                  hint: 'From Date',
+                          // Date range filters - Hidden when any search field is focused
+                          Obx(() => _focusedSearchField.value.isNotEmpty
+                              ? const SizedBox.shrink()
+                              : const Row(
+                                  children: [
+                                    Expanded(
+                                      child: MemoriesFilterTextFieldRow(
+                                        imagePath: AppImages.calendar,
+                                        hint: 'From Date',
+                                        borderRadius: 5,
+                                      ),
+                                    ),
+                                    SizedBox(width: 5),
+                                    Expanded(
+                                      child: MemoriesFilterTextFieldRow(
+                                        imagePath: AppImages.calendar,
+                                        hint: 'To Date',
+                                        borderRadius: 5,
+                                      ),
+                                    ),
+                                  ],
+                                )),
+
+                          // Location filter (includes radius) - Hidden when any search field is focused
+                          Obx(() => _focusedSearchField.value.isNotEmpty
+                              ? const SizedBox.shrink()
+                              : const MemoriesFilterTextFieldRow(
+                                  imagePath: AppImages.location,
+                                  hint: 'Location',
                                   borderRadius: 5,
-                                ),
-                              ),
-                              SizedBox(width: 5),
-                              Expanded(
-                                child: MemoriesFilterTextFieldRow(
-                                  imagePath: AppImages.calendar,
-                                  hint: 'To Date',
-                                  borderRadius: 5,
-                                ),
-                              ),
-                            ],
-                          ),
-      
-                          // Location filter (includes radius)
-                          const MemoriesFilterTextFieldRow(
-                            imagePath: AppImages.location,
-                            hint: 'Location',
-                            borderRadius: 5,
-                          ),
+                                )),
+
+                          Obx(() => _focusedSearchField.value.isNotEmpty
+                              ? const SizedBox.shrink()
+                              : const SizedBox(height: 2)),
                 
-                              const SizedBox(height: 2),
-                
-                          // Search Places Categories - Using Generic SearchableCategoryWidget
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Obx(() => SearchableCategoryWidget(
-                                title: 'Search Places Categories',
-                                onCategorySelected: (category) {
-                                  // Use addCategoryGroup to handle both main categories and subcategories properly
-                                  controller.addCategoryGroup(category);
-                                  final categoryWithEmoji = category.emoji.isNotEmpty
-                                      ? '${category.emoji} ${category.name}'
-                                      : category.name;
-                                  debugPrint('[FilterOverlay] Added category: $categoryWithEmoji');
-                                },
-                                onMultipleCategoriesSelectedFromPicker: (categories) {
-                                  // Replace entire selection when coming back from picker
-                                  controller.replaceSelectedCategories(categories);
-                                  debugPrint('[FilterOverlay] Replaced categories with ${categories.length} new categories');
-                                },
-                                saveToRecent: true, // Show recent categories in filter context
-                                showActionButtons: true, // Show "See List" button in filter context
-                                showAddNewButton: false, // Hide "Add new" button in filter context
-                                previouslySelectedCategories: controller.selectedCategories.toList(), // Pass previously selected categories
-                                isInFilterMode: true, // Remove bottom padding in filter mode
-                                backgroundColor: uiController.darkMode.value
-                                    ? Colors.white.withValues(alpha: 0.2)
-                                    : Colors.white,
-                                borderRadius: 5,
-                              )),
-                
-                              // Selected categories chips
-                              Obx(() {
-                                if (controller.selectedCategories.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-                
-                                return Container(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: controller.displayCategories.map((categoryName) {
-                                      // Extract emoji and name from categoryName using helper method
-                                      String emoji = '';
-                                      String displayName = _extractNamePart(categoryName);
-                
-                                      // Get emoji if present
-                                      if (categoryName.contains(' ') && categoryName.length > 2) {
-                                        final parts = categoryName.split(' ');
-                                        if (parts.isNotEmpty && _isEmoji(parts[0])) {
-                                          emoji = parts[0];
-                                        }
+                          // Search Places Categories - Hidden when hashtags or contacts are focused
+                          Obx(() => (_focusedSearchField.value == 'hashtags' || _focusedSearchField.value == 'contacts')
+                              ? const SizedBox.shrink()
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SearchableCategoryWidget(
+                                      title: 'Search Places Categories',
+                                      onCategorySelected: (category) {
+                                        // Use addCategoryGroup to handle both main categories and subcategories properly
+                                        controller.addCategoryGroup(category);
+                                        final categoryWithEmoji = category.emoji.isNotEmpty
+                                            ? '${category.emoji} ${category.name}'
+                                            : category.name;
+                                        debugPrint('[FilterOverlay] Added category: $categoryWithEmoji');
+                                      },
+                                      onMultipleCategoriesSelectedFromPicker: (categories) {
+                                        // Replace entire selection when coming back from picker
+                                        controller.replaceSelectedCategories(categories);
+                                        debugPrint('[FilterOverlay] Replaced categories with ${categories.length} new categories');
+                                      },
+                                      onFocusChanged: _onCategorySearchFocusChanged, // Hide top views when focused
+                                      saveToRecent: true, // Show recent categories in filter context
+                                      showActionButtons: true, // Show "See List" button in filter context
+                                      showAddNewButton: false, // Hide "Add new" button in filter context
+                                      previouslySelectedCategories: controller.selectedCategories.toList(), // Pass previously selected categories
+                                      isInFilterMode: true, // Remove bottom padding in filter mode
+                                      backgroundColor: uiController.darkMode.value
+                                          ? Colors.white.withValues(alpha: 0.2)
+                                          : Colors.white,
+                                      borderRadius: 5,
+                                    ),
+
+                                    // Selected categories chips
+                                    Obx(() {
+                                      if (controller.selectedCategories.isEmpty) {
+                                        return const SizedBox.shrink();
                                       }
+
+                                      return Container(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children: controller.displayCategories.map((categoryName) {
+                                            // Extract emoji and name from categoryName using helper method
+                                            String emoji = '';
+                                            String displayName = _extractNamePart(categoryName);
+
+                                            // Get emoji if present
+                                            if (categoryName.contains(' ') && categoryName.length > 2) {
+                                              final parts = categoryName.split(' ');
+                                              if (parts.isNotEmpty && _isEmoji(parts[0])) {
+                                                emoji = parts[0];
+                                              }
+                                            }
+
+                                            // If no name part extracted, use full category name
+                                            if (displayName.isEmpty) {
+                                              displayName = categoryName;
+                                            }
+
+                                            return Chip(
+                                              label: Text(
+                                                displayName.isNotEmpty ? '$emoji $displayName' : '$categoryName',
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                              deleteIcon: const Icon(Icons.close, size: 16),
+                                              onDeleted: () {
+                                                debugPrint('Removing category: $categoryName');
+                                                controller.removeCategory(categoryName);
+                                              },
+                                              backgroundColor: uiController.darkMode.value
+                                                  ? Colors.white.withValues(alpha: 0.2)
+                                                  : Colors.blue.withValues(alpha: 0.1),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                )),
                 
-                                      // If no name part extracted, use full category name
-                                      if (displayName.isEmpty) {
-                                        displayName = categoryName;
+                          // Spacing between Search Place Categories and Search Hashtags - Hidden when contacts are focused
+                          Obx(() => _focusedSearchField.value == 'contacts'
+                              ? const SizedBox.shrink()
+                              : const SizedBox(height: 4)),
+
+                          // Search Hashtags - Hidden when contacts are focused
+                          Obx(() => _focusedSearchField.value == 'contacts'
+                              ? const SizedBox.shrink()
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SearchableHashtagWidget(
+                                      title: 'Search Hashtags',
+                                      onHashtagSelected: (hashtag) {
+                                        controller.addHashtag(hashtag);
+                                        debugPrint('[FilterOverlay] Added hashtag: $hashtag');
+                                      },
+                                      onGroupSelected: (group) {
+                                        controller.addHashtagGroup(group);
+                                        debugPrint('[FilterOverlay] Added hashtag group: ${group.name}');
+                                      },
+                                      onMultipleGroupsSelectedFromPicker: (groups) {
+                                        // Replace entire selection when coming back from picker
+                                        controller.replaceSelectedHashtags(groups);
+                                        debugPrint('[FilterOverlay] Replaced hashtags with ${groups.length} new groups');
+                                      },
+                                      onFocusChanged: _onHashtagSearchFocusChanged, // Hide top views when focused
+                                      previouslySelectedHashtags: controller.selectedHashtags.toList(), // Pass previously selected hashtags
+                                      isInFilterMode: true, // Remove bottom padding in filter mode
+                                      backgroundColor: uiController.darkMode.value
+                                          ? Colors.white.withValues(alpha: 0.2)
+                                          : Colors.white,
+                                      borderRadius: 5,
+                                    ),
+
+                                    // Selected hashtags chips
+                                    Obx(() {
+                                      if (controller.selectedHashtags.isEmpty) {
+                                        return const SizedBox.shrink();
                                       }
-                
-                                      return Chip(
-                                        label: Text(
-                                          displayName.isNotEmpty ? '$emoji $displayName' : '$categoryName',
-                                          style: const TextStyle(fontSize: 12),
+
+                                      return Container(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children: controller.displayHashtags.map((hashtag) {
+                                            return Chip(
+                                              label: Text(
+                                                '#$hashtag',
+                                                style: GoogleFonts.kumbhSans(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                              ),
+                                              deleteIcon: const Icon(Icons.close, size: 16),
+                                              onDeleted: () {
+                                                debugPrint('Removing hashtag: $hashtag');
+                                                controller.removeHashtag(hashtag);
+                                              },
+                                              backgroundColor: uiController.darkMode.value
+                                                  ? Colors.white.withValues(alpha: 0.2)
+                                                  : Colors.blue.withValues(alpha: 0.1),
+                                            );
+                                          }).toList(),
                                         ),
-                                        deleteIcon: const Icon(Icons.close, size: 16),
-                                        onDeleted: () {
-                                          debugPrint('Removing category: $categoryName');
-                                          controller.removeCategory(categoryName);
-                                        },
-                                        backgroundColor: uiController.darkMode.value
-                                            ? Colors.white.withValues(alpha: 0.2)
-                                            : Colors.blue.withValues(alpha: 0.1),
                                       );
-                                    }).toList(),
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
-                
-                          // Spacing between Search Place Categories and Search Hashtags
-                          const SizedBox(height: 4),
-                
-                          // Search Hashtags - Using SearchableHashtagWidget
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Obx(() => SearchableHashtagWidget(
-                                title: 'Search Hashtags',
-                                onHashtagSelected: (hashtag) {
-                                  controller.addHashtag(hashtag);
-                                  debugPrint('[FilterOverlay] Added hashtag: $hashtag');
-                                },
-                                onGroupSelected: (group) {
-                                  controller.addHashtagGroup(group);
-                                  debugPrint('[FilterOverlay] Added hashtag group: ${group.name}');
-                                },
-                                onMultipleGroupsSelectedFromPicker: (groups) {
-                                  // Replace entire selection when coming back from picker
-                                  controller.replaceSelectedHashtags(groups);
-                                  debugPrint('[FilterOverlay] Replaced hashtags with ${groups.length} new groups');
-                                },
-                                previouslySelectedHashtags: controller.selectedHashtags.toList(), // Pass previously selected hashtags
-                                isInFilterMode: true, // Remove bottom padding in filter mode
-                                backgroundColor: uiController.darkMode.value
-                                    ? Colors.white.withValues(alpha: 0.2)
-                                    : Colors.white,
-                                borderRadius: 5,
-                              )),
-                
-                              // Selected hashtags chips
-                              
-                              Obx(() {
-                                if (controller.selectedHashtags.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-                
-                                return Container(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    children: controller.displayHashtags.map((hashtag) {
-                                      return Chip(
-                                        label: Text(
-                                          '#$hashtag',
-                                          style: GoogleFonts.kumbhSans(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                        ),
-                                        deleteIcon: const Icon(Icons.close, size: 16),
-                                        onDeleted: () {
-                                          debugPrint('Removing hashtag: $hashtag');
-                                          controller.removeHashtag(hashtag);
-                                        },
-                                        backgroundColor: uiController.darkMode.value
-                                            ? Colors.white.withValues(alpha: 0.2)
-                                            : Colors.blue.withValues(alpha: 0.1),
-                                      );
-                                    }).toList(),
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
+                                    }),
+                                  ],
+                                )),
                 
                           // Spacing between Search Hashtags and Search Contacts
                           const SizedBox(height: 4),
@@ -385,6 +420,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                   controller.replaceSelectedContacts(groups);
                                   debugPrint('[FilterOverlay] Replaced contacts with ${groups.length} new groups');
                                 },
+                                onFocusChanged: _onContactSearchFocusChanged, // Hide top views when focused
                                 previouslySelectedContacts: controller.selectedContacts.toList(), // Pass previously selected contacts
                                 isInFilterMode: true, // Remove bottom padding in filter mode
                                 backgroundColor: uiController.darkMode.value
@@ -426,7 +462,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                             ],
                           ),
                         ],
-                      ),
+                      )),
                     ),
                   ),
                 ],
