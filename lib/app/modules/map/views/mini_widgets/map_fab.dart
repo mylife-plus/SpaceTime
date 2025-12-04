@@ -17,12 +17,25 @@ class MapFab extends StatelessWidget {
     final controller = Get.find<UiController>();
 
     return Obx(() {
-      final Color baseColor =
-          controller.darkMode.value
-              ? (controller.mainColor.value == 'blue'
-                  ? const Color(0xFF001937)
-                  : (controller.iconColor ?? AppColors.blue))
-              : controller.currentMainColor ?? AppColors.blue;
+
+      
+    final ColorFilter baseColorFilter =
+    controller.darkMode.value
+        ? (controller.mainColor.value == 'blue'
+            ? const ColorFilter.mode(
+                Color(0xFF002B62),
+                BlendMode.srcIn,
+              )
+            : ColorFilter.mode(
+                controller.primaryColorDark ?? AppColors.blue,
+                BlendMode.srcIn,
+              ))
+        : (controller.rectangleColorFilter ??
+            const ColorFilter.mode(
+              AppColors.blue,
+              BlendMode.srcIn,
+            ));
+
 
       return Positioned(
         bottom: 20,
@@ -70,7 +83,7 @@ class MapFab extends StatelessWidget {
               children: [
                 // Unified ColorFiltered usage
                 ColorFiltered(
-                  colorFilter: ColorFilter.mode(baseColor, BlendMode.srcIn),
+                  colorFilter: baseColorFilter,
                   child: Image.asset(
                     AppImages.rectangle,
                     width: 49,

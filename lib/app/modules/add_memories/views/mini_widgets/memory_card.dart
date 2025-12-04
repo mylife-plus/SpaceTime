@@ -839,7 +839,7 @@ return;
                               Row(children: [
                                          
                    Text(
-                  '${widget.date} ',
+                  '${getDayOrDate(widget.date, widget.year)} ',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -852,7 +852,9 @@ return;
 
 
                  Text(
-                  widget.year,
+(getDayOrDate(widget.date, widget.year) != 'Today' &&
+ getDayOrDate(widget.date, widget.year) != 'Yesterday') ?
+                  widget.year :'', 
                   
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
@@ -1038,7 +1040,52 @@ return;
       }
     }).toList();
   }
+  
+  getDayOrDate(String date, year) {
+    String d = '$date $year';
+    print('Date Time $d');
+
+    return formatDateString(d);
+    // return date;
+  }
+
+String formatDateString(String dateString) {
+  final date = _parseDate(dateString);
+  final now = DateTime.now();
+
+  final today = DateTime(now.year, now.month, now.day);
+  final input = DateTime(date.year, date.month, date.day);
+
+  if (input == today) {
+    return "Today";
+  }
+  if (input == today.subtract(const Duration(days: 1))) {
+    return "Yesterday";
+  }
+
+  return dateString; // Return original format
 }
+
+DateTime _parseDate(String dateString) {
+  final parts = dateString.split(" ");
+  final day = int.parse(parts[0]);
+  final month = _monthNumber(parts[1]);
+  final year = int.parse(parts[2]);
+
+  return DateTime(year, month, day);
+}
+
+int _monthNumber(String month) {
+  const months = {
+    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+  };
+  return months[month]!;
+}
+  
+}
+
+
 
 class SafeMemoryImage extends StatelessWidget {
   const SafeMemoryImage({
