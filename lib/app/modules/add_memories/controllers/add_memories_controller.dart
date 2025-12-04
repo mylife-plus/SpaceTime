@@ -331,8 +331,11 @@ class AddMemoriesController extends GetxController {
   Future<Map<String, dynamic>> transformDatabaseMemoryToUI(
     Map<String, dynamic> dbMemory,
   ) async {
+
     final createdAt = DateTime.tryParse(dbMemory['created_at'] ?? '');
+    
     final date = _formatDate(dbMemory['date'], dbMemory['created_at']);
+    
     final year = _formatYear(dbMemory['date'], dbMemory['created_at']);
 
     // Get images from the new 'images' field (loaded from separate table)

@@ -203,25 +203,25 @@ class MemoryInfoWidget extends StatelessWidget {
                     : ColorScheme.light(
                       primary:
                           uiController
-                              .currentMainColor, // Header background and selected elements
-                      onPrimary: Colors.white, // Header text color
-                      surface: Colors.white, // Calendar background color
-                      onSurface: Colors.black, // Calendar text color
+                              .currentMainColor, 
+                      onPrimary: Colors.white,
+                      surface: Colors.white, 
+                      onSurface: Colors.black,
                       secondary:
-                          uiController.currentMainColor, // Secondary elements
+                          uiController.currentMainColor, 
                       onSecondary: Colors.white,
-                      outline: Colors.grey[300]!, // Border colors
+                      outline: Colors.grey[300]!,
                       surfaceContainerHighest:
-                          Colors.white, // Today's date background
-                      onSurfaceVariant: Colors.black, // Today's date text
+                          Colors.white, 
+                      onSurfaceVariant: Colors.black, 
                       surfaceTint:
-                          Colors.transparent, // Remove any surface tint
+                          Colors.transparent, 
                     ),
             dialogTheme: DialogThemeData(
               backgroundColor:
                   uiController.darkMode.value
-                      ? const Color(0xFF1E1E1E) // Dark mode dialog background
-                      : Colors.white, // Light mode dialog background
+                      ? const Color(0xFF1E1E1E)
+                      : Colors.white, 
               surfaceTintColor: Colors.transparent, // Remove surface tint
               shadowColor: Colors.transparent,
             ),
@@ -237,37 +237,37 @@ class MemoryInfoWidget extends StatelessWidget {
                   uiController.darkMode.value
                       ? const Color(
                         0xFF1E1E1E,
-                      ) // Dark mode date picker background
-                      : Colors.white, // Light mode date picker background
-              surfaceTintColor: Colors.transparent, // Remove surface tint
-              shadowColor: Colors.transparent, // Remove shadow tint
+                      ) 
+                      : Colors.white, 
+              surfaceTintColor: Colors.transparent,
+              shadowColor: Colors.transparent, 
               headerBackgroundColor:
-                  uiController.currentMainColor, // Header background
-              headerForegroundColor: Colors.white, // Header text color
+                  uiController.currentMainColor,
+              headerForegroundColor: Colors.white,
               dayForegroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return Colors.white; // Selected date text color
+                  return Colors.white; 
                 }
                 if (states.contains(WidgetState.disabled)) {
                   return uiController.darkMode.value
                       ? Colors
-                          .grey[600] // Light grey for dark mode disabled dates
-                      : Colors.grey[400]; // Grey for light mode disabled dates
+                          .grey[600] 
+                      : Colors.grey[400]; 
                 }
                 return uiController.darkMode.value
                     ? Colors.white
-                    : Colors.black; // Regular date text color
+                    : Colors.black; 
               }),
               dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
                   return uiController
-                      .currentMainColor; // Selected date background
+                      .currentMainColor; 
                 }
-                return Colors.transparent; // Regular date background
+                return Colors.transparent; 
               }),
               todayForegroundColor: WidgetStateProperty.all(
                 uiController.currentMainColor,
-              ), // Today's date text
+              ), 
               todayBackgroundColor: WidgetStateProperty.all(
                 Colors.transparent,
               ), // Today's date background
@@ -277,15 +277,12 @@ class MemoryInfoWidget extends StatelessWidget {
                 }
                 return uiController.darkMode.value
                     ? Colors.white
-                    : Colors.black; // Regular year text color
+                    : Colors.black; 
               }),
             ),
           ),
           child: Container(
             decoration: BoxDecoration(
-              // // color: uiController.darkMode.value
-              //     ? const Color(0xFF1E1E1E) // Dark mode container background
-              //     : Colors.white, // Light mode container background
               borderRadius: BorderRadius.circular(12),
             ),
             child: child!,
