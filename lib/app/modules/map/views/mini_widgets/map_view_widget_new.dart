@@ -69,21 +69,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                 children: [
                   // MapBox Map
                   _buildMapWidget(controller),
-//  Obx(() {
-                  //   if (controller.showOfflineDownloadOverlay.value) {
-                  //     return Positioned(
-                  //       top: 100.0,
-                  //       left: 0,
-                  //       right: 0,
-                  //       child: OfflineDownloadOverlay(
-                  //         onClose: controller.hideOfflineDownloadOverlay,
-                  //         onStartDownload: controller.startOfflineDownload,
-                  //       ),
-                  //     );
-                  //   }
-                  //   return Container();
-                  // }),
-
                   // Filter overlay backdrop
                   if (controller.isFilterOpen.value)
                     Positioned.fill(
@@ -122,9 +107,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                   // Filter overlay
                   if (controller.isFilterOpen.value) const MapFilterOverlay(),
 
-
-                  // Permission and Internet screens overlay
-                  // _buildPermissionAndInternetScreens(context, controller),
                 ],
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_images.dart';
+import 'package:spacetime/app/modules/add_memories/views/add_memories.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/memories/views/memory_view.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -19,22 +20,7 @@ class MapFab extends StatelessWidget {
     return Obx(() {
 
       
-    final ColorFilter baseColorFilter =
-    controller.darkMode.value
-        ? (controller.mainColor.value == 'blue'
-            ? const ColorFilter.mode(
-                Color(0xFF002B62),
-                BlendMode.srcIn,
-              )
-            : ColorFilter.mode(
-                controller.primaryColorDark ?? AppColors.blue,
-                BlendMode.srcIn,
-              ))
-        : (controller.rectangleColorFilter ??
-            const ColorFilter.mode(
-              AppColors.blue,
-              BlendMode.srcIn,
-            ));
+    
 
 
       return Positioned(
@@ -56,8 +42,17 @@ class MapFab extends StatelessWidget {
             // If memory was saved successfully, refresh the map
             if (result == true) {
               try {
+
+                  final addMemoriesController = Get.find<AddMemoriesController>();
+              addMemoriesController.onAgainInit();
+              
+   await Get.to(() => AddMemoriesView());
+  
                 final mapController = Get.find<MapControllerNew>();
                 await mapController.refreshLocation();();
+               
+        
+
                 debugPrint('Map refreshed after memory creation');
               } catch (e) {
                 debugPrint('MapControllerNew not found: $e');
@@ -65,43 +60,47 @@ class MapFab extends StatelessWidget {
             }
 
             // Refresh AddMemoriesController if it exists (similar to other FAB implementations)
-            try {
-              final addMemoriesController = Get.find<AddMemoriesController>();
-              addMemoriesController.onAgainInit();
-              debugPrint(
-                'AddMemoriesController refreshed after memory creation from map',
-              );
-            } catch (e) {
-              debugPrint('AddMemoriesController not found: $e');
-            }
+            // try {
+            //   final addMemoriesController = Get.find<AddMemoriesController>();
+            //   addMemoriesController.onAgainInit();
+            //   debugPrint(
+            //     'AddMemoriesController refreshed after memory creation from map',
+            //   );
+            // } catch (e) {
+            //   debugPrint('AddMemoriesController not found: $e');
+            // }
           },
-          child: SizedBox(
-            width: 49,
-            height: 51,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Unified ColorFiltered usage
-                ColorFiltered(
-                  colorFilter: baseColorFilter,
-                  child: Image.asset(
-                    AppImages.rectangle,
-                    width: 49,
-                    height: 51,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-
-                // Foreground icon stays same
-                Image.asset(
-                  AppImages.addIcon,
-                  width: 30,
-                  height: 30,
-                  fit: BoxFit.contain,
-                ),
-              ],
-            ),
-          ),
+          child: Container(
+                        width: 49,
+                        height: 51,
+                        padding: EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: const AssetImage(AppImages.rectangle),
+                            colorFilter:
+                                controller.darkMode.value
+                                    ? controller.mainColor.value == 'blue'
+                                        ? const ColorFilter.mode(
+                                          Color(0xFF002B62),
+                                          BlendMode.srcIn,
+                                        )
+                                        : ColorFilter.mode(
+                                          (controller.iconColor ??
+                                              AppColors.blue),
+                                          BlendMode.srcIn,
+                                        )
+                                    : (controller.rectangleColorFilter ??
+                                        const ColorFilter.mode(
+                                          AppColors.blue,
+                                          BlendMode.srcIn,
+                                        )),
+                          ),
+                        ),
+                        child: Image.asset(
+                          AppImages.addIcon,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
         ),
       );
     });

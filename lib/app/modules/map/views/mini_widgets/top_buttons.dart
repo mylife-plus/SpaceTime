@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_cli/common/utils/json_serialize/json_ast/utils/grapheme_splitter.dart';
+import 'package:spacetime/app/config/app_colors.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/modules/add_memories/views/add_memories.dart';
+import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import '../../../settings/views/settings_view.dart';
 import '../../controllers/map_controller_new.dart';
@@ -13,6 +16,8 @@ class MapTopButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+        final controller2 = Get.find<UiController>();
+
     final controller = Get.find<MapControllerNew>();
 
     // Get AddMemoriesController if registered to show filter badge
@@ -21,53 +26,261 @@ class MapTopButtons extends StatelessWidget {
         : null;
 
     return Positioned(
-      top: 10,
-      left: 16,
-      right: 16,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              MapCircleButton(
-                // icon: Icons.settings,
-                overlayImagePath: AppImages.settings3,
-                // backgroundImg: false,
-                size: 35,
-                onTap: () {
-                  Get.to(() => SettingsView());
-                },
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        color:
+            controller2.darkMode.value
+                ? controller2.mainColor.value == 'blue'
+                    ? Color(0xFF001937)
+                    : controller2.primaryColorDark
+                : controller2.currentMainColor,
+          height: 65,
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+
+        child: Obx(() => 
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                 GestureDetector(
+              onTap: () {
+                Get.to(() => SettingsView());
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Container(
+                  padding: const EdgeInsets.all(3.5),
+                  // width: 32,
+                  height: 35,
+                  decoration: BoxDecoration(
+                    // border: BorderRadius.circular(0),
+                    image: DecorationImage(
+                      image: AssetImage(AppImages.rectangle),
+                      fit: BoxFit.contain,
+                      colorFilter:
+                          controller2.darkMode.value
+                              ? controller2.mainColor.value == 'blue'
+                                  ? const ColorFilter.mode(
+                                    Color(0xFF002B62),
+                                    BlendMode.srcIn,
+                                  )
+                                  : ColorFilter.mode(
+                                    (controller2.primaryColorDark ??
+                                        AppColors.blue),
+                                    BlendMode.srcIn,
+                                  )
+                              : (controller2.rectangleColorFilter ??
+                                  const ColorFilter.mode(
+                                    AppColors.blue,
+                                    BlendMode.srcIn,
+                                  )),
+                    ),
+                  ),
+
+                  child: Image.asset(AppImages.settings3, fit: BoxFit.contain),
+                ),
               ),
-              const SizedBox(width: 5),
-              Obx(() => MapCircleButton(
-                overlayImagePath: AppImages.filter,
-                badgeCount: addMemoriesController?.activeFilterCount ?? 0,
-                onTap: controller.openFilter,
-              )),
-              const SizedBox(width: 5),
-            ],
-          ),
-          MapCircleButton(
+            ),
+            const SizedBox(width: 5),
 
-            overlayImagePath: AppImages.memory,
 
-            onTap: () async {
 
-              // await controller.clearAllLines();
-              // controller.refreshMapView();
+            GestureDetector(
+              onTap: controller.openFilter,
+              child: Stack(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    height: 44,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage(AppImages.rectangle),
+                        fit: BoxFit.contain,
+                        colorFilter:
+                            controller2.darkMode.value
+                                ? controller2.mainColor.value == 'blue'
+                                    ? const ColorFilter.mode(
+                                      Color(0xFF002B62),
+                                      BlendMode.srcIn,
+                                    )
+                                    : ColorFilter.mode(
+                                      (controller2.primaryColorDark ??
+                                          AppColors.blue),
+                                      BlendMode.srcIn,
+                                    )
+                                : (controller2.rectangleColorFilter ??
+                                    const ColorFilter.mode(
+                                      AppColors.blue,
+                                      BlendMode.srcIn,
+                                    )),
+                      ),
+                    ),
+                    child: Image.asset(AppImages.filter, fit: BoxFit.contain),
+                  ),
 
-              // Don't clear filters when navigating to AddMemoriesView
-              // Filters should persist until manually removed or reset
+                  // Filter badge indicator with count
+                  Obx(() {
+                    final filterCount = addMemoriesController?.activeFilterCount ?? 0;
+                    // Don't show badge when there are 0 filters
+                    return (filterCount > 0)
+                        ? Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: controller2.darkMode.value ? Colors.black : Colors.white,
+                                  width: 1.5,
+                                ),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  filterCount > 9 ? '9+' : filterCount.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink();
+                  }),
+                ],
+              ),
+            ),
+                        const SizedBox(width: 5),
 
-              var result = await Get.to(() => AddMemoriesView());
+                  GestureDetector(
+              onTap: () async {
 
-              if (result == true) {
-                // controller.refreshLocation();
-              }
-            },
-          ),
-        ],
-      ),
+         final addMemoriesController = Get.find<AddMemoriesController>();
+              addMemoriesController.onAgainInit();
+               addMemoriesController.searchQuery.value = '';
+                addMemoriesController.isSearchActive.value = true;
+                
+   await Get.to(() => AddMemoriesView());
+  
+                
+             },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                // width: 42,
+                height: 44,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage(AppImages.rectangle),
+                    fit: BoxFit.contain,
+                    colorFilter:
+                        controller2.darkMode.value
+                            ? controller2.mainColor.value == 'blue'
+                                ? const ColorFilter.mode(
+                                  Color(0xFF002B62),
+                                  BlendMode.srcIn,
+                                )
+                                : ColorFilter.mode(
+                                  (controller2.primaryColorDark ??
+                                      AppColors.blue),
+                                  BlendMode.srcIn,
+                                )
+                            : (controller2.rectangleColorFilter ??
+                                const ColorFilter.mode(
+                                  AppColors.blue,
+                                  BlendMode.srcIn,
+                                )),
+                  ),
+                ),
+
+                child: Image.asset(
+                  AppImages.searchNormal,
+                  fit: BoxFit.contain,
+                  color: Colors.white,
+                  // width: 31,
+                  // height: 31,
+                ),
+              ),
+            ),
+
+      
+            
+                // const SizedBox(width: 5),
+                // Obx(() => MapCircleButton(
+                //   overlayImagePath: AppImages.filter,
+                //   badgeCount: addMemoriesController?.activeFilterCount ?? 0,
+                //   size: 44, // Standardized size
+                //   onTap: controller.openFilter,
+                // )),
+                // const SizedBox(width: 5),
+              ],
+            ),
+
+             GestureDetector(
+              onTap: () async {
+                   var result = await Get.to(() => AddMemoriesView());
+        
+                if (result == true) {
+                  // controller.refreshLocation();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                // width: 42,
+                height: 44,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage(AppImages.rectangle),
+                    fit: BoxFit.contain,
+                    colorFilter:
+                        controller2.darkMode.value
+                            ? controller2.mainColor.value == 'blue'
+                                ? const ColorFilter.mode(
+                                  Color(0xFF002B62),
+                                  BlendMode.srcIn,
+                                )
+                                : ColorFilter.mode(
+                                  (controller2.primaryColorDark ??
+                                      AppColors.blue),
+                                  BlendMode.srcIn,
+                                )
+                            : (controller2.rectangleColorFilter ??
+                                const ColorFilter.mode(
+                                  AppColors.blue,
+                                  BlendMode.srcIn,
+                                )),
+                  ),
+                ),
+
+                child: Image.asset(AppImages.memory, fit: BoxFit.contain),
+              ),
+            ),
+          
+            // MapCircleButton(
+            //   overlayImagePath: AppImages.memory,
+            //   size: 44, // Standardized size
+            //   onTap: () async {
+            //     var result = await Get.to(() => AddMemoriesView());
+        
+            //     if (result == true) {
+            //       // controller.refreshLocation();
+            //     }
+            //   },
+            // ),
+          ],
+        ),
+      )),
     );
   }
 

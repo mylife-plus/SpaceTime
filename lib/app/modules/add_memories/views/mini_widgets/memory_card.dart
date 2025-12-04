@@ -1045,11 +1045,11 @@ return;
     String d = '$date $year';
     print('Date Time $d');
 
-    return formatDateString(d);
+    return formatDateString(d, date);
     // return date;
   }
 
-String formatDateString(String dateString) {
+String formatDateString(String dateString, String d,) {
   final date = _parseDate(dateString);
   final now = DateTime.now();
 
@@ -1063,7 +1063,7 @@ String formatDateString(String dateString) {
     return "Yesterday";
   }
 
-  return dateString; // Return original format
+  return d; // Return original format
 }
 
 DateTime _parseDate(String dateString) {
