@@ -201,7 +201,21 @@ String get locationFlag {
    String? get categoryIcon {
     try {
       final value = memoryData['category'];
-      return (value is String && value.isNotEmpty) ? value.toString().substring(0,2) : null;
+      if (value is String && value.isNotEmpty) {
+        // Extract first emoji properly (emojis can be multiple code units)
+        final runes = value.runes.toList();
+        if (runes.isEmpty) return null;
+
+        // Get first character/emoji (handles multi-code-unit emojis)
+        int endIndex = 1;
+        // Check if it's a multi-code-unit emoji (like skin tone modifiers)
+        if (runes.length > 1 && runes[1] >= 0x1F3FB && runes[1] <= 0x1F3FF) {
+          endIndex = 2; // Include skin tone modifier
+        }
+
+        return String.fromCharCodes(runes.take(endIndex));
+      }
+      return null;
     } catch (e) {
       return null;
     }
@@ -534,6 +548,73 @@ class _MemoryCardState extends State<MemoryCard> {
         ],
       ),
     );
+  }
+
+  // Extract first emoji character properly (handles multi-code-unit emojis)
+  String _getFirstEmoji(String text) {
+    if (text.isEmpty) return '';
+    print('Emojis $text');
+
+    final runes = text.runes.toList();
+    if (runes.isEmpty) return '';
+
+    int endIndex = 1;
+
+    // Iterate through runes to find the complete emoji sequence
+    for (int i = 1; i < runes.length; i++) {
+      final rune = runes[i];
+
+      // Check for skin tone modifiers (🏻-🏿)
+      if (rune >= 0x1F3FB && rune <= 0x1F3FF) {
+        endIndex = i + 1;
+        continue;
+      }
+
+      // Check for Variation Selector (VS16) - makes emoji colorful
+      if (rune == 0xFE0F) {
+        endIndex = i + 1;
+        continue;
+      }
+
+      // Check for Zero Width Joiner (ZWJ) - used in combined emojis
+      if (rune == 0x200D) {
+        endIndex = i + 1;
+        // After ZWJ, we need to include the next emoji component
+        // Continue to next iteration to include it
+        continue;
+      }
+
+      // Check for Regional Indicator Symbols (flags) - they come in pairs
+      if (runes[0] >= 0x1F1E6 && runes[0] <= 0x1F1FF) {
+        if (rune >= 0x1F1E6 && rune <= 0x1F1FF) {
+          endIndex = i + 1;
+          continue;
+        }
+      }
+
+      // Check if current rune is an emoji component (common emoji ranges)
+      bool isEmojiComponent = (rune >= 0x1F300 && rune <= 0x1F9FF) || // Misc symbols, emoticons, etc.
+                              (rune >= 0x2600 && rune <= 0x26FF) ||   // Misc symbols
+                              (rune >= 0x2700 && rune <= 0x27BF);     // Dingbats
+
+      // If previous was ZWJ and this is emoji component, include it
+      if (i > 0 && runes[i - 1] == 0x200D && isEmojiComponent) {
+        endIndex = i + 1;
+        continue;
+      }
+
+      // If we hit a space, stop
+      if (rune == 0x20) break; // Space character
+
+      // If it's not an emoji-related character, stop
+      if (!isEmojiComponent && rune != 0xFE0F && rune != 0x200D) {
+        break;
+      }
+    }
+
+    final result = String.fromCharCodes(runes.take(endIndex));
+    print('Extracted emoji: $result');
+    return result;
   }
 
   // Check if the image data is base64 encoded
@@ -950,20 +1031,19 @@ return;
                      children: [
                
                        Text(
-                                             widget.categoryIcon!.toString(),
-               
+                         widget.category.toString().split(' ').first,
                          style: TextStyle(
-                          
                            color: controller.darkMode.value
                                ? Colors.white.withValues(alpha: 0.8)
                                : Colors.grey[700],
-                               
                            fontSize: 22,
                          ),
                        ),
                        const SizedBox(width: 3), 
-                       Text(
-                         widget.category!.toString().substring(2),
+                       Text( 
+
+                        
+                         widget.category!.replaceAll(widget.category.toString().split(' ').first, ''),
                          style: TextStyle(
                            color: controller.darkMode.value
                                ? Colors.white.withValues(alpha: 0.8)
@@ -1051,11 +1131,11 @@ return;
     String d = '$date $year';
     print('Date Time $d');
 
-    return formatDateString(d);
+    return formatDateString(d, date);
     // return date;
   }
 
-String formatDateString(String dateString,) {
+String formatDateString(String dateString, d,) {
   final date = _parseDate(dateString);
   final now = DateTime.now();
 
@@ -1069,7 +1149,7 @@ String formatDateString(String dateString,) {
     return "Yesterday";
   }
 
-  return dateString; // Return original format
+  return d; // Return original format
 }
 
 DateTime _parseDate(String dateString) {
