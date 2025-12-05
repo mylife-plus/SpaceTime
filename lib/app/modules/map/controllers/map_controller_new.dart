@@ -1462,7 +1462,7 @@ void _resetTapState() {
       controller.showSpecificMemories([memoryLocation]);
 
       final result = await Get.to(
-        () => const AddMemoriesView(),
+        () =>  AddMemoriesView(),
         transition: Transition.rightToLeft,
       );
       debugPrint('[MapControllerNew] Navigation result: $result');

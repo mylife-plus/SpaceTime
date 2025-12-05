@@ -793,232 +793,238 @@ return;
     final controller = Get.find<UiController>();
 
     debugPrint('Memory Data: ${widget.memoryData}');
-    return  GestureDetector(
-        onLongPress: () => _handleLongPress(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image gallery - only show if valid images exist
-          
-            // Date container - only show if date is not empty
-            if (widget.date.isNotEmpty)
-              Container(
-                width: double.infinity,
-                height: 36,
-                decoration: BoxDecoration(
-                  color:
-                      controller.darkMode.value
-                          ? controller.mainColor.value == 'blue'
-                              ? Color(0xFF002E68)
-                              : controller.primaryColor
-                          : controller.secondaryColor ??
-                              const Color(0xFFDEEDFF),
+    return  Container(
+                                  color: (!controller.darkMode.value ? Colors.white : Colors.transparent),
+
+      child: GestureDetector(
+          onLongPress: () => _handleLongPress(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image gallery - only show if valid images exist
+            
+              // Date container - only show if date is not empty
+              if (widget.date.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color:
+                        controller.darkMode.value
+                            ? controller.mainColor.value == 'blue'
+                                ? Color(0xFF002E68)
+                                : controller.primaryColor
+                            : controller.secondaryColor ??
+                                const Color(0xFFDEEDFF),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                       if (widget.time.isNotEmpty)
+                                Row(
+                                  children: [
+                                   
+                                    Text(
+                                      ' ${widget.time}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        color:
+                                            controller.darkMode.value
+                                                ? Colors.white
+                                                : controller.currentMainColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Row(children: [
+                                           
+                     Text(
+                    '${getDayOrDate(widget.date, widget.year)} ',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                      color:
+                          controller.darkMode.value
+                              ? Colors.white
+                              : controller.currentMainColor,
+                    ),
+                  ),
+      
+      
+                   Text(
+      (getDayOrDate(widget.date, widget.year) != 'Today' &&
+       getDayOrDate(widget.date, widget.year) != 'Yesterday') ?
+                    widget.year :'', 
+                    
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color:
+                          controller.darkMode.value
+                              ? Colors.white.withOpacity(0.6)
+                              : controller.currentMainColor.withOpacity(0.6),
+                                                  fontSize: 16,
+      
+                    ),
+                  ),
+      
+                                ],),
+                            
+                  // 3-dots menu icon with proper theming
+                  Row(
+                    children: [
+                        // const SizedBox(width: 3),
+                                    Text(
+                                      ' ${widget.time.substring(3)}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        color:
+                                            controller.darkMode.value
+                                                ? Colors.white.withAlpha(0)
+                                                : controller.currentMainColor.withAlpha(0),
+                                      ),
+                                    ),
+                                  // ],
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 16.0),
+                                    child: GestureDetector(
+                                      onTap: _handleLongPress, child: Icon(
+                                                              Icons.edit_outlined ,
+                                                              color: controller.darkMode.value
+                                                                  ? Colors.white.withOpacity(0.6)
+                                                                  : controller.currentEditIconColor,
+                                                              size: 20,
+                                                            ),
+                                    ),
+                                  ),
+                                  
+                      
+                    ],
+                  ),
+                  ],)
                 ),
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.only(left: 12),
-                child: Row(
+          
+          
+      
+      
+             Container(
+               child: Padding(
+                 padding: const EdgeInsets.fromLTRB(8.0,2,8,4),
+                 child: Row(
+                  // crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                     if (widget.time.isNotEmpty)
-                              Row(
-                                children: [
-                                 
-                                  Text(
-                                    ' ${widget.time}',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      color:
-                                          controller.darkMode.value
+                                  Row(
+                                    children: [
+                                     Text(
+                                       widget.locationFlag,
+                                        style: TextStyle(
+                                          color: controller.darkMode.value
                                               ? Colors.white
-                                              : controller.currentMainColor,
-                                    ),
+                                              : Colors.black,
+                                              fontSize: 22
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                       widget.locationString,
+                                        style: TextStyle(
+                                          color: controller.darkMode.value
+                                              ? Colors.white
+                                              : Colors.black,
+                                              fontSize: 16
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              Row(children: [
-                                         
-                   Text(
-                  '${getDayOrDate(widget.date, widget.year)} ',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                    color:
-                        controller.darkMode.value
-                            ? Colors.white
-                            : controller.currentMainColor,
-                  ),
-                ),
-
-
-                 Text(
-(getDayOrDate(widget.date, widget.year) != 'Today' &&
- getDayOrDate(widget.date, widget.year) != 'Yesterday') ?
-                  widget.year :'', 
-                  
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color:
-                        controller.darkMode.value
-                            ? Colors.white.withOpacity(0.6)
-                            : controller.currentMainColor.withOpacity(0.6),
-                                                fontSize: 16,
-
-                  ),
-                ),
-
-                              ],),
-                          
-                // 3-dots menu icon with proper theming
-                Row(
-                  children: [
-                      // const SizedBox(width: 3),
-                                  Text(
-                                    ' ${widget.time.substring(3)}',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      color:
-                                          controller.darkMode.value
-                                              ? Colors.white.withAlpha(0)
-                                              : controller.currentMainColor.withAlpha(0),
-                                    ),
-                                  ),
-                                // ],
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 16.0),
-                                  child: GestureDetector(
-                                    onTap: _handleLongPress, child: Icon(
-                                                            Icons.edit_outlined ,
-                                                            color: controller.darkMode.value
-                                                                ? Colors.white.withOpacity(0.6)
-                                                                : controller.currentEditIconColor,
-                                                            size: 20,
-                                                          ),
-                                  ),
-                                ),
-                                
                     
+                        // Category - only show if category exists
+                         
+                         
+                             Row(
+                     children: [
+               
+                       Text(
+                                             widget.categoryIcon!.toString(),
+               
+                         style: TextStyle(
+                          
+                           color: controller.darkMode.value
+                               ? Colors.white.withValues(alpha: 0.8)
+                               : Colors.grey[700],
+                               
+                           fontSize: 22,
+                         ),
+                       ),
+                       const SizedBox(width: 3), 
+                       Text(
+                         widget.category!.toString().substring(2),
+                         style: TextStyle(
+                           color: controller.darkMode.value
+                               ? Colors.white.withValues(alpha: 0.8)
+                               : Colors.grey[700],
+                           fontSize: 16,
+                         ),
+                       ),
+                     ],
+                   ),
                   ],
-                ),
-                ],)
-              ),
-        
-        
-
-
-           Padding(
-             padding: const EdgeInsets.fromLTRB(8.0,2,8,4),
-             child: Row(
-              // crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                              Row(
-                                children: [
-                                 Text(
-                                   widget.locationFlag,
-                                    style: TextStyle(
-                                      color: controller.darkMode.value
-                                          ? Colors.white
-                                          : Colors.black,
-                                          fontSize: 22
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                   widget.locationString,
-                                    style: TextStyle(
-                                      color: controller.darkMode.value
-                                          ? Colors.white
-                                          : Colors.black,
-                                          fontSize: 16
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                
-                    // Category - only show if category exists
-          
-          
-                         Row(
-                 children: [
-
-                   Text(
-                                         widget.categoryIcon!.toString(),
-
-                     style: TextStyle(
-                      
-                       color: controller.darkMode.value
-                           ? Colors.white.withValues(alpha: 0.8)
-                           : Colors.grey[700],
-                           
-                       fontSize: 22,
-                     ),
-                   ),
-                   const SizedBox(width: 3), 
-                   Text(
-                     widget.category!.toString().substring(2),
-                     style: TextStyle(
-                       color: controller.darkMode.value
-                           ? Colors.white.withValues(alpha: 0.8)
-                           : Colors.grey[700],
-                       fontSize: 16,
-                     ),
-                   ),
-                 ],
+                 ),
                ),
-              ],
              ),
-           ),
-
-            // if (widget.category != null && widget.category!.isNotEmpty)
-            //  Padding(
-            //    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            //    child: 
-            //  ),
-
-                     // ],
-                      // ),
-            //         ),
-            //         // Text content - only show if text exists and is not empty
-                    if (widget.text != null && widget.text!.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        child: RichText(
-                          text: TextSpan(
-                            children: _buildStyledText(widget.text!),
-                            style: TextStyle(
-                              color:
-                                  controller.darkMode.value
-                                      ? Colors.white
-                                      : Colors.black,
-                              fontSize: 18,
+      
+              // if (widget.category != null && widget.category!.isNotEmpty)
+              //  Padding(
+              //    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              //    child: 
+              //  ),
+      
+                       // ],
+                        // ),
+              //         ),
+              //         // Text content - only show if text exists and is not empty
+                      if (widget.text != null && widget.text!.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          child: RichText(
+                            text: TextSpan(
+                              children: _buildStyledText(widget.text!),
+                              style: TextStyle(
+                                color:
+                                    controller.darkMode.value
+                                        ? Colors.white
+                                        : Colors.black,
+                                fontSize: 18,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-            //       ],
-            //     ),
-            //   ),
-            // ),
-         if (widget.assetsImg != null || widget.videoPaths != null) _buildImageGallery(),
-
-            // Audio durations - only show if valid audio durations exist
-            if (widget.audioDurations != null && widget.audioDurations!.isNotEmpty)
-              AudioDurationList(
-                durations: widget.audioDurations!,
-                audioPaths: widget.audioPaths,
-                onLongPress: _handleLongPress,
-              ),
-        
-          ],
+              //       ],
+              //     ),
+              //   ),
+              // ),
+           if (widget.assetsImg != null || widget.videoPaths != null) _buildImageGallery(),
+      
+              // Audio durations - only show if valid audio durations exist
+              if (widget.audioDurations != null && widget.audioDurations!.isNotEmpty)
+                AudioDurationList(
+                  durations: widget.audioDurations!,
+                  audioPaths: widget.audioPaths,
+                  onLongPress: _handleLongPress,
+                ),
+          
+            ],
+          ),
         ),
-      );
+    );
   }
 
   /// Helper method to style text with color
@@ -1045,11 +1051,11 @@ return;
     String d = '$date $year';
     print('Date Time $d');
 
-    return formatDateString(d, date);
+    return formatDateString(d);
     // return date;
   }
 
-String formatDateString(String dateString, String d,) {
+String formatDateString(String dateString,) {
   final date = _parseDate(dateString);
   final now = DateTime.now();
 
@@ -1063,7 +1069,7 @@ String formatDateString(String dateString, String d,) {
     return "Yesterday";
   }
 
-  return d; // Return original format
+  return dateString; // Return original format
 }
 
 DateTime _parseDate(String dateString) {

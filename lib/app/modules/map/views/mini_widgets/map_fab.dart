@@ -80,8 +80,9 @@ class MapFab extends StatelessWidget {
   color: controller.darkMode.value
     ? (controller.mainColor.value == 'blue'
         ? const Color(0xFF002B62)
-        : (controller.primaryColorDark ?? AppColors.blue))
-    : AppColors.blue,// ✔ correct
+              : (controller.curentHomeIconColorDark))
+    : controller.currentHomeIconColor,// ✔ correct
+                
                   
                 ),
                         child: Image.asset(

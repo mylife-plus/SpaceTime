@@ -339,7 +339,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                         // ? (
                             (uiController.darkMode.value
                                 ? Colors.black
-                                : Color(0xFFF4FFF5)),
+                                :  (widget.isTagMode
+                                                          ? AppColors.green.withValues(alpha: 0.05)
+                                                          : AppColors.blue).withValues(alpha: 0.05)),
                 border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
               ),
               child: Row(
@@ -387,6 +389,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                             fontWeight: FontWeight.w400,
                           ),
                           decoration: InputDecoration(
+                            
                             hintText: 'Search...',
                             hintStyle: GoogleFonts.kumbhSans(
                               color: uiController.darkMode.value

@@ -76,7 +76,7 @@ class _AudioDurationListState extends State<AudioDurationList>
                     boxShadow: [
                       // if (isSelected)
                       BoxShadow(
-                        color: Colors.blue.withOpacity(
+                        color:controller.curentHomeIconColors.withOpacity(
                           isDark ? 0.4 : 0.3,
                         ), // Stronger in dark
                         blurRadius: 6,

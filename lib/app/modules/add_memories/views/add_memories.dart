@@ -18,7 +18,7 @@ import 'mini_widgets/filter_indicator.dart';
 
 class AddMemoriesView extends GetView<AddMemoriesController>
     with WidgetsBindingObserver {
-  const AddMemoriesView({super.key});
+   AddMemoriesView({super.key});
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -30,7 +30,11 @@ class AddMemoriesView extends GetView<AddMemoriesController>
     }
   }
 
+                  UiController uiController = Get.find<UiController>();
+
   Widget _buildMemoryList() {
+
+
     return NotificationListener<ScrollNotification>(
       onNotification: (ScrollNotification scrollInfo) {
         if (scrollInfo is ScrollUpdateNotification) {
@@ -87,21 +91,27 @@ class AddMemoriesView extends GetView<AddMemoriesController>
           final sortedYears =
               groupedMemories.keys.toList()..sort((a, b) => b.compareTo(a));
 
-          return ListView(
-            controller: controller.scrollController,
-            // shrinkWrap: false,
-            padding: EdgeInsets.zero,
-            physics: const AlwaysScrollableScrollPhysics(),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            children: [
-              for (final year in sortedYears) ...[
-                if (year.isNotEmpty) Container(),
-                ...groupedMemories[year]!.map(
-                  (memory) => MemoryCard(memoryData: memory),
-                ),
+          
+          return Container(
+                              color: (!uiController.darkMode.value ? Colors.white : Colors.transparent),
+
+            child: ListView(
+              controller: controller.scrollController,
+              // shrinkWrap: false,
+              padding: EdgeInsets.zero,
+              physics: const AlwaysScrollableScrollPhysics(),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              children: [
+                for (final year in sortedYears) ...[
+                  if (year.isNotEmpty) Container(),
+                  ...groupedMemories[year]!.map(
+                    (memory) => MemoryCard(memoryData: memory),
+                  ),
+                ],
+                Container(child: SizedBox(height: 100),                            color: (!uiController.darkMode.value ? Colors.white : Colors.transparent),
+             ),
               ],
-              SizedBox(height: 100),
-            ],
+            ),
           );
         }
 
@@ -188,13 +198,8 @@ class AddMemoriesView extends GetView<AddMemoriesController>
       return SafeArea(
         child: Scaffold(
           backgroundColor:
-              uiController.darkMode.value
-                  ? uiController.mainColor.value == 'blue'
-                      ? Colors.black
-                      : uiController.primaryColorDark
-                  : uiController.mainColor.value == 'blue'
-                  ?uiController.primaryColor
-                  : uiController.primaryColor,
+                         (!uiController.darkMode.value ? Colors.white : Colors.transparent),
+
           // backgroundColor:
           //     uiController.darkMode.value
           //         ? Colors.black
@@ -271,8 +276,8 @@ class AddMemoriesView extends GetView<AddMemoriesController>
   color: uiController.darkMode.value
     ? (uiController.mainColor.value == 'blue'
         ? const Color(0xFF002B62)
-        : (uiController.primaryColorDark ?? AppColors.blue))
-    : AppColors.blue,// ✔ correct
+        : (uiController.curentHomeIconColorDark))
+    : uiController.currentHomeIconColor,// ✔ correct
                   
                 ),
                         child: Image.asset(

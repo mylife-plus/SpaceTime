@@ -87,7 +87,7 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.ADD_MEMORIES,
-      page: () => const AddMemoriesView(),
+      page: () =>  AddMemoriesView(),
       binding: AddMemoriesBindings(),
     ),
   ];

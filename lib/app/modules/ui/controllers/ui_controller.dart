@@ -86,6 +86,7 @@ class UiController extends GetxController {
         return Colors.blue;
     }
   }
+  
 
   Color get currentEditIconColor {
     switch (mainColor.value) {
@@ -161,7 +162,9 @@ class UiController extends GetxController {
 
   Color? get secondaryColor {
     if (mainColor.value == 'blue') return null;
-    return currentMainColor.withOpacity(0.4);
+        return Color.alphaBlend(Colors.white.withOpacity(0.7), currentMainColor);
+
+    // return currentMainColor.withOpacity(0.2);
   }
 
   Color? get secondaryColorDark {
@@ -176,6 +179,46 @@ class UiController extends GetxController {
     return currentMainColor.withOpacity(0.1);
   }
 
+ Color get curentHomeIconColors {
+    switch (mainColor.value) {
+      case 'red':
+        return const Color.fromARGB(255, 210, 32, 20);
+      case 'green':
+        return const Color.fromARGB(255, 10, 146, 14);
+      case 'purple':
+        return const Color.fromARGB(255, 114, 6, 133);
+      case 'blue':
+      default:
+        return const Color.fromARGB(255, 16, 118, 201);
+    }
+  }
+
+Color get curentHomeIconColorsDark {
+    switch (mainColor.value) {
+      case 'red':
+        return const Color.fromARGB(255, 141, 17, 8);
+      case 'green':
+        return const Color.fromARGB(255, 9, 114, 13);
+      case 'purple':
+        return const Color.fromARGB(255, 133, 10, 155);
+      case 'blue':
+      default:
+        return const Color.fromARGB(255, 5, 36, 62);
+    }
+  }
+
+   Color? get currentHomeIconColor {
+    // if (mainColor.value == 'blue') return null;
+    return curentHomeIconColors;
+  }
+
+  Color? get curentHomeIconColorDark {
+    // if (mainColor.value == 'blue') return null;
+    return curentHomeIconColorsDark;
+  }
+
+
+  
   final count = 0.obs;
   @override
   void onInit() {

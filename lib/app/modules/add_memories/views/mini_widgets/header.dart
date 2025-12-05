@@ -144,8 +144,8 @@ class Header extends StatelessWidget {
   color: controller2.darkMode.value
     ? (controller2.mainColor.value == 'blue'
         ? const Color(0xFF002B62)
-        : (controller2.primaryColorDark ?? AppColors.blue))
-    : AppColors.blue,// ✔ correct
+        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
+    : controller2.currentHomeIconColor,// ✔ correct
                   
                   ),
 
@@ -168,8 +168,8 @@ class Header extends StatelessWidget {
   color: controller2.darkMode.value
     ? (controller2.mainColor.value == 'blue'
         ? const Color(0xFF002B62)
-        : (controller2.primaryColorDark ?? AppColors.blue))
-    : AppColors.blue,// ✔ correct
+        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
+    : controller2.currentHomeIconColor,// ✔ correct
                   
                     ),
                     child: Image.asset(AppImages.filter, fit: BoxFit.contain),
@@ -232,8 +232,8 @@ class Header extends StatelessWidget {
   color: controller2.darkMode.value
     ? (controller2.mainColor.value == 'blue'
         ? const Color(0xFF002B62)
-        : (controller2.primaryColorDark ?? AppColors.blue))
-    : AppColors.blue,// ✔ correct
+        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
+    : controller2.currentHomeIconColor,// ✔ correct
                   
                 ),
 
@@ -280,8 +280,8 @@ class Header extends StatelessWidget {
   color: controller2.darkMode.value
     ? (controller2.mainColor.value == 'blue'
         ? const Color(0xFF002B62)
-        : (controller2.primaryColorDark ?? AppColors.blue))
-    : AppColors.blue,// ✔ correct
+        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
+    :controller2.currentHomeIconColor,// ✔ correct
                   
                 ),
 
