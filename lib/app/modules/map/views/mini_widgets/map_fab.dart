@@ -74,28 +74,16 @@ class MapFab extends StatelessWidget {
                         width: 49,
                         height: 51,
                         padding: EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: const AssetImage(AppImages.rectangle),
-                            colorFilter:
-                                controller.darkMode.value
-                                    ? controller.mainColor.value == 'blue'
-                                        ? const ColorFilter.mode(
-                                          Color(0xFF002B62),
-                                          BlendMode.srcIn,
-                                        )
-                                        : ColorFilter.mode(
-                                          (controller.iconColor ??
-                                              AppColors.blue),
-                                          BlendMode.srcIn,
-                                        )
-                                    : (controller.rectangleColorFilter ??
-                                        const ColorFilter.mode(
-                                          AppColors.blue,
-                                          BlendMode.srcIn,
-                                        )),
-                          ),
-                        ),
+                         decoration: BoxDecoration(
+                     // image: DecorationImage(
+                    borderRadius: BorderRadius.circular(8), 
+  color: controller.darkMode.value
+    ? (controller.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
+                ),
                         child: Image.asset(
                           AppImages.addIcon,
                           fit: BoxFit.contain,

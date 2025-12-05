@@ -69,6 +69,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                 children: [
                   // MapBox Map
                   _buildMapWidget(controller),
+
                   // Filter overlay backdrop
                   if (controller.isFilterOpen.value)
                     Positioned.fill(
@@ -107,6 +108,9 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                   // Filter overlay
                   if (controller.isFilterOpen.value) const MapFilterOverlay(),
 
+
+                  // Permission and Internet screens overlay
+                  // _buildPermissionAndInternetScreens(context, controller),
                 ],
               ),
             ),

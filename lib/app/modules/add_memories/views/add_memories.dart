@@ -266,27 +266,15 @@ class AddMemoriesView extends GetView<AddMemoriesController>
                         height: 51,
                         padding: EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: const AssetImage(AppImages.rectangle),
-                            colorFilter:
-                                uiController.darkMode.value
-                                    ? uiController.mainColor.value == 'blue'
-                                        ? const ColorFilter.mode(
-                                          Color(0xFF002B62),
-                                          BlendMode.srcIn,
-                                        )
-                                        : ColorFilter.mode(
-                                          (uiController.iconColor ??
-                                              AppColors.blue),
-                                          BlendMode.srcIn,
-                                        )
-                                    : (uiController.rectangleColorFilter ??
-                                        const ColorFilter.mode(
-                                          AppColors.blue,
-                                          BlendMode.srcIn,
-                                        )),
-                          ),
-                        ),
+                     // image: DecorationImage(
+                    borderRadius: BorderRadius.circular(8), 
+  color: uiController.darkMode.value
+    ? (uiController.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (uiController.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
+                ),
                         child: Image.asset(
                           AppImages.addIcon,
                           fit: BoxFit.contain,

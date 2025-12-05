@@ -21,7 +21,7 @@ class AppImages {
   static const earth = 'assets/images/earth.png';
   static const rectangle = 'assets/images/rectangle.png';
   static const mockImg = 'assets/images/mock_img.png';
-  static const search = 'assets/images/search.png';
+  static const search = 'assets/images/ic_search.png';
   static const memory = 'assets/images/memory.png';
   static const whiteRectangle = 'assets/images/white_rec.png';
   static const mic = 'assets/images/mic.png';

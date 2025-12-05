@@ -30,12 +30,12 @@ class MapTopButtons extends StatelessWidget {
       left: 0,
       right: 0,
       child: Container(
-        color:
-            controller2.darkMode.value
-                ? controller2.mainColor.value == 'blue'
-                    ? Color(0xFF001937)
-                    : controller2.primaryColorDark
-                : controller2.currentMainColor,
+        // color:
+        //     controller2.darkMode.value
+        //         ? controller2.mainColor.value == 'blue'
+        //             ? Color(0xFF001937)
+        //             : controller2.primaryColorDark
+        //         : controller2.currentMainColor,
           height: 65,
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
 
@@ -53,35 +53,24 @@ class MapTopButtons extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: Container(
-                  padding: const EdgeInsets.all(3.5),
-                  // width: 32,
-                  height: 35,
-                  decoration: BoxDecoration(
-                    // border: BorderRadius.circular(0),
-                    image: DecorationImage(
-                      image: AssetImage(AppImages.rectangle),
-                      fit: BoxFit.contain,
-                      colorFilter:
-                          controller2.darkMode.value
-                              ? controller2.mainColor.value == 'blue'
-                                  ? const ColorFilter.mode(
-                                    Color(0xFF002B62),
-                                    BlendMode.srcIn,
-                                  )
-                                  : ColorFilter.mode(
-                                    (controller2.primaryColorDark ??
-                                        AppColors.blue),
-                                    BlendMode.srcIn,
-                                  )
-                              : (controller2.rectangleColorFilter ??
-                                  const ColorFilter.mode(
-                                    AppColors.blue,
-                                    BlendMode.srcIn,
-                                  )),
+                
+                  child: Container(
+                    
+                    padding: const EdgeInsets.all(3.5),
+                    // width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+  borderRadius: BorderRadius.circular(8), 
+  color: controller2.darkMode.value
+    ? (controller2.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller2.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
                     ),
+                  
+                    child: Image.asset(AppImages.settings3, fit: BoxFit.contain),
                   ),
-
-                  child: Image.asset(AppImages.settings3, fit: BoxFit.contain),
                 ),
               ),
             ),
@@ -93,33 +82,22 @@ class MapTopButtons extends StatelessWidget {
               onTap: controller.openFilter,
               child: Stack(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    height: 44,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage(AppImages.rectangle),
-                        fit: BoxFit.contain,
-                        colorFilter:
-                            controller2.darkMode.value
-                                ? controller2.mainColor.value == 'blue'
-                                    ? const ColorFilter.mode(
-                                      Color(0xFF002B62),
-                                      BlendMode.srcIn,
-                                    )
-                                    : ColorFilter.mode(
-                                      (controller2.primaryColorDark ??
-                                          AppColors.blue),
-                                      BlendMode.srcIn,
-                                    )
-                                : (controller2.rectangleColorFilter ??
-                                    const ColorFilter.mode(
-                                      AppColors.blue,
-                                      BlendMode.srcIn,
-                                    )),
+Container(
+                                child: Container(
+                      padding: const EdgeInsets.all(8),
+                      
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8), 
+  color: controller2.darkMode.value
+    ? (controller2.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller2.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
                       ),
+                      child: Image.asset(AppImages.filter, fit: BoxFit.contain),
                     ),
-                    child: Image.asset(AppImages.filter, fit: BoxFit.contain),
                   ),
 
                   // Filter badge indicator with count
@@ -131,27 +109,34 @@ class MapTopButtons extends StatelessWidget {
                             right: 0,
                             top: 0,
                             child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.orange,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: controller2.darkMode.value ? Colors.black : Colors.white,
-                                  width: 1.5,
+    //               color: controller2.darkMode.value
+    // ? (controller2.mainColor.value == 'blue'
+    //     ? const Color(0xFF002B62)
+    //     : (controller2.primaryColorDark ?? AppColors.blue))
+    // : AppColors.blue,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: controller2.darkMode.value ? Colors.black : Colors.white,
+                                    width: 1.5,
+                                  ),
                                 ),
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 18,
-                                minHeight: 18,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  filterCount > 9 ? '9+' : filterCount.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1.0,
+                                constraints: const BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    filterCount > 9 ? '9+' : filterCount.toString(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      height: 1.0,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -164,6 +149,7 @@ class MapTopButtons extends StatelessWidget {
             ),
                         const SizedBox(width: 5),
 
+            
                   GestureDetector(
               onTap: () async {
 
@@ -181,33 +167,20 @@ class MapTopButtons extends StatelessWidget {
                 // width: 42,
                 height: 44,
                 decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage(AppImages.rectangle),
-                    fit: BoxFit.contain,
-                    colorFilter:
-                        controller2.darkMode.value
-                            ? controller2.mainColor.value == 'blue'
-                                ? const ColorFilter.mode(
-                                  Color(0xFF002B62),
-                                  BlendMode.srcIn,
-                                )
-                                : ColorFilter.mode(
-                                  (controller2.primaryColorDark ??
-                                      AppColors.blue),
-                                  BlendMode.srcIn,
-                                )
-                            : (controller2.rectangleColorFilter ??
-                                const ColorFilter.mode(
-                                  AppColors.blue,
-                                  BlendMode.srcIn,
-                                )),
-                  ),
+                  // image: DecorationImage(
+                    borderRadius: BorderRadius.circular(8), 
+  color: controller2.darkMode.value
+    ? (controller2.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller2.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
                 ),
 
                 child: Image.asset(
-                  AppImages.searchNormal,
+                  AppImages.search,
                   fit: BoxFit.contain,
-                  color: Colors.white,
+                  // color: Colors.white,
                   // width: 31,
                   // height: 31,
                 ),
@@ -240,27 +213,13 @@ class MapTopButtons extends StatelessWidget {
                 // width: 42,
                 height: 44,
                 decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage(AppImages.rectangle),
-                    fit: BoxFit.contain,
-                    colorFilter:
-                        controller2.darkMode.value
-                            ? controller2.mainColor.value == 'blue'
-                                ? const ColorFilter.mode(
-                                  Color(0xFF002B62),
-                                  BlendMode.srcIn,
-                                )
-                                : ColorFilter.mode(
-                                  (controller2.primaryColorDark ??
-                                      AppColors.blue),
-                                  BlendMode.srcIn,
-                                )
-                            : (controller2.rectangleColorFilter ??
-                                const ColorFilter.mode(
-                                  AppColors.blue,
-                                  BlendMode.srcIn,
-                                )),
-                  ),
+                borderRadius: BorderRadius.circular(8), 
+  color: controller2.darkMode.value
+    ? (controller2.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller2.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
                 ),
 
                 child: Image.asset(AppImages.memory, fit: BoxFit.contain),

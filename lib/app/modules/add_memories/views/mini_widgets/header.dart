@@ -139,27 +139,14 @@ class Header extends StatelessWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     // border: BorderRadius.circular(0),
-                    image: DecorationImage(
-                      image: AssetImage(AppImages.rectangle),
-                      fit: BoxFit.contain,
-                      colorFilter:
-                          controller2.darkMode.value
-                              ? controller2.mainColor.value == 'blue'
-                                  ? const ColorFilter.mode(
-                                    Color(0xFF002B62),
-                                    BlendMode.srcIn,
-                                  )
-                                  : ColorFilter.mode(
-                                    (controller2.primaryColorDark ??
-                                        AppColors.blue),
-                                    BlendMode.srcIn,
-                                  )
-                              : (controller2.rectangleColorFilter ??
-                                  const ColorFilter.mode(
-                                    AppColors.blue,
-                                    BlendMode.srcIn,
-                                  )),
-                    ),
+                      // image: DecorationImage(
+                    borderRadius: BorderRadius.circular(8), 
+  color: controller2.darkMode.value
+    ? (controller2.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller2.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
                   ),
 
                   child: Image.asset(AppImages.settings3, fit: BoxFit.contain),
@@ -176,27 +163,14 @@ class Header extends StatelessWidget {
                     padding: const EdgeInsets.all(8),
                     height: 44,
                     decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage(AppImages.rectangle),
-                        fit: BoxFit.contain,
-                        colorFilter:
-                            controller2.darkMode.value
-                                ? controller2.mainColor.value == 'blue'
-                                    ? const ColorFilter.mode(
-                                      Color(0xFF002B62),
-                                      BlendMode.srcIn,
-                                    )
-                                    : ColorFilter.mode(
-                                      (controller2.primaryColorDark ??
-                                          AppColors.blue),
-                                      BlendMode.srcIn,
-                                    )
-                                : (controller2.rectangleColorFilter ??
-                                    const ColorFilter.mode(
-                                      AppColors.blue,
-                                      BlendMode.srcIn,
-                                    )),
-                      ),
+                         // image: DecorationImage(
+                    borderRadius: BorderRadius.circular(8), 
+  color: controller2.darkMode.value
+    ? (controller2.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller2.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
                     ),
                     child: Image.asset(AppImages.filter, fit: BoxFit.contain),
                   ),
@@ -253,33 +227,20 @@ class Header extends StatelessWidget {
                 // width: 42,
                 height: 44,
                 decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage(AppImages.rectangle),
-                    fit: BoxFit.contain,
-                    colorFilter:
-                        controller2.darkMode.value
-                            ? controller2.mainColor.value == 'blue'
-                                ? const ColorFilter.mode(
-                                  Color(0xFF002B62),
-                                  BlendMode.srcIn,
-                                )
-                                : ColorFilter.mode(
-                                  (controller2.primaryColorDark ??
-                                      AppColors.blue),
-                                  BlendMode.srcIn,
-                                )
-                            : (controller2.rectangleColorFilter ??
-                                const ColorFilter.mode(
-                                  AppColors.blue,
-                                  BlendMode.srcIn,
-                                )),
-                  ),
+                     // image: DecorationImage(
+                    borderRadius: BorderRadius.circular(8), 
+  color: controller2.darkMode.value
+    ? (controller2.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller2.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
                 ),
 
                 child: Image.asset(
-                  AppImages.searchNormal,
+                  AppImages.search,
                   fit: BoxFit.contain,
-                  color: Colors.white,
+                  // color: Colors.white,
                   // width: 31,
                   // height: 31,
                 ),
@@ -314,27 +275,14 @@ class Header extends StatelessWidget {
                 // width: 42,
                 height: 44,
                 decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage(AppImages.rectangle),
-                    fit: BoxFit.contain,
-                    colorFilter:
-                        controller2.darkMode.value
-                            ? controller2.mainColor.value == 'blue'
-                                ? const ColorFilter.mode(
-                                  Color(0xFF002B62),
-                                  BlendMode.srcIn,
-                                )
-                                : ColorFilter.mode(
-                                  (controller2.primaryColorDark ??
-                                      AppColors.blue),
-                                  BlendMode.srcIn,
-                                )
-                            : (controller2.rectangleColorFilter ??
-                                const ColorFilter.mode(
-                                  AppColors.blue,
-                                  BlendMode.srcIn,
-                                )),
-                  ),
+                     // image: DecorationImage(
+                    borderRadius: BorderRadius.circular(8), 
+  color: controller2.darkMode.value
+    ? (controller2.mainColor.value == 'blue'
+        ? const Color(0xFF002B62)
+        : (controller2.primaryColorDark ?? AppColors.blue))
+    : AppColors.blue,// ✔ correct
+                  
                 ),
 
                 child: Image.asset(AppImages.earth, fit: BoxFit.contain),
