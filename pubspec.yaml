@@ -86,11 +86,13 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
+    - assets/
     - assets/images/
     - assets/data/
     - .env
     - assets/cities_names_1.csv
     - assets/geonames_cities.csv
+    - assets/11_included.mbtiles
 
     # - images/a_dot_ham.jpeg
 

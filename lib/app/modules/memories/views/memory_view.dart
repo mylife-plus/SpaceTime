@@ -2099,13 +2099,13 @@ class _MemoryViewState extends State<MemoryView> {
     }
 
     // Check if place category is provided (MANDATORY)
-    if (memoryController.selectedCategory.value.isEmpty) {
-      return {
-        'isValid': false,
-        'message':
-            'Place category is required. Please select a category for your memory location.',
-      };
-    }
+    // if (memoryController.selectedCategory.value.isEmpty) {
+    //   return {
+    //     'isValid': false,
+    //     'message':
+    //         'Place category is required. Please select a category for your memory location.',
+    //   };
+    // }
 
     // Location permission is not required, but a location must be selected
     // Check if location is selected (mandatory field)

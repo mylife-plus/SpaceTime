@@ -26,6 +26,7 @@ import 'app/repositories/offline_map_repository.dart';
 import 'app/services/offline_map_coordinator_service.dart';
 import 'app/services/native_tile_download_service.dart';
 import 'app/modules/get_started/controllers/get_started_controller.dart';
+import 'services/asset_tile_loader_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,8 +57,8 @@ Future<void> main() async {
 
   // Initialize place categories if not already done
   debugPrint('🏷️ [MAIN] Initializing place categories...');
-  await DatabaseHelper.instance.initializePlaceCategoriesIfNeeded();
-  debugPrint('🏷️ [MAIN] Place categories initialization completed');
+    await DatabaseHelper.instance.initializePlaceCategoriesIfNeeded();
+    debugPrint('🏷️ [MAIN] Place categories initialization completed');
 
   // Migrate absolute paths to relative paths
   debugPrint('🔄 [MAIN] Running path migration...');
@@ -71,8 +72,26 @@ Future<void> main() async {
 
   // Initialize hashtag groups if not already done
   debugPrint('🏷️ [MAIN] Initializing hashtag groups...');
-  await DatabaseHelper.instance.initializeHashtagGroupsIfNeeded();
-  debugPrint('🏷️ [MAIN] Hashtag groups initialization completed');
+  try {
+    await DatabaseHelper.instance.initializeHashtagGroupsIfNeeded();
+    debugPrint('🏷️ [MAIN] Hashtag groups initialization completed');
+  } catch (e) {
+    debugPrint('🏷️ [MAIN] Hashtag groups initialization failed: $e');
+  }
+
+  // Load asset tiles to local storage
+  debugPrint('🗺️ [MAIN] Loading asset tiles...');
+  try {
+    final assetTileLoader = AssetTileLoaderService.instance;
+    final tilesPath = await assetTileLoader.loadAssetTilesToLocal();
+    if (tilesPath != null) {
+      debugPrint('🗺️ [MAIN] ✅ Asset tiles loaded successfully: $tilesPath');
+    } else {
+      debugPrint('🗺️ [MAIN] ⚠️ Asset tiles not loaded');
+    }
+  } catch (e) {
+    debugPrint('🗺️ [MAIN] ❌ Failed to load asset tiles: $e');
+  }
 
   await dotenv.load(fileName: ".env");
   MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));

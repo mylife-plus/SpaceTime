@@ -131,43 +131,60 @@ class ConnectivityService extends GetxController {
 
   Future<void> _verifyInternetConnectivity() async {
     try {
-      // debugPrint('🌐 Verifying internet connectivity...');
+      debugPrint('🌐 Verifying internet connectivity...');
 
-      // Must be a hostname, not URL
-      final result = await InternetAddress.lookup(
-        'google.com',
-      ).timeout(const Duration(seconds: 5));
+      // Try multiple methods to verify internet connectivity
+      bool hasInternet = false;
 
-      final hasInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-      // debugPrint(
-      //   '🌐 Internet lookup result: hasInternet=$hasInternet, resultCount=${result.length}',
-      // );
+      // Method 1: DNS lookup (fastest)
+      try {
+        final result = await InternetAddress.lookup(
+          'google.com',
+        ).timeout(const Duration(seconds: 3));
+        hasInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+        debugPrint('🌐 DNS lookup result: $hasInternet');
+      } catch (e) {
+        debugPrint('🌐 DNS lookup failed: $e');
+      }
+
+      // Method 2: If DNS fails, try HTTP request as fallback
+      if (!hasInternet) {
+        try {
+          final response = await http
+              .get(Uri.parse('https://www.google.com'))
+              .timeout(const Duration(seconds: 3));
+          hasInternet = response.statusCode == 200;
+          debugPrint('🌐 HTTP check result: $hasInternet (status: ${response.statusCode})');
+        } catch (e) {
+          debugPrint('🌐 HTTP check failed: $e');
+        }
+      }
+
+      debugPrint('🌐 Final internet verification result: $hasInternet');
 
       if (hasInternet) {
         // If internet is available but connectionType is 'none', refresh from system
         if (connectionType.value == 'none') {
-          // debugPrint(
-          //   '🌐 Internet restored but connectionType is none - refreshing from system',
-          // );
+          debugPrint('🌐 Internet restored but connectionType is none - refreshing from system');
           await _updateConnectionTypeFromSystem();
         }
 
         // Ensure we have a valid connection type
         if (connectionType.value == 'none' || connectionType.value.isEmpty) {
-        
           connectionType.value = 'other';
         }
 
         isConnected.value = true;
-        
+        debugPrint('🌐 ✅ Internet connectivity confirmed');
       } else {
         isConnected.value = false;
         connectionType.value = 'none';
-       
+        debugPrint('🌐 ❌ No internet connectivity detected');
       }
     } catch (e) {
-      isConnected.value = false;
-      connectionType.value = 'none';
+      debugPrint('❌ Error in _verifyInternetConnectivity: $e');
+      // Don't immediately set to false - keep current state
+      // This prevents false negatives from transient errors
     }
   }
 
@@ -290,14 +307,31 @@ class ConnectivityService extends GetxController {
         return false;
       }
 
-      // Single quick ping with short timeout
-      final result = await InternetAddress.lookup(
-        'google.com',
-      ).timeout(const Duration(milliseconds: 800));
+      // Try DNS lookup first (fastest)
+      try {
+        final result = await InternetAddress.lookup(
+          'google.com',
+        ).timeout(const Duration(milliseconds: 1500));
 
-      final hasInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-      debugPrint('🌐 Quick internet check result: $hasInternet');
-      return hasInternet;
+        final hasInternet = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+        debugPrint('🌐 Quick internet check (DNS) result: $hasInternet');
+        return hasInternet;
+      } catch (e) {
+        debugPrint('🌐 Quick DNS check failed, trying HTTP: $e');
+
+        // Fallback to HTTP check
+        try {
+          final response = await http
+              .get(Uri.parse('https://www.google.com'))
+              .timeout(const Duration(milliseconds: 1500));
+          final hasInternet = response.statusCode == 200;
+          debugPrint('🌐 Quick internet check (HTTP) result: $hasInternet');
+          return hasInternet;
+        } catch (e2) {
+          debugPrint('🌐 Quick HTTP check also failed: $e2');
+          return false;
+        }
+      }
     } catch (e) {
       debugPrint('🌐 Quick internet check failed: $e');
       return false;
@@ -305,34 +339,80 @@ class ConnectivityService extends GetxController {
   }
 
   /// Enhanced internet check specifically for Mapbox services
-
   Future<bool> hasInternetForMapbox() async {
+
     try {
+    
       final connectivityResult = await _connectivity.checkConnectivity();
+    
       if (connectivityResult.isEmpty || connectivityResult.contains(ConnectivityResult.none)) {
+    
         debugPrint('🗺 No connectivity detected');
+    
         return false;
+    
       }
 
-      final response = await http
-          .get(Uri.parse('https://www.google.com'))
-          .timeout(const Duration(seconds: 3));
+      // Try DNS lookup first (faster and more reliable)
+      try {
+       
+        final dnsResult = await InternetAddress.lookup(
+          'google.com',
+        ).timeout(const Duration(seconds: 2));
 
-      if (response.statusCode == 200) {
-        debugPrint('🗺 Internet access confirmed via HTTP ping');
-        return true;
-      } else {
-        debugPrint('🗺 Unexpected status code: ${response.statusCode}');
+        if (dnsResult.isNotEmpty && dnsResult[0].rawAddress.isNotEmpty) {
+       
+          debugPrint('🗺 Internet access confirmed via DNS lookup');
+       
+          return true;
+       
+        }
+      
+      } catch (e) {
+        debugPrint('🗺 DNS lookup failed, trying HTTP: $e');
+      }
+
+      // Fallback to HTTP check
+      try {
+       
+        final response = await http
+            .get(Uri.parse('https://www.google.com'))
+            .timeout(const Duration(seconds: 3));
+
+        if (response.statusCode == 200) {
+       
+          debugPrint('🗺 Internet access confirmed via HTTP ping');
+       
+          return true;
+       
+        } else {
+       
+          debugPrint('🗺 Unexpected status code: ${response.statusCode}');
+       
+          return false;
+       
+        }
+      
+      } catch (e) {
+      
+        debugPrint('🗺 HTTP check failed: $e');
+      
         return false;
+     
       }
     } catch (e) {
+   
       debugPrint('🗺 Internet check failed: $e');
+   
       return false;
+   
     }
+  
   }
 
   /// Handle Mapbox-specific connectivity errors reported in logs
   void handleMapboxConnectivityError(String errorMessage) {
+   
     debugPrint('🗺 Mapbox connectivity error detected: $errorMessage');
 
     // Force update connectivity status
@@ -348,7 +428,9 @@ class ConnectivityService extends GetxController {
 
   /// Check if an error message indicates a Mapbox connectivity issue
   bool isMapboxConnectivityError(String errorMessage) {
+  
     final lowerError = errorMessage.toLowerCase();
+  
     final mapboxConnectivityKeywords = [
       'failed to load style',
       'failed to load tile',
@@ -368,42 +450,63 @@ class ConnectivityService extends GetxController {
     ];
 
     return mapboxConnectivityKeywords.any(
+     
       (keyword) => lowerError.contains(keyword),
+ 
     );
+  
   }
 
   /// Get connectivity status as a readable string
   String get connectivityStatus {
+   
     if (!isConnected.value) return 'No Internet';
 
     switch (connectionType.value) {
+   
       case 'wifi':
+   
         return 'WiFi Connected';
+   
       case 'mobile':
+   
         return 'Mobile Data';
+   
       case 'ethernet':
+   
         return 'Ethernet';
+   
       case 'other':
+   
         return 'Connected';
+   
       default:
+   
         return 'No Internet';
+   
     }
+  
   }
 
   /// Show connectivity status snackbar
   void showConnectivityStatus() {
+   
     final status = connectivityStatus;
+   
     final color = isConnected.value ? Colors.green : Colors.red;
 
     if (isConnected.value) return;
+   
     Get.snackbar(
-      'Connection Status',
+     'Connection Status',
       status,
       backgroundColor: color.withValues(alpha: 0.8),
       colorText: Colors.white,
-        duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 2),
       snackPosition: SnackPosition.BOTTOM,
       margin: const EdgeInsets.all(16),
     );
+
   }
+
 }

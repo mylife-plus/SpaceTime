@@ -1036,7 +1036,7 @@ return;
                            color: controller.darkMode.value
                                ? Colors.white.withValues(alpha: 0.8)
                                : Colors.grey[700],
-                           fontSize: 22,
+                           fontSize:22,
                          ),
                        ),
                        const SizedBox(width: 3), 

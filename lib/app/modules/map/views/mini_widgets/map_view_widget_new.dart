@@ -14,6 +14,7 @@ import '../../../ui/controllers/ui_controller.dart';
 import '../../../add_memories/controllers/add_memories_controller.dart';
 import '../../../add_memories/views/mini_widgets/filter_indicator.dart';
 import 'map_filter_overlay.dart';
+import '../../../../../services/asset_tile_loader_service.dart';
 
 class MapViewWidgetNew extends StatefulWidget {
   const MapViewWidgetNew({Key? key}) : super(key: key);
@@ -141,12 +142,17 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         debugPrint('[MapViewWidgetNew] 🗺️ onMapCreated callback triggered');
 
         // Check for offline tiles and enable offline mode if available
+        // (Don't add vector source yet - wait for style to load)
         await _checkAndEnableOfflineMode();
 
         controller.onMapCreated(mapboxMap);
       },
-      onStyleLoadedListener: (styleLoadedEventData) {
+      onStyleLoadedListener: (styleLoadedEventData) async {
         debugPrint('[MapViewWidgetNew] 🎨 onStyleLoaded callback triggered');
+
+        // Add mbtiles vector source after style is loaded
+        await _addMbtilesVectorSourceIfAvailable();
+
         controller.onStyleLoaded(styleLoadedEventData);
       },
       onMapLoadErrorListener: (mapLoadErrorEventData) {
@@ -159,6 +165,21 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   /// Check for offline tiles and enable offline mode if available
   Future<void> _checkAndEnableOfflineMode() async {
     try {
+      // Check if asset tiles are loaded
+      final assetTileLoader = AssetTileLoaderService.instance;
+      final tilesPath = assetTileLoader.getLocalTilesPath();
+
+      if (tilesPath != null) {
+        debugPrint('[MapViewWidgetNew] 🗺️ Asset tiles found at: $tilesPath');
+
+        // Enable offline mode (vector source will be added after style loads)
+        debugPrint('[MapViewWidgetNew] 🔌 Enabling offline mode with asset tiles');
+        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(false);
+        debugPrint('[MapViewWidgetNew] ✅ Offline mode enabled - map will use asset tiles');
+        return;
+      }
+
+      // Fallback to checking downloaded tiles
       final prefs = await SharedPreferences.getInstance();
       final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
 
@@ -180,6 +201,58 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       } catch (e2) {
         debugPrint('[MapViewWidgetNew] ❌ Error setting online mode: $e2');
       }
+    }
+  }
+
+  /// Add mbtiles vector source if available (called after style loads)
+  Future<void> _addMbtilesVectorSourceIfAvailable() async {
+    try {
+      // Check if asset tiles are loaded
+      final assetTileLoader = AssetTileLoaderService.instance;
+      final tilesPath = assetTileLoader.getLocalTilesPath();
+
+      if (tilesPath != null) {
+        debugPrint('[MapViewWidgetNew] 🗺️ Adding mbtiles vector source from: $tilesPath');
+        await _addMbtilesVectorSource(tilesPath);
+      }
+    } catch (e) {
+      debugPrint('[MapViewWidgetNew] ❌ Error adding mbtiles vector source: $e');
+    }
+  }
+
+  /// Add mbtiles file as a vector source to the map
+  Future<void> _addMbtilesVectorSource(String tilesPath) async {
+    try {
+      debugPrint('[MapViewWidgetNew] 🗺️ Adding mbtiles vector source from: $tilesPath');
+
+      final mapboxMap = controller?.mapboxMap;
+      if (mapboxMap == null) {
+        debugPrint('[MapViewWidgetNew] ❌ MapboxMap not available yet');
+        return;
+      }
+
+      // Add vector source pointing to the mbtiles file
+      // The URL format for local mbtiles is: mbtiles://<absolute-path>
+      final mbtilesUrl = 'mbtiles://$tilesPath';
+
+      debugPrint('[MapViewWidgetNew] 🔗 MBTiles URL: $mbtilesUrl');
+
+      // Add the vector source
+      await mapboxMap.style.addSource(
+        mapbox.VectorSource(
+          id: 'offline-tiles-source',
+          url: mbtilesUrl,
+        ),
+      );
+
+      debugPrint('[MapViewWidgetNew] ✅ MBTiles vector source added successfully');
+
+      // Note: The base map style (MAPBOX_STREETS) will automatically use
+      // the offline tiles when OfflineSwitch is set to disconnected mode
+
+    } catch (e) {
+      debugPrint('[MapViewWidgetNew] ❌ Error adding mbtiles vector source: $e');
+      // Continue anyway - the map will fall back to online mode
     }
   }
 
