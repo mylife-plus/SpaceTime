@@ -16,6 +16,7 @@ abstract class Routes {
   static const GET_STARTED = _Paths.GET_STARTED;
   static const ADD_MEMORIES = _Paths.ADD_MEMORIES;
   static const MEMORIES = _Paths.MEMORIES;
+  static const GLOBE_TEST = _Paths.GLOBE_TEST;
 }
 
 abstract class _Paths {
@@ -33,4 +34,5 @@ abstract class _Paths {
   static const GET_STARTED = '/get-started';
   static const ADD_MEMORIES = '/add_memories';
   static const MEMORIES = '/memories';
+  static const GLOBE_TEST = '/globe-test';
 }

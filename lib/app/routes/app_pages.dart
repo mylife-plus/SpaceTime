@@ -23,6 +23,8 @@ import 'package:spacetime/app/modules/settings/views/settings_view.dart';
 import 'package:spacetime/app/modules/ui/bindings/ui_binding.dart';
 import 'package:spacetime/app/modules/ui/views/ui_view.dart';
 import 'package:spacetime/app/widgets/startup_router.dart';
+import 'package:spacetime/app/modules/globe_test/bindings/globe_test_binding.dart';
+import 'package:spacetime/app/modules/globe_test/views/globe_test_view.dart';
 
 import '../modules/memories/views/memory_view.dart';
 
@@ -89,6 +91,11 @@ class AppPages {
       name: _Paths.ADD_MEMORIES,
       page: () =>  AddMemoriesView(),
       binding: AddMemoriesBindings(),
+    ),
+    GetPage(
+      name: _Paths.GLOBE_TEST,
+      page: () => const GlobeTestView(),
+      binding: GlobeTestBinding(),
     ),
   ];
 }

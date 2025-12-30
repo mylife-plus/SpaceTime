@@ -99,22 +99,15 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   /// Configure map for offline use
   Future<void> _configureOfflineMap(mapbox.MapboxMap controller) async {
     try {
-      if (isOfflineMode) {
-        debugPrint('[LocationPicker] 🗺️ Configuring map for offline mode');
-
-        // Enable offline mode by disconnecting from Mapbox network
-        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(false);
-
-        debugPrint('[LocationPicker] ✅ Offline mode configured - using downloaded tiles');
-      } else {
-        debugPrint('[LocationPicker] 🌐 Using online mode');
-
-        // Ensure online mode is enabled
-        await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-      }
+      // ALWAYS use online mode to allow localhost tile server access
+      // Mapbox's offline mode blocks ALL network requests, including localhost
+      // The local tile server serves tiles via HTTP, so we need network access
+      debugPrint('[LocationPicker] 🌐 Enabling online mode for localhost tile server');
+      await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+      debugPrint('[LocationPicker] ✅ Online mode enabled - localhost tile server can be accessed');
     } catch (e) {
-      debugPrint('[LocationPicker] ❌ Error configuring offline map: $e');
-      // On error, default to online mode
+      debugPrint('[LocationPicker] ❌ Error configuring map: $e');
+      // On error, still try to enable online mode
       try {
         await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
       } catch (e2) {

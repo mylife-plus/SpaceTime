@@ -182,9 +182,10 @@ class OfflineMapCoordinatorService extends GetxService {
     try {
       final preferences = await _offlineMapRepository?.getOfflinePreferences();
       if (preferences?.enableOfflineModeAutomatically != false) {
-        await _offlineMapService!.enableOfflineMode();
-        isOfflineMode.value = true;
-        debugPrint('[OfflineMapCoordinator] 🔌 Offline mode enabled automatically');
+        // DO NOT enable offline mode - keep online mode so Mapbox style can load
+        // The local tile server will serve tiles via HTTP instead
+        isOfflineMode.value = false;
+        debugPrint('[OfflineMapCoordinator] 🌐 Keeping online mode enabled for local tile server');
       } else {
         debugPrint('[OfflineMapCoordinator] 📱 Auto-enable disabled in preferences');
       }
@@ -206,13 +207,14 @@ class OfflineMapCoordinatorService extends GetxService {
       debugPrint('[OfflineMapCoordinator] 📊 Checking offline tiles: $tileCount tiles available');
 
       if (tileCount >= 500) { // Minimum threshold for offline mode
-        debugPrint('[OfflineMapCoordinator] 🔌 Enabling offline mode with $tileCount tiles');
+        debugPrint('[OfflineMapCoordinator] ⚠️ Skipping offline mode enable - using online mode for local tile server');
+        debugPrint('[OfflineMapCoordinator] 📝 Note: Map will use local tile server if mbtiles file is available');
 
-        // Enable offline mode directly (bypass user preferences for error recovery)
-        await _offlineMapService!.enableOfflineMode();
-        isOfflineMode.value = true;
+        // DO NOT enable offline mode - keep online mode so Mapbox style can load
+        // The local tile server will serve tiles via HTTP instead
+        isOfflineMode.value = false;
 
-        debugPrint('[OfflineMapCoordinator] ✅ Offline mode enabled for error recovery');
+        debugPrint('[OfflineMapCoordinator] ✅ Keeping online mode enabled for local tile server');
         return true;
       } else {
         debugPrint('[OfflineMapCoordinator] ⚠️ Insufficient tiles for offline mode: $tileCount < 500');

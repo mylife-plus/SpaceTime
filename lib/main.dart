@@ -20,13 +20,17 @@ import 'app/services/map_marker_creation_service.dart';
 import 'app/routes/app_pages.dart';
 import 'app/services/memory_db.dart';
 import 'app/services/path_migration_helper.dart';
-import 'services/background_tile_download_service.dart';
-import 'app/services/offline_map_service.dart';
-import 'app/repositories/offline_map_repository.dart';
-import 'app/services/offline_map_coordinator_service.dart';
-import 'app/services/native_tile_download_service.dart';
+import 'app/helpers/mapbox_zoom_helper.dart';
+// Mapbox tile downloading services removed - using URL-based mbtiles download instead
+// import 'services/background_tile_download_service.dart';
+// import 'app/services/offline_map_service.dart';
+// import 'app/repositories/offline_map_repository.dart';
+// import 'app/services/offline_map_coordinator_service.dart';
+// import 'app/services/native_tile_download_service.dart';
 import 'app/modules/get_started/controllers/get_started_controller.dart';
 import 'services/asset_tile_loader_service.dart';
+import 'services/mbtiles_download_service.dart';
+import 'services/mbtiles_server_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,19 +83,18 @@ Future<void> main() async {
     debugPrint('🏷️ [MAIN] Hashtag groups initialization failed: $e');
   }
 
-  // Load asset tiles to local storage
-  debugPrint('🗺️ [MAIN] Loading asset tiles...');
+  // Initialize Mapbox Zoom Helper (must be done before any map initialization)
+  debugPrint('🔍 [MAIN] Initializing Mapbox Zoom Helper...');
   try {
-    final assetTileLoader = AssetTileLoaderService.instance;
-    final tilesPath = await assetTileLoader.loadAssetTilesToLocal();
-    if (tilesPath != null) {
-      debugPrint('🗺️ [MAIN] ✅ Asset tiles loaded successfully: $tilesPath');
-    } else {
-      debugPrint('🗺️ [MAIN] ⚠️ Asset tiles not loaded');
-    }
+    await MapboxZoomHelper.initialize();
+    debugPrint('🔍 [MAIN] Mapbox Zoom Helper initialized successfully');
   } catch (e) {
-    debugPrint('🗺️ [MAIN] ❌ Failed to load asset tiles: $e');
+    debugPrint('🔍 [MAIN] Mapbox Zoom Helper initialization failed: $e');
   }
+
+  // Start local tile server in background if tiles are downloaded
+  debugPrint('🗺️ [MAIN] Checking for downloaded tiles and starting server...');
+  await _initializeBackgroundTileServer();
 
   await dotenv.load(fileName: ".env");
   MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
@@ -116,15 +119,13 @@ Future<void> main() async {
   Get.put(ClusterRepository(), permanent: true);
   Get.put(MapMarkerCreationService(), permanent: true);
   Get.put(MapMarkerService(), permanent: true);
-  Get.put(BackgroundTileDownloadService(), permanent: true);
-  Get.put(OfflineMapService(), permanent: true);
-  Get.put(OfflineMapRepository(), permanent: true);
-  Get.put(OfflineMapCoordinatorService(), permanent: true);
 
-  // Initialize native tile download service (supports up to 6000 tiles)
-  debugPrint('🗺️ Initializing NativeTileDownloadService...');
-  Get.put(NativeTileDownloadService(), permanent: true);
-  debugPrint('✅ NativeTileDownloadService initialized');
+  // Mapbox tile downloading services removed - using URL-based mbtiles download instead
+  // Get.put(BackgroundTileDownloadService(), permanent: true);
+  // Get.put(OfflineMapService(), permanent: true);
+  // Get.put(OfflineMapRepository(), permanent: true);
+  // Get.put(OfflineMapCoordinatorService(), permanent: true);
+  // Get.put(NativeTileDownloadService(), permanent: true);
 
   debugPrint('✅ Global services initialized');
 
@@ -179,6 +180,40 @@ Future<void> _testGeocodingService() async {
     // }
   } catch (e) {
     debugPrint('❌ Test failed: $e');
+  }
+}
+
+/// Initialize background tile server if tiles are downloaded
+/// This runs once when the app starts
+Future<void> _initializeBackgroundTileServer() async {
+  try {
+    debugPrint('🗺️ [MAIN] Checking if mbtiles are downloaded...');
+
+    final mbtilesService = MbtilesDownloadService.instance;
+    final isDownloaded = await mbtilesService.isMbtilesDownloaded();
+    final tilesPath = mbtilesService.getLocalMbtilesPath();
+
+    debugPrint('🗺️ [MAIN] MBTiles check: isDownloaded=$isDownloaded, tilesPath=$tilesPath');
+
+    if (isDownloaded && tilesPath != null) {
+      debugPrint('🗺️ [MAIN] ✅ MBTiles found, starting background tile server...');
+
+      final serverService = MbtilesServerService.instance;
+      final serverUrl = await serverService.startServer(tilesPath);
+
+      if (serverUrl != null) {
+        debugPrint('🗺️ [MAIN] ✅ Background tile server started successfully at: $serverUrl');
+        debugPrint('🗺️ [MAIN] 📡 Tiles will be served from: $serverUrl/{z}/{x}/{y}.pbf');
+      } else {
+        debugPrint('🗺️ [MAIN] ❌ Failed to start background tile server');
+      }
+    } else {
+      debugPrint('🗺️ [MAIN] ⚠️ MBTiles not downloaded - server not started');
+      debugPrint('🗺️ [MAIN] ℹ️ User will be directed to Get Started screen to download tiles');
+    }
+  } catch (e) {
+    debugPrint('🗺️ [MAIN] ❌ Error initializing background tile server: $e');
+    // Continue app startup even if server fails
   }
 }
 

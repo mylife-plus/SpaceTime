@@ -8,11 +8,13 @@ import '../../../../services/connectivity_service.dart';
 import '../../../services/offline_map_coordinator_service.dart';
 import '../../../services/offline_map_service.dart';
 import '../../../routes/app_pages.dart';
+import '../../../../services/mbtiles_download_service.dart';
 
 class GetStartedController extends GetxController {
   // Dependencies
   OfflineMapCoordinatorService? _offlineCoordinator;
   OfflineMapService? _offlineMapService;
+  MbtilesDownloadService? _mbtilesDownloadService;
 
   // UI State
   final RxBool isDownloading = false.obs;
@@ -53,7 +55,20 @@ class GetStartedController extends GetxController {
     // 1. First, always check and request location permissions
     await _checkAndRequestLocationPermissions();
 
-    // 2. Always show Get Started screen to download tiles every time
+    // 2. Check if mbtiles are already downloaded (just for logging, don't auto-complete)
+    if (_mbtilesDownloadService != null) {
+      final isAlreadyDownloaded = await _mbtilesDownloadService!.isMbtilesDownloaded();
+      if (isAlreadyDownloaded) {
+        debugPrint('[GetStartedController] MBTiles already downloaded - user can re-download or continue');
+        // Don't set completed state - let user choose to download again or continue
+        statusText.value = "Map tiles already downloaded. Tap to re-download or continue.";
+      } else {
+        debugPrint('[GetStartedController] MBTiles not downloaded yet');
+        statusText.value = "Download 4.5GB of map tiles to use offline";
+      }
+    }
+
+    // 3. Always show Get Started screen to download tiles every time
     debugPrint('[GetStartedController] Showing Get Started screen for tile download');
     await _checkInternetAndShowAppropriateScreen();
   }
@@ -108,6 +123,7 @@ class GetStartedController extends GetxController {
     try {
       _offlineCoordinator = Get.find<OfflineMapCoordinatorService>();
       _offlineMapService = Get.find<OfflineMapService>();
+      _mbtilesDownloadService = MbtilesDownloadService.instance;
       debugPrint('[GetStartedController] Services initialized successfully');
     } catch (e) {
       debugPrint('[GetStartedController] Error initializing services: $e');
@@ -128,35 +144,113 @@ class GetStartedController extends GetxController {
     });
   }
 
-  /// Start the tile download process
+  /// Start the mbtiles download process from Google Drive
+  /// Downloads 4.5GB mbtiles file and saves to app-specific folder
   Future<void> startDownload() async {
-    if (isDownloading.value) return;
+    if (isDownloading.value) {
+      debugPrint('[GetStartedController] Download already in progress, ignoring tap');
+      return;
+    }
 
     try {
-      debugPrint('[GetStartedController] Starting tile download...');
-      
+      debugPrint('[GetStartedController] 🚀 Starting mbtiles download from Google Drive...');
+
+      // Reset state before starting download
       isDownloading.value = true;
       hasError.value = false;
-      statusText.value = "Starting download...";
+      isCompleted.value = false;
+      errorMessage.value = "";
+      statusText.value = "Preparing download...";
       downloadProgress.value = 0.0;
 
-      // Setup listeners for download progress
-      _setupDownloadListeners();
+      // Setup listeners for download progress updates
+      _setupMbtilesDownloadListeners();
 
-      // Start the download using the coordinator service
-      await _offlineCoordinator?.startOfflineDownload();
+      // Start the download from Google Drive
+      // This will download the file to: {appDocumentsDir}/offline_tiles/11_included.mbtiles
+      debugPrint('[GetStartedController] 📥 Calling MbtilesDownloadService.downloadMbtiles()...');
+      final downloadedPath = await _mbtilesDownloadService?.downloadMbtiles();
 
-      debugPrint('[GetStartedController] Download initiated successfully');
-      
+      if (downloadedPath != null && downloadedPath.isNotEmpty) {
+        debugPrint('[GetStartedController] ✅ MBTiles download completed successfully');
+        debugPrint('[GetStartedController] 📁 File saved at: $downloadedPath');
+
+        // Mark as completed and navigate to main app
+        _onMbtilesDownloadCompleted(downloadedPath);
+      } else {
+        debugPrint('[GetStartedController] ❌ MBTiles download failed - no path returned');
+        hasError.value = true;
+        errorMessage.value = _mbtilesDownloadService?.errorMessage.value ?? "Download failed - please try again";
+        statusText.value = "Download failed";
+        isDownloading.value = false;
+      }
+
     } catch (e) {
-      debugPrint('[GetStartedController] Error starting download: $e');
+      debugPrint('[GetStartedController] ❌ Error starting download: $e');
       hasError.value = true;
       errorMessage.value = "Failed to start download: ${e.toString()}";
+      statusText.value = "Download error";
       isDownloading.value = false;
     }
   }
 
-  /// Setup listeners for download progress updates
+  /// Handle mbtiles download completion
+  void _onMbtilesDownloadCompleted(String downloadedPath) async {
+    debugPrint('[GetStartedController] 🎉 MBTiles download completed!');
+    debugPrint('[GetStartedController] 📁 Saved to: $downloadedPath');
+
+    isCompleted.value = true;
+    isDownloading.value = false;
+    tilesDownloadCompleted.value = true;
+    statusText.value = "Map tiles ready!";
+    downloadProgress.value = 1.0;
+
+    // Auto-navigate to main app after brief delay
+    debugPrint('[GetStartedController] ⏱️ Auto-navigating to main app in 2 seconds...');
+    await Future.delayed(const Duration(seconds: 2));
+
+    navigateToMainApp();
+  }
+
+  /// Setup listeners for mbtiles download progress updates
+  void _setupMbtilesDownloadListeners() {
+    if (_mbtilesDownloadService == null) return;
+
+    // Listen to download progress
+    ever(_mbtilesDownloadService!.downloadProgress, (double progress) {
+      downloadProgress.value = progress;
+      debugPrint('[GetStartedController] Download progress: ${(progress * 100).toStringAsFixed(1)}%');
+    });
+
+    // Listen to status text updates
+    ever(_mbtilesDownloadService!.statusText, (String status) {
+      if (status.isNotEmpty) {
+        statusText.value = status;
+      }
+    });
+
+    // Listen to download state changes
+    ever(_mbtilesDownloadService!.isDownloading, (bool downloading) {
+      isDownloading.value = downloading;
+    });
+
+    // Listen to error state
+    ever(_mbtilesDownloadService!.hasError, (bool error) {
+      if (error) {
+        hasError.value = true;
+        errorMessage.value = _mbtilesDownloadService!.errorMessage.value;
+      }
+    });
+
+    // Listen to completion
+    ever(_mbtilesDownloadService!.isCompleted, (bool completed) {
+      if (completed) {
+        isCompleted.value = true;
+      }
+    });
+  }
+
+  /// Setup listeners for download progress updates (old method - kept for compatibility)
   void _setupDownloadListeners() {
     if (_offlineMapService == null) return;
 
@@ -309,8 +403,8 @@ class GetStartedController extends GetxController {
 
   /// Navigate to the main app
   void navigateToMainApp() {
-    debugPrint('[GetStartedController] Navigating to main app...');
-    // Don't mark as completed - always show get started screen on app start
+    debugPrint('[GetStartedController] Navigating to MapViewWidgetNew...');
+    // Navigate to MapViewWidgetNew (main map screen)
     Get.offAllNamed(Routes.MAP_NEW);
   }
 
@@ -339,20 +433,16 @@ class GetStartedController extends GetxController {
   /// Check if get started should be shown based on tile download status
   static Future<bool> shouldShowGetStarted() async {
     try {
-      // Check if tiles are downloaded (minimum 500 tiles required)
-      final prefs = await SharedPreferences.getInstance();
-      final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
+      // Check if mbtiles are downloaded
+      final mbtilesService = MbtilesDownloadService.instance;
+      final isDownloaded = await mbtilesService.isMbtilesDownloaded();
 
-      debugPrint('[GetStartedController] Checking tile download status: $tileCount tiles');
-
-      if (tileCount < 500) {
-        // Not enough tiles - show Get Started screen
-        debugPrint('[GetStartedController] Insufficient tiles ($tileCount < 500) - showing Get Started screen');
-        return true;
+      if (isDownloaded) {
+        debugPrint('[GetStartedController] ✅ Tiles already downloaded - skipping Get Started');
+        return false; // Don't show Get Started, go directly to map
       } else {
-        // Sufficient tiles - go directly to map view
-        debugPrint('[GetStartedController] Sufficient tiles ($tileCount >= 500) - going to map view');
-        return false;
+        debugPrint('[GetStartedController] ⚠️ Tiles not downloaded - showing Get Started');
+        return true; // Show Get Started to download tiles
       }
     } catch (e) {
       debugPrint('[GetStartedController] Error checking get started status: $e');

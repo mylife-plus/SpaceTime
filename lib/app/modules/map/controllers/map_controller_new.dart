@@ -8,6 +8,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/services/offline_map_service.dart';
+import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
 import '../../../../services/permission_service.dart';
 import '../../../../services/connectivity_service.dart';
 import '../../../repositories/memory_repository.dart';
@@ -42,14 +43,15 @@ class MapControllerNew extends GetxController {
   static const String ARROW_LINES_SOURCE_ID = 'arrow-lines-source';
   static const String ARROW_LINES_LAYER_ID = 'arrow-lines-layer';
 
-  // Zoom level constants
-  static const int _minZoom = 0;
-  static const int _maxZoom = 18;
+  // Zoom level constants - now loaded from MapboxZoomHelper
+  // These getters provide access to the centralized zoom configuration
+  double get _minZoom => MapboxZoomHelper().minZoom.value;
+  double get _maxZoom => MapboxZoomHelper().maxZoom.value;
 
-  // Zoom thresholds for layer visibility
-  static const double _clusterVisibilityMaxZoom = 9.0; // Hide clusters when zoomed in past ~half zoom (9+)
-  static const double _individualVisibilityMinZoom = 9.0; // Show individual memories at zoom 9+ (half zoom)
-  static const double _detailVisibilityMinZoom = 12.0; // Show detailed annotations at zoom 12+
+  // Zoom thresholds for layer visibility - loaded from MapboxZoomHelper
+  double get _clusterVisibilityMaxZoom => MapboxZoomHelper().clusterVisibilityMaxZoom.value;
+  double get _individualVisibilityMinZoom => MapboxZoomHelper().individualVisibilityMinZoom.value;
+  double get _detailVisibilityMinZoom => MapboxZoomHelper().detailVisibilityMinZoom.value;
 
   // Reactive state variables
   final RxBool isMapReady = false.obs;
@@ -60,8 +62,8 @@ class MapControllerNew extends GetxController {
   // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
   PermissionStatus permissionStatus = PermissionStatus.denied;
 
-  // Current zoom level (matching old controller's zoom levels)
-  var currentZoom = 0.3.obs;
+  // Current zoom level - initialized from MapboxZoomHelper
+  var currentZoom = MapboxZoomHelper().currentZoomInitial.value.obs;
 
   // Current location
   final Rx<Position?> currentLocation = Rx<Position?>(null);
@@ -364,8 +366,8 @@ class MapControllerNew extends GetxController {
         '[MapControllerNew] 🚀 Starting flyTo animation to ${position.latitude}, ${position.longitude}',
       );
 
-      // Update current zoom level to match old controller
-      currentZoom.value = 1.6;
+      // Update current zoom level from MapboxZoomHelper
+      currentZoom.value = MapboxZoomHelper().currentZoomAfterLocation.value;
 
       await mapboxMap!.flyTo(
         mapbox.CameraOptions(
@@ -457,8 +459,8 @@ class MapControllerNew extends GetxController {
           );
           final position = currentLocation.value!;
 
-          // Use target zoom level from old controller
-          final targetZoom = 1.6;
+          // Use target zoom level from MapboxZoomHelper
+          final targetZoom = MapboxZoomHelper().currentZoomAfterLocation.value;
           currentZoom.value = targetZoom;
 
           await mapboxMap!.flyTo(
@@ -797,7 +799,7 @@ class MapControllerNew extends GetxController {
             id: MEMORY_SOURCE_ID,
             data: geoJsonString,
             cluster: true,
-            clusterMaxZoom: 14.0, // Max zoom to cluster points on
+            clusterMaxZoom: MapboxZoomHelper().clusterMaxZoom.value, // Max zoom to cluster points on
             clusterRadius:
                 50, // Radius of each cluster when clustering points (pixels)
             clusterMinPoints: 2, // Minimum points to form a cluster
@@ -899,8 +901,9 @@ class MapControllerNew extends GetxController {
       // Check if we have any valid locations
       if (validLocationCount == 0) {
         debugPrint('[MapControllerNew] ⚠️ No memories with valid location data found');
-        debugPrint('[MapControllerNew] 📊 Using default zoom level: 10.0');
-        currentZoom.value = 10.0;
+        final defaultZoom = MapboxZoomHelper().defaultZoom.value;
+        debugPrint('[MapControllerNew] 📊 Using default zoom level: $defaultZoom');
+        currentZoom.value = defaultZoom;
         return;
       }
 
@@ -909,20 +912,8 @@ class MapControllerNew extends GetxController {
       final double lngDiff = maxLng - minLng;
       final double maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
 
-      // Set zoom level based on geographical spread (matching old controller)
-      double zoom = 10.0;
-      if (maxDiff > 10) {
-        zoom = 2.0;
-      } else if (maxDiff > 5) {
-        zoom = 4.0;
-      } else if (maxDiff > 1) {
-        zoom = 6.0;
-      } else if (maxDiff > 0.1) {
-        zoom = 8.0;
-      }
-
-      // Clamp zoom to our defined limits
-      zoom = zoom.clamp(_minZoom.toDouble(), _maxZoom.toDouble());
+      // Get zoom level based on geographical spread from MapboxZoomHelper
+      double zoom = MapboxZoomHelper().getZoomForSpread(maxDiff);
 
       // Update current zoom variable
       currentZoom.value = zoom;
@@ -2134,20 +2125,8 @@ void _resetTapState() {
         return;
       }
 
-      // Set zoom level based on geographical spread
-      double zoom = 10.0;
-      if (maxDiff > 10) {
-        zoom = 2.0;
-      } else if (maxDiff > 5) {
-        zoom = 4.0;
-      } else if (maxDiff > 1) {
-        zoom = 6.0;
-      } else if (maxDiff > 0.1) {
-        zoom = 8.0;
-      }
-
-      // Clamp zoom to our defined limits
-      zoom = zoom.clamp(_minZoom.toDouble(), _maxZoom.toDouble());
+      // Get zoom level based on geographical spread from MapboxZoomHelper
+      double zoom = MapboxZoomHelper().getZoomForSpread(maxDiff);
 
       // Calculate center coordinates
       final centerLat = (minLat + maxLat) / 2;
@@ -2799,61 +2778,10 @@ void _resetTapState() {
     debugPrint('[MapControllerNew] Error message: ${mapLoadingErrorEventData.message}');
     debugPrint('[MapControllerNew] Error type: ${mapLoadingErrorEventData.type}');
 
-    // Check if this is a connectivity-related error
-    final errorMessage = mapLoadingErrorEventData.message.toLowerCase();
-    final isConnectivityError = errorMessage.contains('online connectivity is disabled') ||
-        errorMessage.contains('network') ||
-        errorMessage.contains('connection') ||
-        errorMessage.contains('internet') ||
-        mapLoadingErrorEventData.type == mapbox.MapLoadErrorType.TILE;
-
-    // if (isConnectivityError) {
-      debugPrint('[MapControllerNew] 🔌 Connectivity error detected, checking offline tiles...');
-
-      // First, check if we have sufficient offline tiles before attempting to enable offline mode
-      final hasSufficientTiles = await _checkOfflineTileCount();
-
-      if (!hasSufficientTiles) {
-        debugPrint('[MapControllerNew] ❌ Insufficient offline tiles available');
-        // Internet required screen removed - tiles should be downloaded during Get Started flow
-        // If tiles are insufficient, this indicates a problem with the Get Started flow
-        debugPrint('[MapControllerNew] ⚠️ WARNING: Tiles should have been downloaded during Get Started');
-        return;
-      }
-
-      debugPrint('[MapControllerNew] ✅ Sufficient offline tiles found, attempting to enable offline mode...');
-
-      // Try to enable offline mode if tiles are available
-      // final hasOfflineTiles = await _checkAndEnableOfflineMode();
-
-      // if (hasOfflineTiles) {
-      //   // Double-check tile count before hiding internet required screen
-      //   try {
-      //     if (Get.isRegistered<OfflineMapService>()) {
-      //       final offlineMapService = Get.find<OfflineMapService>();
-      //       final tileCount = offlineMapService.downloadedTileCount.value;
-
-      //       if (tileCount >= 500) {
-      //         showInternetRequiredScreen.value = false;
-      //         debugPrint('[MapControllerNew] ✅ Offline tiles available ($tileCount tiles), continuing with offline mode');
-      //         // Don't show internet required screen if we have sufficient offline tiles
-      //         return;
-      //       } else {
-      //         debugPrint('[MapControllerNew] ⚠️ Insufficient tiles ($tileCount < 500), keeping internet required screen');
-      //       }
-      //     } else {
-      //       debugPrint('[MapControllerNew] ⚠️ OfflineMapService not available, keeping internet required screen');
-      //     }
-      //   } catch (e) {
-      //     debugPrint('[MapControllerNew] ❌ Error checking tile count: $e');
-      //   }
-      // } else {
-      //   debugPrint('[MapControllerNew] ❌ No offline tiles available, showing Internet Required Screen');
-      // }
-    // }
-
-    // Show Internet Required Screen only if we can't use offline mode
-    
+    // Map errors are expected when using local tile server
+    // The local tile server serves tiles via HTTP, so Mapbox style loads normally
+    // No need to check for offline tiles or enable offline mode
+    debugPrint('[MapControllerNew] ℹ️ Map error logged - continuing with local tile server if available');
   }
 
   /// Check for offline tiles and enable offline mode if available
@@ -2885,26 +2813,27 @@ void _resetTapState() {
     }
   }
 
-  /// Check if we have sufficient offline tiles (500+) by fetching from SharedPreferences
-  Future<bool> _checkOfflineTileCount() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
-
-      debugPrint('[MapControllerNew] 📊 Fetched offline tile count from SharedPreferences: $tileCount tiles');
-
-      if (tileCount >= 500) {
-        debugPrint('[MapControllerNew] ✅ Sufficient tiles available: $tileCount >= 500');
-        return true;
-      } else {
-        debugPrint('[MapControllerNew] ❌ Insufficient tiles: $tileCount < 500');
-        return false;
-      }
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error fetching tile count from SharedPreferences: $e');
-      return false;
-    }
-  }
+  // COMMENTED OUT: Tile count check not needed when using downloaded mbtiles
+  // /// Check if we have sufficient offline tiles (500+) by fetching from SharedPreferences
+  // Future<bool> _checkOfflineTileCount() async {
+  //   try {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
+  //
+  //     debugPrint('[MapControllerNew] 📊 Fetched offline tile count from SharedPreferences: $tileCount tiles');
+  //
+  //     if (tileCount >= 500) {
+  //       debugPrint('[MapControllerNew] ✅ Sufficient tiles available: $tileCount >= 500');
+  //       return true;
+  //     } else {
+  //       debugPrint('[MapControllerNew] ❌ Insufficient tiles: $tileCount < 500');
+  //       return false;
+  //     }
+  //   } catch (e) {
+  //     debugPrint('[MapControllerNew] ❌ Error fetching tile count from SharedPreferences: $e');
+  //     return false;
+  //   }
+  // }
 
   /// Manually trigger layer visibility update (useful for testing or manual refresh)
   Future<void> updateLayerVisibility() async {

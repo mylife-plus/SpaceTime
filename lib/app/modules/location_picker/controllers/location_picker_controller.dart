@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/data/models/location_data.dart';
+import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
 import 'package:spacetime/app/modules/location_picker/services/location_picker_service.dart';
 
 enum LocationPickerState {
@@ -144,9 +145,9 @@ class LocationPickerController extends GetxController {
         
         // Move camera to current location
         await _service.moveCameraToLocation(
-          position.latitude, 
+          position.latitude,
           position.longitude,
-          zoom: 14.0,
+          zoom: MapboxZoomHelper().currentLocationZoom.value,
         );
         
         // Add marker at current location
@@ -271,9 +272,9 @@ class LocationPickerController extends GetxController {
       
       final latitude = result['latitude'] as double;
       final longitude = result['longitude'] as double;
-      
+
       // Move camera to selected location
-      await _service.moveCameraToLocation(latitude, longitude, zoom: 14.0);
+      await _service.moveCameraToLocation(latitude, longitude, zoom: MapboxZoomHelper().currentLocationZoom.value);
       
       // Add marker
       await _service.addMarker(latitude, longitude, radius: selectedRadius.value);

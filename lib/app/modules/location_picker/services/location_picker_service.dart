@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/data/models/location_data.dart';
 import 'package:spacetime/app/modules/location_picker/repositories/location_picker_repository.dart';
+import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
 
 import 'package:spacetime/services/background_tile_download_service.dart';
 import 'package:spacetime/app/services/offline_map_service.dart';
@@ -567,7 +568,7 @@ class LocationPickerService {
           center: mapbox.Point(
             coordinates: mapbox.Position(longitude, latitude),
           ),
-          zoom: zoom ?? 14.0,
+          zoom: zoom ?? MapboxZoomHelper().currentLocationZoom.value,
         ),
         mapbox.MapAnimationOptions(duration: 1000),
       );
@@ -587,32 +588,9 @@ class LocationPickerService {
 
       debugPrint('[LocationPickerService] Calculating zoom level for radius: ${radiusKm}km');
 
-      // Calculate appropriate zoom level based on radius
-      // This formula approximates the zoom level needed to fit a circle of given radius
-      // Zoom levels: 1 = world view, 20 = building level
-      double zoom;
-
-      if (radiusKm <= 5) {
-        zoom = 10.5; // Neighborhood level
-      } else if (radiusKm <= 10) {
-        zoom = 9.5; // City area
-      } else if (radiusKm <= 25) {
-        zoom = 8.5; // Metropolitan area
-      } else if (radiusKm <= 50) {
-        zoom =7.5; // Large city area
-      } else if (radiusKm <= 100) {
-        zoom = 6.5; // Regional level
-      } else if (radiusKm <= 200) {
-        zoom = 5.5; // State/province level
-      } else if (radiusKm <= 500) {
-        zoom = 5.5; // Large state/small country
-      } else if (radiusKm <= 1000) {
-        zoom = 4.0; // Country level
-      } else if (radiusKm <= 2000) {
-        zoom = .0; // Large country/continent
-      } else {
-        zoom = 2.0; // Continental/global view
-      }
+      // Get zoom level based on radius from MapboxZoomHelper
+      // This automatically clamps to min/max zoom from preferences
+      double zoom = MapboxZoomHelper().getZoomForRadius(radiusKm);
 
       debugPrint('[LocationPickerService] Calculated zoom level: $zoom for radius: ${radiusKm}km');
 

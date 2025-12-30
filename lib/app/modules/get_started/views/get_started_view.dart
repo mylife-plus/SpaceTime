@@ -353,7 +353,7 @@ class GetStartedView extends GetView<GetStartedController> {
 
                   // Download text
                   Text(
-                    'download 2GB of tiles now',
+                    'download 4.5GB of map tiles now',
                     style: TextStyle(
                       fontFamily: 'KumbhSans',
                       fontSize: 18,
@@ -669,52 +669,60 @@ class GetStartedView extends GetView<GetStartedController> {
           ),
         );
       } else {
-        // Show "Start" button initially
-        return Container(
-          width: 200,
-          height: 50,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(25),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF007AFF).withValues(alpha: 0.4),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+        // Show "Download Tiles" or "Continue" button based on download status
+        return Column(
+          children: [
+            // Main action button
+            Container(
+              width: 200,
+              height: 50,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF007AFF).withValues(alpha: 0.4),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(25),
-              onTap: controller.isDownloading.value ? null : controller.startDownload,
-              child: Center(
-                child: controller.isDownloading.value
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Text(
-                        'Download Tiles',
-                        style: TextStyle(
-                          fontFamily: 'KumbhSans',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(25),
+                  onTap: controller.isDownloading.value ? null : controller.startDownload,
+                  child: Center(
+                    child: controller.isDownloading.value
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Text(
+                            'Download Tiles',
+                            style: TextStyle(
+                              fontFamily: 'KumbhSans',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
               ),
             ),
-          ),
+
+            // Skip/Continue button removed - tiles must be downloaded to proceed
+            const SizedBox(height: 16),
+          ],
         );
       }
     });

@@ -58,6 +58,8 @@ dependencies:
   video_player: ^2.10.1
   video_thumbnail: ^0.5.6
   diacritic: ^0.1.6
+  dio: ^5.9.0
+  http: ^1.6.0
 
 dependency_overrides:
   csv: ^6.0.0
@@ -92,7 +94,8 @@ flutter:
     - .env
     - assets/cities_names_1.csv
     - assets/geonames_cities.csv
-    - assets/11_included.mbtiles
+    # Note: 11_included.mbtiles is too large (4.5GB) to include in app bundle
+    # It should be downloaded separately or provided via external storage
 
     # - images/a_dot_ham.jpeg
 

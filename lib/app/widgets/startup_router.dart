@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../modules/get_started/controllers/get_started_controller.dart';
 import '../routes/app_pages.dart';
+import '../../../services/mbtiles_download_service.dart';
 
 /// Widget that handles initial routing based on tile download status
 class StartupRouter extends StatefulWidget {
@@ -23,15 +23,24 @@ class _StartupRouterState extends State<StartupRouter> {
     try {
       // Small delay to ensure app is fully initialized
       await Future.delayed(const Duration(milliseconds: 100));
-      
-      final shouldShowGetStarted = await GetStartedController.shouldShowGetStarted();
-      
-      if (shouldShowGetStarted) {
-        // Tiles not downloaded - show Get Started screen
-        Get.offAllNamed(Routes.GET_STARTED);
-      } else {
-        // Tiles downloaded - go directly to main app
+
+      debugPrint('[StartupRouter] Checking if tiles are downloaded...');
+
+      // Check if mbtiles are downloaded
+      final mbtilesService = MbtilesDownloadService.instance;
+      final isDownloaded = await mbtilesService.isMbtilesDownloaded();
+      final tilesPath = mbtilesService.getLocalMbtilesPath();
+
+      debugPrint('[StartupRouter] Tiles downloaded: $isDownloaded, path: $tilesPath');
+
+      if (isDownloaded && tilesPath != null) {
+        // Tiles downloaded - go directly to MapViewWidgetNew
+        debugPrint('[StartupRouter] ✅ Tiles found, navigating to MapViewWidgetNew');
         Get.offAllNamed(Routes.MAP_NEW);
+      } else {
+        // Tiles not downloaded - show Get Started screen
+        debugPrint('[StartupRouter] ⚠️ Tiles not found, navigating to Get Started screen');
+        Get.offAllNamed(Routes.GET_STARTED);
       }
     } catch (e) {
       debugPrint('[StartupRouter] Error checking initial route: $e');

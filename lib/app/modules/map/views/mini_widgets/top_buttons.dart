@@ -6,6 +6,8 @@ import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/modules/add_memories/views/add_memories.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/modules/globe_test/views/globe_test_view.dart';
+import 'package:spacetime/app/modules/globe_test/controllers/globe_test_controller.dart';
 
 import '../../../settings/views/settings_view.dart';
 import '../../controllers/map_controller_new.dart';
@@ -157,10 +159,10 @@ Container(
               addMemoriesController.onAgainInit();
                addMemoriesController.searchQuery.value = '';
                 addMemoriesController.isSearchActive.value = true;
-                
+
    await Get.to(() => AddMemoriesView());
-  
-                
+
+
              },
               child: Container(
                 padding: const EdgeInsets.all(8),
@@ -168,13 +170,13 @@ Container(
                 height: 44,
                 decoration: BoxDecoration(
                   // image: DecorationImage(
-                    borderRadius: BorderRadius.circular(8), 
+                    borderRadius: BorderRadius.circular(8),
   color: controller2.darkMode.value
     ? (controller2.mainColor.value == 'blue'
         ? const Color(0xFF002B62)
         : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    :controller2.currentHomeIconColor, 
-                  
+    :controller2.currentHomeIconColor,
+
                 ),
 
                 child: Image.asset(
@@ -187,8 +189,35 @@ Container(
               ),
             ),
 
-      
-            
+            const SizedBox(width: 5),
+
+            // Globe Test Button
+            GestureDetector(
+              onTap: () {
+                // Initialize GlobeTestController
+                Get.put(GlobeTestController());
+                // Navigate to GlobeTestView
+                Get.to(() => const GlobeTestView());
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: controller2.darkMode.value
+                    ? (controller2.mainColor.value == 'blue'
+                        ? const Color(0xFF002B62)
+                        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
+                    : controller2.currentHomeIconColor,
+                ),
+                child: const Icon(
+                  Icons.public, // Globe icon
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+
                 // const SizedBox(width: 5),
                 // Obx(() => MapCircleButton(
                 //   overlayImagePath: AppImages.filter,
