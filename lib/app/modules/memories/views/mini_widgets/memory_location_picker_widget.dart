@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
@@ -372,6 +373,80 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   ]
 }
 ''';
+  }
+
+  /// Load style.json from assets and replace placeholders with actual server URLs
+  Future<String> _loadStyleJsonFromAssets(String tileUrl, String serverUrl) async {
+    try {
+      debugPrint('[MemoryLocationPicker] 📂 Loading style.json from assets...');
+
+      // Load style.json from assets folder
+      final styleJsonString = await rootBundle.loadString('assets/style.json');
+      debugPrint('[MemoryLocationPicker] ✅ Loaded style.json from assets');
+
+      // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
+      // This prevents the tile URL pattern from interfering with server URL
+      var modifiedStyleJson = styleJsonString
+          .replaceAll('{LOCAL_SERVER_URL}', serverUrl)
+          .replaceAll('{LOCAL_TILE_URL}', tileUrl);
+
+      debugPrint('[MemoryLocationPicker] 📡 Replaced {LOCAL_SERVER_URL} with: $serverUrl');
+      debugPrint('[MemoryLocationPicker] 📡 Replaced {LOCAL_TILE_URL} with: $tileUrl');
+      debugPrint('[MemoryLocationPicker] ✅ Style JSON configured with local MBTiles server');
+
+      // Debug: Check if glyphs and sprite fields are correctly replaced
+      if (modifiedStyleJson.contains('{LOCAL_SERVER_URL}') || modifiedStyleJson.contains('{LOCAL_TILE_URL}')) {
+        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Placeholders still present in style JSON!');
+      }
+
+      // Check for glyphs field
+      if (modifiedStyleJson.contains('"glyphs"')) {
+        final glyphsMatch = RegExp(r'"glyphs":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
+        if (glyphsMatch != null) {
+          debugPrint('[MemoryLocationPicker] 📝 Glyphs URL: ${glyphsMatch.group(1)}');
+        } else {
+          debugPrint('[MemoryLocationPicker] ⚠️ WARNING: glyphs field found but URL could not be extracted!');
+        }
+      } else {
+        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: No glyphs field found in style JSON!');
+      }
+
+      // Check for sprite field
+      if (modifiedStyleJson.contains('"sprite"')) {
+        final spriteMatch = RegExp(r'"sprite":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
+        if (spriteMatch != null) {
+          debugPrint('[MemoryLocationPicker] 🎨 Sprite URL: ${spriteMatch.group(1)}');
+        } else {
+          debugPrint('[MemoryLocationPicker] ⚠️ WARNING: sprite field found but URL could not be extracted!');
+        }
+      } else {
+        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: No sprite field found in style JSON!');
+      }
+
+      // Print the sources, sprite, and glyphs section for verification
+      debugPrint('[MemoryLocationPicker] 📄 ========== STYLE JSON VERIFICATION ==========');
+      final sourcesMatch = RegExp(r'"sources":\s*\{[^}]+\}', multiLine: true, dotAll: true).firstMatch(modifiedStyleJson);
+      if (sourcesMatch != null) {
+        debugPrint('[MemoryLocationPicker] 📦 Sources section: ${sourcesMatch.group(0)}');
+      }
+
+      // Extract and print sprite and glyphs lines
+      final lines = modifiedStyleJson.split('\n');
+      for (int i = 0; i < lines.length; i++) {
+        if (lines[i].contains('"sprite"') || lines[i].contains('"glyphs"')) {
+          debugPrint('[MemoryLocationPicker] 📄 Line ${i + 1}: ${lines[i].trim()}');
+        }
+      }
+      debugPrint('[MemoryLocationPicker] 📄 ==========================================');
+
+      return modifiedStyleJson;
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker] ❌ Error loading style.json from assets: $e');
+      debugPrint('[MemoryLocationPicker] ⚠️ Falling back to blank style');
+
+      // Fallback to blank style if assets/style.json is not found
+      return _getBlankStyleJson();
+    }
   }
 
   /// Add local tile source from downloaded mbtiles (called after style loads)
