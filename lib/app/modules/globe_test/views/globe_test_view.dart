@@ -61,7 +61,7 @@ class GlobeTestView extends GetView<GlobeTestController> {
         // Show map when server is ready
         return Stack(
           children: [
-            // Mapbox Globe Map with local tiles
+            // Mapbox Globe Map
             mapbox.MapWidget(
               key: const ValueKey("globe_test_map"),
               cameraOptions: mapbox.CameraOptions(
@@ -70,7 +70,7 @@ class GlobeTestView extends GetView<GlobeTestController> {
                 ),
                 zoom: 2.0,
               ),
-              // Don't set styleUri - we'll load custom JSON in onMapCreated
+              styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
               textureView: true,
               onMapCreated: controller.onMapCreated,
               onStyleLoadedListener: controller.onStyleLoaded,

@@ -501,6 +501,7 @@ class MapControllerNew extends GetxController {
     debugPrint('[MapControllerNew] 🗺️ MapboxMap instance received $mapboxMapInstance');
     debugPrint('[MapControllerNew] 🗺️ Platform: ${io.Platform.isIOS ? "iOS" : "Android"}');
 
+ 
     mapboxMap = mapboxMapInstance;
     isMapReady.value = true;
 
@@ -557,6 +558,7 @@ class MapControllerNew extends GetxController {
       });
     } else {
       _proceedWithMapInitialization();
+      
     }
   }
 

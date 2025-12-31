@@ -260,6 +260,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
           debugPrint('[MapViewWidgetNew] 🌐 Online mode ENABLED (blank style fallback)');
           controller.onMapCreated(mapboxMap);
+          
         },
         onStyleLoadedListener: (styleLoadedEventData) async {
           debugPrint('[MapViewWidgetNew] 🎨 onStyleLoaded callback triggered (blank style)');
@@ -339,6 +340,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             }
 
             await mapboxMap.loadStyleJson(styleJson);
+
             debugPrint('[MapViewWidgetNew] ✅ Custom style JSON loaded into Mapbox successfully');
 
             controller.onMapCreated(mapboxMap);
@@ -390,184 +392,18 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       debugPrint('[MemoryLocationPicker] ✅ Local tile source added (zoom: ${zoomHelper.minZoom.value}-${zoomHelper.maxZoom.value})');
 
       // Add layers to display the tiles (CRITICAL - without this, tiles won't show!)
-      await _addLocalTileLayers();
+      // await _addLocalTileLayers();
     } catch (e) {
       debugPrint('[MemoryLocationPicker] ❌ Error adding tile source: $e');
       // Continue anyway - map will use default Mapbox tiles
     }
   }
 
-  /// Add layers to display local tiles
-  Future<void> _addLocalTileLayers() async {
-    try {
-      if (mapController == null) return;
-
-      debugPrint('[MemoryLocationPicker] 🎨 Adding local tile layers...');
-
-      // Add background layer (ocean/sea - light blue)
-      await mapController!.style.addLayer(
-        mapbox.BackgroundLayer(
-          id: 'local-background',
-          backgroundColor: 0xFFAAD3DF, // Light blue for ocean
-        ),
-      );
-
-      // CRITICAL: Add fill layer for LAND POLYGONS (this is what was missing!)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-land',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landcover', // Try 'landcover' first
-            fillColor: 0xFFE8E8E8, // Light gray for land
-            fillOpacity: 1.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landcover layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landcover layer not found, trying alternative...');
-        try {
-          await mapController!.style.addLayer(
-            mapbox.FillLayer(
-              id: 'local-land',
-              sourceId: 'local-tiles',
-              sourceLayer: 'land', // Alternative: 'land'
-              fillColor: 0xFFE8E8E8, // Light gray for land
-              fillOpacity: 1.0,
-            ),
-          );
-          debugPrint('[MemoryLocationPicker] ✅ Added land layer');
-        } catch (e2) {
-          debugPrint('[MemoryLocationPicker] ⚠️ land layer not found either');
-        }
-      }
-
-      // Add fill layer for landuse (parks, forests, etc.)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landuse',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landuse',
-            fillColor: 0xFFD4E7D4, // Light green for parks/forests
-            fillOpacity: 0.6,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landuse layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landuse layer not found: $e');
-      }
-
-      // Add fill layer for water bodies (rivers, lakes)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-water',
-            sourceId: 'local-tiles',
-            sourceLayer: 'water',
-            fillColor: 0xFFAAD3DF, // Blue for water
-            fillOpacity: 1.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added water layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ water layer not found: $e');
-      }
-
-      // Add fill layer for buildings
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-buildings',
-            sourceId: 'local-tiles',
-            sourceLayer: 'building',
-            fillColor: 0xFFD0D0D0, // Gray for buildings
-            fillOpacity: 0.7,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added building layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ building layer not found: $e');
-      }
-
-      // Add line layer for roads
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-roads',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFFFFFFFF, // White for roads
-            lineWidth: 1.5,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added transportation layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ transportation layer not found: $e');
-      }
-
-      // Add line layer for boundaries
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-boundaries',
-            sourceId: 'local-tiles',
-            sourceLayer: 'boundary',
-            lineColor: 0xFFCCCCCC, // Gray for boundaries
-            lineWidth: 0.5,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added boundary layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ boundary layer not found: $e');
-      }
-
-      // Add symbol layer for place names
-      try {
-        await mapController!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-places',
-            sourceId: 'local-tiles',
-            sourceLayer: 'place',
-            textField: '{name}', // Use property name from tiles
-            textSize: 12.0,
-            textColor: 0xFF000000, // Black text
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added place layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ place layer not found: $e');
-      }
-
-      debugPrint('[MemoryLocationPicker] ✅ Local tile layers setup complete');
-    } catch (e) {
-      debugPrint('[MemoryLocationPicker] ❌ Error adding tile layers: $e');
-      // Don't throw - continue with whatever layers were added
-    }
-  }
-
-
+  ///
 
   /// Get custom style URI with local tile server URL
   String _getCustomStyleUri() {
-//     if (_serverUrl == null) {
-//       debugPrint('[MapViewWidgetNew] ⚠️ Server URL not available, using blank style');
-//       // Return a minimal blank style if server isn't ready
-//       return '''
-// {
-//   "version": 8,
-//   "name": "Blank",
-//   "sources": {},
-//   "layers": [
-//     {
-//       "id": "background",
-//       "type": "background",
-//       "paint": {"background-color": "#f0f0f0"}
-//     }
-//   ]
-// }
-// ''';
-//     }
+
 
     // Load style.json from assets and replace placeholder with actual server URL
     final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
@@ -593,7 +429,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       debugPrint('[MapViewWidgetNew] 📂 Loading style.json from assets...');
 
       // Load style.json from assets folder
-      final styleJsonString = await rootBundle.loadString('assets/style.json');
+      final styleJsonString = await rootBundle.loadString('assets/custom-style.json');
       debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from assets');
 
       // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
@@ -622,7 +458,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       } else {
         debugPrint('[MapViewWidgetNew] ⚠️ WARNING: No glyphs field found in style JSON!');
       }
-
       // Check for sprite field
       if (modifiedStyleJson.contains('"sprite"')) {
         final spriteMatch = RegExp(r'"sprite":\s*"([^"]+)"').firstMatch(modifiedStyleJson);

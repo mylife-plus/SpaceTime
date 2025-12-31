@@ -68,7 +68,7 @@ class GlobeTestController extends GetxController {
       debugPrint('[GlobeTestController] 🌐 Online mode enabled - localhost tile server can be accessed');
 
       // Load custom style JSON with local tile server URLs
-      await _loadCustomStyleJson();
+      // await _loadCustomStyleJson();
 
       isMapReady.value = true;
     } catch (e) {
