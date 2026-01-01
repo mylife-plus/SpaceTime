@@ -310,6 +310,142 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     );
   }
 
+
+  /// Get custom style URI with local tile server URL
+  String _getCustomStyleUri() {
+
+
+    // Load style.json from assets and replace placeholder with actual server URL
+    final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
+    debugPrint('[MapViewWidgetNew] 📡 Using custom style with tile URL: $tileUrl');
+
+    // Return the style JSON with the local tile URL
+    // Note: We'll load and modify the assets/style.json content
+    return _getStyleJsonWithLocalTiles(tileUrl);
+  }
+
+  /// Get style JSON from assets with local tile URL
+  /// Loads assets/style.json and replaces {LOCAL_TILE_URL} placeholder
+  String _getStyleJsonWithLocalTiles(String tileUrl) {
+    // This method is synchronous but needs to load from assets
+    // We'll use a FutureBuilder in _buildMapWidget instead
+    // For now, return a placeholder that indicates loading is needed
+    return 'LOADING_FROM_ASSETS';
+  }
+
+  /// Load style.json from assets and replace placeholders with actual server URLs
+  Future<String> _loadStyleJsonFromAssets(String tileUrl, String serverUrl) async {
+    try {
+      debugPrint('[MemoryLocationPicker] 📂 Loading style.json from assets...');
+
+      // Load style.json from assets folder
+      final styleJsonString = await rootBundle.loadString('assets/custom-style.json');
+      debugPrint('[MemoryLocationPicker] ✅ Loaded style.json from assets');
+
+      // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
+      // This prevents the tile URL pattern from interfering with server URL
+      var modifiedStyleJson = styleJsonString
+          .replaceAll('{LOCAL_SERVER_URL}', serverUrl)
+          .replaceAll('{LOCAL_TILE_URL}', tileUrl);
+
+      debugPrint('[MemoryLocationPicker] 📡 Replaced {LOCAL_SERVER_URL} with: $serverUrl');
+      debugPrint('[MemoryLocationPicker] 📡 Replaced {LOCAL_TILE_URL} with: $tileUrl');
+      debugPrint('[MemoryLocationPicker] ✅ Style JSON configured with local MBTiles server');
+
+      // Debug: Check if glyphs and sprite fields are correctly replaced
+      if (modifiedStyleJson.contains('{LOCAL_SERVER_URL}') || modifiedStyleJson.contains('{LOCAL_TILE_URL}')) {
+        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Placeholders still present in style JSON!');
+      }
+
+      // Check for glyphs field
+      if (modifiedStyleJson.contains('"glyphs"')) {
+        final glyphsMatch = RegExp(r'"glyphs":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
+        if (glyphsMatch != null) {
+          debugPrint('[MemoryLocationPicker] 📝 Glyphs URL: ${glyphsMatch.group(1)}');
+        } else {
+          debugPrint('[MemoryLocationPicker] ⚠️ WARNING: glyphs field found but URL could not be extracted!');
+        }
+      } else {
+        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: No glyphs field found in style JSON!');
+      }
+      // Check for sprite field
+      if (modifiedStyleJson.contains('"sprite"')) {
+        final spriteMatch = RegExp(r'"sprite":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
+        if (spriteMatch != null) {
+          debugPrint('[MemoryLocationPicker] 🎨 Sprite URL: ${spriteMatch.group(1)}');
+        } else {
+          debugPrint('[MemoryLocationPicker] ⚠️ WARNING: sprite field found but URL could not be extracted!');
+        }
+      } else {
+        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: No sprite field found in style JSON!');
+      }
+
+      // Print the sources, sprite, and glyphs section for verification
+      debugPrint('[MemoryLocationPicker] 📄 ========== STYLE JSON VERIFICATION ==========');
+      final sourcesMatch = RegExp(r'"sources":\s*\{[^}]+\}', multiLine: true, dotAll: true).firstMatch(modifiedStyleJson);
+      if (sourcesMatch != null) {
+        debugPrint('[MemoryLocationPicker] 📦 Sources section: ${sourcesMatch.group(0)}');
+      }
+
+      // Extract and print sprite and glyphs lines
+      final lines = modifiedStyleJson.split('\n');
+      for (int i = 0; i < lines.length; i++) {
+        if (lines[i].contains('"sprite"') || lines[i].contains('"glyphs"')) {
+          debugPrint('[MemoryLocationPicker] 📄 Line ${i + 1}: ${lines[i].trim()}');
+        }
+      }
+      debugPrint('[MemoryLocationPicker] 📄 ==========================================');
+
+      return modifiedStyleJson;
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker] ❌ Error loading style.json from assets: $e');
+      debugPrint('[MemoryLocationPicker] ⚠️ Falling back to simplified style');
+
+      // Fallback to a simplified style if assets/style.json is not found
+      return '''
+{
+  "version": 8,
+  "name": "Local Tiles Fallback",
+  "metadata": {
+    "mapbox:autocomposite": false
+  },
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "tiles": ["$tileUrl"],
+      "minzoom": 0,
+      "maxzoom": 14
+    }
+  },
+  "projection": { "type": "globe" },
+  "sprite": "",
+  "glyphs": "",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {"background-color": "hsl(47, 26%, 88%)"}
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "filter": ["==", "\$type", "Polygon"],
+      "paint": {"fill-color": "hsl(205, 56%, 73%)"}
+    },
+    {
+      "id": "road",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "paint": {"line-color": "#fff", "line-width": 1.5}
+    }
+  ]
+}
+''';
+    }
+  }
   /// Build map view
   Widget _buildMapView() {
     return Stack(
@@ -330,21 +466,96 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Build map widget
   Widget _buildMap() {
-    return mapbox.MapWidget(
-      key: const ValueKey('memory_location_picker_map'),
-      cameraOptions: _getCameraOptions(),
-      // Use a minimal blank style JSON to avoid loading from Mapbox servers
-      styleUri: _getBlankStyleJson(),
-      textureView: true,
-      onMapCreated: _onMapCreated,
-      onStyleLoadedListener: (styleLoadedEventData) async {
-        debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
+    // If server URL is not available yet, show loading
+    if (_serverUrl == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              'Initializing map...',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
 
-        // Add mbtiles vector source after style is loaded
-        await _addLocalTileSource();
+    // Server URL is available - load style.json from assets
+    final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
+    final serverUrl = _serverUrl!; // Base server URL without tile pattern
+
+    return FutureBuilder<String>(
+      future: _loadStyleJsonFromAssets(tileUrl, serverUrl),
+      builder: (context, snapshot) {
+        // Show loading indicator while style.json is being loaded
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text(
+                  'Loading map style...',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Handle error
+        if (snapshot.hasError) {
+          debugPrint('[MemoryLocationPicker] ❌ Error in FutureBuilder: ${snapshot.error}');
+          return Center(
+            child: Text(
+              'Error loading map style',
+              style: TextStyle(color: Colors.red),
+            ),
+          );
+        }
+
+        // Style loaded successfully - build the map
+        final styleJson = snapshot.data ?? _getBlankStyleJson();
+
+        return mapbox.MapWidget(
+          key: const ValueKey('memory_location_picker_map'),
+          cameraOptions: _getCameraOptions(),
+          textureView: true,
+          onMapCreated: (mapboxMap) async {
+            mapController = mapboxMap;
+            debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
+
+            // CRITICAL: Enable online mode to allow localhost tile server access
+            await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+            debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+
+            // Load the custom style JSON with local tile server URLs
+            debugPrint('[MemoryLocationPicker] 📥 Loading custom style JSON into Mapbox...');
+            debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
+
+            // Verify the JSON contains our localhost URLs before loading
+            if (styleJson.contains('localhost:8080')) {
+              debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
+            } else {
+              debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+            }
+
+            await mapboxMap.loadStyleJson(styleJson);
+            debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
+
+            _onMapCreated(mapboxMap);
+          },
+          onStyleLoadedListener: (styleLoadedEventData) async {
+            debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
+            debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
+          },
+          onTapListener: _onMapTap,
+        );
       },
-      onTapListener: _onMapTap,
-      // onMapLoadErrorListener removed as per requirements
     );
   }
 
@@ -405,511 +616,12 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       debugPrint('[MemoryLocationPicker] ✅ Local tile source added (zoom: ${zoomHelper.minZoom.value}-${zoomHelper.maxZoom.value})');
 
       // Add layers to display the tiles (CRITICAL - without this, tiles won't show!)
-      await _addLocalTileLayers();
+      // await _addLocalTileLayers();
     } catch (e) {
       debugPrint('[MemoryLocationPicker] ❌ Error adding tile source: $e');
       // Continue anyway - map will use default Mapbox tiles
     }
   }
-
-  /// Add layers to display local tiles
-  /// Matches layers from assets/style.json
-  Future<void> _addLocalTileLayers() async {
-    try {
-      if (mapController == null) return;
-
-      debugPrint('[MemoryLocationPicker] 🎨 Adding local tile layers...');
-
-      // 1. Background layer (LAND - beige/tan color, NOT ocean!)
-      // In OpenMapTiles, background = land, water is drawn on top
-      await mapController!.style.addLayer(
-        mapbox.BackgroundLayer(
-          id: 'local-background',
-          backgroundColor: 0xFFE8E4DC, // Beige/tan for land (matches style.json: hsl(47, 26%, 88%))
-        ),
-      );
-
-      // 2. Landuse - Residential areas
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landuse-residential',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landuse',
-            fillColor: 0xFFE8E4E0, // Light beige for residential
-            fillOpacity: 0.7,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landuse-residential layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landuse-residential layer error: $e');
-      }
-
-      // 3. Landcover - Grass
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landcover-grass',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landcover',
-            fillColor: 0xFFD4E7D4, // Light green for grass
-            fillOpacity: 0.5,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landcover-grass layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landcover-grass layer error: $e');
-      }
-
-      // 4. Landcover - Wood/Forest
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landcover-wood',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landcover',
-            fillColor: 0xFFC8E6C8, // Green for forests
-            fillOpacity: 0.6,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landcover-wood layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landcover-wood layer error: $e');
-      }
-
-      // 5. Water bodies (rivers, lakes)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-water',
-            sourceId: 'local-tiles',
-            sourceLayer: 'water',
-            fillColor: 0xFFAAD3DF, // Blue for water
-            fillOpacity: 1.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added water layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ water layer error: $e');
-      }
-
-      // 6. Landcover - Ice shelf
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landcover-ice-shelf',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landcover',
-            fillColor: 0xFFFFFFFF, // White for ice
-            fillOpacity: 0.8,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landcover-ice-shelf layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landcover-ice-shelf layer error: $e');
-      }
-
-      // 7. Landcover - Glacier
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landcover-glacier',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landcover',
-            fillColor: 0xFFE8F4F8, // Light blue for glaciers
-            fillOpacity: 0.8,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landcover-glacier layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landcover-glacier layer error: $e');
-      }
-
-      // 8. Landcover - Sand
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landcover-sand',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landcover',
-            fillColor: 0xFFF5E9D3, // Sandy color
-            fillOpacity: 0.7,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landcover-sand layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landcover-sand layer error: $e');
-      }
-
-      // 9. Landuse - General (parks, etc.)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landuse',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landuse',
-            fillColor: 0xFFD4E7D4, // Light green for parks
-            fillOpacity: 0.6,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added landuse layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ landuse layer error: $e');
-      }
-
-      // 10. Waterway - Tunnel
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-waterway-tunnel',
-            sourceId: 'local-tiles',
-            sourceLayer: 'waterway',
-            lineColor: 0xFFAAD3DF, // Blue for waterways
-            lineWidth: 1.0,
-            lineDasharray: [2.0, 1.0], // Dashed for tunnels
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added waterway-tunnel layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ waterway-tunnel layer error: $e');
-      }
-
-      // 11. Waterway - Regular
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-waterway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'waterway',
-            lineColor: 0xFFAAD3DF, // Blue for waterways
-            lineWidth: 1.5,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added waterway layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ waterway layer error: $e');
-      }
-
-      // 12. Buildings
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-buildings',
-            sourceId: 'local-tiles',
-            sourceLayer: 'building',
-            fillColor: 0xFFD0D0D0, // Gray for buildings
-            fillOpacity: 0.7,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added building layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ building layer error: $e');
-      }
-
-      // 13. Aeroway - Area (airports)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-aeroway-area',
-            sourceId: 'local-tiles',
-            sourceLayer: 'aeroway',
-            fillColor: 0xFFE0E0E0, // Light gray for airport areas
-            fillOpacity: 0.5,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added aeroway-area layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ aeroway-area layer error: $e');
-      }
-
-      // 14. Aeroway - Taxiway
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-aeroway-taxiway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'aeroway',
-            lineColor: 0xFFCCCCCC, // Gray for taxiways
-            lineWidth: 1.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added aeroway-taxiway layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ aeroway-taxiway layer error: $e');
-      }
-
-      // 15. Aeroway - Runway
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-aeroway-runway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'aeroway',
-            lineColor: 0xFFBBBBBB, // Darker gray for runways
-            lineWidth: 3.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added aeroway-runway layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ aeroway-runway layer error: $e');
-      }
-
-      // 16. Transportation - Path
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-road-path',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFFDDDDDD, // Light gray for paths
-            lineWidth: 0.5,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added road-path layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ road-path layer error: $e');
-      }
-
-      // 17. Transportation - Minor roads
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-road-minor',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFFFFFFFF, // White for minor roads
-            lineWidth: 1.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added road-minor layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ road-minor layer error: $e');
-      }
-
-      // 18. Transportation - Trunk/Primary roads
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-road-trunk-primary',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFFFFC966, // Orange for major roads
-            lineWidth: 2.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added road-trunk-primary layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ road-trunk-primary layer error: $e');
-      }
-
-      // 19. Transportation - Secondary/Tertiary roads
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-road-secondary-tertiary',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFFFEFEFE, // White for secondary roads
-            lineWidth: 1.5,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added road-secondary-tertiary layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ road-secondary-tertiary layer error: $e');
-      }
-
-      // 20. Transportation - Motorway
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-road-motorway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFFFC8, // Red/orange for motorways
-            lineWidth: 2.5,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added road-motorway layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ road-motorway layer error: $e');
-      }
-
-      // 21. Transportation - Railway
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-railway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFF888888, // Dark gray for railways
-            lineWidth: 1.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added railway layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ railway layer error: $e');
-      }
-
-      // 22. Boundary - Administrative subdivisions
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-boundary-admin-sub',
-            sourceId: 'local-tiles',
-            sourceLayer: 'boundary',
-            lineColor: 0xFFDDDDDD, // Light gray for subdivisions
-            lineWidth: 0.5,
-            lineDasharray: [3.0, 2.0], // Dashed line
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added boundary-admin-sub layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ boundary-admin-sub layer error: $e');
-      }
-
-      // 23. Boundary - Country borders
-      try {
-        await mapController!.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-boundary-country',
-            sourceId: 'local-tiles',
-            sourceLayer: 'boundary',
-            lineColor: 0xFF999999, // Gray for country borders
-            lineWidth: 1.0,
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added boundary-country layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ boundary-country layer error: $e');
-      }
-
-      // 24. POI Labels (Points of Interest)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-poi-label',
-            sourceId: 'local-tiles',
-            sourceLayer: 'poi',
-            textField: '{name}',
-            textSize: 10.0,
-            textColor: 0xFF666666, // Dark gray text
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added poi-label layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ poi-label layer error: $e');
-      }
-
-      // 25. Airport Labels
-      try {
-        await mapController!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-airport-label',
-            sourceId: 'local-tiles',
-            sourceLayer: 'aerodrome_label',
-            textField: '{name}',
-            textSize: 11.0,
-            textColor: 0xFF555555, // Dark gray text
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added airport-label layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ airport-label layer error: $e');
-      }
-
-      // 26. Road Labels (transportation_name)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-road-label',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation_name',
-            textField: '{name}',
-            textSize: 10.0,
-            textColor: 0xFF444444, // Dark gray text
-            symbolPlacement: mapbox.SymbolPlacement.LINE, // Place text along the road
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added road-label layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ road-label layer error: $e');
-      }
-
-      // 27. Place Labels - Other (towns, villages)
-      try {
-        await mapController!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-place-label-other',
-            sourceId: 'local-tiles',
-            sourceLayer: 'place',
-            textField: '{name}',
-            textSize: 11.0,
-            textColor: 0xFF333333, // Dark text
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added place-label-other layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ place-label-other layer error: $e');
-      }
-
-      // 28. Place Labels - Cities
-      try {
-        await mapController!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-place-label-city',
-            sourceId: 'local-tiles',
-            sourceLayer: 'place',
-            textField: '{name}',
-            textSize: 14.0,
-            textColor: 0xFF000000, // Black text for cities
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added place-label-city layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ place-label-city layer error: $e');
-      }
-
-      // 29. Country Labels
-      try {
-        await mapController!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-country-label',
-            sourceId: 'local-tiles',
-            sourceLayer: 'place',
-            textField: '{name}',
-            textSize: 16.0,
-            textColor: 0xFF000000, // Black text for countries
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added country-label layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ country-label layer error: $e');
-      }
-
-      // 30. House Numbers
-      try {
-        await mapController!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-housenumber',
-            sourceId: 'local-tiles',
-            sourceLayer: 'housenumber',
-            textField: '{housenumber}',
-            textSize: 8.0,
-            textColor: 0xFF888888, // Gray text for house numbers
-          ),
-        );
-        debugPrint('[MemoryLocationPicker] ✅ Added housenumber layer');
-      } catch (e) {
-        debugPrint('[MemoryLocationPicker] ⚠️ housenumber layer error: $e');
-      }
-
-      debugPrint('[MemoryLocationPicker] ✅ Local tile layers setup complete (30 layers added)');
-    } catch (e) {
-      debugPrint('[MemoryLocationPicker] ❌ Error adding tile layers: $e');
-      // Don't throw - continue with whatever layers were added
-    }
-  }
-
   /// Get camera options
   mapbox.CameraOptions? _getCameraOptions() {
     // Prioritize selected location over current location
@@ -1359,14 +1071,22 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Select location and add red marker without radius
   Future<void> _selectLocation(double lat, double lng) async {
-    if (annotationManager == null) return;
+    if (annotationManager == null) {
+      debugPrint('[MemoryLocationPicker] ⚠️ Annotation manager is null, cannot select location');
+      return;
+    }
 
     try {
+      debugPrint('[MemoryLocationPicker] 📍 Selecting location: $lat, $lng');
+
       // Clear existing markers first
       await _clearExistingMarkers();
 
-      // Create red marker image
+      // Create red marker image and add to style
       await _createRedMarkerImage();
+
+      // Small delay to ensure image is added to style
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // Create new red marker
       final pointAnnotationOptions = mapbox.PointAnnotationOptions(
@@ -1376,6 +1096,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       );
 
       selectedLocationMarker = await annotationManager!.create(pointAnnotationOptions);
+      debugPrint('[MemoryLocationPicker] ✅ Red marker created at $lat, $lng');
 
       // Update memory controller with selected location
       memoryController.setLocation('$lat,$lng');
@@ -1384,7 +1105,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       await _getLocationDetails(lat, lng);
 
     } catch (e) {
-      debugPrint('Error selecting location: $e');
+      debugPrint('[MemoryLocationPicker] ❌ Error selecting location: $e');
     }
   }
 
@@ -1577,6 +1298,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
     await _moveToLocation(lat, lng);
     await _selectLocation(lat, lng);
+
   }
 
   /// Handle done button press - return complete location data with flag

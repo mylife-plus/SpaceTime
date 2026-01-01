@@ -776,10 +776,10 @@ class MapControllerNew extends GetxController {
       );
 
       // First, create our own clusters for tap detection
-      await _createClustersAndUpdateMarkers(memories);
+      // await _createClustersAndUpdateMarkers(memories);
 
       // Clear existing sources and layers
-      await _clearMapboxClusteringLayers();
+      // await _clearMapboxClusteringLayers();
 
       // Add a small delay to ensure cleanup is complete
       await Future.delayed(const Duration(milliseconds: 100));
@@ -2894,8 +2894,13 @@ void _resetTapState() {
 
         debugPrint('[MapControllerNew] 🔍 Zoom changed to: $currentZoomLevel');
 
-        // Update layer visibility based on zoom level
-        await _updateLayerVisibilityForZoom(currentZoomLevel);
+        // SAFETY CHECK: Only update layer visibility if we're in the main map view
+        // Check if the current route is the map view to avoid updating layers in other map instances
+        // (e.g., location picker, memory location picker)
+        if (Get.currentRoute == '/map-new' || Get.currentRoute == '/map' || Get.currentRoute == '/') {
+          // Update layer visibility based on zoom level
+          await _updateLayerVisibilityForZoom(currentZoomLevel);
+        }
       }
     } catch (e) {
       // Silently ignore errors to avoid spam
@@ -2948,8 +2953,8 @@ void _resetTapState() {
       );
       debugPrint('[MapControllerNew] 🎨 Set layer $layerId visibility to: $visibility');
     } catch (e) {
-      // Layer might not exist yet, which is fine
-      debugPrint('[MapControllerNew] ⚠️ Could not set visibility for layer $layerId: $e');
+      // Layer might not exist - this is normal when in other map views (location picker, etc.)
+      // Silently ignore to avoid log spam
     }
   }
 
