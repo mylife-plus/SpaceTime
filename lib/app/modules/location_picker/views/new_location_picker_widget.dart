@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/modules/location_picker/controllers/location_picker_controller.dart';
@@ -258,21 +259,96 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
 
   /// Build map widget
   Widget _buildMap() {
-    return mapbox.MapWidget(
-      key: const ValueKey("mapbox_map_new"),
-      cameraOptions: _getCameraOptions(),
-      // Use a minimal blank style JSON to avoid loading from Mapbox servers
-      styleUri: _getBlankStyleJson(),
-      onMapCreated: _onMapCreated,
-      onStyleLoadedListener: (styleLoadedEventData) async {
-        debugPrint('[NewLocationPicker] 🎨 onStyleLoaded callback triggered');
+    // If server URL is not available yet, show loading
+    if (_serverUrl == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              'Initializing map...',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
 
-        // Add mbtiles vector source after style is loaded
-        await _addLocalTileSource();
+    // Server URL is available - load style.json from assets
+    final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
+    final serverUrl = _serverUrl!; // Base server URL without tile pattern
+
+    return FutureBuilder<String>(
+      future: _loadStyleJsonFromAssets(tileUrl, serverUrl),
+      builder: (context, snapshot) {
+        // Show loading indicator while style.json is being loaded
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text(
+                  'Loading map style...',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Handle error
+        if (snapshot.hasError) {
+          debugPrint('[NewLocationPicker] ❌ Error in FutureBuilder: ${snapshot.error}');
+          return Center(
+            child: Text(
+              'Error loading map style',
+              style: TextStyle(color: Colors.red),
+            ),
+          );
+        }
+
+        // Style loaded successfully - build the map
+        final styleJson = snapshot.data ?? _getBlankStyleJson();
+
+        return mapbox.MapWidget(
+          key: const ValueKey("mapbox_map_new"),
+          cameraOptions: _getCameraOptions(),
+          onMapCreated: (mapboxMap) async {
+            controller.mapController = mapboxMap;
+            debugPrint('[NewLocationPicker] 🗺️ onMapCreated callback triggered');
+
+            // CRITICAL: Enable online mode to allow localhost tile server access
+            await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+            debugPrint('[NewLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+
+            // Load the custom style JSON with local tile server URLs
+            debugPrint('[NewLocationPicker] 📥 Loading custom style JSON into Mapbox...');
+            debugPrint('[NewLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
+
+            // Verify the JSON contains our localhost URLs before loading
+            if (styleJson.contains('localhost:8080')) {
+              debugPrint('[NewLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
+            } else {
+              debugPrint('[NewLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+            }
+
+            await mapboxMap.loadStyleJson(styleJson);
+            debugPrint('[NewLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
+
+            _onMapCreated(mapboxMap);
+          },
+          onStyleLoadedListener: (styleLoadedEventData) async {
+            debugPrint('[NewLocationPicker] 🎨 onStyleLoaded callback triggered');
+            debugPrint('[NewLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
+          },
+          onTapListener: _onMapTap,
+          onCameraChangeListener: _onCameraChange,
+        );
       },
-      onTapListener: _onMapTap,
-      onCameraChangeListener: _onCameraChange,
-      // onMapLoadErrorListener removed as per requirements
     );
   }
 
@@ -298,6 +374,142 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
   ]
 }
 ''';
+  }
+
+    /// Get custom style URI with local tile server URL
+  String _getCustomStyleUri() {
+
+
+    // Load style.json from assets and replace placeholder with actual server URL
+    final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
+    debugPrint('[MapViewWidgetNew] 📡 Using custom style with tile URL: $tileUrl');
+
+    // Return the style JSON with the local tile URL
+    // Note: We'll load and modify the assets/style.json content
+    return _getStyleJsonWithLocalTiles(tileUrl);
+  }
+
+  /// Get style JSON from assets with local tile URL
+  /// Loads assets/style.json and replaces {LOCAL_TILE_URL} placeholder
+  String _getStyleJsonWithLocalTiles(String tileUrl) {
+    // This method is synchronous but needs to load from assets
+    // We'll use a FutureBuilder in _buildMapWidget instead
+    // For now, return a placeholder that indicates loading is needed
+    return 'LOADING_FROM_ASSETS';
+  }
+
+  /// Load style.json from assets and replace placeholders with actual server URLs
+  Future<String> _loadStyleJsonFromAssets(String tileUrl, String serverUrl) async {
+    try {
+      debugPrint('[MapViewWidgetNew] 📂 Loading style.json from assets...');
+
+      // Load style.json from assets folder
+      final styleJsonString = await rootBundle.loadString('assets/custom-style.json');
+      debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from assets');
+
+      // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
+      // This prevents the tile URL pattern from interfering with server URL
+      var modifiedStyleJson = styleJsonString
+          .replaceAll('{LOCAL_SERVER_URL}', serverUrl)
+          .replaceAll('{LOCAL_TILE_URL}', tileUrl);
+
+      debugPrint('[MapViewWidgetNew] 📡 Replaced {LOCAL_SERVER_URL} with: $serverUrl');
+      debugPrint('[MapViewWidgetNew] 📡 Replaced {LOCAL_TILE_URL} with: $tileUrl');
+      debugPrint('[MapViewWidgetNew] ✅ Style JSON configured with local MBTiles server');
+
+      // Debug: Check if glyphs and sprite fields are correctly replaced
+      if (modifiedStyleJson.contains('{LOCAL_SERVER_URL}') || modifiedStyleJson.contains('{LOCAL_TILE_URL}')) {
+        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: Placeholders still present in style JSON!');
+      }
+
+      // Check for glyphs field
+      if (modifiedStyleJson.contains('"glyphs"')) {
+        final glyphsMatch = RegExp(r'"glyphs":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
+        if (glyphsMatch != null) {
+          debugPrint('[MapViewWidgetNew] 📝 Glyphs URL: ${glyphsMatch.group(1)}');
+        } else {
+          debugPrint('[MapViewWidgetNew] ⚠️ WARNING: glyphs field found but URL could not be extracted!');
+        }
+      } else {
+        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: No glyphs field found in style JSON!');
+      }
+      // Check for sprite field
+      if (modifiedStyleJson.contains('"sprite"')) {
+        final spriteMatch = RegExp(r'"sprite":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
+        if (spriteMatch != null) {
+          debugPrint('[MapViewWidgetNew] 🎨 Sprite URL: ${spriteMatch.group(1)}');
+        } else {
+          debugPrint('[MapViewWidgetNew] ⚠️ WARNING: sprite field found but URL could not be extracted!');
+        }
+      } else {
+        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: No sprite field found in style JSON!');
+      }
+
+      // Print the sources, sprite, and glyphs section for verification
+      debugPrint('[MapViewWidgetNew] 📄 ========== STYLE JSON VERIFICATION ==========');
+      final sourcesMatch = RegExp(r'"sources":\s*\{[^}]+\}', multiLine: true, dotAll: true).firstMatch(modifiedStyleJson);
+      if (sourcesMatch != null) {
+        debugPrint('[MapViewWidgetNew] 📦 Sources section: ${sourcesMatch.group(0)}');
+      }
+
+      // Extract and print sprite and glyphs lines
+      final lines = modifiedStyleJson.split('\n');
+      for (int i = 0; i < lines.length; i++) {
+        if (lines[i].contains('"sprite"') || lines[i].contains('"glyphs"')) {
+          debugPrint('[MapViewWidgetNew] 📄 Line ${i + 1}: ${lines[i].trim()}');
+        }
+      }
+      debugPrint('[MapViewWidgetNew] 📄 ==========================================');
+
+      return modifiedStyleJson;
+    } catch (e) {
+      debugPrint('[MapViewWidgetNew] ❌ Error loading style.json from assets: $e');
+      debugPrint('[MapViewWidgetNew] ⚠️ Falling back to simplified style');
+
+      // Fallback to a simplified style if assets/style.json is not found
+      return '''
+{
+  "version": 8,
+  "name": "Local Tiles Fallback",
+  "metadata": {
+    "mapbox:autocomposite": false
+  },
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "tiles": ["$tileUrl"],
+      "minzoom": 0,
+      "maxzoom": 14
+    }
+  },
+  "projection": { "type": "globe" },
+  "sprite": "",
+  "glyphs": "",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {"background-color": "hsl(47, 26%, 88%)"}
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "filter": ["==", "\$type", "Polygon"],
+      "paint": {"fill-color": "hsl(205, 56%, 73%)"}
+    },
+    {
+      "id": "road",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "paint": {"line-color": "#fff", "line-width": 1.5}
+    }
+  ]
+}
+''';
+    }
   }
 
   /// Add local tile source from downloaded mbtiles (called after style loads)

@@ -5,19 +5,19 @@
     "name": "globe"
   },
   "fog": {
-    "color": "#FFFFFF",
-    "high-color": "#FFFFFF",
+    "color": "#8389F6",
+    "high-color": "#8389F6",
     "space-color": "#000000", 
-    "horizon-blend": 0.05, 
+    "horizon-blend": 0.03, 
     "star-intensity": 0, 
-    "opacity": 0.5
+    "opacity": 0.3
   },
   "sources": {
     "openmaptiles": {
       "type": "vector",
       "tiles": ["{LOCAL_TILE_URL}"],
       "minzoom": 0,
-      "maxzoom": 10
+      "maxzoom": 11
     }
   },
   "sprite": "mapbox://sprites/mapbox/streets-v12",
@@ -363,7 +363,7 @@
             "type": "fill",
             "source": "openmaptiles",
             "source-layer": "aeroway",
-            "minzoom": 11,
+            "minzoom": 9,
             "layout": {
                 "visibility": "visible"
             },
@@ -626,7 +626,7 @@
             "type": "fill",
             "source": "openmaptiles",
             "source-layer": "landcover",
-            "minzoom": 13,
+            "minzoom": 9,
             "layout": {
                 "visibility": "visible"
             },
@@ -728,7 +728,7 @@
             "type": "fill",
             "source": "openmaptiles",
             "source-layer": "landcover",
-            "minzoom": 13,
+            "minzoom": 9,
             "layout": {
                 "visibility": "visible"
             },
@@ -1737,7 +1737,7 @@
             "type": "line",
             "source": "openmaptiles",
             "source-layer": "aeroway",
-            "minzoom": 11,
+            "minzoom": 9,
             "layout": {
                 "visibility": "visible"
             },
@@ -10357,7 +10357,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "waterway",
-            "minzoom": 3,
+            "minzoom": 2,
             "layout": {
                 "symbol-placement": "line",
                 "symbol-spacing": 400,
@@ -10445,7 +10445,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "water_name",
-            "minzoom": 15,
+            "minzoom": 2,
             "layout": {
                 "text-field": [
                     "coalesce",
@@ -10487,7 +10487,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "housenumber",
-            "minzoom": 17,
+            "minzoom": 5,
             "layout": {
                 "symbol-avoid-edges": false,
                 "text-allow-overlap": false,
@@ -12402,7 +12402,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "transportation_name",
-            "minzoom": 14,
+            "minzoom": 5,
             "layout": {
                 "symbol-placement": "line",
                 "text-anchor": "center",
@@ -12457,7 +12457,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "transportation_name",
-            "minzoom": 11,
+            "minzoom": 10,
             "maxzoom": 22,
             "layout": {
                 "symbol-placement": "line",
@@ -12971,7 +12971,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "aeroway",
-            "minzoom": 14,
+            "minzoom": 7,
             "layout": {
                 "symbol-placement": "line",
                 "symbol-sort-key": [
@@ -13026,7 +13026,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "aeroway",
-            "minzoom": 16.5,
+            "minzoom": 8.5,
             "layout": {
                 "text-field": "{ref}",
                 "text-size": {
@@ -13162,7 +13162,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "poi",
-            "minzoom": 15,
+            "minzoom": 9,
             "layout": {
                 "symbol-sort-key": [
                     "to-number",
@@ -13303,7 +13303,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "poi",
-            "minzoom": 12,
+            "minzoom": 9,
             "layout": {
                 "icon-allow-overlap": false,
                 "icon-image": "{subclass}",
@@ -13431,7 +13431,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "mountain_peak",
-            "maxzoom": 16,
+            "maxzoom": 9,
             "layout": {
                 "icon-image": "peak",
                 "symbol-sort-key": [
@@ -13488,7 +13488,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "place",
-            "minzoom": 8,
+            "minzoom": 4,
             "layout": {
                 "symbol-sort-key": [
                     "to-number",
@@ -13544,7 +13544,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "place",
-            "minzoom": 6,
+            "minzoom": 4,
             "layout": {
                 "symbol-sort-key": [
                     "to-number",
@@ -13765,7 +13765,7 @@
             "type": "symbol",
             "source": "openmaptiles",
             "source-layer": "place",
-            "minzoom": 3,
+            "minzoom": 2,
             "maxzoom": 15,
             "layout": {
                 "icon-allow-overlap": true,

@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
+import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
 import 'package:spacetime/services/connectivity_service.dart';
@@ -118,7 +119,8 @@ Future<void> main() async {
   Get.put(MemoryRepository(), permanent: true);
   Get.put(ClusterRepository(), permanent: true);
   Get.put(MapMarkerCreationService(), permanent: true);
-  Get.put(MapMarkerService(), permanent: true);
+
+  // Get.put(MapMarkerService(), permanent: true);MemoryLocationPickerController
 
   // Mapbox tile downloading services removed - using URL-based mbtiles download instead
   // Get.put(BackgroundTileDownloadService(), permanent: true);
@@ -135,6 +137,8 @@ Future<void> main() async {
   Get.put(MemoryController(), permanent: true);
   Get.put(AddMemoriesController(), permanent: true);
   Get.put(MapControllerNew(), permanent: true);
+  Get.put(MemoryController(), permanent: true);
+
   debugPrint('✅ Controllers initialized as permanent singletons');
 
   // Test the geocoding service

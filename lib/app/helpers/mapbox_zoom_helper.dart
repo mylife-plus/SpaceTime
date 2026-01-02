@@ -31,7 +31,7 @@ class MapboxZoomHelper {
   
   /// Maximum zoom level for vector sources and map (default: 10)
   /// Changed from 18 to 10 as per requirements
-  static const double defaultMaxZoom = 10.0;
+  static const double defaultMaxZoom = 11.0;
   
   /// Maximum zoom level for cluster visibility (default: 4.0)
   /// Clusters are hidden when zoomed in past this level
@@ -50,7 +50,7 @@ class MapboxZoomHelper {
   
   /// Maximum zoom for clustering (default: 10.0)
   /// Changed from 14.0 to 10.0 as per requirements
-  static const double defaultClusterMaxZoom = 10.0;
+  static const double defaultClusterMaxZoom = 11.0;
   
   /// Initial camera zoom level (default: 8.0)
   static const double defaultInitialCameraZoom = 8.0;
@@ -60,7 +60,7 @@ class MapboxZoomHelper {
   static const double defaultCurrentLocationZoom = 9.0;
   
   /// Default zoom level (default: 10.0)
-  static const double defaultDefaultZoom = 10.0;
+  static const double defaultDefaultZoom = 11.0;
   
   /// Initial current zoom value (default: 0.3)
   static const double defaultCurrentZoomInitial = 0.3;
@@ -150,29 +150,38 @@ class MapboxZoomHelper {
 
   /// Get zoom level based on radius (for location picker)
   /// Clamped to min/max zoom from preferences
+  /// Updated to work with maxZoom of 11.0 and provide better zoom-to-radius mapping
   double getZoomForRadius(double radiusKm) {
     double zoom;
 
-    if (radiusKm <= 5) {
+    // Optimized zoom levels for maxZoom = 11.0
+    // Smaller radius = higher zoom (more zoomed in)
+    // Larger radius = lower zoom (more zoomed out)
+    
+    if (radiusKm <= 1) {
+      zoom = 11.0;  // Maximum zoom for very small radius
+    } else if (radiusKm <= 2) {
       zoom = 10.5;
+    } else if (radiusKm <= 5) {
+      zoom = 10.0;
     } else if (radiusKm <= 10) {
-      zoom = 9.5;
-    } else if (radiusKm <= 25) {
-      zoom = 8.5;
-    } else if (radiusKm <= 50) {
+      zoom = 9.0;
+    } else if (radiusKm <= 20) {
+      zoom = 8.0;
+    } else if (radiusKm <= 30) {
       zoom = 7.5;
-    } else if (radiusKm <= 100) {
+    } else if (radiusKm <= 50) {
+      zoom = 7.0;
+    } else if (radiusKm <= 75) {
       zoom = 6.5;
+    } else if (radiusKm <= 100) {
+      zoom = 6.0;
+    } else if (radiusKm <= 150) {
+      zoom = 5.5;
     } else if (radiusKm <= 200) {
-      zoom = 5.5;
-    } else if (radiusKm <= 500) {
-      zoom = 5.5;
-    } else if (radiusKm <= 1000) {
-      zoom = 4.0;
-    } else if (radiusKm <= 2000) {
-      zoom = 3.0;
+      zoom = 5.0;
     } else {
-      zoom = 2.0;
+      zoom = 4.0;  // Minimum zoom for very large radius
     }
 
     // Clamp to min/max zoom

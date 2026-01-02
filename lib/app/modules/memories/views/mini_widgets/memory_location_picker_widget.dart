@@ -1,29 +1,9 @@
-import 'dart:typed_data';
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
-import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
-import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
-import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
-import 'package:spacetime/services/geocoding_isolate_service.dart';
-import 'package:spacetime/app/modules/location_picker/services/location_picker_service.dart';
-import 'package:spacetime/app/utils/place_categories_utils.dart';
-import 'package:spacetime/services/mbtiles_download_service.dart';
-import 'package:spacetime/services/mbtiles_server_service.dart';
-
-enum MemoryLocationPickerState {
-  loading,
-  ready,
-  error,
-  searchingLocation,
-  movingToLocation,
-}
 
 class MemoryLocationPickerWidget extends StatefulWidget {
   const MemoryLocationPickerWidget({super.key});
@@ -33,235 +13,34 @@ class MemoryLocationPickerWidget extends StatefulWidget {
 }
 
 class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget> {
-  final MemoryController memoryController = Get.find<MemoryController>();
-  final UiController uiController = Get.find<UiController>();
-  final LocationPickerService _locationPickerService = LocationPickerService();
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
-  final RxBool _showSearchResults = false.obs;
-  
-  // State management
-  final Rx<MemoryLocationPickerState> state = MemoryLocationPickerState.loading.obs;
-  final RxString errorMessage = ''.obs;
-  final RxBool hasLocationPermission = false.obs;
-  final RxBool isOfflineMode = false.obs;
-  final Rxn<Position> currentPosition = Rxn<Position>();
-  final RxBool isSearching = false.obs;
-  final RxList<Map<String, dynamic>> searchResults = <Map<String, dynamic>>[].obs;
-  
-  // Map components
-  mapbox.MapboxMap? mapController;
-  mapbox.PointAnnotationManager? annotationManager;
-  mapbox.PointAnnotation? selectedLocationMarker;
-
-  // Server state for local tiles
-  String? _serverUrl;
-  String? _serverErrorMessage;
-  bool _isInitializingServer = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchFocusNode.addListener(_onSearchFocusChanged);
-    _searchController.addListener(_onSearchChanged);
-    _initializeLocationPicker();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
-  }
+ 
+  final MemoryLocationPickerController controller =
+    Get.find<MemoryLocationPickerController>();
 
   /// Initialize location picker
-  Future<void> _initializeLocationPicker() async {
-    try {
-      state.value = MemoryLocationPickerState.loading;
-
-      // Initialize local tile server first
-      await _initializeLocalTileServer();
-
-      // Check location permission
-      await _checkLocationPermission();
-
-      // Get current location if permission is available
-      if (hasLocationPermission.value) {
-        await _getCurrentLocation();
-      }
-
-      state.value = MemoryLocationPickerState.ready;
-    } catch (e) {
-      debugPrint('Error initializing location picker: $e');
-      errorMessage.value = 'Failed to initialize location picker: $e';
-      state.value = MemoryLocationPickerState.error;
-    }
-  }
-
-  /// Initialize local tile server before map creation
-  /// Server is started in main.dart, so we just check if it's running
-  Future<void> _initializeLocalTileServer() async {
-    try {
-      debugPrint('[MemoryLocationPicker] 🔍 Checking if local tile server is running...');
-
-      final serverService = MbtilesServerService.instance;
-
-      // Check if server is already running (started in main.dart)
-      if (serverService.isRunning && serverService.serverUrl != null) {
-        setState(() {
-          _serverUrl = serverService.serverUrl;
-          _isInitializingServer = false;
-        });
-        debugPrint('[MemoryLocationPicker] ✅ Using existing tile server at: $_serverUrl');
-        debugPrint('[MemoryLocationPicker] 📡 Tiles will be served from: $_serverUrl/{z}/{x}/{y}.pbf');
-        return;
-      }
-
-      // If server is not running, try to start it (fallback)
-      debugPrint('[MemoryLocationPicker] ⚠️ Server not running, attempting to start...');
-
-      final mbtilesService = MbtilesDownloadService.instance;
-      final isDownloaded = await mbtilesService.isMbtilesDownloaded();
-      final tilesPath = mbtilesService.getLocalMbtilesPath();
-
-      if (!isDownloaded || tilesPath == null) {
-        setState(() {
-          _serverErrorMessage = 'MBTiles file not downloaded. Please download from Get Started screen first.';
-          _isInitializingServer = false;
-        });
-        debugPrint('[MemoryLocationPicker] ❌ $_serverErrorMessage');
-        return;
-      }
-
-      final url = await serverService.startServer(tilesPath);
-
-      if (url != null) {
-        setState(() {
-          _serverUrl = url;
-          _isInitializingServer = false;
-        });
-        debugPrint('[MemoryLocationPicker] ✅ Local tile server started at: $url');
-      } else {
-        setState(() {
-          _serverErrorMessage = 'Failed to start local tile server';
-          _isInitializingServer = false;
-        });
-        debugPrint('[MemoryLocationPicker] ❌ $_serverErrorMessage');
-      }
-    } catch (e) {
-      setState(() {
-        _serverErrorMessage = 'Error initializing tile server: $e';
-        _isInitializingServer = false;
-      });
-      debugPrint('[MemoryLocationPicker] ❌ $_serverErrorMessage');
-    }
-  }
-
-  /// Check location permission
-  Future<void> _checkLocationPermission() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      hasLocationPermission.value = permission == LocationPermission.whileInUse || 
-                                   permission == LocationPermission.always;
-    } catch (e) {
-      debugPrint('Error checking location permission: $e');
-      hasLocationPermission.value = false;
-    }
-  }
-
-  /// Get current location
-  Future<void> _getCurrentLocation() async {
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-      currentPosition.value = position;
-    } catch (e) {
-      debugPrint('Error getting current location: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    // Show loading while server is initializing
-    if (_isInitializingServer) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: Colors.white),
-                const SizedBox(height: 16),
-                Text(
-                  'Initializing map...',
-                  style: AppFonts.regular(14, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Show error if server failed to start
-    if (_serverErrorMessage != null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'Error',
-                  style: AppFonts.medium(18, color: Colors.red),
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _serverErrorMessage!,
-                    textAlign: TextAlign.center,
-                    style: AppFonts.regular(14, color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => Get.back(),
-                  child: const Text('Go Back'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Obx(() => _buildBody()),
+        child: _buildBody(),
       ),
     );
   }
 
   /// Build main body
   Widget _buildBody() {
-    switch (state.value) {
-      case MemoryLocationPickerState.loading:
-        return _buildLoadingView();
-      case MemoryLocationPickerState.error:
-        return _buildErrorView();
-      default:
-        return _buildMapView();
-    }
+    return Obx(() {
+      switch (controller.state.value) {
+        case MemoryLocationPickerState.loading:
+          return _buildLoadingView();
+        case MemoryLocationPickerState.error:
+          return _buildErrorView();
+        default:
+          return _buildMapView();
+      }
+    });
   }
 
   /// Build loading view
@@ -296,13 +75,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           ),
           const SizedBox(height: 8),
           Text(
-            errorMessage.value,
+            controller.errorMessage.value,
             textAlign: TextAlign.center,
             style: AppFonts.regular(14, color: Colors.grey),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: _initializeLocationPicker,
+            onPressed: controller.initializeLocationPicker,
             child: const Text('Retry'),
           ),
         ],
@@ -310,150 +89,20 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     );
   }
 
-
-  /// Get custom style URI with local tile server URL
-  String _getCustomStyleUri() {
-
-
-    // Load style.json from assets and replace placeholder with actual server URL
-    final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-    debugPrint('[MapViewWidgetNew] 📡 Using custom style with tile URL: $tileUrl');
-
-    // Return the style JSON with the local tile URL
-    // Note: We'll load and modify the assets/style.json content
-    return _getStyleJsonWithLocalTiles(tileUrl);
-  }
-
-  /// Get style JSON from assets with local tile URL
-  /// Loads assets/style.json and replaces {LOCAL_TILE_URL} placeholder
-  String _getStyleJsonWithLocalTiles(String tileUrl) {
-    // This method is synchronous but needs to load from assets
-    // We'll use a FutureBuilder in _buildMapWidget instead
-    // For now, return a placeholder that indicates loading is needed
-    return 'LOADING_FROM_ASSETS';
-  }
-
-  /// Load style.json from assets and replace placeholders with actual server URLs
-  Future<String> _loadStyleJsonFromAssets(String tileUrl, String serverUrl) async {
-    try {
-      debugPrint('[MemoryLocationPicker] 📂 Loading style.json from assets...');
-
-      // Load style.json from assets folder
-      final styleJsonString = await rootBundle.loadString('assets/custom-style.json');
-      debugPrint('[MemoryLocationPicker] ✅ Loaded style.json from assets');
-
-      // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
-      // This prevents the tile URL pattern from interfering with server URL
-      var modifiedStyleJson = styleJsonString
-          .replaceAll('{LOCAL_SERVER_URL}', serverUrl)
-          .replaceAll('{LOCAL_TILE_URL}', tileUrl);
-
-      debugPrint('[MemoryLocationPicker] 📡 Replaced {LOCAL_SERVER_URL} with: $serverUrl');
-      debugPrint('[MemoryLocationPicker] 📡 Replaced {LOCAL_TILE_URL} with: $tileUrl');
-      debugPrint('[MemoryLocationPicker] ✅ Style JSON configured with local MBTiles server');
-
-      // Debug: Check if glyphs and sprite fields are correctly replaced
-      if (modifiedStyleJson.contains('{LOCAL_SERVER_URL}') || modifiedStyleJson.contains('{LOCAL_TILE_URL}')) {
-        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Placeholders still present in style JSON!');
-      }
-
-      // Check for glyphs field
-      if (modifiedStyleJson.contains('"glyphs"')) {
-        final glyphsMatch = RegExp(r'"glyphs":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
-        if (glyphsMatch != null) {
-          debugPrint('[MemoryLocationPicker] 📝 Glyphs URL: ${glyphsMatch.group(1)}');
-        } else {
-          debugPrint('[MemoryLocationPicker] ⚠️ WARNING: glyphs field found but URL could not be extracted!');
-        }
-      } else {
-        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: No glyphs field found in style JSON!');
-      }
-      // Check for sprite field
-      if (modifiedStyleJson.contains('"sprite"')) {
-        final spriteMatch = RegExp(r'"sprite":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
-        if (spriteMatch != null) {
-          debugPrint('[MemoryLocationPicker] 🎨 Sprite URL: ${spriteMatch.group(1)}');
-        } else {
-          debugPrint('[MemoryLocationPicker] ⚠️ WARNING: sprite field found but URL could not be extracted!');
-        }
-      } else {
-        debugPrint('[MemoryLocationPicker] ⚠️ WARNING: No sprite field found in style JSON!');
-      }
-
-      // Print the sources, sprite, and glyphs section for verification
-      debugPrint('[MemoryLocationPicker] 📄 ========== STYLE JSON VERIFICATION ==========');
-      final sourcesMatch = RegExp(r'"sources":\s*\{[^}]+\}', multiLine: true, dotAll: true).firstMatch(modifiedStyleJson);
-      if (sourcesMatch != null) {
-        debugPrint('[MemoryLocationPicker] 📦 Sources section: ${sourcesMatch.group(0)}');
-      }
-
-      // Extract and print sprite and glyphs lines
-      final lines = modifiedStyleJson.split('\n');
-      for (int i = 0; i < lines.length; i++) {
-        if (lines[i].contains('"sprite"') || lines[i].contains('"glyphs"')) {
-          debugPrint('[MemoryLocationPicker] 📄 Line ${i + 1}: ${lines[i].trim()}');
-        }
-      }
-      debugPrint('[MemoryLocationPicker] 📄 ==========================================');
-
-      return modifiedStyleJson;
-    } catch (e) {
-      debugPrint('[MemoryLocationPicker] ❌ Error loading style.json from assets: $e');
-      debugPrint('[MemoryLocationPicker] ⚠️ Falling back to simplified style');
-
-      // Fallback to a simplified style if assets/style.json is not found
-      return '''
-{
-  "version": 8,
-  "name": "Local Tiles Fallback",
-  "metadata": {
-    "mapbox:autocomposite": false
-  },
-  "sources": {
-    "openmaptiles": {
-      "type": "vector",
-      "tiles": ["$tileUrl"],
-      "minzoom": 0,
-      "maxzoom": 14
-    }
-  },
-  "projection": { "type": "globe" },
-  "sprite": "",
-  "glyphs": "",
-  "layers": [
-    {
-      "id": "background",
-      "type": "background",
-      "paint": {"background-color": "hsl(47, 26%, 88%)"}
-    },
-    {
-      "id": "water",
-      "type": "fill",
-      "source": "openmaptiles",
-      "source-layer": "water",
-      "filter": ["==", "\$type", "Polygon"],
-      "paint": {"fill-color": "hsl(205, 56%, 73%)"}
-    },
-    {
-      "id": "road",
-      "type": "line",
-      "source": "openmaptiles",
-      "source-layer": "transportation",
-      "paint": {"line-color": "#fff", "line-width": 1.5}
-    }
-  ]
-}
-''';
-    }
-  }
   /// Build map view
   Widget _buildMapView() {
+    // return Obx(() {
     return Stack(
       children: [
         // Map
         _buildMap(),
         // Top search bar
-        _buildTopSearchBar(),
+        Positioned(
+        top: 50,
+        left: 4,
+        right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
+        child: buildSearchContainer(controller.uiController.darkMode.value),),
+      
         // Search results dropdown
         _buildSearchResultsOverlay(),
         // Current location button
@@ -466,29 +115,16 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Build map widget
   Widget _buildMap() {
-    // If server URL is not available yet, show loading
-    if (_serverUrl == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text(
-              'Initializing map...',
-              style: TextStyle(color: Colors.white),
-            ),
-          ],
-        ),
-      );
-    }
+    return Obx(() {
+     
+      final tileUrl = '${controller.serverUrl.value}/{z}/{x}/{y}.pbf';
 
-    // Server URL is available - load style.json from assets
-    final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-    final serverUrl = _serverUrl!; // Base server URL without tile pattern
+            print('loadded URL tileUrl');
 
-    return FutureBuilder<String>(
-      future: _loadStyleJsonFromAssets(tileUrl, serverUrl),
+      final serverUrl = controller.serverUrl.value!; // Base server URL without tile pattern
+
+      return FutureBuilder<String>(
+      future: controller.loadStyleJsonFromAssets(tileUrl, serverUrl),
       builder: (context, snapshot) {
         // Show loading indicator while style.json is being loaded
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -519,14 +155,14 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         }
 
         // Style loaded successfully - build the map
-        final styleJson = snapshot.data ?? _getBlankStyleJson();
+        final styleJson = snapshot.data ?? controller.getBlankStyleJson();
 
         return mapbox.MapWidget(
           key: const ValueKey('memory_location_picker_map'),
-          cameraOptions: _getCameraOptions(),
+          cameraOptions: controller.getCameraOptions(),
           textureView: true,
           onMapCreated: (mapboxMap) async {
-            mapController = mapboxMap;
+            controller.mapController = mapboxMap;
             debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
 
             // CRITICAL: Enable online mode to allow localhost tile server access
@@ -547,190 +183,55 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
             await mapboxMap.loadStyleJson(styleJson);
             debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
 
-            _onMapCreated(mapboxMap);
+            controller.onMapCreated(mapboxMap);
           },
           onStyleLoadedListener: (styleLoadedEventData) async {
             debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
             debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
           },
-          onTapListener: _onMapTap,
+          onTapListener: controller.onMapTap,
         );
       },
-    );
-  }
-
-  /// Get a blank style JSON that doesn't reference any Mapbox sources
-  /// This prevents the "Failed to load tile for source composite" errors
-  String _getBlankStyleJson() {
-    return '''
-{
-  "version": 8,
-  "name": "Blank",
-   "projection": {
-  "name": "globe"
-  },
-  "metadata": {
-    "mapbox:autocomposite": false
-  },
-  "sources": {},
-  "layers": [
-    {
-      "id": "background",
-      "type": "background",
-      "paint": {"background-color": "hsl(47, 26%, 88%)"}
-    },
-  ]
-}
-''';
-  }
-
-  /// Add local tile source from downloaded mbtiles (called after style loads)
-  Future<void> _addLocalTileSource() async {
-    try {
-      if (_serverUrl == null) {
-        debugPrint('[MemoryLocationPicker] ⚠️ Server URL is null, skipping tile source addition');
-        return;
-      }
-
-      if (mapController == null) {
-        debugPrint('[MemoryLocationPicker] ⚠️ Map controller is null, skipping tile source addition');
-        return;
-      }
-
-      debugPrint('[MemoryLocationPicker] 🗺️ Adding local tile source...');
-
-      final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-      debugPrint('[MemoryLocationPicker] Tile URL template: $tileUrl');
-
-      // Add vector source with zoom levels from MapboxZoomHelper
-      final zoomHelper = MapboxZoomHelper();
-      await mapController!.style.addSource(
-        mapbox.VectorSource(
-          id: 'local-tiles',
-          tiles: [tileUrl],
-          minzoom: zoomHelper.minZoom.value,
-          maxzoom: zoomHelper.maxZoom.value,
-        ),
       );
-
-      debugPrint('[MemoryLocationPicker] ✅ Local tile source added (zoom: ${zoomHelper.minZoom.value}-${zoomHelper.maxZoom.value})');
-
-      // Add layers to display the tiles (CRITICAL - without this, tiles won't show!)
-      // await _addLocalTileLayers();
-    } catch (e) {
-      debugPrint('[MemoryLocationPicker] ❌ Error adding tile source: $e');
-      // Continue anyway - map will use default Mapbox tiles
-    }
-  }
-  /// Get camera options
-  mapbox.CameraOptions? _getCameraOptions() {
-    // Prioritize selected location over current location
-    final hasSelectedLocation = memoryController.selectedLocation.value.isNotEmpty &&
-                                 memoryController.locationLatitude.value != null &&
-                                 memoryController.locationLongitude.value != null;
-
-    if (hasSelectedLocation) {
-      return mapbox.CameraOptions(
-        center: mapbox.Point(
-          coordinates: mapbox.Position(
-            memoryController.locationLongitude.value!,
-            memoryController.locationLatitude.value!,
-          ),
-        ),
-        zoom: MapboxZoomHelper().currentLocationZoom.value,
-      );
-    } else if (currentPosition.value != null) {
-      return mapbox.CameraOptions(
-        center: mapbox.Point(
-          coordinates: mapbox.Position(
-            currentPosition.value!.longitude,
-            currentPosition.value!.latitude,
-          ),
-        ),
-        zoom: MapboxZoomHelper().currentLocationZoom.value,
-      );
-    }
-    return null;
+    });
   }
 
   /// Build top search bar - matching new location picker design
   Widget _buildTopSearchBar() {
-    return Positioned(
-      top: 50,
-      left: 4,
-      right: hasLocationPermission.value && currentPosition.value != null ? 60 : 4,
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: uiController.darkMode.value
-              ? Colors.black.withValues(alpha: 0.8)
-              : Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Obx(() => Row(
-          children: [
-            Image.asset(
-              AppImages.searchNormal,
-              width: 20,
-              height: 20,
-              color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildSearchField(),
-            ),
-            if (_searchController.text.isNotEmpty)
-              GestureDetector(
-                onTap: () {
-                  _searchController.clear();
-                  searchResults.clear();
-                  _showSearchResults.value = false;
-                  _searchFocusNode.unfocus();
-                },
-                child: Icon(
-                  Icons.clear,
-                  size: 20,
-                  color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600],
-                ),
-              ),
-          ],
-        )),
-      ),
-    );
+
+      return Positioned(
+        top: 50,
+        left: 4,
+        right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
+        child: buildSearchContainer(controller.uiController.darkMode.value),
+      );
+
   }
 
   /// Build search text field
-  Widget _buildSearchField() {
+  Widget _buildSearchField(bool isDark) {
     return TextField(
-      controller: _searchController,
-      focusNode: _searchFocusNode,
+      controller: controller.searchController,
+      focusNode: controller.searchFocusNode,
       autofocus: false,
       textInputAction: TextInputAction.search,
       style: AppFonts.medium(
         16,
-        color: uiController.darkMode.value ? Colors.white : Colors.black87,
+        color: isDark ? Colors.white : Colors.black87,
       ),
       decoration: InputDecoration(
         hintText: 'Search locations...',
         hintStyle: AppFonts.regular(
           16,
-          color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+          color: isDark ? Colors.white54 : Colors.grey[600]!,
         ),
         border: InputBorder.none,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 2),
       ),
       onTap: () {
-        if (!_showSearchResults.value) {
-          _showSearchResults.value = true;
+        if (!controller.showSearchResults.value) {
+          controller.showSearchResults.value = true;
         }
       },
     );
@@ -739,20 +240,20 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   /// Build search results overlay - matching new location picker design
   Widget _buildSearchResultsOverlay() {
     return Obx(() {
-      if (!_showSearchResults.value ||
-          (_searchController.text.isEmpty && searchResults.isEmpty && !isSearching.value)) {
+      if (!controller.showSearchResults.value ||
+          (controller.searchController.text.isEmpty && controller.searchResults.isEmpty && !controller.isSearching.value)) {
         return const SizedBox.shrink();
       }
 
       return Positioned(
         top: 98, // Below search bar
         left: 4,
-        right: hasLocationPermission.value && currentPosition.value != null ? 60 : 4,
+        right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
         child: Container(
           margin: const EdgeInsets.only(top: 4),
           constraints: const BoxConstraints(maxHeight: 200),
           decoration: BoxDecoration(
-            color: uiController.darkMode.value
+            color: controller.uiController.darkMode.value
                 ? Colors.black.withValues(alpha: 0.9)
                 : Colors.white.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(2),
@@ -772,147 +273,159 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Build search results content - matching new location picker design
   Widget _buildSearchResultsContent() {
-    if (isSearching.value) {
-      return Padding(
-        padding: const EdgeInsets.all(20),
-        child: Center(
-          child: CircularProgressIndicator(
-            color: uiController.primaryColor,
+    return Obx(() {
+      if (controller.isSearching.value) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: controller.uiController.primaryColor,
+            ),
           ),
-        ),
-      );
-    }
+        );
+      }
 
-    if (searchResults.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text(
-          'No locations found',
-          style: AppFonts.medium(
-            14,
-            color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+      if (controller.searchResults.isEmpty) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            'No locations found',
+            style: AppFonts.medium(
+              14,
+              color: controller.uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
+            ),
           ),
-        ),
-      );
-    }
+        );
+      }
 
-    return ListView.separated(
-      shrinkWrap: true,
-      itemCount: searchResults.length,
-      separatorBuilder: (context, index) => Divider(
-        height: 1,
-        thickness: 1,
-        color: uiController.darkMode.value
-            ? Colors.grey[700]!
-            : Colors.grey[300]!,
-      ),
-      itemBuilder: (context, index) {
-        final result = searchResults[index];
-        return _buildSearchResultItem(result);
-      },
-    );
+      final isDark = controller.uiController.darkMode.value;
+
+      return ListView.separated(
+        shrinkWrap: true,
+        itemCount: controller.searchResults.length,
+        separatorBuilder: (context, index) => Divider(
+          height: 1,
+          thickness: 1,
+          color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+        ),
+        itemBuilder: (context, index) {
+          final result = controller.searchResults[index];
+          return _buildSearchResultItem(result);
+        },
+      );
+    });
   }
 
   /// Build individual search result item - matching new location picker design
   Widget _buildSearchResultItem(Map<String, dynamic> result) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          _selectSearchResult(result);
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                result['name'] ?? 'Unknown Location',
-                style: AppFonts.medium(
-                  16,
-                  color: uiController.darkMode.value ? Colors.white : Colors.black87,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (result['address'] != null) ...[
-                const SizedBox(height: 4),
+    return Obx(() {
+      final isDark = controller.uiController.darkMode.value;
+
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            controller.selectSearchResult(result);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  result['address'],
-                  style: AppFonts.regular(
-                    14,
-                    color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600]!,
+                  result['name'] ?? 'Unknown Location',
+                  style: AppFonts.medium(
+                    16,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (result['address'] != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    result['address'],
+                    style: AppFonts.regular(
+                      14,
+                      color: isDark ? Colors.white70 : Colors.grey[600]!,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   /// Build current location button - matching new location picker design
   Widget _buildCurrentLocationButton() {
-    if (!hasLocationPermission.value || currentPosition.value == null) {
-      return const SizedBox.shrink();
-    }
+    return Obx(() {
+      if (!controller.hasLocationPermission.value || controller.currentPosition.value == null) {
+        return const SizedBox.shrink();
+      }
 
-    return Positioned(
-      top: 50,
-      right: 4,
-      child: GestureDetector(
-        onTap: _moveToCurrentLocation,
-        child: Container(
-          padding: const EdgeInsets.all(6),
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage(AppImages.rectangle),
-              fit: BoxFit.cover,
-              colorFilter: uiController.rectangleColorFilter,
+      return Positioned(
+        top: 50,
+        right: 4,
+        child: GestureDetector(
+          onTap: controller.moveToCurrentLocation,
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage(AppImages.rectangle),
+                fit: BoxFit.cover,
+                colorFilter: controller.uiController.rectangleColorFilter,
+              ),
+            ),
+            child: Image.asset(
+              AppImages.location,
+              fit: BoxFit.contain,
+              color: Colors.white,
             ),
           ),
-          child: Image.asset(
-            AppImages.location,
-            fit: BoxFit.contain,
-            color: Colors.white,
-          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   /// Build bottom action buttons - matching new location picker design
   Widget _buildBottomActionButtons() {
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 300),
-      bottom: _searchFocusNode.hasFocus ? -100 : 30, // Hide when search is focused
-      left: 20,
-      right: 20,
-      child: AnimatedOpacity(
+    // return Obx(() {
+      final hasFocus = controller.searchFocusNode.hasFocus;
+
+      return AnimatedPositioned(
         duration: const Duration(milliseconds: 300),
-        opacity: _searchFocusNode.hasFocus ? 0.0 : 1.0, // Fade out when search is focused
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // Close button
-            _buildBottomButton(
-              iconPath: 'assets/images/ic_cross.png',
-              onTap: () => Get.back(),
-            ),
-            // Done button
-            _buildBottomButton(
-              iconPath: 'assets/images/ic_tick.png',
-              onTap: _onDonePressed,
-            ),
-          ],
+        bottom: hasFocus ? -100 : 30, // Hide when search is focused
+        left: 20,
+        right: 20,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 300),
+          opacity: hasFocus ? 0.0 : 1.0, // Fade out when search is focused
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // Close button
+              _buildBottomButton(
+                iconPath: 'assets/images/ic_cross.png',
+                onTap: () => Get.back(),
+              ),
+              // Done button
+              _buildBottomButton(
+                iconPath: 'assets/images/ic_tick.png',
+                onTap: controller.onDonePressed,
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    // });
   }
 
   /// Build individual bottom button - matching new location picker design
@@ -949,377 +462,60 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       ),
     );
   }
-
-
-
-  /// Handle search focus changes
-  void _onSearchFocusChanged() {
-    if (_searchFocusNode.hasFocus) {
-      _showSearchResults.value = true;
-    } else {
-      // Only hide if search is empty
-      if (_searchController.text.isEmpty) {
-        _showSearchResults.value = false;
-      }
-    }
-    // Trigger rebuild for button animation
-    setState(() {});
-  }
-
-  /// Handle search text changes
-  void _onSearchChanged() {
-    final query = _searchController.text.trim();
-    if (query.isNotEmpty) {
-      _performLocationSearch(query);
-    } else {
-      _showSearchResults.value = false;
-      searchResults.clear();
-    }
-  }
-
-  /// Handle map creation
-  Future<void> _onMapCreated(mapbox.MapboxMap controller) async {
-    try {
-      mapController = controller;
-
-      // ENABLE online mode to allow localhost tile server access
-      // Mapbox's offline mode blocks ALL network requests, including localhost
-      await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-      debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
-
-      // Create annotation manager
-      annotationManager = await controller.annotations.createPointAnnotationManager();
-
-      // Check if there's already a selected location
-      final hasSelectedLocation = memoryController.selectedLocation.value.isNotEmpty &&
-                                   memoryController.locationLatitude.value != null &&
-                                   memoryController.locationLongitude.value != null;
-
-      if (hasSelectedLocation) {
-        // If location is already selected, show that location
-        final lat = memoryController.locationLatitude.value!;
-        final lng = memoryController.locationLongitude.value!;
-
-        await _moveToLocation(lat, lng);
-        await _selectLocation(lat, lng);
-        debugPrint('📍 Showing previously selected location on map load: $lat, $lng');
-      } else if (hasLocationPermission.value && currentPosition.value != null) {
-        // Otherwise, show current location if available
-        await _moveToLocation(
-          currentPosition.value!.latitude,
-          currentPosition.value!.longitude,
-        );
-        // Automatically select current location with red marker
-        await _selectLocation(
-          currentPosition.value!.latitude,
-          currentPosition.value!.longitude,
-        );
-        debugPrint('📍 Auto-selected current location on map load');
-      }
-    } catch (e) {
-      debugPrint('Error in onMapCreated: $e');
-    }
-  }
-
-  /// Handle map tap - show red marker without radius
-  Future<void> _onMapTap(mapbox.MapContentGestureContext context) async {
-    // Dismiss keyboard when tapping on map
-    if (_searchFocusNode.hasFocus) {
-      _searchFocusNode.unfocus();
-      _showSearchResults.value = false;
-    }
-
-    final point = context.point;
-    await _selectLocation(
-      point.coordinates.lat.toDouble(),
-      point.coordinates.lng.toDouble(),
-    );
-  }
-
-  /// Move to current location
-  Future<void> _moveToCurrentLocation() async {
-    if (currentPosition.value == null) {
-      await _getCurrentLocation();
-    }
-
-    if (currentPosition.value != null) {
-      await _moveToLocation(
-        currentPosition.value!.latitude,
-        currentPosition.value!.longitude,
-      );
-      await _selectLocation(
-        currentPosition.value!.latitude,
-        currentPosition.value!.longitude,
-      );
-    }
-  }
-
-  /// Move camera to location
-  Future<void> _moveToLocation(double lat, double lng) async {
-    if (mapController == null) return;
-
-    await mapController!.flyTo(
-      mapbox.CameraOptions(
-        center: mapbox.Point(
-          coordinates: mapbox.Position(lng, lat),
-        ),
-        zoom: MapboxZoomHelper().currentLocationZoom.value,
-      ),
-      mapbox.MapAnimationOptions(duration: 1000),
-    );
-  }
-
-  /// Select location and add red marker without radius
-  Future<void> _selectLocation(double lat, double lng) async {
-    if (annotationManager == null) {
-      debugPrint('[MemoryLocationPicker] ⚠️ Annotation manager is null, cannot select location');
-      return;
-    }
-
-    try {
-      debugPrint('[MemoryLocationPicker] 📍 Selecting location: $lat, $lng');
-
-      // Clear existing markers first
-      await _clearExistingMarkers();
-
-      // Create red marker image and add to style
-      await _createRedMarkerImage();
-
-      // Small delay to ensure image is added to style
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // Create new red marker
-      final pointAnnotationOptions = mapbox.PointAnnotationOptions(
-        geometry: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
-        iconImage: 'red-marker-icon',
-        iconSize: 0.1, // Reduced size to make it smaller
-      );
-
-      selectedLocationMarker = await annotationManager!.create(pointAnnotationOptions);
-      debugPrint('[MemoryLocationPicker] ✅ Red marker created at $lat, $lng');
-
-      // Update memory controller with selected location
-      memoryController.setLocation('$lat,$lng');
-
-      // Get location details using geocoding service
-      await _getLocationDetails(lat, lng);
-
-    } catch (e) {
-      debugPrint('[MemoryLocationPicker] ❌ Error selecting location: $e');
-    }
-  }
-
-  Future<void> _clearExistingMarkers() async {
-    if (annotationManager == null) return;
-
-    try {
-      // Clear all existing annotations
-      await annotationManager!.deleteAll();
-
-      // Reset the selected marker reference
-      selectedLocationMarker = null;
-
-      debugPrint('🧹 Cleared all existing location markers');
-    } catch (e) {
-      debugPrint('Error clearing existing markers: $e');
-    }
-  }
-
-  /// Create red marker image for selected location
-  Future<void> _createRedMarkerImage() async {
-    if (mapController == null) return;
-
-    try {
-      // Remove existing image if it exists
-      try {
-        await mapController!.style.removeStyleImage('red-marker-icon');
-      } catch (e) {
-        // Image doesn't exist yet, which is fine
-      }
-
-      // Create proper circular red marker using Canvas
-      final imageBytes = await _createRedMarkerImageBytes();
-
-      await mapController!.style.addStyleImage(
-        'red-marker-icon',
-        1.0,
-        mapbox.MbxImage(
-          data: imageBytes,
-          width: 500,
-          height: 500,
-        ),
-        false,
-        [],
-        [],
-        null,
-      );
-
-      debugPrint('✅ Red marker image created and added to map style');
-    } catch (e) {
-      debugPrint('Error creating red marker image: $e');
-    }
-  }
-
-  /// Create red marker image bytes using Canvas
-  Future<Uint8List> _createRedMarkerImageBytes() async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-
-    // Create a high-quality circular marker with higher resolution
-    const size = 500.0; // Doubled size for better quality
-    const center = Offset(size / 2, size / 2);
-    const innerRadius = size / 3.5; // Larger inner radius
-
-    // Draw inner red circle with solid color
-    final innerPaint = Paint()
-      ..color = const Color(0xFFE53E3E) // Better red color
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-    canvas.drawCircle(center, innerRadius, innerPaint);
-
-    // Draw white border around inner circle with better thickness
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 10.0 // Thicker border for better visibility
-      ..isAntiAlias = true;
-    canvas.drawCircle(center, innerRadius, borderPaint);
-
-    // Add a subtle shadow effect
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.2)
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true
-      ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 2.0);
-    canvas.drawCircle(center.translate(2, 2), innerRadius, shadowPaint);
-
-    // Convert to high-quality image
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(size.toInt(), size.toInt());
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    return byteData!.buffer.asUint8List();
-  }
-
-  /// Get location details using geocoding service
-  Future<void> _getLocationDetails(double lat, double lng) async {
-    try {
-      // Use the geocoding isolate service for reverse geocoding
-      final geocodingService = GeocodingIsolateService.instance;
-      final result = await geocodingService.reverseGeocode(lat, lng);
-
-      if (result != null) {
-        final country = result['country'] ?? '';
-        final city = result['city'] ?? '';
-        final address = result['address'] ?? '';
-        final flag = result['flag'] ?? countryFlags[country.toLowerCase()] ?? '📍';
-
-        memoryController.setEnhancedLocationData({
-          'latitude': lat,
-          'longitude': lng,
-          'city': city,
-          'country': country,
-          'address': address,
-          'flag': flag,
-          'name': city.isNotEmpty ? '$city, $country' : country,
-        });
-
-        debugPrint('📍 Location details: $city, $country $flag');
-      } else {
-        // Fallback to basic location data
-        memoryController.setEnhancedLocationData({
-          'latitude': lat,
-          'longitude': lng,
-          'city': 'Selected Location',
-          'country': 'Unknown',
-          'flag': '📍',
-        });
-      }
-    } catch (e) {
-      debugPrint('Error getting location details: $e');
-      // Fallback to basic location data
-      memoryController.setEnhancedLocationData({
-        'latitude': lat,
-        'longitude': lng,
-        'city': 'Selected Location',
-        'country': 'Unknown',
-        'flag': '📍',
-      });
-    }
-  }
-
-
-
-  /// Perform location search using LocationPickerService (same as new_location_picker_widget)
-  Future<void> _performLocationSearch(String query) async {
-
+  
+  Widget buildSearchContainer(bool isDark) {
     
-    if (query.trim().isEmpty) {
-                _showSearchResults.value = false;
+    return Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.8)
+                : Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Image.asset(
+                AppImages.searchNormal,
+                width: 20,
+                height: 20,
+                color: isDark ? Colors.white70 : Colors.grey[600],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSearchField(isDark),
+              ),
+              // Clear button - uses ValueListenableBuilder to listen to TextEditingController
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller.searchController,
+                builder: (context, value, child) {
+                  if (value.text.isEmpty) return const SizedBox.shrink();
 
-      return;
-      }
+                  return GestureDetector(
+                    onTap: () {
+                      controller.searchController.clear();
+                      controller.searchResults.clear();
+                      controller.showSearchResults.value = false;
+                      controller.searchFocusNode.unfocus();
+                    },
+                    child: Icon(
+                      Icons.clear,
+                      size: 20,
+                      color: isDark ? Colors.white54 : Colors.grey[600],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );}
 
-                _showSearchResults.value = true;
-
-
-    isSearching.value = true;
-    searchResults.clear();
-
-
-    try {
-      // Use LocationPickerService for searching (same database as new_location_picker_widget)
-      final results = await _locationPickerService.searchLocations(
-        query,
-        isOfflineMode: isOfflineMode.value,
-      );
-
-      // Results are already in the correct format from LocationPickerService
-      searchResults.addAll(results);
-
-    } catch (e) {
-      debugPrint('Error performing location search: $e');
-    } finally {
-      isSearching.value = false;
-    }
-  }
-
-  /// Select search result
-  Future<void> _selectSearchResult(Map<String, dynamic> result) async {
-    final lat = double.tryParse(result['latitude']?.toString() ?? '0') ?? 0.0;
-    final lng = double.tryParse(result['longitude']?.toString() ?? '0') ?? 0.0;
-
-    _showSearchResults.value = false;
-    _searchController.clear();
-    FocusScope.of(context).unfocus();
-
-    // Clear existing markers before selecting new location
-    await _clearExistingMarkers();
-
-    await _moveToLocation(lat, lng);
-    await _selectLocation(lat, lng);
-
-  }
-
-  /// Handle done button press - return complete location data with flag
-  void _onDonePressed() {
-    if (selectedLocationMarker == null) {
-      Get.back();
-      return;
-    }
-
-    // Return the complete location data including flag
-    final locationData = {
-      'latitude': selectedLocationMarker!.geometry.coordinates.lat,
-      'longitude': selectedLocationMarker!.geometry.coordinates.lng,
-      'city': memoryController.locationCity.value,
-      'country': memoryController.locationCountry.value,
-      'address': memoryController.locationAddress.value,
-      'flag': memoryController.locationFlag.value,
-      'name': memoryController.locationName.value,
-    };
-
-    debugPrint('🎯 Returning location data: $locationData');
-    Get.back(result: locationData);
-  }
 }

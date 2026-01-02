@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
+import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -106,6 +107,9 @@ class MemoryInfoWidget extends StatelessWidget {
                   if (onAnyWidgetTapped != null) {
                     onAnyWidgetTapped!();
                   }
+
+                    Get.put(MemoryLocationPickerController(), permanent: true);
+
                   var data = await Get.to(() => const MemoryLocationPickerWidget());
 
                   // Only update location if user pressed done (data is not null)
