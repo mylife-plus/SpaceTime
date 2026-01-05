@@ -31,7 +31,7 @@ class MapboxZoomHelper {
   
   /// Maximum zoom level for vector sources and map (default: 10)
   /// Changed from 18 to 10 as per requirements
-  static const double defaultMaxZoom = 11.0;
+  static const double defaultMaxZoom = 18.0;
   
   /// Maximum zoom level for cluster visibility (default: 4.0)
   /// Clusters are hidden when zoomed in past this level

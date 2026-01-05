@@ -37,7 +37,8 @@ class AddMemoriesController extends GetxController {
   bool _isScrollingDown = false;
 
   final RxMap<String, String> filterValues = <String, String>{}.obs;
-  final selectedLocation = ''.obs;
+  final selectedLocation = ''.obs; // Stores coordinates "lat,lng" for filtering
+  final selectedLocationDisplayName = ''.obs; // Stores display name for UI
   final selectedRadius = ''.obs;
   final RxList<String> selectedHashtags = <String>[].obs;
   final RxList<String> selectedContacts = <String>[].obs;
@@ -1758,6 +1759,7 @@ class AddMemoriesController extends GetxController {
   void resetFilters() {
     filterValues.clear();
     selectedLocation.value = '';
+    selectedLocationDisplayName.value = '';
     selectedRadius.value = '';
     selectedHashtags.clear();
     selectedContacts.clear();
@@ -1799,6 +1801,7 @@ class AddMemoriesController extends GetxController {
         ..clear()
         ..addAll(filterValues);
       mapController.selectedLocation.value = selectedLocation.value;
+      // mapController.selectedLocationDisplayName.value = selectedLocationDisplayName.value;
       mapController.selectedRadius.value = selectedRadius.value;
       mapController.selectedHashtags
         ..clear()
@@ -1821,6 +1824,7 @@ class AddMemoriesController extends GetxController {
   void _clearFiltersWithoutClosing() {
     filterValues.clear();
     selectedLocation.value = '';
+    selectedLocationDisplayName.value = '';
     selectedRadius.value = '';
     selectedHashtags.clear();
     selectedContacts.clear();
@@ -1885,21 +1889,32 @@ class AddMemoriesController extends GetxController {
 
   void setEnhancedLocationData(locationData) {
     if (locationData != null) {
-      print('locationData $locationData');
+      debugPrint('🎯 setEnhancedLocationData received: $locationData');
 
-      // Set enhanced location fields first
-
+      // Extract location data
       var locationLatitude = locationData['latitude']?.toDouble();
       var locationLongitude = locationData['longitude']?.toDouble();
 
-      // Always set selectedLocation as lat,lng coordinates with 4 decimal places
+      // Get display name from various possible fields
+      var displayName = locationData['name'] ??
+                       locationData['address'] ??
+                       locationData['city'] ??
+                       'Selected Location';
+
+      // Set selectedLocation as coordinates for filtering
+      // Set selectedLocationDisplayName for UI display
       if (locationLatitude != null && locationLongitude != null) {
-        // Format to 4 decimal places
+        // Format to 4 decimal places for filtering
         final formattedLat = locationLatitude.toStringAsFixed(4);
         final formattedLng = locationLongitude.toStringAsFixed(4);
         selectedLocation.value = '$formattedLat,$formattedLng';
+        selectedLocationDisplayName.value = displayName;
+
+        debugPrint('🎯 Set selectedLocation (coords): ${selectedLocation.value}');
+        debugPrint('🎯 Set selectedLocationDisplayName: $displayName');
       } else {
         selectedLocation.value = '';
+        selectedLocationDisplayName.value = '';
       }
     }
   }

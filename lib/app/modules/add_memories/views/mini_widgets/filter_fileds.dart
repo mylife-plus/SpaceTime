@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:spacetime/app/modules/map/controllers/memory_location_picker_with_radius_controller.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart';
 
 import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../map/controllers/map_controller_new.dart';
-import 'package:spacetime/app/modules/location_picker/views/new_location_picker_widget.dart';
 
 class MemoriesFilterTextFieldRow extends StatefulWidget {
   final String imagePath;
@@ -203,7 +204,9 @@ class _MemoriesFilterTextFieldRowState
   }
 
   Future<void> _pickLocation(BuildContext context, dynamic controller) async {
-    final result = await Get.to(() => const NewLocationPickerWidget());
+
+    Get.put(MemoryLocationPickerControllerWithRadius(), permanent:  true);
+    final result = await Get.to(() => const MemoryLocationPickerWidgetWithRadius());
     if (result != null) {
       // Extract location and radius from new location picker result
       final locationData = result['location'];

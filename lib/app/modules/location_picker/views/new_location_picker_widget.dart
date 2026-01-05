@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/modules/location_picker/controllers/location_picker_controller.dart';
@@ -9,9 +8,6 @@ import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/config/app_colors.dart';
-import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
-import 'package:spacetime/services/mbtiles_download_service.dart';
-import 'package:spacetime/services/mbtiles_server_service.dart';
 
 class NewLocationPickerWidget extends StatefulWidget {
   const NewLocationPickerWidget({super.key});
@@ -27,17 +23,11 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
   final FocusNode _searchFocusNode = FocusNode();
   final RxBool _showSearchResults = false.obs;
 
-  // Server state for local tiles
-  String? _serverUrl;
-  String? _serverErrorMessage;
-  bool _isInitializingServer = true;
-
   @override
   void initState() {
     super.initState();
     _searchFocusNode.addListener(_onSearchFocusChanged);
     _searchController.addListener(_onSearchChanged);
-    _initializeLocalTileServer();
   }
 
   @override
@@ -48,125 +38,8 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
     super.dispose();
   }
 
-  /// Initialize local tile server before map creation
-  /// Server is started in main.dart, so we just check if it's running
-  Future<void> _initializeLocalTileServer() async {
-    try {
-      debugPrint('[NewLocationPicker] 🔍 Checking if local tile server is running...');
-
-      final serverService = MbtilesServerService.instance;
-
-      // Check if server is already running (started in main.dart)
-      if (serverService.isRunning && serverService.serverUrl != null) {
-        setState(() {
-          _serverUrl = serverService.serverUrl;
-          _isInitializingServer = false;
-        });
-        debugPrint('[NewLocationPicker] ✅ Using existing tile server at: $_serverUrl');
-        debugPrint('[NewLocationPicker] 📡 Tiles will be served from: $_serverUrl/{z}/{x}/{y}.pbf');
-        return;
-      }
-
-      // If server is not running, try to start it (fallback)
-      debugPrint('[NewLocationPicker] ⚠️ Server not running, attempting to start...');
-
-      final mbtilesService = MbtilesDownloadService.instance;
-      final isDownloaded = await mbtilesService.isMbtilesDownloaded();
-      final tilesPath = mbtilesService.getLocalMbtilesPath();
-
-      if (!isDownloaded || tilesPath == null) {
-        setState(() {
-          _serverErrorMessage = 'MBTiles file not downloaded. Please download from Get Started screen first.';
-          _isInitializingServer = false;
-        });
-        debugPrint('[NewLocationPicker] ❌ $_serverErrorMessage');
-        return;
-      }
-
-      final url = await serverService.startServer(tilesPath);
-
-      if (url != null) {
-        setState(() {
-          _serverUrl = url;
-          _isInitializingServer = false;
-        });
-        debugPrint('[NewLocationPicker] ✅ Local tile server started at: $url');
-      } else {
-        setState(() {
-          _serverErrorMessage = 'Failed to start local tile server';
-          _isInitializingServer = false;
-        });
-        debugPrint('[NewLocationPicker] ❌ $_serverErrorMessage');
-      }
-    } catch (e) {
-      setState(() {
-        _serverErrorMessage = 'Error initializing tile server: $e';
-        _isInitializingServer = false;
-      });
-      debugPrint('[NewLocationPicker] ❌ $_serverErrorMessage');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Show loading while server is initializing
-    if (_isInitializingServer) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: Colors.white),
-                const SizedBox(height: 16),
-                Text(
-                  'Initializing map...',
-                  style: AppFonts.regular(14, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Show error if server failed to start
-    if (_serverErrorMessage != null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'Error',
-                  style: AppFonts.medium(18, color: Colors.red),
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _serverErrorMessage!,
-                    textAlign: TextAlign.center,
-                    style: AppFonts.regular(14, color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => Get.back(),
-                  child: const Text('Go Back'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -259,521 +132,14 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
 
   /// Build map widget
   Widget _buildMap() {
-    // If server URL is not available yet, show loading
-    if (_serverUrl == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text(
-              'Initializing map...',
-              style: TextStyle(color: Colors.white),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Server URL is available - load style.json from assets
-    final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-    final serverUrl = _serverUrl!; // Base server URL without tile pattern
-
-    return FutureBuilder<String>(
-      future: _loadStyleJsonFromAssets(tileUrl, serverUrl),
-      builder: (context, snapshot) {
-        // Show loading indicator while style.json is being loaded
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text(
-                  'Loading map style...',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ],
-            ),
-          );
-        }
-
-        // Handle error
-        if (snapshot.hasError) {
-          debugPrint('[NewLocationPicker] ❌ Error in FutureBuilder: ${snapshot.error}');
-          return Center(
-            child: Text(
-              'Error loading map style',
-              style: TextStyle(color: Colors.red),
-            ),
-          );
-        }
-
-        // Style loaded successfully - build the map
-        final styleJson = snapshot.data ?? _getBlankStyleJson();
-
-        return mapbox.MapWidget(
-          key: const ValueKey("mapbox_map_new"),
-          cameraOptions: _getCameraOptions(),
-          onMapCreated: (mapboxMap) async {
-            controller.mapController = mapboxMap;
-            debugPrint('[NewLocationPicker] 🗺️ onMapCreated callback triggered');
-
-            // CRITICAL: Enable online mode to allow localhost tile server access
-            await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-            debugPrint('[NewLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
-
-            // Load the custom style JSON with local tile server URLs
-            debugPrint('[NewLocationPicker] 📥 Loading custom style JSON into Mapbox...');
-            debugPrint('[NewLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
-
-            // Verify the JSON contains our localhost URLs before loading
-            if (styleJson.contains('localhost:8080')) {
-              debugPrint('[NewLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
-            } else {
-              debugPrint('[NewLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
-            }
-
-            await mapboxMap.loadStyleJson(styleJson);
-            debugPrint('[NewLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
-
-            _onMapCreated(mapboxMap);
-          },
-          onStyleLoadedListener: (styleLoadedEventData) async {
-            debugPrint('[NewLocationPicker] 🎨 onStyleLoaded callback triggered');
-            debugPrint('[NewLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
-          },
-          onTapListener: _onMapTap,
-          onCameraChangeListener: _onCameraChange,
-        );
-      },
+    return mapbox.MapWidget(
+      key: const ValueKey("mapbox_map_new"),
+      cameraOptions: _getCameraOptions(),
+      styleUri: mapbox.MapboxStyles.MAPBOX_STREETS,
+      onMapCreated: _onMapCreated,
+      onTapListener: _onMapTap,
+      onCameraChangeListener: _onCameraChange,
     );
-  }
-
-  /// Get a blank style JSON that doesn't reference any Mapbox sources
-  /// This prevents the "Failed to load tile for source composite" errors
-  String _getBlankStyleJson() {
-    return '''
-{
-  "version": 8,
-  "name": "Blank",
-  "metadata": {
-    "mapbox:autocomposite": false
-  },
-  "sources": {},
-  "layers": [
-    {
-      "id": "background",
-      "type": "background",
-      "paint": {
-        "background-color": "#f0f0f0"
-      }
-    }
-  ]
-}
-''';
-  }
-
-    /// Get custom style URI with local tile server URL
-  String _getCustomStyleUri() {
-
-
-    // Load style.json from assets and replace placeholder with actual server URL
-    final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-    debugPrint('[MapViewWidgetNew] 📡 Using custom style with tile URL: $tileUrl');
-
-    // Return the style JSON with the local tile URL
-    // Note: We'll load and modify the assets/style.json content
-    return _getStyleJsonWithLocalTiles(tileUrl);
-  }
-
-  /// Get style JSON from assets with local tile URL
-  /// Loads assets/style.json and replaces {LOCAL_TILE_URL} placeholder
-  String _getStyleJsonWithLocalTiles(String tileUrl) {
-    // This method is synchronous but needs to load from assets
-    // We'll use a FutureBuilder in _buildMapWidget instead
-    // For now, return a placeholder that indicates loading is needed
-    return 'LOADING_FROM_ASSETS';
-  }
-
-  /// Load style.json from assets and replace placeholders with actual server URLs
-  Future<String> _loadStyleJsonFromAssets(String tileUrl, String serverUrl) async {
-    try {
-      debugPrint('[MapViewWidgetNew] 📂 Loading style.json from assets...');
-
-      // Load style.json from assets folder
-      final styleJsonString = await rootBundle.loadString('assets/custom-style.json');
-      debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from assets');
-
-      // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
-      // This prevents the tile URL pattern from interfering with server URL
-      var modifiedStyleJson = styleJsonString
-          .replaceAll('{LOCAL_SERVER_URL}', serverUrl)
-          .replaceAll('{LOCAL_TILE_URL}', tileUrl);
-
-      debugPrint('[MapViewWidgetNew] 📡 Replaced {LOCAL_SERVER_URL} with: $serverUrl');
-      debugPrint('[MapViewWidgetNew] 📡 Replaced {LOCAL_TILE_URL} with: $tileUrl');
-      debugPrint('[MapViewWidgetNew] ✅ Style JSON configured with local MBTiles server');
-
-      // Debug: Check if glyphs and sprite fields are correctly replaced
-      if (modifiedStyleJson.contains('{LOCAL_SERVER_URL}') || modifiedStyleJson.contains('{LOCAL_TILE_URL}')) {
-        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: Placeholders still present in style JSON!');
-      }
-
-      // Check for glyphs field
-      if (modifiedStyleJson.contains('"glyphs"')) {
-        final glyphsMatch = RegExp(r'"glyphs":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
-        if (glyphsMatch != null) {
-          debugPrint('[MapViewWidgetNew] 📝 Glyphs URL: ${glyphsMatch.group(1)}');
-        } else {
-          debugPrint('[MapViewWidgetNew] ⚠️ WARNING: glyphs field found but URL could not be extracted!');
-        }
-      } else {
-        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: No glyphs field found in style JSON!');
-      }
-      // Check for sprite field
-      if (modifiedStyleJson.contains('"sprite"')) {
-        final spriteMatch = RegExp(r'"sprite":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
-        if (spriteMatch != null) {
-          debugPrint('[MapViewWidgetNew] 🎨 Sprite URL: ${spriteMatch.group(1)}');
-        } else {
-          debugPrint('[MapViewWidgetNew] ⚠️ WARNING: sprite field found but URL could not be extracted!');
-        }
-      } else {
-        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: No sprite field found in style JSON!');
-      }
-
-      // Print the sources, sprite, and glyphs section for verification
-      debugPrint('[MapViewWidgetNew] 📄 ========== STYLE JSON VERIFICATION ==========');
-      final sourcesMatch = RegExp(r'"sources":\s*\{[^}]+\}', multiLine: true, dotAll: true).firstMatch(modifiedStyleJson);
-      if (sourcesMatch != null) {
-        debugPrint('[MapViewWidgetNew] 📦 Sources section: ${sourcesMatch.group(0)}');
-      }
-
-      // Extract and print sprite and glyphs lines
-      final lines = modifiedStyleJson.split('\n');
-      for (int i = 0; i < lines.length; i++) {
-        if (lines[i].contains('"sprite"') || lines[i].contains('"glyphs"')) {
-          debugPrint('[MapViewWidgetNew] 📄 Line ${i + 1}: ${lines[i].trim()}');
-        }
-      }
-      debugPrint('[MapViewWidgetNew] 📄 ==========================================');
-
-      return modifiedStyleJson;
-    } catch (e) {
-      debugPrint('[MapViewWidgetNew] ❌ Error loading style.json from assets: $e');
-      debugPrint('[MapViewWidgetNew] ⚠️ Falling back to simplified style');
-
-      // Fallback to a simplified style if assets/style.json is not found
-      return '''
-{
-  "version": 8,
-  "name": "Local Tiles Fallback",
-  "metadata": {
-    "mapbox:autocomposite": false
-  },
-  "sources": {
-    "openmaptiles": {
-      "type": "vector",
-      "tiles": ["$tileUrl"],
-      "minzoom": 0,
-      "maxzoom": 14
-    }
-  },
-  "projection": { "type": "globe" },
-  "sprite": "",
-  "glyphs": "",
-  "layers": [
-    {
-      "id": "background",
-      "type": "background",
-      "paint": {"background-color": "hsl(47, 26%, 88%)"}
-    },
-    {
-      "id": "water",
-      "type": "fill",
-      "source": "openmaptiles",
-      "source-layer": "water",
-      "filter": ["==", "\$type", "Polygon"],
-      "paint": {"fill-color": "hsl(205, 56%, 73%)"}
-    },
-    {
-      "id": "road",
-      "type": "line",
-      "source": "openmaptiles",
-      "source-layer": "transportation",
-      "paint": {"line-color": "#fff", "line-width": 1.5}
-    }
-  ]
-}
-''';
-    }
-  }
-
-  /// Add local tile source from downloaded mbtiles (called after style loads)
-  Future<void> _addLocalTileSource() async {
-    try {
-      if (_serverUrl == null) {
-        debugPrint('[NewLocationPicker] ⚠️ Server URL is null, skipping tile source addition');
-        return;
-      }
-
-      final mapController = controller.mapController;
-      if (mapController == null) {
-        debugPrint('[NewLocationPicker] ⚠️ Map controller is null, skipping tile source addition');
-        return;
-      }
-
-      debugPrint('[NewLocationPicker] 🗺️ Adding local tile source...');
-
-      final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-      debugPrint('[NewLocationPicker] Tile URL template: $tileUrl');
-
-      // Add vector source with zoom levels from MapboxZoomHelper
-      final zoomHelper = MapboxZoomHelper();
-      await mapController.style.addSource(
-        mapbox.VectorSource(
-          id: 'local-tiles',
-          tiles: [tileUrl],
-          minzoom: zoomHelper.minZoom.value,
-          maxzoom: zoomHelper.maxZoom.value,
-        ),
-      );
-
-      debugPrint('[NewLocationPicker] ✅ Local tile source added (zoom: ${zoomHelper.minZoom.value}-${zoomHelper.maxZoom.value})');
-
-      // Add layers to display the tiles (CRITICAL - without this, tiles won't show!)
-      await _addLocalTileLayers();
-    } catch (e) {
-      debugPrint('[NewLocationPicker] ❌ Error adding tile source: $e');
-      // Continue anyway - map will use default Mapbox tiles
-    }
-  }
-
-  /// Add layers to display local tiles
-  /// Using all 15 layers from OpenMapTiles schema
-  Future<void> _addLocalTileLayers() async {
-    try {
-      final mapController = controller.mapController;
-      if (mapController == null) return;
-
-      debugPrint('[NewLocationPicker] 🎨 Adding all 15 OpenMapTiles layers...');
-
-      // 1. Background layer (ocean/sea)
-      await mapController.style.addLayer(
-        mapbox.BackgroundLayer(
-          id: 'local-background',
-          backgroundColor: 0xFFAAD3DF,
-        ),
-      );
-
-      // 2. Water bodies
-      try {
-        await mapController.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-water',
-            sourceId: 'local-tiles',
-            sourceLayer: 'water',
-            fillColor: 0xFFAAD3DF,
-            fillOpacity: 1.0,
-          ),
-        );
-      } catch (e) {}
-
-      // 3. Landcover
-      try {
-        await mapController.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landcover',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landcover',
-            fillColor: 0xFFE8E8E8,
-            fillOpacity: 1.0,
-          ),
-        );
-      } catch (e) {}
-
-      // 4. Landuse
-      try {
-        await mapController.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landuse',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landuse',
-            fillColor: 0xFFD4E7D4,
-            fillOpacity: 0.6,
-          ),
-        );
-      } catch (e) {}
-
-      // 5. Parks
-      try {
-        await mapController.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-park',
-            sourceId: 'local-tiles',
-            sourceLayer: 'park',
-            fillColor: 0xFFC8E6C9,
-            fillOpacity: 0.7,
-          ),
-        );
-      } catch (e) {}
-
-      // 6. Waterways
-      try {
-        await mapController.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-waterway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'waterway',
-            lineColor: 0xFFAAD3DF,
-            lineWidth: 1.0,
-          ),
-        );
-      } catch (e) {}
-
-      // 7. Buildings
-      try {
-        await mapController.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-building',
-            sourceId: 'local-tiles',
-            sourceLayer: 'building',
-            fillColor: 0xFFD0D0D0,
-            fillOpacity: 0.7,
-          ),
-        );
-      } catch (e) {}
-
-      // 8. Aeroway
-      try {
-        await mapController.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-aeroway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'aeroway',
-            fillColor: 0xFFE0E0E0,
-            fillOpacity: 0.5,
-          ),
-        );
-      } catch (e) {}
-
-      // 9. Transportation
-      try {
-        await mapController.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-transportation',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFFFFFFFF,
-            lineWidth: 1.5,
-          ),
-        );
-      } catch (e) {}
-
-      // 10. Boundaries
-      try {
-        await mapController.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-boundary',
-            sourceId: 'local-tiles',
-            sourceLayer: 'boundary',
-            lineColor: 0xFFCCCCCC,
-            lineWidth: 0.5,
-          ),
-        );
-      } catch (e) {}
-
-      // 11. Water names
-      try {
-        await mapController.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-water-name',
-            sourceId: 'local-tiles',
-            sourceLayer: 'water_name',
-            textField: '{name}',
-            textSize: 11.0,
-            textColor: 0xFF4A90E2,
-          ),
-        );
-      } catch (e) {}
-
-      // 12. Transportation names
-      try {
-        await mapController.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-transportation-name',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation_name',
-            textField: '{name}',
-            textSize: 10.0,
-            textColor: 0xFF666666,
-          ),
-        );
-      } catch (e) {}
-
-      // 13. Place names
-      try {
-        await mapController.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-place',
-            sourceId: 'local-tiles',
-            sourceLayer: 'place',
-            textField: '{name}',
-            textSize: 12.0,
-            textColor: 0xFF000000,
-          ),
-        );
-      } catch (e) {}
-
-      // 14. POI
-      try {
-        await mapController.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-poi',
-            sourceId: 'local-tiles',
-            sourceLayer: 'poi',
-            textField: '{name}',
-            textSize: 10.0,
-            textColor: 0xFF333333,
-          ),
-        );
-      } catch (e) {}
-
-      // 15. Mountain peaks
-      try {
-        await mapController.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-mountain-peak',
-            sourceId: 'local-tiles',
-            sourceLayer: 'mountain_peak',
-            textField: '{name}',
-            textSize: 10.0,
-            textColor: 0xFF8B4513,
-          ),
-        );
-      } catch (e) {}
-
-      // 16. House numbers
-      try {
-        await mapController.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-housenumber',
-            sourceId: 'local-tiles',
-            sourceLayer: 'housenumber',
-            textField: '{housenumber}',
-            textSize: 9.0,
-            textColor: 0xFF999999,
-          ),
-        );
-      } catch (e) {}
-
-      debugPrint('[NewLocationPicker] ✅ All 15 OpenMapTiles layers added');
-    } catch (e) {
-      debugPrint('[NewLocationPicker] ❌ Error adding tile layers: $e');
-    }
   }
 
   /// Build floating action buttons
@@ -1039,21 +405,21 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
             controller.currentPosition.value!.latitude,
           ),
         ),
-        zoom: MapboxZoomHelper().currentLocationZoom.value,
+        zoom: 14.0,
       );
     }
     return null;
-  }
+  }           
 
   /// Handle map creation
   Future<void> _onMapCreated(mapbox.MapboxMap mapController) async {
     try {
       controller.setMapController(mapController);
 
-      // ENABLE online mode to allow localhost tile server access
-      // Mapbox's offline mode blocks ALL network requests, including localhost
-      await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-      debugPrint('[NewLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+
+
+      // Configure offline map
+      await controller.configureOfflineMap(mapController);
 
       // Create annotation manager
       final annotationManager = await mapController.annotations.createPointAnnotationManager();

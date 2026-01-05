@@ -85,6 +85,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
         ..clear()
         ..addAll(mapController.filterValues);
       addMemoriesController.selectedLocation.value = mapController.selectedLocation.value;
+      // addMemoriesController.selectedLocationDisplayName.value = mapController.selectedLocationDisplayName.value;
       addMemoriesController.selectedRadius.value = mapController.selectedRadius.value;
       addMemoriesController.selectedHashtags
         ..clear()
@@ -103,6 +104,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
         ..clear()
         ..addAll(addMemoriesController.filterValues);
       mapController.selectedLocation.value = addMemoriesController.selectedLocation.value;
+      // mapController.selectedLocationDisplayName.value = addMemoriesController.selectedLocationDisplayName.value;
       mapController.selectedRadius.value = addMemoriesController.selectedRadius.value;
       mapController.selectedHashtags
         ..clear()
