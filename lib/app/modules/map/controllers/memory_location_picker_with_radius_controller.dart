@@ -421,7 +421,13 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   }
 
   Future<void> onDonePressed() async {
-  
+    if (selectedLocationMarker == null) {
+      debugPrint('⚠️ Selected Location Marker Is Null');
+      Get.back();
+      return;
+    }
+
+    // Build location data in the same format as new location picker
     final locationData = {
       'latitude': lat,
       'longitude': lng,
@@ -627,6 +633,8 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
 
       // Move layers below a known label layer (check actual layer IDs!)
       // final allLayers = await style.styleAllLayerIds();
+          final layers = await mapController!.style.getStyleLayers();
+
       String? labelLayerId = layers[80]!.id;
       for (var id in layers) {
         print('Layer IDS: ${id.toString()}');

@@ -110,121 +110,27 @@ class ClusterRepository extends GetxService {
   }
 
   /// Perform the actual clustering algorithm
+  /// Modified to return all memories as individual and let Mapbox handle clustering natively
   Future<ClusteringResult> _performClustering(
     List<Map<String, dynamic>> memories,
     double maxDistanceKm,
     ClusteringConfig config,
   ) async {
-    final clusteredMemories = <Map<String, dynamic>>[];
-    final resultClusters = <MemoryCluster>[];
-    final processedIndices = <int>{};
+    debugPrint(
+      '[ClusterRepository] 🎯 Skipping custom clustering - letting Mapbox handle it natively',
+    );
+    debugPrint(
+      '[ClusterRepository] 📊 Returning ${memories.length} memories as individual points',
+    );
 
-    for (int i = 0; i < memories.length; i++) {
-      if (processedIndices.contains(i)) continue;
-
-      final currentMemory = memories[i];
-      final currentLat = currentMemory['location_latitude'] as double;
-      final currentLng = currentMemory['location_longitude'] as double;
-
-      // Find nearby memories
-      final nearbyMemories = <Map<String, dynamic>>[currentMemory];
-      final nearbyIndices = <int>[i];
-
-      for (int j = i + 1; j < memories.length; j++) {
-        if (processedIndices.contains(j)) continue;
-
-        final otherMemory = memories[j];
-        final otherLat = otherMemory['location_latitude'] as double;
-        final otherLng = otherMemory['location_longitude'] as double;
-
-        final distance = _calculateDistance(
-          currentLat,
-          currentLng,
-          otherLat,
-          otherLng,
-        );
-
-        if (distance <= maxDistanceKm) {
-          nearbyMemories.add(otherMemory);
-          nearbyIndices.add(j);
-        }
-      }
-
-      // Create cluster if we have enough memories
-      if (nearbyMemories.length >= config.minClusterSize) {
-        final center = MemoryCluster.calculateCenter(nearbyMemories);
-        final clusterId = _generateClusterId(
-          center['latitude']!,
-          center['longitude']!,
-        );
-
-        final cluster = MemoryCluster(
-          id: clusterId,
-          latitude: center['latitude']!,
-          longitude: center['longitude']!,
-          memories: nearbyMemories,
-          radiusKm: maxDistanceKm,
-        );
-
-        resultClusters.add(cluster);
-        clusteredMemories.addAll(nearbyMemories);
-        processedIndices.addAll(nearbyIndices);
-
-        debugPrint(
-          '[ClusterRepository] Created cluster $clusterId with ${nearbyMemories.length} memories',
-        );
-      }
-    }
-
-    // Individual memories are those not in any cluster
-    final individualMems =
-        memories
-            .where((memory) => !clusteredMemories.contains(memory))
-            .toList();
-
+    // Return all memories as individual - no custom clustering
+    // Mapbox will handle clustering natively based on GeoJSON source configuration
     return ClusteringResult(
-      clusters: resultClusters,
-      individualMemories: individualMems,
+      clusters: [], // Empty - Mapbox handles clustering
+      individualMemories: memories, // All memories as individual points
       config: config,
       totalMemories: memories.length,
     );
-  }
-
-  /// Calculate distance between two points using Haversine formula
-  double _calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    const double earthRadius = 6371; // Earth's radius in kilometers
-
-    final double dLat = _degreesToRadians(lat2 - lat1);
-    final double dLon = _degreesToRadians(lon2 - lon1);
-
-    final double a =
-        math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_degreesToRadians(lat1)) *
-            math.cos(_degreesToRadians(lat2)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-
-    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-
-    return earthRadius * c;
-  }
-
-  /// Convert degrees to radians
-  double _degreesToRadians(double degrees) {
-    return degrees * (math.pi / 180);
-  }
-
-  /// Generate unique cluster ID
-  String _generateClusterId(double lat, double lng) {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final latStr = lat.toStringAsFixed(6).replaceAll('.', '');
-    final lngStr = lng.toStringAsFixed(6).replaceAll('.', '');
-    return 'cluster_${latStr}_${lngStr}_$timestamp';
   }
 
   /// Get cluster by ID

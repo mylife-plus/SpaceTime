@@ -17,6 +17,7 @@ abstract class Routes {
   static const ADD_MEMORIES = _Paths.ADD_MEMORIES;
   static const MEMORIES = _Paths.MEMORIES;
   static const GLOBE_TEST = _Paths.GLOBE_TEST;
+  static const CLUSTERING_EXAMPLE = _Paths.CLUSTERING_EXAMPLE;
 }
 
 abstract class _Paths {
@@ -35,4 +36,5 @@ abstract class _Paths {
   static const ADD_MEMORIES = '/add_memories';
   static const MEMORIES = '/memories';
   static const GLOBE_TEST = '/globe-test';
+  static const CLUSTERING_EXAMPLE = '/clustering-example';
 }

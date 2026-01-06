@@ -204,13 +204,20 @@ class _MemoriesFilterTextFieldRowState
   }
 
   Future<void> _pickLocation(BuildContext context, dynamic controller) async {
+    debugPrint('🎯 [FilterFields] Opening MemoryLocationPickerWithRadius');
 
     Get.put(MemoryLocationPickerControllerWithRadius(), permanent:  true);
     final result = await Get.to(() => const MemoryLocationPickerWidgetWithRadius());
+
+    debugPrint('🎯 [FilterFields] Location picker returned: $result');
+
     if (result != null) {
       // Extract location and radius from new location picker result
       final locationData = result['location'];
       final radius = result['radius'] ?? 10.0;
+
+      debugPrint('🎯 [FilterFields] Extracted locationData: $locationData');
+      debugPrint('🎯 [FilterFields] Extracted radius: $radius');
 
       // Convert to format expected by controller
       final enhancedLocationData = {
@@ -226,9 +233,17 @@ class _MemoriesFilterTextFieldRowState
         'source': locationData['source'] ?? 'location_picker',
       };
 
+      debugPrint('🎯 [FilterFields] Calling setEnhancedLocationData with: $enhancedLocationData');
       controller.setEnhancedLocationData(enhancedLocationData);
+
+      debugPrint('🎯 [FilterFields] Calling setRadius with: ${radius.toInt()}');
       controller.setRadius(radius.toInt().toString());
-      // No need to focus radius field since it's now concatenated with location
+
+      debugPrint('🎯 [FilterFields] After setting - selectedLocation: ${controller.selectedLocation.value}');
+      debugPrint('🎯 [FilterFields] After setting - selectedLocationDisplayName: ${controller.selectedLocationDisplayName.value}');
+      debugPrint('🎯 [FilterFields] After setting - selectedRadius: ${controller.selectedRadius.value}');
+    } else {
+      debugPrint('🎯 [FilterFields] Location picker returned null');
     }
   }
 
@@ -288,8 +303,10 @@ class _MemoriesFilterTextFieldRowState
                       // Update controller text when value changes
                       String currentValue;
                       if (isLocationField) {
-                        // Concatenate location with radius using ' + '
-                        String locationValue = controller.selectedLocation.value;
+                        // Use display name if available, otherwise use coordinates
+                        String locationValue = controller.selectedLocationDisplayName.value.isNotEmpty
+                            ? controller.selectedLocationDisplayName.value
+                            : controller.selectedLocation.value;
                         String radiusValue = controller.selectedRadius.value;
 
                         if (locationValue.isNotEmpty && radiusValue.isNotEmpty) {
@@ -308,6 +325,7 @@ class _MemoriesFilterTextFieldRowState
 
                       if (isLocationField) {
                         final isHint =
+                            controller.selectedLocationDisplayName.value.isEmpty &&
                             controller.selectedLocation.value.isEmpty;
 
                         if (!isHint && _textController.text != currentValue) {
@@ -322,8 +340,11 @@ class _MemoriesFilterTextFieldRowState
 
                       return Obx(() {
                         // For location field with radius, use RichText for colored radius
-                        if (isLocationField && controller.selectedLocation.value.isNotEmpty && controller.selectedRadius.value.isNotEmpty) {
-                          String locationValue = controller.selectedLocation.value;
+                        if (isLocationField && (controller.selectedLocationDisplayName.value.isNotEmpty || controller.selectedLocation.value.isNotEmpty) && controller.selectedRadius.value.isNotEmpty) {
+                          // Use display name if available, otherwise use coordinates
+                          String locationValue = controller.selectedLocationDisplayName.value.isNotEmpty
+                              ? controller.selectedLocationDisplayName.value
+                              : controller.selectedLocation.value;
                           String radiusValue = controller.selectedRadius.value;
 
                           return Container(

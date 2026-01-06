@@ -87,11 +87,11 @@ class RadiusPolygonHelper {
       ),
     );
 
-    // 🔑 Move layers BELOW label layers (best for MapTiler OSM)
+    // 🔑 Move layers ABOVE label layers (best for MapTiler OSM)
     await _moveBelowLabels(map);
   }
 
-  /// Move polygon below label layers
+  /// Move polygon above label layers
   static Future<void> _moveBelowLabels(mapbox.MapboxMap map) async {
     final style = map.style;
     final layers = await style.getStyleLayers();
@@ -105,9 +105,14 @@ class RadiusPolygonHelper {
       orElse: () => layers.last,
     );
 
-    await style.moveStyleLayer(fillLayerId,  mapbox.LayerPosition(below: labelLayer!.id),
-);
-    await style.moveStyleLayer(outlineLayerId, mapbox.LayerPosition(below: labelLayer!.id),);
+    await style.moveStyleLayer(
+      fillLayerId,
+      mapbox.LayerPosition(above: labelLayer!.id),
+    );
+    await style.moveStyleLayer(
+      outlineLayerId,
+      mapbox.LayerPosition(above: labelLayer!.id),
+    );
   }
 
   /// Clear polygon (tap-safe)

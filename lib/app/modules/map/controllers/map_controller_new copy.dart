@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' as io;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -10,7 +9,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/services/offline_map_service.dart';
 import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
-import 'package:spacetime/utils/cluster_icon_generator.dart';
 import '../../../../services/permission_service.dart';
 import '../../../../services/connectivity_service.dart';
 import '../../../repositories/memory_repository.dart';
@@ -44,10 +42,6 @@ class MapControllerNew extends GetxController {
   static const String INDIVIDUAL_COUNT_LAYER_ID = 'individual-count-layer';
   static const String ARROW_LINES_SOURCE_ID = 'arrow-lines-source';
   static const String ARROW_LINES_LAYER_ID = 'arrow-lines-layer';
-
-  // Cluster size tiers - used for both icon generation and layer creation
-final List<int> CLUSTER_SIZE_TIERS =
-    List<int>.generate(200, (index) => index + 1);
 
   // Zoom level constants - now loaded from MapboxZoomHelper
   // These getters provide access to the centralized zoom configuration
@@ -100,6 +94,7 @@ final List<int> CLUSTER_SIZE_TIERS =
   bool _isBottomPanelOpen = false;
 
   // Services
+  ConnectivityService? _connectivityService;
   MemoryRepository? _memoryRepository;
   ClusterRepository? _clusterRepository;
   MapMarkerService? _mapMarkerService;
@@ -148,7 +143,13 @@ final List<int> CLUSTER_SIZE_TIERS =
 
   /// Initialize services
   void _initializeServices() {
-    
+    try {
+      _connectivityService = Get.find<ConnectivityService>();
+      debugPrint('[MapControllerNew] ConnectivityService found');
+    } catch (e) {
+      debugPrint('[MapControllerNew] ConnectivityService not found: $e');
+    }
+
     // Initialize memory repository
     try {
       _memoryRepository = Get.find<MemoryRepository>();
@@ -171,6 +172,18 @@ final List<int> CLUSTER_SIZE_TIERS =
       debugPrint('[MapControllerNew] MapMarkerService found');
     } catch (e) {
       debugPrint('[MapControllerNew] MapMarkerService not found: $e');
+    }
+
+    // Initialize offline map coordinator
+    try {
+      _offlineCoordinator = Get.find<OfflineMapCoordinatorService>();
+      debugPrint('[MapControllerNew] OfflineMapCoordinatorService found');
+    } catch (e) {
+      debugPrint(
+        '[MapControllerNew] OfflineMapCoordinatorService not found, creating: $e',
+      );
+      Get.put(OfflineMapCoordinatorService());
+      _offlineCoordinator = Get.find<OfflineMapCoordinatorService>();
     }
 
     // Load filter data
@@ -741,12 +754,6 @@ final List<int> CLUSTER_SIZE_TIERS =
   }
 
   /// Setup MapBox native clustering with memories
-  ///
-  /// CircleLayerClusteringPage Integration:
-  /// - Optimized clustering parameters: clusterRadius: 50, clusterMaxZoom: 14, clusterMinPoints: 2
-  /// - Smooth visual effects: circleBlur for clusters and unclustered points
-  /// - Zoom-in behavior: +2.0 zoom on cluster tap with 800ms animation
-  /// - Layer-specific feature querying for accurate tap detection
   Future<void> _setupMapboxClustering(
     List<Map<String, dynamic>> memories,
   ) async {
@@ -766,9 +773,6 @@ final List<int> CLUSTER_SIZE_TIERS =
       );
       debugPrint(
         '[MapControllerNew] Setting up native clustering for ${memories.length} memories',
-      );
-      debugPrint(
-        '[MapControllerNew] Using CircleLayerClusteringPage optimizations for smooth clustering',
       );
 
       // First, create our own clusters for tap detection
@@ -790,7 +794,6 @@ final List<int> CLUSTER_SIZE_TIERS =
       );
 
       // Add GeoJSON source with clustering enabled
-      // Using optimized settings from CircleLayerClusteringPage for smooth clustering
       debugPrint('[MapControllerNew] Adding GeoJSON source: $MEMORY_SOURCE_ID');
       try {
         await mapboxMap!.style.addSource(
@@ -798,14 +801,14 @@ final List<int> CLUSTER_SIZE_TIERS =
             id: MEMORY_SOURCE_ID,
             data: geoJsonString,
             cluster: true,
-            clusterRadius: 50, // Radius of each cluster (pixels) - optimized for smooth clustering
-            clusterMaxZoom: 13.5, // Max zoom to cluster points - stops clustering at zoom 15+
+            clusterMaxZoom: MapboxZoomHelper().clusterMaxZoom.value, // Max zoom to cluster points on
+            clusterRadius:
+                50, // Radius of each cluster when clustering points (pixels)
             clusterMinPoints: 2, // Minimum points to form a cluster
-            clusterProperties: {}, // Performance optimization: enable clustering properties
           ),
         );
         debugPrint(
-          '[MapControllerNew] ✅ Successfully added GeoJSON source with optimized clustering (radius: 50, maxZoom: 14, minPoints: 2)',
+          '[MapControllerNew] ✅ Successfully added GeoJSON source with clustering enabled',
         );
       } catch (e) {
         if (e.toString().contains('already exists')) {
@@ -836,7 +839,7 @@ final List<int> CLUSTER_SIZE_TIERS =
       }
 
       // Add cluster layers
-      await _addClusterLayers(memories);
+      await _addClusterLayers();
       debugPrint('[MapControllerNew] Added cluster layers');
 
       // Setup click handlers
@@ -955,27 +958,27 @@ final List<int> CLUSTER_SIZE_TIERS =
   Future<void> _createClustersAndUpdateMarkers(
     List<Map<String, dynamic>> memories,
   ) async {
-    // if (_clusterRepository == null || _mapMarkerService == null) {
-    //   debugPrint('[MapControllerNew] Clustering services not initialized');
-    //   return;
-    // }
+    if (_clusterRepository == null || _mapMarkerService == null) {
+      debugPrint('[MapControllerNew] Clustering services not initialized');
+      return;
+    }
 
-    // try {
-    //   // Get current zoom level for dynamic clustering
-    //   double? zoomLevel;
-    //   if (mapboxMap != null) {
-    //     try {
-    //       final cameraState = await mapboxMap!.getCameraState();
-    //       zoomLevel = cameraState.zoom;
-    //     } catch (e) {
-    //       debugPrint('[MapControllerNew] Could not get zoom level: $e');
-    //     }
-    //   }
+    try {
+      // Get current zoom level for dynamic clustering
+      double? zoomLevel;
+      if (mapboxMap != null) {
+        try {
+          final cameraState = await mapboxMap!.getCameraState();
+          zoomLevel = cameraState.zoom;
+        } catch (e) {
+          debugPrint('[MapControllerNew] Could not get zoom level: $e');
+        }
+      }
 
       // Create clusters
       final clusteringResult = await _clusterRepository!.createClusters(
         memories,
-        zoomLevel: 0,
+        zoomLevel: zoomLevel,
       );
 
       debugPrint(
@@ -1031,18 +1034,18 @@ final List<int> CLUSTER_SIZE_TIERS =
       _setupMarkerCallbacks();
 
       debugPrint('[MapControllerNew] Map markers updated successfully');
-    // } catch (e) {
-    //   debugPrint(
-    //     '[MapControllerNew] Error creating clusters and updating markers: $e',
-    //   );
-    //   Get.snackbar(
-    //     'Clustering Error',
-    //     'Failed to create memory clusters: $e',
-    //     backgroundColor: Colors.red.withValues(alpha: 0.8),
-    //     colorText: Colors.white,        duration: const Duration(seconds: 2),
+    } catch (e) {
+      debugPrint(
+        '[MapControllerNew] Error creating clusters and updating markers: $e',
+      );
+      Get.snackbar(
+        'Clustering Error',
+        'Failed to create memory clusters: $e',
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,        duration: const Duration(seconds: 2),
 
-    //   );
-    // }
+      );
+    }
   }
 
   /// Setup marker tap callbacks
@@ -2261,30 +2264,10 @@ void _resetTapState() {
 
   /// Clear all lines/arrows from the map
   Future<void> clearAllLines() async {
-    // Clear MapMarkerService annotations (old approach)
     if (_mapMarkerService != null) {
       await _mapMarkerService!.clearAll();
-      debugPrint('[MapControllerNew] MapMarkerService lines and markers cleared');
+      debugPrint('[MapControllerNew] All lines and markers cleared');
     }
-
-    // Clear native arrow layers (new approach)
-    if (mapboxMap != null) {
-      try {
-        await mapboxMap!.style.removeStyleLayer(ARROW_LINES_LAYER_ID);
-        debugPrint('[MapControllerNew] Removed arrow layer');
-      } catch (e) {
-        debugPrint('[MapControllerNew] No arrow layer to remove');
-      }
-
-      try {
-        await mapboxMap!.style.removeStyleSource(ARROW_LINES_SOURCE_ID);
-        debugPrint('[MapControllerNew] Removed arrow source');
-      } catch (e) {
-        debugPrint('[MapControllerNew] No arrow source to remove');
-      }
-    }
-
-    debugPrint('[MapControllerNew] ✅ All lines and arrows cleared');
   }
 
   /// Refresh map view by reloading memories and updating markers
@@ -2416,190 +2399,36 @@ void _resetTapState() {
       // Store arrows
       currentArrows.assignAll(arrows);
 
-      // Display arrows using native Mapbox layers
-      if (arrows.isNotEmpty) {
-        debugPrint(
-          '[MapControllerNew] Displaying ${arrows.length} arrows using native Mapbox layers',
-        );
-
-        // Log arrow details for debugging
-        for (int i = 0; i < arrows.length; i++) {
-          final arrow = arrows[i];
+      // Display arrows using MapMarkerService
+      if (_mapMarkerService != null) {
+        if (arrows.isNotEmpty) {
           debugPrint(
-            '[MapControllerNew] Arrow $i: ${arrow.fromClusterId} → ${arrow.toClusterId} (${arrow.fromLatitude}, ${arrow.fromLongitude}) → (${arrow.toLatitude}, ${arrow.toLongitude})',
+            '[MapControllerNew] Calling MapMarkerService.displayChronologicalArrows with ${arrows.length} arrows',
           );
-        }
 
-        await _displayArrowsAsLayers(arrows);
-        debugPrint(
-          '[MapControllerNew] ✅ Successfully displayed chronological arrows on map',
-        );
+          // Log arrow details for debugging
+          for (int i = 0; i < arrows.length; i++) {
+            final arrow = arrows[i];
+            debugPrint(
+              '[MapControllerNew] Arrow $i: ${arrow.fromClusterId} → ${arrow.toClusterId} (${arrow.fromLatitude}, ${arrow.fromLongitude}) → (${arrow.toLatitude}, ${arrow.toLongitude})',
+            );
+          }
+
+          await _mapMarkerService!.displayChronologicalArrows(arrows);
+          debugPrint(
+            '[MapControllerNew] ✅ Successfully displayed chronological arrows on map',
+          );
+        } else {
+          debugPrint('[MapControllerNew] ⚠️  No arrows to display');
+        }
       } else {
-        debugPrint('[MapControllerNew] ⚠️  No arrows to display');
+        debugPrint(
+          '[MapControllerNew] ❌ MapMarkerService not available for arrow display',
+        );
       }
     } catch (e) {
       debugPrint('[MapControllerNew] Error generating/displaying arrows: $e');
     }
-  }
-
-  /// Display arrows as native Mapbox LineString layers
-  Future<void> _displayArrowsAsLayers(
-    List<clustering.ChronologicalArrow> arrows,
-  ) async {
-    if (mapboxMap == null) return;
-
-    try {
-      // Remove existing arrow layers and source
-      try {
-        await mapboxMap!.style.removeStyleLayer(ARROW_LINES_LAYER_ID);
-        debugPrint('[MapControllerNew] Removed existing arrow layer');
-      } catch (e) {
-        debugPrint('[MapControllerNew] No existing arrow layer to remove');
-      }
-
-      try {
-        await mapboxMap!.style.removeStyleSource(ARROW_LINES_SOURCE_ID);
-        debugPrint('[MapControllerNew] Removed existing arrow source');
-      } catch (e) {
-        debugPrint('[MapControllerNew] No existing arrow source to remove');
-      }
-
-      if (arrows.isEmpty) {
-        debugPrint('[MapControllerNew] No arrows to display');
-        return;
-      }
-
-      // Create GeoJSON features for arrows
-      final features = <Map<String, dynamic>>[];
-
-      for (final arrow in arrows) {
-        // Create curved line points
-        final points = _createCurvedArrowLine(
-          arrow.fromLatitude,
-          arrow.fromLongitude,
-          arrow.toLatitude,
-          arrow.toLongitude,
-        );
-
-        // Convert to GeoJSON coordinates format [lng, lat]
-        final coordinates = points
-            .map((point) => [point.lng, point.lat])
-            .toList();
-
-        // Get color based on year
-        final year = arrow.toDate.year;
-        final color = _mapMarkerService?.markerCreationService.getColorForYear(year) ?? Colors.blue;
-
-        features.add({
-          'type': 'Feature',
-          'geometry': {
-            'type': 'LineString',
-            'coordinates': coordinates,
-          },
-          'properties': {
-            'fromClusterId': arrow.fromClusterId,
-            'toClusterId': arrow.toClusterId,
-            'fromDate': arrow.fromDate.toIso8601String(),
-            'toDate': arrow.toDate.toIso8601String(),
-            'year': year,
-            'color': '#${color.value.toRadixString(16).substring(2)}',
-          },
-        });
-      }
-
-      // Create GeoJSON source
-      final geoJson = {
-        'type': 'FeatureCollection',
-        'features': features,
-      };
-
-      debugPrint(
-        '[MapControllerNew] Creating arrow source with ${features.length} features',
-      );
-      debugPrint('[MapControllerNew] GeoJSON: ${json.encode(geoJson)}');
-
-      await mapboxMap!.style.addSource(
-        mapbox.GeoJsonSource(
-          id: ARROW_LINES_SOURCE_ID,
-          data: json.encode(geoJson),
-        ),
-      );
-      debugPrint('[MapControllerNew] ✅ Arrow GeoJSON source added');
-
-      // Add LineLayer for arrows (below individual markers)
-      // Using bright red color for high visibility during testing
-      await mapboxMap!.style.addLayer(
-        mapbox.LineLayer(
-          id: ARROW_LINES_LAYER_ID,
-          sourceId: ARROW_LINES_SOURCE_ID,
-          lineColor: 0xFFFF0000, // Bright red for visibility
-          lineWidth: 5.0, // Thicker for visibility
-          lineOpacity: 0.9,
-        ),
-      );
-      debugPrint('[MapControllerNew] ✅ Arrow LineLayer added with red color');
-
-      // Move arrow layer below individual markers
-      try {
-        await mapboxMap!.style.moveStyleLayer(
-          ARROW_LINES_LAYER_ID,
-          mapbox.LayerPosition(below: UNCLUSTERED_LAYER_ID),
-        );
-        debugPrint('[MapControllerNew] ✅ Arrow layer positioned below individual markers');
-      } catch (e) {
-        debugPrint('[MapControllerNew] ⚠️ Could not position arrow layer: $e');
-      }
-
-      debugPrint('[MapControllerNew] ✅ Arrow layers added successfully');
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error displaying arrows as layers: $e');
-    }
-  }
-
-  /// Create curved arrow line points (same as MapMarkerService)
-  List<mapbox.Position> _createCurvedArrowLine(
-    double fromLat,
-    double fromLng,
-    double toLat,
-    double toLng,
-  ) {
-    const int numPoints = 20;
-    final points = <mapbox.Position>[];
-
-    // Calculate control point for curve (perpendicular offset)
-    final midLat = (fromLat + toLat) / 2;
-    final midLng = (fromLng + toLng) / 2;
-
-    // Calculate perpendicular offset (10% of distance)
-    final dx = toLng - fromLng;
-    final dy = toLat - fromLat;
-    final distance = math.sqrt(dx * dx + dy * dy);
-    final offsetDistance = distance * 0.1;
-
-    // Perpendicular direction
-    final perpLng = -dy * offsetDistance;
-    final perpLat = dx * offsetDistance;
-
-    final controlLat = midLat + perpLat;
-    final controlLng = midLng + perpLng;
-
-    // Generate curved points using quadratic Bezier
-    for (int i = 0; i <= numPoints; i++) {
-      final t = i / numPoints;
-      final oneMinusT = 1 - t;
-
-      final lat = oneMinusT * oneMinusT * fromLat +
-          2 * oneMinusT * t * controlLat +
-          t * t * toLat;
-
-      final lng = oneMinusT * oneMinusT * fromLng +
-          2 * oneMinusT * t * controlLng +
-          t * t * toLng;
-
-      points.add(mapbox.Position(lng, lat));
-    }
-
-    return points;
   }
 
   /// Generate chronological arrows from unified memory list (clusters + individuals)
@@ -2957,7 +2786,56 @@ void _resetTapState() {
     debugPrint('[MapControllerNew] ℹ️ Map error logged - continuing with local tile server if available');
   }
 
+  /// Check for offline tiles and enable offline mode if available
+  Future<bool> _checkAndEnableOfflineMode() async {
+    try {
+      // Check if offline coordinator is available
+      if (_offlineCoordinator == null) {
+        debugPrint('[MapControllerNew] ❌ Offline coordinator not available');
+        return false;
+      }
 
+      // Use the coordinator's method to check and enable offline mode
+      final offlineModeEnabled = await _offlineCoordinator!.checkAndEnableOfflineMode();
+
+      if (offlineModeEnabled) {
+        debugPrint('[MapControllerNew] ✅ Offline mode successfully enabled');
+
+        // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
+        // No need to update UI state for internet connection
+
+        return true;
+      } else {
+        debugPrint('[MapControllerNew] ❌ Could not enable offline mode');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[MapControllerNew] ❌ Error checking offline mode: $e');
+      return false;
+    }
+  }
+
+  // COMMENTED OUT: Tile count check not needed when using downloaded mbtiles
+  // /// Check if we have sufficient offline tiles (500+) by fetching from SharedPreferences
+  // Future<bool> _checkOfflineTileCount() async {
+  //   try {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final tileCount = prefs.getInt('offline_downloaded_tile_count') ?? 0;
+  //
+  //     debugPrint('[MapControllerNew] 📊 Fetched offline tile count from SharedPreferences: $tileCount tiles');
+  //
+  //     if (tileCount >= 500) {
+  //       debugPrint('[MapControllerNew] ✅ Sufficient tiles available: $tileCount >= 500');
+  //       return true;
+  //     } else {
+  //       debugPrint('[MapControllerNew] ❌ Insufficient tiles: $tileCount < 500');
+  //       return false;
+  //     }
+  //   } catch (e) {
+  //     debugPrint('[MapControllerNew] ❌ Error fetching tile count from SharedPreferences: $e');
+  //     return false;
+  //   }
+  // }
 
   /// Manually trigger layer visibility update (useful for testing or manual refresh)
   Future<void> updateLayerVisibility() async {
@@ -3290,7 +3168,6 @@ void _resetTapState() {
   }
 
   /// Handle tap on a cluster feature
-  /// Implements smooth zoom-in behavior from CircleLayerClusteringPage
   Future<void> _handleClusterFeatureTap(
     mapbox.QueriedRenderedFeature clusterFeature,
     double lat,
@@ -3299,50 +3176,16 @@ void _resetTapState() {
     try {
       debugPrint('[MapControllerNew] 🎯 Handling cluster feature tap at ($lat, $lng)');
 
-      // Get current zoom level
-      final cameraState = await mapboxMap!.getCameraState();
-      final currentZoomLevel = cameraState.zoom;
+      // For now, find the cluster by location proximity since feature property access is complex
+      // This is a temporary solution until we can properly access Mapbox feature properties
+      final nearbyCluster = _findNearestCluster(lat, lng);
 
-      debugPrint('[MapControllerNew] 📊 Current zoom: $currentZoomLevel');
-
-      // Check if we're at high zoom level (close to clusterMaxZoom of 14)
-      // If zoom >= 13, show cluster details instead of zooming further
-      if (currentZoomLevel >= 13.0) {
-        debugPrint('[MapControllerNew] 🔍 High zoom level detected, showing cluster details');
-
-        // Find the cluster by location proximity
-        final nearbyCluster = _findNearestCluster(lat, lng);
-
-        if (nearbyCluster != null) {
-          debugPrint('[MapControllerNew] 📊 Found cluster with ${nearbyCluster.memories.length} memories');
-          await _showClusterMemories(nearbyCluster);
-        } else {
-          debugPrint('[MapControllerNew] ⚠️ No cluster found near tap location');
-          _showLocationInfo(lat, lng);
-        }
+      if (nearbyCluster != null) {
+        debugPrint('[MapControllerNew] 📊 Found cluster with ${nearbyCluster.memories.length} memories');
+        await _showClusterMemories(nearbyCluster);
       } else {
-        // Zoom in smoothly (CircleLayerClusteringPage behavior)
-        final newZoom = (currentZoomLevel + 2.0).clamp(0.0, 22.0);
-
-        debugPrint('[MapControllerNew] 🔍 Zooming into cluster: $currentZoomLevel → $newZoom');
-
-        await mapboxMap!.flyTo(
-          mapbox.CameraOptions(
-            center: mapbox.Point(
-              coordinates: mapbox.Position(lng, lat),
-            ),
-            zoom: newZoom,
-          ),
-          mapbox.MapAnimationOptions(
-            duration: 800, // Smooth 800ms animation like CircleLayerClusteringPage
-            startDelay: 0,
-          ),
-        );
-
-        // Update reactive zoom variable
-        currentZoom.value = newZoom;
-
-        debugPrint('[MapControllerNew] ✅ Zoomed into cluster (zoom: $newZoom)');
+        debugPrint('[MapControllerNew] ⚠️ No cluster found near tap location');
+        _showLocationInfo(lat, lng);
       }
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error handling cluster feature tap: $e');
@@ -3522,231 +3365,138 @@ void _resetTapState() {
     }
   }
 
-  /// Load custom cluster icons into the map style
-  Future<void> _loadClusterIcons() async {
-    if (mapboxMap == null) return;
-
-    try {
-      debugPrint('[MapControllerNew] 🎨 Loading custom cluster icons...');
-
-      // Generate cluster icon set using defined size tiers
-      final icons = await ClusterIconGenerator.generateClusterIconSet(
-        counts: CLUSTER_SIZE_TIERS,
-        size: 50.0,
-      );
-
-      // Add each icon to the map style
-      for (final entry in icons.entries) {
-        final iconName = entry.key;
-        final iconData = entry.value;
-
-        try {
-          await mapboxMap!.style.addStyleImage(
-            iconName,
-            1.0, // scale
-            mapbox.MbxImage(
-              width: 50,
-              height: 50,
-              data: iconData,
-            ),
-            false, // sdf (signed distance field)
-            [], // stretchX
-            [], // stretchY
-            null, // content
-          );
-          debugPrint('[MapControllerNew] ✅ Added cluster icon: $iconName');
-        } catch (e) {
-          debugPrint('[MapControllerNew] ❌ Failed to add icon $iconName: $e');
-        }
-      }
-
-      // Generate and add individual point icon
-      debugPrint('[MapControllerNew] 🎨 Generating individual point icon...');
-      final individualIcon = await ClusterIconGenerator.generateIndividualIcon(
-        size: 50.0, // Same size as cluster icons
-        backgroundColor: const Color(0xFF11B4DA),
-        strokeColor: Colors.white,
-        strokeWidth: 6.0, // Same stroke width as cluster icons
-      );
-      debugPrint('[MapControllerNew] ✅ Individual icon generated: ${individualIcon.length} bytes');
-
-      try {
-        await mapboxMap!.style.addStyleImage(
-          'individual-point',
-          1.0,
-          mapbox.MbxImage(
-            width: 50,
-            height: 50,
-            data: individualIcon,
-          ),
-          false,
-          [],
-          [],
-          null,
-        );
-        debugPrint('[MapControllerNew] ✅ Individual point icon added to style');
-      } catch (e) {
-        debugPrint('[MapControllerNew] ❌ Failed to add individual icon: $e');
-      }
-
-      debugPrint('[MapControllerNew] ✅ All cluster icons loaded successfully');
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error loading cluster icons: $e');
-    }
-  }
-
   /// Add MapBox cluster layers with enhanced styling and proper layer ordering
-  /// Uses custom circular icons instead of text labels
-  Future<void> _addClusterLayers(List<Map<String, dynamic>> memories) async {
+  Future<void> _addClusterLayers() async {
     if (mapboxMap == null) return;
 
     try {
-      debugPrint('[MapControllerNew] 🎨 Adding enhanced cluster layers with custom icons...');
-
-      // Load custom cluster icons first
-      await _loadClusterIcons();
+      debugPrint('[MapControllerNew] 🎨 Adding enhanced cluster layers...');
 
       // Get all style layers to find proper insertion point
       final layers = await mapboxMap!.style.getStyleLayers();
       debugPrint('[MapControllerNew] Total layers found: ${layers.length}');
 
       // Find the first symbol layer for proper ordering
-      String? labelLayerId = layers.last!.id;
-    
-
-      // Layer 1: Cluster icons - Dynamically generated layers for different sizes
-      // Since Flutter SDK doesn't support expressions in iconImage, we use multiple layers with filters
-      debugPrint('[MapControllerNew] 🎨 Adding ${CLUSTER_SIZE_TIERS.length} cluster size tier layers...');
-
-      for (int i = 0; i < CLUSTER_SIZE_TIERS.length; i++) {
-        final currentTier = CLUSTER_SIZE_TIERS[i];
-        final nextTier = i < CLUSTER_SIZE_TIERS.length - 1 ? CLUSTER_SIZE_TIERS[i + 1] : null;
-
-        // Create filter based on tier position
-        final List<Object> filter;
-        if (nextTier != null) {
-          // Not the last tier: point_count >= currentTier AND point_count < nextTier
-          filter = [
-            'all',
-            ['has', 'point_count'],
-            ['>=', ['get', 'point_count'], currentTier],
-            ['<', ['get', 'point_count'], nextTier],
-          ];
-        } else {
-          // Last tier: point_count >= currentTier
-          filter = [
-            'all',
-            ['has', 'point_count'],
-            ['>=', ['get', 'point_count'], currentTier],
-          ];
+      String? labelLayerId;
+      for (var layer in layers) {
+        debugPrint('[MapControllerNew] Layer ID: ${layer?.id}, Type: ${layer?.type}');
+        if (layer != null && layer.type.toLowerCase().contains('symbol')) {
+          labelLayerId = layer.id;
+          debugPrint('[MapControllerNew] 🎯 Found first symbol layer: $labelLayerId');
+          break;
         }
-
-        // Add layer for this tier
-        await mapboxMap!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: '$CLUSTER_LAYER_ID-tier-$currentTier',
-            sourceId: MEMORY_SOURCE_ID,
-            filter: filter,
-            iconImage: 'cluster-$currentTier',
-            iconSize: 1.0,
-            iconAllowOverlap: true,
-            iconIgnorePlacement: true,
-          ),
-        );
-
-        debugPrint('[MapControllerNew] ✅ Added cluster layer for tier $currentTier (${nextTier != null ? '$currentTier-${nextTier - 1}' : '$currentTier+'} points)');
       }
 
-      debugPrint('[MapControllerNew] ✅ All ${CLUSTER_SIZE_TIERS.length} cluster icon layers added');
-
-      // Layer 2: Individual memory points using custom icon
-      debugPrint('[MapControllerNew] 🎨          Adding individual point layer...');
-      try {
-        await mapboxMap!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: UNCLUSTERED_LAYER_ID,
-            sourceId: MEMORY_SOURCE_ID,
-            filter: ['!', ['has', 'point_count']],
-            iconImage: 'individual-point',
-            iconSize: 1.0,
-            iconAllowOverlap: true,
-            iconIgnorePlacement: true,
-          ),
-        );
-        debugPrint('[MapControllerNew] ✅ Individual point icon layer added');
-      } catch (e) {
-        debugPrint('[MapControllerNew] ❌ Failed to add individual icon layer: $e');
-        // Fallback: use circle layer if icon fails
-        debugPrint('[MapControllerNew] 🔄 Adding fallback circle layer for individual points...');
-        await mapboxMap!.style.addLayer(
-          mapbox.CircleLayer(
-            id: UNCLUSTERED_LAYER_ID,
-            sourceId: MEMORY_SOURCE_ID,
-            filter: ['!', ['has', 'point_count']],
-            circleColor: 0xFF11B4DA,
-            circleRadius: 15.0,
-            circleStrokeWidth: 3.0,
-            circleStrokeColor: 0xFFFFFFFF,
-            circleOpacity: 1.0,
-          ),
-        );
-        debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
+      // If no symbol layer found, try to find a text layer or use a safe fallback
+      if (labelLayerId == null) {
+        for (var layer in layers) {
+          if (layer != null && (
+            layer.id?.toLowerCase().contains('label') == true ||
+            layer.id?.toLowerCase().contains('text') == true ||
+            layer.id?.toLowerCase().contains('name') == true
+          )) {
+            labelLayerId = layer.id;
+            debugPrint('[MapControllerNew] 🎯 Found label/text layer: $labelLayerId');
+            break;
+          }
+        }
       }
 
-      // Note: Individual points now use icon with embedded "1" text
-      // No separate text layer needed since the icon includes the number
-      debugPrint('[MapControllerNew] ✅ Individual point icon includes embedded "1" text');
-      // Move all cluster layers above the symbol/label layer for proper ordering
+      // Layer 1: Cluster circles (background)
+      await mapboxMap!.style.addLayer(
+        mapbox.CircleLayer(
+          id: CLUSTER_LAYER_ID,
+          sourceId: MEMORY_SOURCE_ID,
+          filter: ['has', 'point_count'],
+          circleColor: 0xFF51BBD6,
+          circleRadius: 20.0,
+          circleStrokeWidth: 3.0,
+          circleStrokeColor: 0xFFFFFFFF,
+          circleOpacity: 0.9,
+          circleBlur: 0.2,
+        ),
+      );
+
+      // Layer 2: Cluster count text
+      await mapboxMap!.style.addLayer(
+        mapbox.SymbolLayer(
+          id: CLUSTER_COUNT_LAYER_ID,
+          sourceId: MEMORY_SOURCE_ID,
+          filter: ['has', 'point_count'],
+          textField: '{point_count_abbreviated}',
+          textSize: 14.0,
+          textColor: 0xFFFFFFFF,
+          textHaloColor: 0xFF000000,
+          textHaloWidth: 1.5,
+          textHaloBlur: 0.5,
+          textAllowOverlap: true,
+          textIgnorePlacement: true,
+        ),
+      );
+
+      // Layer 3: Individual memory points
+      await mapboxMap!.style.addLayer(
+        mapbox.CircleLayer(
+          id: UNCLUSTERED_LAYER_ID,
+          sourceId: MEMORY_SOURCE_ID,
+          filter: ['!', ['has', 'point_count']],
+          circleColor: 0xFF11B4DA,
+          circleRadius: 8.0,
+          circleStrokeWidth: 2.0,
+          circleStrokeColor: 0xFFFFFFFF,
+          circleOpacity: 0.95,
+          circleBlur: 0.1,
+        ),
+      );
+
+      // Layer 4: Individual memory count text
+      await mapboxMap!.style.addLayer(
+        mapbox.SymbolLayer(
+          id: INDIVIDUAL_COUNT_LAYER_ID,
+          sourceId: MEMORY_SOURCE_ID,
+          filter: ['!', ['has', 'point_count']],
+          textField: '1',
+          textSize: 10.0,
+          textColor: 0xFFFFFFFF,
+          textHaloColor: 0xFF000000,
+          textHaloWidth: 1.0,
+          textHaloBlur: 0.3,
+          textAllowOverlap: true,
+          textIgnorePlacement: true,
+        ),
+      );
+
+      // Move layers above the symbol/label layer for proper ordering
       if (labelLayerId != null) {
-        // Move all cluster size tiers
-        final clusterLayerIds = [
-          '$CLUSTER_LAYER_ID-small',
-          '$CLUSTER_LAYER_ID-medium-small',
-          '$CLUSTER_LAYER_ID-medium',
-          '$CLUSTER_LAYER_ID-medium-large',
-          '$CLUSTER_LAYER_ID-large',
-          '$CLUSTER_LAYER_ID-xlarge',
-        ];
-
-        for (final layerId in clusterLayerIds) {
-          await mapboxMap!.style.moveStyleLayer(
-            layerId,
-            mapbox.LayerPosition(above: labelLayerId),
-          );
-        }
-
-        // Move individual points icon layer (includes embedded "1" text)
+        await mapboxMap!.style.moveStyleLayer(
+          CLUSTER_LAYER_ID,
+          mapbox.LayerPosition(above: labelLayerId),
+        );
+        await mapboxMap!.style.moveStyleLayer(
+          CLUSTER_COUNT_LAYER_ID,
+          mapbox.LayerPosition(above: labelLayerId),
+        );
         await mapboxMap!.style.moveStyleLayer(
           UNCLUSTERED_LAYER_ID,
           mapbox.LayerPosition(above: labelLayerId),
         );
-
-        debugPrint('[MapControllerNew] ✅ Moved all cluster icon layers above symbol layer: $labelLayerId');
-      } else {
-        debugPrint('[MapControllerNew] ⚠️ No symbol layer found, layers added on top');
+        await mapboxMap!.style.moveStyleLayer(
+          INDIVIDUAL_COUNT_LAYER_ID,
+          mapbox.LayerPosition(above: labelLayerId),
+        );
       }
 
-      // Verify individual layer was added
-      final layerExists = await mapboxMap!.style.styleLayerExists(UNCLUSTERED_LAYER_ID);
-      debugPrint('[MapControllerNew] 🔍 Individual layer exists: $layerExists');
-
-      if (layerExists) {
-        // Check current zoom level
-        final cameraState = await mapboxMap!.getCameraState();
-        final currentZoom = cameraState.zoom;
-        debugPrint('[MapControllerNew] 🔍 Current zoom: $currentZoom (individual points show at zoom >= 14)');
-
-        if (currentZoom < 14) {
-          debugPrint('[MapControllerNew] ⚠️ Zoom in to level 14+ to see individual points');
-        }
+      if (labelLayerId != null) {
+        debugPrint('[MapControllerNew] ✅ Added all cluster layers above symbol layer: $labelLayerId');
+      } else {
+        debugPrint('[MapControllerNew] ⚠️ No symbol layer found, added layers on top');
       }
 
       debugPrint('[MapControllerNew] ✅ Successfully added all enhanced cluster layers');
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error adding cluster layers: $e');
-      // rethrow;
+      rethrow;
     }
-    _createClustersAndUpdateMarkers(memories);
   }
 
   /// Set initial layer visibility based on current zoom level

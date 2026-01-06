@@ -16,7 +16,7 @@ import '../../../../../services/mbtiles_download_service.dart';
 import '../../../../../services/mbtiles_server_service.dart';
 
 class MapViewWidgetNew extends StatefulWidget {
-  const MapViewWidgetNew({Key? key}) : super(key: key);
+  const MapViewWidgetNew({super.key});
 
   @override
   State<MapViewWidgetNew> createState() => _MapViewWidgetNewState();
@@ -1004,5 +1004,449 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     });
   }
 
+
+}
+
+
+/// Example page demonstrating Mapbox circle layer clustering
+///
+/// This page shows how to:
+/// - Load GeoJSON data from assets
+/// - Create a clustered source
+/// - Add circle layers for clusters and unclustered points
+/// - Add symbol layers for cluster counts
+///
+/// **Mapbox API Key Configuration:**
+/// The Mapbox access token is automatically loaded from the `.env` file
+/// and set globally in `main.dart` via:
+/// ```dart
+/// await dotenv.load(fileName: ".env");
+/// MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
+/// ```
+///
+/// **Requirements:**
+/// - Add `assets/earthquakes.geojson` file to your project
+/// - Add the file to `pubspec.yaml` under assets section
+///
+/// **Usage:**
+/// Navigate to this page using:
+/// ```dart
+/// Get.to(() => const CircleLayerClusteringPage());
+/// ```
+class CircleLayerClusteringPage extends StatefulWidget {
+  const CircleLayerClusteringPage({super.key});
+
+  @override
+  State<CircleLayerClusteringPage> createState() =>
+      _CircleLayerClusteringPageState();
+}
+
+class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
+  mapbox.MapboxMap? _mapboxMap;
+  static const String _sourceId = 'earthquakes';
+  static const String _clusterLayerId = 'clusters';
+  static const String _clusterCountLayerId = 'cluster-count';
+  static const String _unclusteredLayerId = 'unclustered-points';
+
+  // Track current zoom for smooth transitions
+  double _currentZoom = 3.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Circle Layer Clustering Example'),
+        backgroundColor: Colors.black,
+        actions: [
+          // Zoom in button
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Zoom In',
+            onPressed: _zoomIn,
+          ),
+          // Zoom out button
+          IconButton(
+            icon: const Icon(Icons.remove),
+            tooltip: 'Zoom Out',
+            onPressed: _zoomOut,
+          ),
+        ],
+      ),
+      body: mapbox.MapWidget(
+        cameraOptions: mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(-103.59179687498357, 40.66995747013945),
+          ),
+          zoom: _currentZoom,
+        ),
+        onMapCreated: _onMapCreated,
+        onStyleLoadedListener: (styleLoadedEventData) {
+          _onStyleLoaded();
+        },
+        onTapListener: _onMapTap,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _resetCamera,
+        tooltip: 'Reset View',
+        backgroundColor: Colors.blue,
+        child: const Icon(Icons.home, color: Colors.white),
+      ),
+    );
+  }
+
+  Future<void> _onMapCreated(mapbox.MapboxMap mapboxMap) async {
+    _mapboxMap = mapboxMap;
+
+    debugPrint('[CircleLayerClustering] 🗺️ Map created');
+
+    // The Mapbox access token is already set globally in main.dart via:
+    // MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'))
+    // So we don't need to set it again here
+
+    // Load Mapbox Streets style
+    await mapboxMap.loadStyleURI(mapbox.MapboxStyles.MAPBOX_STREETS);
+
+    debugPrint('[CircleLayerClustering] ✅ Style loaded');
+  }
+
+  Future<void> _onStyleLoaded() async {
+    if (_mapboxMap == null) return;
+    final style = _mapboxMap!.style;
+
+    try {
+      debugPrint('[CircleLayerClustering] 🎨 Loading style and setting up clustering...');
+
+      // 1) Load your GeoJSON (equivalent to earthquakes.geojson in Android example)
+      final geojsonString =
+          await rootBundle.loadString('assets/earthquakes.geojson');
+
+      debugPrint('[CircleLayerClustering] 📦 GeoJSON loaded, adding source...');
+
+      // 2) Add clustered GeoJSON source with optimized settings for smooth clustering
+      await style.addSource(
+        mapbox.GeoJsonSource(
+          id: _sourceId,
+          data: geojsonString,
+          cluster: true,
+          clusterRadius: 50, // Radius of each cluster (pixels) - adjust for tighter/looser clustering
+          clusterMaxZoom: 14, // Max zoom to cluster points - stops clustering at zoom 15+
+          clusterMinPoints: 2, // Minimum points to form a cluster
+          // Performance optimization: enable clustering properties
+          clusterProperties: {
+            // You can add custom cluster properties here if needed
+          },
+        ),
+      );
+
+      debugPrint('[CircleLayerClustering] ✅ Source added, creating layers...');
+
+      // 3) Circle layer for clusters with smooth size transitions
+      await style.addLayer(
+        mapbox.CircleLayer(
+          id: _clusterLayerId,
+          sourceId: _sourceId,
+          filter: ['has', 'point_count'],
+          // Smooth color transition based on cluster size
+          circleColor: 0xFF51BBD6, // Blue color for clusters
+          // Smooth radius transition based on cluster size
+          circleRadius: 20.0, // Base radius - can be enhanced with expressions
+          circleStrokeWidth: 3.0,
+          circleStrokeColor: 0xFFFFFFFF, // White stroke for better visibility
+          circleOpacity: 0.9, // Slight transparency for overlapping clusters
+          // Enable smooth transitions
+          circleBlur: 0.2, // Slight blur for smoother appearance
+        ),
+      );
+
+      debugPrint('[CircleLayerClustering] ✅ Cluster layer added');
+
+      // 4) Symbol layer for cluster counts with better styling
+      await style.addLayer(
+        mapbox.SymbolLayer(
+          id: _clusterCountLayerId,
+          sourceId: _sourceId,
+          filter: ['has', 'point_count'],
+          textField: '{point_count_abbreviated}',
+          textColor: 0xFFFFFFFF, // White text for better contrast
+          textSize: 14.0, // Larger text for better readability
+          textHaloColor: 0xFF000000, // Black halo for text visibility
+          textHaloWidth: 1.5,
+          textHaloBlur: 0.5,
+          // Allow overlap for smooth transitions
+          textAllowOverlap: true,
+          textIgnorePlacement: true,
+        ),
+      );
+
+      debugPrint('[CircleLayerClustering] ✅ Cluster count layer added');
+
+      // 5) Circle layer for unclustered points with smooth styling
+      await style.addLayer(
+        mapbox.CircleLayer(
+          id: _unclusteredLayerId,
+          sourceId: _sourceId,
+          filter: ['!', ['has', 'point_count']],
+          circleColor: 0xFF11B4DA, // Lighter blue for individual points
+          circleRadius: 8.0, // Slightly larger for better visibility
+          circleStrokeWidth: 2.0,
+          circleStrokeColor: 0xFFFFFFFF, // White stroke
+          circleOpacity: 0.95,
+          circleBlur: 0.1, // Slight blur for smoother appearance
+        ),
+      );
+
+      debugPrint('[CircleLayerClustering] ✅ Unclustered layer added');
+      debugPrint('[CircleLayerClustering] 🎉 All clustering layers added successfully!');
+
+      // Setup camera change listener for smooth zoom transitions
+      _setupCameraChangeListener();
+
+    } catch (e) {
+      debugPrint('[CircleLayerClustering] ❌ Error setting up clustering: $e');
+    }
+  }
+
+  /// Setup camera change listener for smooth transitions
+  void _setupCameraChangeListener() {
+    if (_mapboxMap == null) return;
+
+    debugPrint('[CircleLayerClustering] 📹 Setting up camera change listener for smooth transitions');
+
+    // Note: Camera change listeners help track zoom changes for dynamic updates
+    // The clustering itself is handled automatically by Mapbox
+  }
+
+  /// Zoom in with smooth animation
+  Future<void> _zoomIn() async {
+    if (_mapboxMap == null) return;
+
+    try {
+      final cameraState = await _mapboxMap!.getCameraState();
+      final newZoom = (cameraState.zoom + 1.0).clamp(0.0, 22.0);
+
+      await _mapboxMap!.flyTo(
+        mapbox.CameraOptions(
+          center: cameraState.center,
+          zoom: newZoom,
+        ),
+        mapbox.MapAnimationOptions(
+          duration: 500, // Smooth 500ms animation
+          startDelay: 0,
+        ),
+      );
+
+      setState(() {
+        _currentZoom = newZoom;
+      });
+
+      debugPrint('[CircleLayerClustering] 🔍 Zoomed in to: $newZoom');
+    } catch (e) {
+      debugPrint('[CircleLayerClustering] ❌ Error zooming in: $e');
+    }
+  }
+
+  /// Zoom out with smooth animation
+  Future<void> _zoomOut() async {
+    if (_mapboxMap == null) return;
+
+    try {
+      final cameraState = await _mapboxMap!.getCameraState();
+      final newZoom = (cameraState.zoom - 1.0).clamp(0.0, 22.0);
+
+      await _mapboxMap!.flyTo(
+        mapbox.CameraOptions(
+          center: cameraState.center,
+          zoom: newZoom,
+        ),
+        mapbox.MapAnimationOptions(
+          duration: 500, // Smooth 500ms animation
+          startDelay: 0,
+        ),
+      );
+
+      setState(() {
+        _currentZoom = newZoom;
+      });
+
+      debugPrint('[CircleLayerClustering] 🔍 Zoomed out to: $newZoom');
+    } catch (e) {
+      debugPrint('[CircleLayerClustering] ❌ Error zooming out: $e');
+    }
+  }
+
+  /// Reset camera to initial position with smooth animation
+  Future<void> _resetCamera() async {
+    if (_mapboxMap == null) return;
+
+    try {
+      await _mapboxMap!.flyTo(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(-103.59179687498357, 40.66995747013945),
+          ),
+          zoom: 3.0,
+          bearing: 0,
+          pitch: 0,
+        ),
+        mapbox.MapAnimationOptions(
+          duration: 1500, // Longer animation for reset
+          startDelay: 0,
+        ),
+      );
+
+      setState(() {
+        _currentZoom = 3.0;
+      });
+
+      debugPrint('[CircleLayerClustering] 🏠 Reset camera to initial position');
+    } catch (e) {
+      debugPrint('[CircleLayerClustering] ❌ Error resetting camera: $e');
+    }
+  }
+
+  /// Handle map tap - zoom into clusters or show point details
+  Future<void> _onMapTap(mapbox.MapContentGestureContext context) async {
+    debugPrint('[CircleLayerClustering] 🔍 === TAP HANDLER CALLED ===');
+
+    if (_mapboxMap == null) {
+      debugPrint('[CircleLayerClustering] ❌ _mapboxMap is null, returning');
+      return;
+    }
+
+    try {
+      final lat = context.point.coordinates.lat;
+      final lng = context.point.coordinates.lng;
+
+      debugPrint('[CircleLayerClustering] 👆 Map tapped at: ($lat, $lng)');
+      debugPrint('[CircleLayerClustering] 📊 Current zoom: $_currentZoom');
+      debugPrint('[CircleLayerClustering] 📊 Context type: ${context.runtimeType}');
+      debugPrint('[CircleLayerClustering] 📊 Context point: ${context.point}');
+
+      final tapPoint = context.point;
+
+      // Use fromScreenCoordinate with lng/lat (this is how the main controller does it)
+      // Note: This seems wrong but it's what works in the main controller
+      final screenCoord = mapbox.ScreenCoordinate(
+        x: lng.toDouble(),
+        y: lat.toDouble(),
+      );
+
+      // First, try querying ALL features at this point to see what's there
+      debugPrint('[CircleLayerClustering] 🔍 Querying ALL features at tap point');
+      final allFeatures = await _mapboxMap!.queryRenderedFeatures(
+        mapbox.RenderedQueryGeometry.fromScreenCoordinate(screenCoord),
+        mapbox.RenderedQueryOptions(),
+      );
+
+      debugPrint('[CircleLayerClustering] 📊 Total features found: ${allFeatures.length}');
+
+      // Log first few features to see what we're getting
+      for (int i = 0; i < allFeatures.length && i < 5; i++) {
+        final feature = allFeatures[i];
+        if (feature != null) {
+          try {
+            final queriedFeature = feature.queriedFeature;
+            final featureData = queriedFeature.feature;
+            debugPrint('[CircleLayerClustering] 📊 Feature $i: ${featureData.toString()}');
+            debugPrint('[CircleLayerClustering] 📊 Feature $i source: ${queriedFeature.source}');
+            debugPrint('[CircleLayerClustering] 📊 Feature $i sourceLayer: ${queriedFeature.sourceLayer}');
+          } catch (e) {
+            debugPrint('[CircleLayerClustering] 📊 Feature $i: Error accessing - $e');
+          }
+        }
+      }
+
+      debugPrint('[CircleLayerClustering] 🔍 Querying cluster layer: $_clusterLayerId');
+
+      // Check if we tapped on a cluster
+      final clusterFeatures = await _mapboxMap!.queryRenderedFeatures(
+        mapbox.RenderedQueryGeometry.fromScreenCoordinate(screenCoord),
+        mapbox.RenderedQueryOptions(
+          layerIds: [_clusterLayerId],
+        ),
+      );
+
+      debugPrint('[CircleLayerClustering] 📊 Cluster features found: ${clusterFeatures.length}');
+
+      if (clusterFeatures.isNotEmpty && clusterFeatures.first != null) {
+        // Tapped on a cluster - zoom in smoothly
+        debugPrint('[CircleLayerClustering] 🎯 Cluster tapped, zooming in...');
+
+        final cameraState = await _mapboxMap!.getCameraState();
+        final currentZoom = cameraState.zoom;
+        final newZoom = (currentZoom + 2.0).clamp(0.0, 22.0);
+
+        debugPrint('[CircleLayerClustering] 📊 Current zoom: $currentZoom, New zoom: $newZoom');
+
+        await _mapboxMap!.flyTo(
+          mapbox.CameraOptions(
+            center: tapPoint,
+            zoom: newZoom,
+          ),
+          mapbox.MapAnimationOptions(
+            duration: 800,
+            startDelay: 0,
+          ),
+        );
+
+        setState(() {
+          _currentZoom = newZoom;
+        });
+
+        debugPrint('[CircleLayerClustering] ✅ Zoomed into cluster (zoom: $newZoom)');
+        return;
+      }
+
+      debugPrint('[CircleLayerClustering] 🔍 No cluster found, querying individual points layer: $_unclusteredLayerId');
+
+      // Check if we tapped on an individual point
+      final pointFeatures = await _mapboxMap!.queryRenderedFeatures(
+        mapbox.RenderedQueryGeometry.fromScreenBox(
+          mapbox.ScreenBox(
+            min: mapbox.ScreenCoordinate(x: lng - 0.001, y: lat - 0.001),
+            max: mapbox.ScreenCoordinate(x: lng + 0.001, y: lat + 0.001),
+          ),
+        ),
+        mapbox.RenderedQueryOptions(
+          layerIds: [_unclusteredLayerId],
+        ),
+      );
+
+      debugPrint('[CircleLayerClustering] 📊 Individual point features found: ${pointFeatures.length}');
+
+      if (pointFeatures.isNotEmpty && pointFeatures.first != null) {
+        debugPrint('[CircleLayerClustering] 📍 Individual point tapped');
+        debugPrint('[CircleLayerClustering] 📊 mounted: $mounted');
+        debugPrint('[CircleLayerClustering] 📊 Get.context != null: ${Get.context != null}');
+
+        // Show a snackbar with point info
+        if (mounted && Get.context != null) {
+          debugPrint('[CircleLayerClustering] 🎯 Attempting to show snackbar...');
+
+          try {
+            ScaffoldMessenger.of(Get.context!).showSnackBar(
+              const SnackBar(
+                content: Text('Earthquake point tapped - zoom in to see details'),
+                duration: Duration(seconds: 2),
+                backgroundColor: Colors.blue,
+              ),
+            );
+            debugPrint('[CircleLayerClustering] ✅ Snackbar shown successfully');
+          } catch (snackbarError) {
+            debugPrint('[CircleLayerClustering] ❌ Error showing snackbar: $snackbarError');
+          }
+        } else {
+          debugPrint('[CircleLayerClustering] ⚠️ Cannot show snackbar - mounted: $mounted, Get.context: ${Get.context != null}');
+        }
+      } else {
+        debugPrint('[CircleLayerClustering] 📍 Empty area tapped (no features found)');
+      }
+
+      debugPrint('[CircleLayerClustering] 🔍 === TAP HANDLER COMPLETE ===');
+    } catch (e, stackTrace) {
+      debugPrint('[CircleLayerClustering] ❌ Error handling map tap: $e');
+      debugPrint('[CircleLayerClustering] 📊 Stack trace: $stackTrace');
+    }
+  }
 
 }
