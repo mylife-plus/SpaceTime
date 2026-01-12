@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'dart:math' as math;
+import 'dart:convert';
 import '../models/memory_cluster.dart';
 import '../../services/memory_clustering_service.dart' as clustering;
 import '../repositories/memory_repository.dart';
@@ -14,7 +15,10 @@ class MapMarkerService extends GetxService {
 
   mapbox.MapboxMap? _mapboxMap;
   mapbox.PointAnnotationManager? _annotationManager;
-  mapbox.PolylineAnnotationManager? _polylineManager;
+
+  // Arrow layer constants for GeoJSON approach
+  static const String ARROW_LINES_SOURCE_ID = 'arrow-lines-source';
+  static const String ARROW_LINES_LAYER_ID = 'arrow-lines-layer';
 
   // Marker creation service
   MapMarkerCreationService? _markerCreationService;
@@ -493,7 +497,7 @@ class MapMarkerService extends GetxService {
     double tapRadius;
     if (zoomLevel != null) {
       if (zoomLevel >= 15) {
-        tapRadius = 0.001; // ~100m for high zoom (precise)
+        tapRadius = 0.05; // ~100m for high zoom (precise)
       } else if (zoomLevel >= 12) {
         tapRadius = 0.005; // ~500m for medium zoom
       } else if (zoomLevel >= 10) {
@@ -671,7 +675,7 @@ class MapMarkerService extends GetxService {
   // CHRONOLOGICAL ARROWS DISPLAY LOGIC
   // ============================================================================
 
-  /// Display chronological arrows between clusters and markers
+  /// Display chronological arrows between clusters and markers using GeoJSON LineLayer
   Future<void> displayChronologicalArrows(
     List<clustering.ChronologicalArrow> arrows,
   ) async {
@@ -686,321 +690,189 @@ class MapMarkerService extends GetxService {
       return;
     }
 
-    if (arrows.isEmpty) {
-      debugPrint('[MapMarkerService] No arrows to display');
-      return;
-    }
-
     try {
-      debugPrint(
-        '[MapMarkerService] Starting to display ${arrows.length} chronological arrows',
-      );
+      // Remove existing arrow layers and source
+      try {
+        await _mapboxMap!.style.removeStyleLayer(ARROW_LINES_LAYER_ID);
+        debugPrint('[MapMarkerService] Removed existing arrow layer');
+      } catch (e) {
+        debugPrint('[MapMarkerService] No existing arrow layer to remove');
+      }
 
-      // Log first few arrows for debugging
-      for (int i = 0; i < math.min(3, arrows.length); i++) {
-        final arrow = arrows[i];
-        debugPrint(
-          '[MapMarkerService] Arrow ${i + 1}: ${arrow.fromClusterId} → ${arrow.toClusterId} (${arrow.fromLatitude},${arrow.fromLongitude} → ${arrow.toLatitude},${arrow.toLongitude})',
-        );
+      try {
+        await _mapboxMap!.style.removeStyleSource(ARROW_LINES_SOURCE_ID);
+        debugPrint('[MapMarkerService] Removed existing arrow source');
+      } catch (e) {
+        debugPrint('[MapMarkerService] No existing arrow source to remove');
+      }
+
+      if (arrows.isEmpty) {
+        debugPrint('[MapMarkerService] No arrows to display');
+        currentArrows.clear();
+        return;
       }
 
       // Store arrows for management
       currentArrows.assignAll(arrows);
 
-      // Limit arrows for performance
-      final arrowsToDisplay =
-          arrows.length > 50 ? arrows.take(50).toList() : arrows;
+      // Create GeoJSON features for arrows
+      final features = <Map<String, dynamic>>[];
 
-      debugPrint(
-        '[MapMarkerService] Will display ${arrowsToDisplay.length} arrows (limited from ${arrows.length})',
-      );
-
-      // Get or create polyline manager
-      _polylineManager ??=
-          await _mapboxMap!.annotations.createPolylineAnnotationManager();
-      debugPrint('[MapMarkerService] Polyline manager ready');
-
-      // Clear existing arrows
-      await _polylineManager!.deleteAll();
-      debugPrint('[MapMarkerService] Cleared existing arrows');
-
-      // Display each arrow
-      for (int i = 0; i < arrowsToDisplay.length; i++) {
-        final arrow = arrowsToDisplay[i];
-        debugPrint(
-          '[MapMarkerService] Displaying arrow ${i + 1}/${arrowsToDisplay.length}',
+      for (final arrow in arrows) {
+        // Create curved line points
+        final points = _createCurvedArrowLine(
+          arrow.fromLatitude,
+          arrow.fromLongitude,
+          arrow.toLatitude,
+          arrow.toLongitude,
         );
-        await _displaySingleArrow(arrow);
+
+        // Convert to GeoJSON coordinates format [lng, lat]
+        final coordinates = points
+            .map((point) => [point.lng, point.lat])
+            .toList();
+
+        // Get color based on year
+        final year = arrow.toDate.year;
+        final color = markerCreationService.getColorForYear(year);
+
+        features.add({
+          'type': 'Feature',
+          'geometry': {
+            'type': 'LineString',
+            'coordinates': coordinates,
+          },
+          'properties': {
+            'fromClusterId': arrow.fromClusterId,
+            'toClusterId': arrow.toClusterId,
+            'fromDate': arrow.fromDate.toIso8601String(),
+            'toDate': arrow.toDate.toIso8601String(),
+            'year': year,
+            'color': '#${_colorToInt(color).toRadixString(16).substring(2)}',
+          },
+        });
       }
 
+      // Create GeoJSON source
+      final geoJson = {
+        'type': 'FeatureCollection',
+        'features': features,
+      };
+
       debugPrint(
-        '[MapMarkerService] Successfully displayed ${arrowsToDisplay.length} arrows',
-      );
-    } catch (e) {
-      debugPrint(
-        '[MapMarkerService] Error displaying chronological arrows: $e',
-      );
-    }
-  }
-
-  /// Display a single chronological arrow
-  Future<void> _displaySingleArrow(clustering.ChronologicalArrow arrow) async {
-    if (_polylineManager == null) return;
-
-    try {
-      // Create curved arrow line
-      final points = _createCurvedArrowLine(
-        arrow.fromLatitude,
-        arrow.fromLongitude,
-        arrow.toLatitude,
-        arrow.toLongitude,
+        '[MapMarkerService] Creating arrow source with ${features.length} features',
       );
 
-      // Get arrow styling based on time difference
-      final timeDiffMs = arrow.toDate.difference(arrow.fromDate).inMilliseconds;
-      final width = _getArrowWidth(timeDiffMs);
-      final color = markerCreationService.getColorForYear(arrow.toDate.year);
-
-      // Create shadow line (background)
-      await _polylineManager!.create(
-        mapbox.PolylineAnnotationOptions(
-          geometry: mapbox.LineString(coordinates: points),
-          lineColor: 0xFF000000, // Black shadow
-          lineWidth: width + 2,
-          lineOpacity: 0.20,
+      await _mapboxMap!.style.addSource(
+        mapbox.GeoJsonSource(
+          id: ARROW_LINES_SOURCE_ID,
+          data: json.encode(geoJson),
         ),
       );
+      debugPrint('[MapMarkerService] ✅ Arrow GeoJSON source added');
 
-      // Create main arrow line
-      await _polylineManager!.create(
-        mapbox.PolylineAnnotationOptions(
-          geometry: mapbox.LineString(coordinates: points),
-          lineColor: _colorToInt(color),
-          lineWidth: width,
-          lineOpacity: 1.0,
+      // Add LineLayer for arrows (below individual markers)
+      await _mapboxMap!.style.addLayer(
+        mapbox.LineLayer(minZoom: 14,
+          id: ARROW_LINES_LAYER_ID,
+          sourceId: ARROW_LINES_SOURCE_ID,
+          lineColor: 0xFFFF0000, // Bright red for visibility
+          lineWidth: 5.0, // Thicker for visibility
+          lineOpacity: 0.9,
         ),
       );
+      debugPrint('[MapMarkerService] ✅ Arrow LineLayer added');
 
-      // Add arrow head at the end of the curve (optional - don't fail if this doesn't work)
+      // Move arrow layer below individual markers (if they exist)
       try {
-        await _addArrowHeadOnCurve(points, color);
-      } catch (e) {
-        debugPrint(
-          '[MapMarkerService] ⚠️  Failed to add arrow head, but arrow line was created: $e',
+        // Try to position below point annotations
+        await _mapboxMap!.style.moveStyleLayer(
+          ARROW_LINES_LAYER_ID,
+          mapbox.LayerPosition(at: 0), // Move to bottom of all layers
         );
+        debugPrint('[MapMarkerService] ✅ Arrow layer positioned at bottom');
+      } catch (e) {
+        debugPrint('[MapMarkerService] ⚠️ Could not position arrow layer: $e');
       }
+
+      debugPrint(
+        '[MapMarkerService] ✅ Successfully displayed ${arrows.length} arrows using GeoJSON LineLayer',
+      );
     } catch (e) {
-      debugPrint('[MapMarkerService] Error displaying single arrow: $e');
+      debugPrint(
+        '[MapMarkerService] ❌ Error displaying chronological arrows: $e',
+      );
     }
   }
 
-  /// Create curved arrow line between two points
+  /// Create curved arrow line between two points (0.1% curve for nearly straight lines)
   List<mapbox.Position> _createCurvedArrowLine(
-    double lat1,
-    double lng1,
-    double lat2,
-    double lng2,
+    double fromLat,
+    double fromLng,
+    double toLat,
+    double toLng,
   ) {
-    const int segments = 32;
-
-    // Direction in degrees
-    final dx = lng2 - lng1;
-    final dy = lat2 - lat1;
-    final len = math.sqrt(dx * dx + dy * dy);
-
-    // Handle zero-length gracefully (repeat a point)
-    if (len == 0) {
-      return [mapbox.Position(lng1, lat1), mapbox.Position(lng2, lat2)];
-    }
-
-    // Perpendicular unit (lng, lat)
-    final ux = -dy / len;
-    final uy = dx / len;
-
-    // Estimate segment length in km for sensible offset scaling
-    final avgLatRad = ((lat1 + lat2) * 0.5) * (math.pi / 180.0);
-    const kmPerDegLat = 110.574; // approx constant
-    final kmPerDegLng = 111.320 * math.cos(avgLatRad);
-
-    final segKm =
-        (dy.abs() * kmPerDegLat + dx.abs() * kmPerDegLng) * 0.5; // rough avg
-
-    // Max lateral offset ≈ 8% of segment length, capped (subtle arc)
-    final maxOffsetKm = (segKm * 0.08).clamp(0.0, 20.0);
-    final offDegLat = maxOffsetKm / kmPerDegLat;
-    final offDegLng = kmPerDegLng == 0 ? 0.0 : (maxOffsetKm / kmPerDegLng);
-
-    // Control point (midpoint + perpendicular offset)
-    final cLng = (lng1 + lng2) * 0.5 + ux * offDegLng;
-    final cLat = (lat1 + lat2) * 0.5 + uy * offDegLat;
-
-    // Quadratic Bézier sampling
+    const int numPoints = 20;
     final points = <mapbox.Position>[];
-    for (int i = 0; i <= segments; i++) {
-      final t = i / segments;
-      final omt = 1 - t;
 
-      final lng = omt * omt * lng1 + 2 * omt * t * cLng + t * t * lng2;
-      final lat = omt * omt * lat1 + 2 * omt * t * cLat + t * t * lat2;
+    // Calculate control point for curve (perpendicular offset)
+    final midLat = (fromLat + toLat) / 2;
+    final midLng = (fromLng + toLng) / 2;
 
-      points.add(mapbox.Position(lng, lat)); // (lng, lat)
+    // Calculate perpendicular offset (0.1% of distance for nearly straight lines)
+    final dx = toLng - fromLng;
+    final dy = toLat - fromLat;
+    final distance = math.sqrt(dx * dx + dy * dy);
+    final offsetDistance = distance * 0.001; // 0.1% curve for nearly straight arrows
+
+    // Perpendicular direction
+    final perpLng = -dy * offsetDistance;
+    final perpLat = dx * offsetDistance;
+
+    final controlLat = midLat + perpLat;
+    final controlLng = midLng + perpLng;
+
+    // Generate curved points using quadratic Bezier
+    for (int i = 0; i <= numPoints; i++) {
+      final t = i / numPoints;
+      final oneMinusT = 1 - t;
+
+      final lat = oneMinusT * oneMinusT * fromLat +
+          2 * oneMinusT * t * controlLat +
+          t * t * toLat;
+
+      final lng = oneMinusT * oneMinusT * fromLng +
+          2 * oneMinusT * t * controlLng +
+          t * t * toLng;
+
+      points.add(mapbox.Position(lng, lat));
     }
 
     return points;
   }
 
-  /// Add arrow head at the end of a curved line
-  Future<void> _addArrowHeadOnCurve(
-    List<mapbox.Position> curvePoints,
-    Color arrowColor,
-  ) async {
-    if (curvePoints.length < 3) return;
-
-    // Ensure annotation manager is available for arrow heads
-    if (_annotationManager == null) {
-      debugPrint(
-        '[MapMarkerService] Creating annotation manager for arrow heads',
-      );
-      _annotationManager =
-          await _mapboxMap!.annotations.createPointAnnotationManager();
-    }
-
-    try {
-      // Build arrow head image for this color
-      final colorInt = _colorToInt(arrowColor);
-      final imgKey = 'arrow_head_color_$colorInt';
-
-      // Remove existing image if it exists
-      try {
-        await _mapboxMap!.style.removeStyleImage(imgKey);
-      } catch (_) {}
-
-      // Create arrow head image
-      debugPrint(
-        '[MapMarkerService] Creating arrow head image with color: $colorInt',
-      );
-      const int arrowSize = 32; // Use consistent size
-      final imageBytes = await markerCreationService.createArrowHeadImage(
-        colorValue: colorInt,
-        size: arrowSize,
-      );
-      if (imageBytes.isEmpty) {
-        debugPrint(
-          '[MapMarkerService] ❌ Skipping arrow head due to empty image data',
-        );
-        return;
-      }
-      debugPrint(
-        '[MapMarkerService] ✅ Created arrow head image: ${imageBytes.length} bytes',
-      );
-
-      final image = mapbox.MbxImage(
-        data: imageBytes,
-        height: arrowSize,
-        width: arrowSize,
-      ); // Match the actual image size
-
-      // Validate image data before adding to style
-      debugPrint(
-        '[MapMarkerService] Adding style image: $imgKey, size: ${arrowSize}x$arrowSize, data: ${imageBytes.length} bytes',
-      );
-
-      await _mapboxMap!.style.addStyleImage(
-        imgKey,
-        1.0,
-        image,
-        false,
-        [],
-        [],
-        null,
-      );
-      debugPrint('[MapMarkerService] ✅ Added arrow head style image: $imgKey');
-
-      // Position ~70% along the curve for better visibility
-      final idx =
-          ((curvePoints.length - 1) * 0.7)
-              .clamp(1, curvePoints.length - 1)
-              .toInt();
-      final pPrev = curvePoints[idx - 1];
-      final pNow = curvePoints[idx];
-
-      // Calculate bearing from previous point to current point
-      final bearing = _bearingDegrees(
-        pPrev.lat.toDouble(),
-        pPrev.lng.toDouble(),
-        pNow.lat.toDouble(),
-        pNow.lng.toDouble(),
-      );
-
-      // Adjust bearing for arrow head image orientation
-      // The arrow image points right (east) by default, so we need to adjust
-      // Mapbox rotation: 0° = North, 90° = East, 180° = South, 270° = West
-      // Our bearing: 0° = North, 90° = East, etc.
-      // Since our arrow points east by default, we need to subtract 90° to align with north
-      final adjustedBearing = (bearing - 90.0) % 360.0;
-
-      // Create arrow head annotation
-      debugPrint(
-        '[MapMarkerService] Creating arrow head at (${pNow.lng}, ${pNow.lat}) with bearing $bearing (adjusted: $adjustedBearing)',
-      );
-      await _annotationManager!.create(
-        mapbox.PointAnnotationOptions(
-          geometry: mapbox.Point(
-            coordinates: mapbox.Position(pNow.lng, pNow.lat),
-          ),
-          iconImage: imgKey,
-          iconSize: 1.2, // Increased size for better visibility
-          iconRotate: adjustedBearing,
-        ),
-      );
-      debugPrint(
-        '[MapMarkerService] ✅ Successfully created arrow head with image key: $imgKey',
-      );
-    } catch (e) {
-      debugPrint('[MapMarkerService] Error adding arrow head on curve: $e');
-    }
-  }
-
-  /// Calculate bearing between two points in degrees
-  double _bearingDegrees(double lat1, double lng1, double lat2, double lng2) {
-    final radLat1 = lat1 * math.pi / 180.0;
-    final radLat2 = lat2 * math.pi / 180.0;
-    final deltaLon = (lng2 - lng1) * math.pi / 180.0;
-
-    final y = math.sin(deltaLon) * math.cos(radLat2);
-    final x =
-        math.cos(radLat1) * math.sin(radLat2) -
-        math.sin(radLat1) * math.cos(radLat2) * math.cos(deltaLon);
-
-    final theta = math.atan2(y, x); // radians
-    final deg = (theta * 180.0 / math.pi + 360.0) % 360.0;
-    return deg;
-  }
-
-  /// Get arrow width based on time difference
-  double _getArrowWidth(int timeDiffMs) {
-    // Convert milliseconds to days for easier logic
-    final timeDiffDays = timeDiffMs / (1000 * 60 * 60 * 24);
-
-    if (timeDiffDays <= 1) {
-      return 4.0; // Thicker for same day/next day connections
-    } else if (timeDiffDays <= 7) {
-      return 3.5; // Medium for within a week
-    } else if (timeDiffDays <= 30) {
-      return 3.0; // Standard for within a month
-    } else {
-      return 2.5; // Thinner for older connections
-    }
-  }
-
   /// Clear all arrows from the map
   Future<void> _clearAllArrows() async {
     try {
-      if (_polylineManager != null) {
-        await _polylineManager!.deleteAll();
-        debugPrint('[MapMarkerService] Cleared all arrows');
+      if (_mapboxMap != null) {
+        // Remove arrow layer
+        try {
+          await _mapboxMap!.style.removeStyleLayer(ARROW_LINES_LAYER_ID);
+          debugPrint('[MapMarkerService] Removed arrow layer');
+        } catch (e) {
+          debugPrint('[MapMarkerService] No arrow layer to remove');
+        }
+
+        // Remove arrow source
+        try {
+          await _mapboxMap!.style.removeStyleSource(ARROW_LINES_SOURCE_ID);
+          debugPrint('[MapMarkerService] Removed arrow source');
+        } catch (e) {
+          debugPrint('[MapMarkerService] No arrow source to remove');
+        }
       }
       currentArrows.clear();
+      debugPrint('[MapMarkerService] Cleared all arrows');
     } catch (e) {
       debugPrint('[MapMarkerService] Error clearing arrows: $e');
     }

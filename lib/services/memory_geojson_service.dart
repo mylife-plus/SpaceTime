@@ -23,6 +23,9 @@ class MemoryGeoJsonService {
       final images = memory['images'] as List<dynamic>? ?? [];
       final audios = memory['audios'] as List<dynamic>? ?? [];
 
+  var endDate = DateTime.tryParse(memory['memory_date'] ?? '') ?? DateTime.now();
+      final toMemoryYear = endDate.year; // e.g., 2023
+
       // Create GeoJSON feature
       final feature = {
         'type': 'Feature',
@@ -31,7 +34,7 @@ class MemoryGeoJsonService {
           'coordinates': [lng, lat], // GeoJSON uses [lng, lat] order
         },
         'properties': {
-          'id': memory['id'],
+          'id': '${memory['id']},',
           'year': year,
           'category': category,
           'description': description,
@@ -44,10 +47,9 @@ class MemoryGeoJsonService {
           'location_address': memory['location_address'] ?? '',
           'location_city': memory['location_city'] ?? '',
           'location_country': memory['location_country'] ?? '',
-          // Add color index for year-based styling
-          'color_index': _getColorIndexForYear(year),
-          // Add full memory data for click handling
+          // 'color_index': _getColorIndexForYear(year),
           'memory_data': memory,
+          'toMemoryYear': toMemoryYear,
         },
       };
 

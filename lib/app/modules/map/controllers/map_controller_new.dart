@@ -2,8 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 import 'dart:math' as math;
+import 'dart:math';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:permission_handler/permission_handler.dart';
@@ -30,7 +34,9 @@ import '../views/mini_widgets/bottom_info.dart';
 class MapControllerNew extends GetxController {
   // Constructor with logging
   MapControllerNew() {
-    debugPrint('[MapControllerNew] 🏗️ Constructor called - Creating new instance: $hashCode');
+    debugPrint(
+      '[MapControllerNew] 🏗️ Constructor called - Creating new instance: $hashCode',
+    );
   }
 
   // MapBox controller
@@ -44,10 +50,13 @@ class MapControllerNew extends GetxController {
   static const String INDIVIDUAL_COUNT_LAYER_ID = 'individual-count-layer';
   static const String ARROW_LINES_SOURCE_ID = 'arrow-lines-source';
   static const String ARROW_LINES_LAYER_ID = 'arrow-lines-layer';
-
+  static const String CLUSTERS_CIRCLE_LAYER_ID = 'memory-clusters-circle';
+  static const String CLUSTERS_COUNT_LAYER_ID = 'memory-clusters-count';
   // Cluster size tiers - used for both icon generation and layer creation
-final List<int> CLUSTER_SIZE_TIERS =
-    List<int>.generate(200, (index) => index + 1);
+  final List<int> CLUSTER_SIZE_TIERS = List<int>.generate(
+    200,
+    (index) => index + 1,
+  );
 
   // Zoom level constants - now loaded from MapboxZoomHelper
   // These getters provide access to the centralized zoom configuration
@@ -55,9 +64,12 @@ final List<int> CLUSTER_SIZE_TIERS =
   double get _maxZoom => MapboxZoomHelper().maxZoom.value;
 
   // Zoom thresholds for layer visibility - loaded from MapboxZoomHelper
-  double get _clusterVisibilityMaxZoom => MapboxZoomHelper().clusterVisibilityMaxZoom.value;
-  double get _individualVisibilityMinZoom => MapboxZoomHelper().individualVisibilityMinZoom.value;
-  double get _detailVisibilityMinZoom => MapboxZoomHelper().detailVisibilityMinZoom.value;
+  double get _clusterVisibilityMaxZoom =>
+      MapboxZoomHelper().clusterVisibilityMaxZoom.value;
+  double get _individualVisibilityMinZoom =>
+      MapboxZoomHelper().individualVisibilityMinZoom.value;
+  double get _detailVisibilityMinZoom =>
+      MapboxZoomHelper().detailVisibilityMinZoom.value;
 
   // Reactive state variables
   final RxBool isMapReady = false.obs;
@@ -106,7 +118,8 @@ final List<int> CLUSTER_SIZE_TIERS =
   OfflineMapCoordinatorService? _offlineCoordinator;
 
   // Offline map state getters (delegate to coordinator)
-  RxBool get showOfflineDownloadOverlay => _offlineCoordinator?.showOfflineDownloadOverlay ?? false.obs;
+  RxBool get showOfflineDownloadOverlay =>
+      _offlineCoordinator?.showOfflineDownloadOverlay ?? false.obs;
   RxBool get isOfflineMode => _offlineCoordinator?.isOfflineMode ?? false.obs;
 
   // Permission monitoring with listeners
@@ -121,21 +134,10 @@ final List<int> CLUSTER_SIZE_TIERS =
   void onInit() {
     super.onInit();
 
-    // Prevent double initialization
-    if (_isInitialized) {
-      debugPrint('[MapControllerNew] ⚠️ Controller already initialized, skipping onInit()');
-      return;
-    }
-
-    debugPrint('[MapControllerNew] 🚀 Initializing new map controller (first time)');
-    debugPrint('[MapControllerNew] 🆔 Controller instance: ${hashCode}');
-    debugPrint(
-      '[MapControllerNew] Initial hasLocationPermission: ${hasLocationPermission.value}',
-    );
-
-    // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
-   
     _initializeServices();
+
+    loadFilterData();
+
     _initializeMap();
 
     // Start periodic permission checking to catch changes from permission service
@@ -143,155 +145,93 @@ final List<int> CLUSTER_SIZE_TIERS =
 
     // Mark as initialized
     _isInitialized = true;
-    debugPrint('[MapControllerNew] ✅ Controller initialization complete');
   }
 
   /// Initialize services
   void _initializeServices() {
-    
-    // Initialize memory repository
-    try {
-      _memoryRepository = Get.find<MemoryRepository>();
-      debugPrint('[MapControllerNew] MemoryRepository found');
-    } catch (e) {
-      debugPrint('[MapControllerNew] MemoryRepository not found: $e');
-    }
-
-    // Initialize cluster repository
-    try {
-      _clusterRepository = Get.find<ClusterRepository>();
-      debugPrint('[MapControllerNew] ClusterRepository found');
-    } catch (e) {
-      debugPrint('[MapControllerNew] ClusterRepository not found: $e');
-    }
-
-    // Initialize map marker service
-    try {
-      _mapMarkerService = Get.find<MapMarkerService>();
-      debugPrint('[MapControllerNew] MapMarkerService found');
-    } catch (e) {
-      debugPrint('[MapControllerNew] MapMarkerService not found: $e');
-    }
-
-    // Load filter data
-    loadFilterData();
+    _memoryRepository = Get.find<MemoryRepository>();
+    _clusterRepository = Get.find<ClusterRepository>();
+    _mapMarkerService = Get.find<MapMarkerService>();
   }
 
   /// Initialize the map with location permissions and current location
   Future<void> _initializeMap() async {
     try {
-      debugPrint('[MapControllerNew] 🔍 Starting map initialization');
       locationStatus.value = 'Checking location permissions...';
       isLoadingLocation.value =
           true; // Show loading state during permission check
 
-      // First check internet connectivity
-      // Check and request location permissions
-      debugPrint('[MapControllerNew] 🔐 Checking location permissions...');
       final hasPermission = await _checkLocationPermissions();
 
       if (hasPermission) {
-        debugPrint('[MapControllerNew] ✅ Location permission granted');
         hasLocationPermission.value = true;
+
         await _getCurrentLocation();
       } else {
-        debugPrint(
-          '[MapControllerNew] ❌ Location permission denied or unavailable',
-        );
         hasLocationPermission.value = false;
         locationStatus.value = 'Location permission required';
         isLoadingLocation.value =
             false; // Stop loading since we need user action
       }
-
-      // Note: Memory loading will happen after map is created in onMapCreated()
-      debugPrint(
-        '[MapControllerNew] Map initialization complete, waiting for map creation',
-      );
     } catch (e) {
-      debugPrint('[MapControllerNew] Error initializing map: $e');
       hasLocationPermission.value = false;
       locationStatus.value = 'Error initializing map';
-      await _handleError(e);
     } finally {
       // Ensure loading state is stopped if permission was denied or error occurred
       if (!hasLocationPermission.value) {
         isLoadingLocation.value = false;
       }
-      debugPrint(
-        '[MapControllerNew] Final state - hasLocationPermission: ${hasLocationPermission.value}, isLoadingLocation: ${isLoadingLocation.value}',
-      );
     }
   }
 
   /// Check and request location permissions
   Future<bool> _checkLocationPermissions() async {
     try {
-      debugPrint(
-        '[MapControllerNew] 🔍 Checking if location services are enabled...',
-      );
-      // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled().timeout(
         Duration(seconds: 5),
         onTimeout: () {
-          debugPrint('[MapControllerNew] ⏰ Location service check timed out');
           return false;
         },
       );
 
       if (!serviceEnabled) {
-        debugPrint('[MapControllerNew] ❌ Location services are disabled');
         locationStatus.value = 'Location services are disabled';
         return false;
       }
-      debugPrint('[MapControllerNew] ✅ Location services are enabled');
-
       // Check current permission status
-      debugPrint('[MapControllerNew] 🔍 Checking current permission status...');
+
       LocationPermission permission = await Geolocator.checkPermission()
           .timeout(
             Duration(seconds: 5),
             onTimeout: () {
-              debugPrint('[MapControllerNew] ⏰ Permission check timed out');
               return LocationPermission.denied;
             },
           );
-      debugPrint('[MapControllerNew] Current permission status: $permission');
 
       if (permission == LocationPermission.denied) {
-        debugPrint(
-          '[MapControllerNew] 🔐 Permission denied, requesting permission...',
-        );
         // Request permission with timeout
         permission = await Geolocator.requestPermission().timeout(
           Duration(seconds: 10),
           onTimeout: () {
-            debugPrint('[MapControllerNew] ⏰ Permission request timed out');
             return LocationPermission.denied;
           },
         );
-        debugPrint('[MapControllerNew] Permission request result: $permission');
+
         if (permission == LocationPermission.denied) {
-          debugPrint('[MapControllerNew] ❌ Permission request denied by user');
           locationStatus.value = 'Location permission denied';
           return false;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        debugPrint('[MapControllerNew] ❌ Permission permanently denied');
         locationStatus.value =
             'Location permission permanently denied. Please enable in Settings.';
         return false;
       }
 
-      debugPrint(
-        '[MapControllerNew] ✅ Location permission granted: $permission',
-      );
       locationStatus.value = 'Permission granted';
       return true;
     } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error checking permissions: $e');
       locationStatus.value = 'Error checking permissions';
       return false;
     }
@@ -310,27 +250,11 @@ final List<int> CLUSTER_SIZE_TIERS =
       currentLocation.value = position;
       locationStatus.value = 'Location found';
 
-      debugPrint(
-        '[MapControllerNew] 📍 Location found: ${position.latitude}, ${position.longitude}',
-      );
-      debugPrint(
-        '[MapControllerNew] 🗺️ Map ready: ${isMapReady.value}, MapboxMap: ${mapboxMap != null}',
-      );
-
       // Move camera to current location if map is ready
       if (isMapReady.value && mapboxMap != null) {
-        debugPrint(
-          '[MapControllerNew] 🎬 Calling _moveCameraToCurrentLocation()',
-        );
         await _moveCameraToCurrentLocation();
-      } else {
-        debugPrint(
-          '[MapControllerNew] ⚠️ Cannot animate to location - Map not ready or mapboxMap is null',
-        );
-      }
+      } else {}
     } catch (e) {
-      debugPrint('[MapControllerNew] Error getting location: $e');
-      await _handleError(e);
     } finally {
       isLoadingLocation.value = false;
     }
@@ -338,21 +262,12 @@ final List<int> CLUSTER_SIZE_TIERS =
 
   /// Move camera to current location
   Future<void> _moveCameraToCurrentLocation() async {
-    debugPrint('[MapControllerNew] 🎬 _moveCameraToCurrentLocation() called');
-
     if (currentLocation.value == null || mapboxMap == null) {
-      debugPrint(
-        '[MapControllerNew] ❌ Cannot move camera - location: ${currentLocation.value != null}, map: ${mapboxMap != null}',
-      );
       return;
     }
 
     try {
       final position = currentLocation.value!;
-      debugPrint(
-        '[MapControllerNew] 🚀 Starting flyTo animation to ${position.latitude}, ${position.longitude}',
-      );
-
       // Update current zoom level from MapboxZoomHelper
       currentZoom.value = MapboxZoomHelper().currentZoomAfterLocation.value;
 
@@ -367,38 +282,24 @@ final List<int> CLUSTER_SIZE_TIERS =
         ),
         mapbox.MapAnimationOptions(duration: 1500),
       );
-
-      debugPrint(
-        '[MapControllerNew] ✅ Camera animation completed successfully',
-      );
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error moving camera: $e');
     }
-
-    loadMemoriesFromDB();
   }
 
   /// Ensure camera animates to user location with retry mechanism
   Future<void> _ensureCameraAnimationToUserLocation() async {
-    debugPrint(
-      '[MapControllerNew] 🎯 Ensuring camera animation to user location',
-    );
-
     // If we already have location, try immediate animation
     if (currentLocation.value != null &&
         isMapReady.value &&
         mapboxMap != null) {
-      debugPrint(
-        '[MapControllerNew] 🎬 Immediate animation - all conditions met',
-      );
       await _moveCameraToCurrentLocation();
+
       return;
     }
 
     // If we don't have location yet but have permission, wait and retry
     if (currentLocation.value == null && hasLocationPermission.value) {
-      debugPrint('[MapControllerNew] ⏳ Waiting for location to be obtained...');
-
       // Wait up to 5 seconds for location to be obtained
       for (int i = 0; i < 10; i++) {
         await Future.delayed(Duration(milliseconds: 500));
@@ -406,206 +307,83 @@ final List<int> CLUSTER_SIZE_TIERS =
         if (currentLocation.value != null &&
             isMapReady.value &&
             mapboxMap != null) {
-          debugPrint(
-            '[MapControllerNew] 🎬 Retry animation - conditions met after ${(i + 1) * 500}ms',
-          );
           await _moveCameraToCurrentLocation();
+
           return;
         }
       }
-
-      debugPrint(
-        '[MapControllerNew] ⏰ Timeout waiting for location/map readiness',
-      );
     }
-
-    debugPrint(
-      '[MapControllerNew] ❌ Cannot animate - conditions not met: hasLocation: ${currentLocation.value != null}, mapReady: ${isMapReady.value}, mapboxMap: ${mapboxMap != null}',
-    );
-  }
-
-  /// Force animate to user location with aggressive retry
-  Future<void> _forceAnimateToUserLocation() async {
-    debugPrint('[MapControllerNew] 🚀 Force animating to user location');
-
-    // Wait for up to 10 seconds for all conditions to be met
-    for (int attempt = 0; attempt < 20; attempt++) {
-      debugPrint('[MapControllerNew] 🔄 Animation attempt ${attempt + 1}/20');
-      debugPrint(
-        '[MapControllerNew] - hasLocation: ${currentLocation.value != null}',
-      );
-      debugPrint('[MapControllerNew] - mapReady: ${isMapReady.value}');
-      debugPrint('[MapControllerNew] - mapboxMap: ${mapboxMap != null}');
-
-      if (currentLocation.value != null &&
-          isMapReady.value &&
-          mapboxMap != null) {
-        try {
-          debugPrint(
-            '[MapControllerNew] 🎯 All conditions met - executing flyTo animation',
-          );
-          final position = currentLocation.value!;
-
-          // Use target zoom level from MapboxZoomHelper
-          final targetZoom = MapboxZoomHelper().currentZoomAfterLocation.value;
-          currentZoom.value = targetZoom;
-
-          await mapboxMap!.flyTo(
-            mapbox.CameraOptions(
-              center: mapbox.Point(
-                coordinates: mapbox.Position(
-                  position.longitude,
-                  position.latitude,
-                ),
-              ),
-              zoom: targetZoom,
-              bearing: 0,
-              pitch: 0,
-            ),
-            mapbox.MapAnimationOptions(duration: 1500),
-          );
-
-          debugPrint(
-            '[MapControllerNew] ✅ Force animation completed successfully!',
-          );
-          return;
-        } catch (e) {
-          debugPrint('[MapControllerNew] ❌ Force animation error: $e');
-        }
-      }
-
-      await Future.delayed(Duration(milliseconds: 500));
-    }
-
-    debugPrint(
-      '[MapControllerNew] ⏰ Force animation timeout - giving up after 10 seconds',
-    );
   }
 
   /// Handle map creation callback
   void onMapCreated(mapbox.MapboxMap mapboxMapInstance) {
-    debugPrint('[MapControllerNew] 🗺️ === MAP CREATED ===');
-    debugPrint('[MapControllerNew] 🗺️ MapboxMap instance received $mapboxMapInstance');
-    debugPrint('[MapControllerNew] 🗺️ Platform: ${io.Platform.isIOS ? "iOS" : "Android"}');
-
- 
     mapboxMap = mapboxMapInstance;
     isMapReady.value = true;
+    loadMemoriesFromDB();
 
-    debugPrint('[MapControllerNew] ✅ Map ready state set to: ${isMapReady.value}');
-    debugPrint('[MapControllerNew] ✅ MapboxMap instance stored: ${mapboxMap != null}');
-
-    // iOS FIX: Add additional delay for iOS map initialization
-    if (io.Platform.isIOS) {
-      debugPrint('[MapControllerNew] 🍎 iOS detected - using iOS-specific initialization');
-      Future.delayed(Duration(milliseconds: 500), () {
-        _initializeMapAfterCreation();
-      });
-    } else {
-      debugPrint('[MapControllerNew] 🤖 Android detected - using standard initialization');
+    Future.delayed(Duration(milliseconds: 200), () {
       _initializeMapAfterCreation();
-    }
+    });
   }
 
   /// Initialize map components after creation (iOS-safe)
   void _initializeMapAfterCreation() {
-    debugPrint('[MapControllerNew] 🚀 Starting post-creation initialization...');
-
-    // Verify map is still available
     if (mapboxMap == null) {
-      debugPrint('[MapControllerNew] ❌ MapboxMap became null during initialization');
-
-      // iOS FIX: Retry map initialization if it failed
       if (io.Platform.isIOS) {
-        debugPrint('[MapControllerNew] 🍎 iOS: Retrying map initialization in 1 second...');
         Future.delayed(Duration(seconds: 1), () {
           if (mapboxMap != null) {
-            debugPrint('[MapControllerNew] 🍎 iOS: Map became available, retrying initialization');
             _initializeMapAfterCreation();
-          } else {
-            debugPrint('[MapControllerNew] 🍎 iOS: Map still null after retry');
           }
         });
       }
       return;
     }
 
-    // iOS FIX: Test map functionality before proceeding
-    if (io.Platform.isIOS) {
-      _testMapFunctionality().then((isWorking) {
-        if (isWorking) {
-          debugPrint('[MapControllerNew] 🍎 iOS: Map functionality test passed');
-          _proceedWithMapInitialization();
-        } else {
-          debugPrint('[MapControllerNew] 🍎 iOS: Map functionality test failed, retrying...');
-          Future.delayed(Duration(milliseconds: 500), () {
-            _initializeMapAfterCreation();
-          });
-        }
-      });
-    } else {
-      _proceedWithMapInitialization();
-      
-    }
+    _proceedWithMapInitialization();
   }
 
-  /// Test map functionality (iOS-specific)
-  Future<bool> _testMapFunctionality() async {
-    try {
-      if (mapboxMap == null) return false;
-
-      // Try to get camera state to test if map is responsive
-      final cameraState = await mapboxMap!.getCameraState();
-      debugPrint('[MapControllerNew] 🍎 iOS: Map test - camera state: ${cameraState.zoom}');
-      return true;
-    } catch (e) {
-      debugPrint('[MapControllerNew] 🍎 iOS: Map test failed: $e');
-      return false;
-    }
-  }
-
-  /// Proceed with map initialization after verification
   void _proceedWithMapInitialization() {
-    debugPrint('[MapControllerNew] 🚀 Proceeding with map initialization...');
-
-    // Set up camera change listener for zoom-based visibility
-    debugPrint('[MapControllerNew] 📹 Setting up camera change listener...');
     _setupCameraChangeListener();
 
-    // Initialize map data (load memories and move camera)
-    debugPrint('[MapControllerNew] 🚀 Calling initializeMapData()...');
     initializeMapData();
 
     // iOS FIX: If we have permission and location already, animate to it
     if (hasLocationPermission.value && currentLocation.value != null) {
-      debugPrint('[MapControllerNew] 🎯 Map ready - animating to existing location');
-      debugPrint('[MapControllerNew] 📍 Location: ${currentLocation.value!.latitude}, ${currentLocation.value!.longitude}');
-
       // Use platform-specific delays
       final delay = io.Platform.isIOS ? 2000 : 500;
       Future.delayed(Duration(milliseconds: delay), () async {
-        debugPrint('[MapControllerNew] 🎬 Executing delayed animation (${delay}ms delay)');
         await _moveCameraToCurrentLocation();
       });
     } else if (hasLocationPermission.value && currentLocation.value == null) {
-      debugPrint('[MapControllerNew] 🔄 Map ready but no location yet - will animate when location arrives');
+      debugPrint(
+        '[MapControllerNew] 🔄 Map ready but no location yet - will animate when location arrives',
+      );
     } else {
-      debugPrint('[MapControllerNew] ℹ️ No location permission or location available');
-      debugPrint('[MapControllerNew] ℹ️ Permission: ${hasLocationPermission.value}, Location: ${currentLocation.value != null}');
+      debugPrint(
+        '[MapControllerNew] ℹ️ No location permission or location available',
+      );
+      debugPrint(
+        '[MapControllerNew] ℹ️ Permission: ${hasLocationPermission.value}, Location: ${currentLocation.value != null}',
+      );
     }
-
-    debugPrint('[MapControllerNew] 🗺️ === MAP CREATION COMPLETE ===');
   }
 
   /// Handle style loaded callback
   void onStyleLoaded(mapbox.StyleLoadedEventData data) {
-//  
+    loadMemoriesFromDB();
+
+    Future.delayed(Duration(seconds: 1), () {
+      _setupMapboxClustering(_currentMemories);
+
+      generateAndDisplayArrowsFromMemories(_currentMemories, mapboxMap!);
+handleMapTap();
+      // _setupNativeClusterClickHandlers();
+    });
   }
 
   /// Retry getting location permissions
   Future<void> retryLocationPermission() async {
     try {
-      debugPrint('[MapControllerNew] 🔄 Retrying location permission');
       locationStatus.value = 'Checking permissions...';
       isLoadingLocation.value = true;
 
@@ -618,20 +396,10 @@ final List<int> CLUSTER_SIZE_TIERS =
       if (hasLocationPermission.value) {
         await _ensureCameraAnimationToUserLocation();
       }
-
-      debugPrint('[MapControllerNew] ✅ Permission retry completed');
-      debugPrint(
-        '[MapControllerNew] - hasLocationPermission: ${hasLocationPermission.value}',
-      );
-      debugPrint(
-        '[MapControllerNew] - isLoadingLocation: ${isLoadingLocation.value}',
-      );
     } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error retrying location permission: $e');
       hasLocationPermission.value = false;
       isLoadingLocation.value = false;
       locationStatus.value = 'Error checking permissions';
-      await _handleError(e);
     }
   }
 
@@ -655,7 +423,6 @@ final List<int> CLUSTER_SIZE_TIERS =
       }
     } catch (e) {
       debugPrint('[MapControllerNew] Error refreshing location: $e');
-      await _handleError(e);
     }
   }
 
@@ -689,179 +456,23 @@ final List<int> CLUSTER_SIZE_TIERS =
       debugPrint(
         '[MapControllerNew] Error checking permissions after resume: $e',
       );
-      await _handleError(e);
     }
   }
 
-  /// Handle errors by checking internet connectivity
-  Future<void> _handleError(dynamic error) async {}
-
-  // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
-  // No need to check internet connectivity or monitor for restoration
-
-  /// Load all memories from database using MemoryRepository
   Future<void> loadMemoriesFromDB() async {
-    debugPrint(
-      '[MapControllerNew] ========== LOADING MEMORIES FROM DATABASE ==========',
-    );
+    _memoryRepository ??= MemoryRepository();
 
-    if (_memoryRepository == null) {
-      debugPrint('[MapControllerNew] MemoryRepository not initialized');
-      return;
-    }
-
-    debugPrint(
-      '[MapControllerNew] Delegating memory loading to MemoryRepository',
-    );
     var memories = await _memoryRepository!.loadAllMemories();
 
     if (memories != null && memories.isNotEmpty) {
-      debugPrint(
-        '[MapControllerNew] ${memories.length} memories loaded, setting up native clustering...',
-      );
       // Store memories for tap handling
       _currentMemories.assignAll(memories);
 
       // Calculate and set appropriate zoom level based on memory spread
       await _setOptimalZoomForMemories(memories);
-
-      await _setupMapboxClustering(memories);
     } else {
-      debugPrint(
-        '[MapControllerNew] No memories loaded - creating test arrows anyway',
-      );
       // Clear memories list
       _currentMemories.clear();
-      // Even with no memories, let's test the arrow system
-      await _generateAndDisplayArrowsFromMemories([]);
-    }
-
-    // Auto-start offline download after memories are loaded
-    await _offlineCoordinator?.autoStartDownloadIfNeeded();
-  }
-
-  /// Setup MapBox native clustering with memories
-  ///
-  /// CircleLayerClusteringPage Integration:
-  /// - Optimized clustering parameters: clusterRadius: 50, clusterMaxZoom: 14, clusterMinPoints: 2
-  /// - Smooth visual effects: circleBlur for clusters and unclustered points
-  /// - Zoom-in behavior: +2.0 zoom on cluster tap with 800ms animation
-  /// - Layer-specific feature querying for accurate tap detection
-  Future<void> _setupMapboxClustering(
-    List<Map<String, dynamic>> memories,
-  ) async {
-    if (mapboxMap == null) {
-      debugPrint(
-        '[MapControllerNew] ⚠️  MapBox map not initialized for clustering - this should not happen after map creation',
-      );
-      debugPrint(
-        '[MapControllerNew] ⚠️  Clustering setup will be skipped. Make sure loadMemoriesFromDB() is only called after onMapCreated()',
-      );
-      return;
-    }
-
-    try {
-      debugPrint(
-        '[MapControllerNew] ========== SETTING UP MAPBOX NATIVE CLUSTERING ==========',
-      );
-      debugPrint(
-        '[MapControllerNew] Setting up native clustering for ${memories.length} memories',
-      );
-      debugPrint(
-        '[MapControllerNew] Using CircleLayerClusteringPage optimizations for smooth clustering',
-      );
-
-      // First, create our own clusters for tap detection
-      // await _createClustersAndUpdateMarkers(memories);
-
-      // Clear existing sources and layers
-      // await _clearMapboxClusteringLayers();
-
-      // Add a small delay to ensure cleanup is complete
-      await Future.delayed(const Duration(milliseconds: 100));
-      debugPrint('[MapControllerNew] Cleanup complete, proceeding with setup');
-
-      // Convert memories to GeoJSON
-      final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
-        memories,
-      );
-      debugPrint(
-        '[MapControllerNew] Created GeoJSON with ${memories.length} memory features',
-      );
-
-      // Add GeoJSON source with clustering enabled
-      // Using optimized settings from CircleLayerClusteringPage for smooth clustering
-      debugPrint('[MapControllerNew] Adding GeoJSON source: $MEMORY_SOURCE_ID');
-      try {
-        await mapboxMap!.style.addSource(
-          mapbox.GeoJsonSource(
-            id: MEMORY_SOURCE_ID,
-            data: geoJsonString,
-            cluster: true,
-            clusterRadius: 50, // Radius of each cluster (pixels) - optimized for smooth clustering
-            clusterMaxZoom: 13.5, // Max zoom to cluster points - stops clustering at zoom 15+
-            clusterMinPoints: 2, // Minimum points to form a cluster
-            clusterProperties: {}, // Performance optimization: enable clustering properties
-          ),
-        );
-        debugPrint(
-          '[MapControllerNew] ✅ Successfully added GeoJSON source with optimized clustering (radius: 50, maxZoom: 14, minPoints: 2)',
-        );
-      } catch (e) {
-        if (e.toString().contains('already exists')) {
-          debugPrint(
-            '[MapControllerNew] ⚠️  Source already exists, attempting to update data instead',
-          );
-          try {
-            // Try to update the existing source data instead of adding a new one
-            await mapboxMap!.style.setStyleSourceProperty(
-              MEMORY_SOURCE_ID,
-              'data',
-              geoJsonString,
-            );
-            debugPrint(
-              '[MapControllerNew] ✅ Successfully updated existing GeoJSON source data',
-            );
-          } catch (updateError) {
-            debugPrint(
-              '[MapControllerNew] ❌ Failed to update source data: $updateError',
-            );
-            // If update fails, force remove and re-add
-            await _forceRemoveAndReaddSource(geoJsonString);
-          }
-        } else {
-          debugPrint('[MapControllerNew] ❌ Failed to add GeoJSON source: $e');
-          throw e; // Re-throw to be caught by outer try-catch
-        }
-      }
-
-      // Add cluster layers
-      await _addClusterLayers(memories);
-      debugPrint('[MapControllerNew] Added cluster layers');
-
-      // Setup click handlers
-      await _setupNativeClusterClickHandlers();
-      debugPrint('[MapControllerNew] Setup cluster click handlers');
-
-      // Initialize MapMarkerService with MapBox map before arrow generation
-      if (_mapMarkerService != null) {
-        _mapMarkerService!.initialize(mapboxMap!);
-        debugPrint(
-          '[MapControllerNew] MapMarkerService initialized for native clustering',
-        );
-      }
-
-      // Generate and display chronological arrows
-      await _generateAndDisplayArrowsFromMemories(memories);
-      debugPrint(
-        '[MapControllerNew] Generated and displayed chronological arrows',
-      );
-
-      debugPrint(
-        '[MapControllerNew] ========== MAPBOX NATIVE CLUSTERING SETUP COMPLETE ==========',
-      );
-    } catch (e) {
-      debugPrint('[MapControllerNew] Error setting up MapBox clustering: $e');
     }
   }
 
@@ -870,14 +481,10 @@ final List<int> CLUSTER_SIZE_TIERS =
     List<Map<String, dynamic>> memories,
   ) async {
     if (memories.isEmpty || mapboxMap == null) {
-      debugPrint(
-        '[MapControllerNew] Cannot set zoom - no memories or map not ready',
-      );
       return;
     }
 
     try {
-      // Extract coordinates from memories
       double minLat = double.infinity;
       double maxLat = double.negativeInfinity;
       double minLng = double.infinity;
@@ -899,9 +506,7 @@ final List<int> CLUSTER_SIZE_TIERS =
 
       // Check if we have any valid locations
       if (validLocationCount == 0) {
-        debugPrint('[MapControllerNew] ⚠️ No memories with valid location data found');
         final defaultZoom = MapboxZoomHelper().defaultZoom.value;
-        debugPrint('[MapControllerNew] 📊 Using default zoom level: $defaultZoom');
         currentZoom.value = defaultZoom;
         return;
       }
@@ -916,18 +521,6 @@ final List<int> CLUSTER_SIZE_TIERS =
 
       // Update current zoom variable
       currentZoom.value = zoom;
-
-      debugPrint('[MapControllerNew] 📊 Memory spread analysis:');
-      debugPrint('[MapControllerNew] - Total memories: ${memories.length}');
-      debugPrint('[MapControllerNew] - Valid locations: $validLocationCount');
-      debugPrint(
-        '[MapControllerNew] - Lat range: $minLat to $maxLat (diff: $latDiff)',
-      );
-      debugPrint(
-        '[MapControllerNew] - Lng range: $minLng to $maxLng (diff: $lngDiff)',
-      );
-      debugPrint('[MapControllerNew] - Max diff: $maxDiff');
-      debugPrint('[MapControllerNew] - Calculated zoom: $zoom');
 
       // Set camera to fit bounds with calculated zoom
       await mapboxMap!.flyTo(
@@ -951,180 +544,69 @@ final List<int> CLUSTER_SIZE_TIERS =
     }
   }
 
-  /// Create clusters from memories and update map markers
-  Future<void> _createClustersAndUpdateMarkers(
-    List<Map<String, dynamic>> memories,
-  ) async {
-    // if (_clusterRepository == null || _mapMarkerService == null) {
-    //   debugPrint('[MapControllerNew] Clustering services not initialized');
-    //   return;
-    // }
+  Timer? _tapDelayTimer;
+  String? _pendingTapType; // "cluster" or "memory"
+  dynamic _pendingTapData;
 
-    // try {
-    //   // Get current zoom level for dynamic clustering
-    //   double? zoomLevel;
-    //   if (mapboxMap != null) {
-    //     try {
-    //       final cameraState = await mapboxMap!.getCameraState();
-    //       zoomLevel = cameraState.zoom;
-    //     } catch (e) {
-    //       debugPrint('[MapControllerNew] Could not get zoom level: $e');
-    //     }
-    //   }
-
-      // Create clusters
-      final clusteringResult = await _clusterRepository!.createClusters(
-        memories,
-        zoomLevel: 0,
-      );
-
-      debugPrint(
-        '[MapControllerNew] Clustering complete: ${clusteringResult.clusters.length} clusters, ${clusteringResult.individualMemories.length} individual',
-      );
-
-      // Store clusters for arrow generation and tap detection
-      currentClusters.assignAll(clusteringResult.clusters);
-      debugPrint(
-        '[MapControllerNew] 📊 Stored ${currentClusters.length} clusters for tap detection',
-      );
-
-      // Initialize map marker service with MapBox map BEFORE arrow generation
-      if (mapboxMap != null) {
-        _mapMarkerService!.initialize(mapboxMap!);
-        debugPrint(
-          '[MapControllerNew] MapMarkerService initialized with MapBox map',
-        );
-      }
-
-      // Generate and display chronological arrows
-      await _generateAndDisplayArrows(
-        clusteringResult.clusters,
-        clusteringResult.individualMemories,
-      );
-
-      // Debug clustering results
-      debugPrint('[MapControllerNew] Clustering results:');
-      debugPrint('  - Clusters: ${clusteringResult.clusters.length}');
-      debugPrint(
-        '  - Individual memories: ${clusteringResult.individualMemories.length}',
-      );
-
-      // Log some individual memories for debugging
-      for (
-        int i = 0;
-        i < math.min(3, clusteringResult.individualMemories.length);
-        i++
-      ) {
-        final memory = clusteringResult.individualMemories[i];
-        debugPrint(
-          '  - Individual memory ${i + 1}: ID=${memory['id']}, lat=${memory['location_latitude']}, lng=${memory['location_longitude']}',
-        );
-      }
-
-      // Update markers on the map
-      await _mapMarkerService!.updateMarkers(
-        clusters: clusteringResult.clusters,
-        individualMemories: clusteringResult.individualMemories,
-      );
-
-      // Set up marker tap callbacks
-      _setupMarkerCallbacks();
-
-      debugPrint('[MapControllerNew] Map markers updated successfully');
-    // } catch (e) {
-    //   debugPrint(
-    //     '[MapControllerNew] Error creating clusters and updating markers: $e',
-    //   );
-    //   Get.snackbar(
-    //     'Clustering Error',
-    //     'Failed to create memory clusters: $e',
-    //     backgroundColor: Colors.red.withValues(alpha: 0.8),
-    //     colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-    //   );
-    // }
-  }
-
-  /// Setup marker tap callbacks
-  void _setupMarkerCallbacks() {
-    if (_mapMarkerService == null) return;
-
-    _mapMarkerService!.setCallbacks(
-      
-      onClusterTap: (cluster) {
-        debugPrint(
-          '[MapControllerNew] Cluster tapped: ${cluster.id} (${cluster.count} memories)',
-        );
-        _handleClusterTap(cluster);
-      },
-      onMemoryTap: (memory) {
-        debugPrint('[MapControllerNew] Memory tapped: ${memory['id']}');
-        _handleMemoryTap(memory);
-      },
+  /// Called when cluster is tapped
+  void onClusterTap(cluster) {
+    debugPrint(
+      '[MapControllerNew] Cluster tapped: ${cluster.id} (${cluster.count} memories)',
     );
-  }
 
-Timer? _tapDelayTimer;
-String? _pendingTapType; // "cluster" or "memory"
-dynamic _pendingTapData;
-
-/// Called when cluster is tapped
-void onClusterTap(cluster) {
-  debugPrint('[MapControllerNew] Cluster tapped: ${cluster.id} (${cluster.count} memories)');
-
-  // If memory tap is pending -> override it
-  if (_pendingTapType == 'memory') {
-    debugPrint('[MapControllerNew] Cluster tap overrides pending memory tap');
-    _tapDelayTimer?.cancel();
-    _handleClusterTap(cluster);
-    _resetTapState();
-    return;
-  }
-
-  // Otherwise, schedule cluster tap
-  _scheduleTap('cluster', cluster);
-}
-
-/// Called when memory is tapped
-void onMemoryTap(memory) {
-  debugPrint('[MapControllerNew] Memory tapped: ${memory['id']}');
-
-  // If cluster tap is pending -> override it
-  if (_pendingTapType == 'cluster') {
-    debugPrint('[MapControllerNew] Memory tap overrides pending cluster tap');
-    _tapDelayTimer?.cancel();
-    _handleMemoryTap(memory);
-    _resetTapState();
-    return;
-  }
-
-  // Otherwise, schedule memory tap
-  _scheduleTap('memory', memory);
-}
-
-/// Helper to schedule a delayed tap
-void _scheduleTap(String type, dynamic data) {
-  _pendingTapType = type;
-  _pendingTapData = data;
-
-  _tapDelayTimer?.cancel();
-  _tapDelayTimer = Timer(const Duration(seconds: 1), () {
-    if (_pendingTapType == 'cluster') {
-      _handleClusterTap(_pendingTapData);
-    } else if (_pendingTapType == 'memory') {
-      _handleMemoryTap(_pendingTapData);
+    // If memory tap is pending -> override it
+    if (_pendingTapType == 'memory') {
+      debugPrint('[MapControllerNew] Cluster tap overrides pending memory tap');
+      _tapDelayTimer?.cancel();
+      _handleClusterTap(cluster);
+      _resetTapState();
+      return;
     }
-    _resetTapState();
-  });
-}
 
-/// Reset the tap state after execution
-void _resetTapState() {
-  _pendingTapType = null;
-  _pendingTapData = null;
-  _tapDelayTimer?.cancel();
-  _tapDelayTimer = null;
-}
+    // Otherwise, schedule cluster tap
+    _scheduleTap('cluster', cluster);
+  }
+
+  /// Called when memory is tapped
+  void onMemoryTap(memory) {
+    debugPrint('[MapControllerNew] Memory tapped: ${memory['id']}');
+
+    // If cluster tap is pending -> override it
+    if (_pendingTapType == 'cluster') {
+      debugPrint('[MapControllerNew] Memory tap overrides pending cluster tap');
+      _tapDelayTimer?.cancel();
+      _handleMemoryTap(memory);
+      _resetTapState();
+      return;
+    }
+
+    // Otherwise, schedule memory tap
+    _scheduleTap('memory', memory);
+  }
+
+  /// Helper to schedule a delayed tap
+  void _scheduleTap(String type, dynamic data) {
+    _pendingTapType = type;
+    _pendingTapData = data;
+
+    _tapDelayTimer?.cancel();
+    _tapDelayTimer = Timer(const Duration(seconds: 1), () {
+      if (_pendingTapType == 'cluster') {
+        _handleClusterTap(_pendingTapData);
+      } else if (_pendingTapType == 'memory') {
+        _handleMemoryTap(_pendingTapData);
+      }
+      _resetTapState();
+    });
+  }
+
+  /// Reset the tap state after execution
+  void _resetTapState() {
+    _pendingTapType = null;
+    _pendingTapData = null;
+    _tapDelayTimer?.cancel();
+    _tapDelayTimer = null;
+  }
 
   /// Handle cluster tap - similar to _onClusterMarkerTapped in old controller
   Future<void> _handleClusterTap(models.MemoryCluster cluster) async {
@@ -1152,8 +634,7 @@ void _resetTapState() {
           'No memory data available for this location. This might be a clustering issue.',
           backgroundColor: Colors.orange.withValues(alpha: 0.8),
           colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-
+          duration: const Duration(seconds: 2),
         );
         return;
       }
@@ -1196,8 +677,8 @@ void _resetTapState() {
             'Error',
             'Failed to load memory data: ${memoryError.toString()}',
             backgroundColor: Colors.red.withValues(alpha: 0.8),
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+            colorText: Colors.white,
+            duration: const Duration(seconds: 2),
           );
         }
       } else if (cluster.count > 1) {
@@ -1215,8 +696,8 @@ void _resetTapState() {
           'Info',
           'This location doesn\'t have accessible memory data (count: ${cluster.count})',
           backgroundColor: Colors.blue.withValues(alpha: 0.8),
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
       }
     } catch (e) {
@@ -1253,8 +734,8 @@ void _resetTapState() {
           'Error',
           'No memories found in this cluster',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
         return;
       }
@@ -1292,8 +773,8 @@ void _resetTapState() {
           'Error',
           'No valid location data found for these memories',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
         return;
       }
@@ -1323,8 +804,8 @@ void _resetTapState() {
           'Error',
           'Failed to process memory data',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
         return;
       }
@@ -1357,8 +838,8 @@ void _resetTapState() {
         'Error',
         'Failed to show cluster details: ${e.toString()}',
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -1370,9 +851,6 @@ void _resetTapState() {
     List<Map<String, dynamic>>? specificMemories,
   }) {
     if (_isBottomPanelOpen) {
-      debugPrint(
-        '[MapControllerNew] 🔁 Bottom panel already open, ignoring subsequent request',
-      );
       return;
     }
 
@@ -1401,8 +879,8 @@ void _resetTapState() {
           'Error',
           'Invalid memory data',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
         return;
       }
@@ -1417,31 +895,6 @@ void _resetTapState() {
       );
       debugPrint('  📍 Location: ${lat ?? 'Unknown'}, ${lng ?? 'Unknown'}');
       debugPrint('  🆔 Memory ID: ${normalizedMemory['id']}');
-      debugPrint('  📅 Date: ${normalizedMemory['memory_date']}');
-      debugPrint('  📝 Title: ${normalizedMemory['title'] ?? 'No title'}');
-      debugPrint(
-        '  📄 Description: ${normalizedMemory['description'] ?? 'No description'}',
-      );
-      debugPrint(
-        '  📂 Category: ${normalizedMemory['category'] ?? 'No category'}',
-      );
-      debugPrint('  🏷️ Tags: ${normalizedMemory['tags'] ?? 'No tags'}');
-      debugPrint(
-        '  📱 Created At: ${normalizedMemory['created_at'] ?? 'Unknown'}',
-      );
-      debugPrint(
-        '  🔄 Updated At: ${normalizedMemory['updated_at'] ?? 'Unknown'}',
-      );
-      debugPrint(
-        '  🗺️ Location String: ${normalizedMemory['location'] ?? 'No location string'}',
-      );
-      debugPrint(
-        '  📸 Has Images: ${normalizedMemory['images']?.isNotEmpty ?? false}',
-      );
-      debugPrint(
-        '  🎵 Has Audio: ${normalizedMemory['audio_path']?.isNotEmpty ?? false}',
-      );
-
       // AddMemoriesController is initialized in main.dart as permanent singleton
       final controller = Get.find<AddMemoriesController>();
 
@@ -1452,7 +905,7 @@ void _resetTapState() {
       controller.showSpecificMemories([memoryLocation]);
 
       final result = await Get.to(
-        () =>  AddMemoriesView(),
+        () => AddMemoriesView(),
         transition: Transition.rightToLeft,
       );
       debugPrint('[MapControllerNew] Navigation result: $result');
@@ -1472,8 +925,8 @@ void _resetTapState() {
         'Error',
         'Failed to open memory: ${e.toString()}',
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
       );
     }
   }
@@ -1499,7 +952,6 @@ void _resetTapState() {
   /// Load filter data for dropdowns
   Future<void> loadFilterData() async {
     try {
-      // Try to use MemoryController's data if available
       try {
         final memoryController = Get.find<MemoryController>();
 
@@ -1509,15 +961,7 @@ void _resetTapState() {
         availableCategories.value = List.from(
           memoryController.existingCategories,
         );
-
-        debugPrint(
-          '[MapControllerNew] Using MemoryController data - ${availableHashtags.length} hashtags, ${availableContacts.length} contacts, ${availableCategories.length} categories',
-        );
       } catch (e) {
-        debugPrint(
-          '[MapControllerNew] MemoryController not available, loading from database: $e',
-        );
-
         // Fallback to direct database access
         final databaseHelper = DatabaseHelper.instance;
         final hashtags = await databaseHelper.getPopularTags(limit: 100);
@@ -1530,13 +974,7 @@ void _resetTapState() {
           limit: 100,
         );
         availableCategories.value = categories;
-
-        debugPrint(
-          '[MapControllerNew] Loaded from database - ${hashtags.length} hashtags, ${contacts.length} contacts, ${categories.length} categories',
-        );
       }
-
-      debugPrint('[MapControllerNew] Filter data loaded successfully');
     } catch (e) {
       debugPrint('[MapControllerNew] Error loading filter data: $e');
     }
@@ -1844,7 +1282,7 @@ void _resetTapState() {
           debugPrint(
             '[MapControllerNew] No memories matched active filters; clearing map markers',
           );
-          await _setupMapboxClustering([]);
+          await _setupMapboxClustering(memoriesToDisplay);
           return;
         }
 
@@ -2070,7 +1508,9 @@ void _resetTapState() {
   /// Calculate optimal zoom level based on memory distribution
   Future<void> _calculateOptimalZoom() async {
     if (mapboxMap == null || _currentMemories.isEmpty) {
-      debugPrint('[MapControllerNew] ⚠️ Cannot calculate zoom - no map or memories');
+      debugPrint(
+        '[MapControllerNew] ⚠️ Cannot calculate zoom - no map or memories',
+      );
       return;
     }
 
@@ -2104,9 +1544,14 @@ void _resetTapState() {
       }
 
       // Check if we have valid bounds
-      if (validLocationCount == 0 || minLat == null || maxLat == null || 
-          minLng == null || maxLng == null) {
-        debugPrint('[MapControllerNew] ⚠️ No valid memory locations found for zoom calculation');
+      if (validLocationCount == 0 ||
+          minLat == null ||
+          maxLat == null ||
+          minLng == null ||
+          maxLng == null) {
+        debugPrint(
+          '[MapControllerNew] ⚠️ No valid memory locations found for zoom calculation',
+        );
         // Fallback to current location or default zoom
         await _fallbackToDefaultZoom();
         return;
@@ -2118,8 +1563,13 @@ void _resetTapState() {
       final double maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
 
       // Validate calculated differences
-      if (latDiff.isNaN || lngDiff.isNaN || maxDiff.isNaN || maxDiff.isInfinite) {
-        debugPrint('[MapControllerNew] ⚠️ Invalid bounds calculation, using fallback');
+      if (latDiff.isNaN ||
+          lngDiff.isNaN ||
+          maxDiff.isNaN ||
+          maxDiff.isInfinite) {
+        debugPrint(
+          '[MapControllerNew] ⚠️ Invalid bounds calculation, using fallback',
+        );
         await _fallbackToDefaultZoom();
         return;
       }
@@ -2132,9 +1582,13 @@ void _resetTapState() {
       final centerLng = (minLng + maxLng) / 2;
 
       // Validate center coordinates before using them
-      if (centerLat.isNaN || centerLng.isNaN || 
-          centerLat.isInfinite || centerLng.isInfinite) {
-        debugPrint('[MapControllerNew] ⚠️ Invalid center coordinates, using fallback');
+      if (centerLat.isNaN ||
+          centerLng.isNaN ||
+          centerLat.isInfinite ||
+          centerLng.isInfinite) {
+        debugPrint(
+          '[MapControllerNew] ⚠️ Invalid center coordinates, using fallback',
+        );
         await _fallbackToDefaultZoom();
         return;
       }
@@ -2143,9 +1597,15 @@ void _resetTapState() {
       currentZoom.value = zoom;
 
       debugPrint('[MapControllerNew] 📊 Memory spread analysis:');
-      debugPrint('[MapControllerNew] - Valid locations: $validLocationCount/${_currentMemories.length}');
-      debugPrint('[MapControllerNew] - Lat range: $minLat to $maxLat (diff: $latDiff)');
-      debugPrint('[MapControllerNew] - Lng range: $minLng to $maxLng (diff: $lngDiff)');
+      debugPrint(
+        '[MapControllerNew] - Valid locations: $validLocationCount/${_currentMemories.length}',
+      );
+      debugPrint(
+        '[MapControllerNew] - Lat range: $minLat to $maxLat (diff: $latDiff)',
+      );
+      debugPrint(
+        '[MapControllerNew] - Lng range: $minLng to $maxLng (diff: $lngDiff)',
+      );
       debugPrint('[MapControllerNew] - Max diff: $maxDiff');
       debugPrint('[MapControllerNew] - Calculated zoom: $zoom');
       debugPrint('[MapControllerNew] - Center: $centerLat, $centerLng');
@@ -2174,7 +1634,7 @@ void _resetTapState() {
   Future<void> _fallbackToDefaultZoom() async {
     try {
       debugPrint('[MapControllerNew] 🔄 Using fallback zoom strategy');
-      
+
       // Use current location if available
       if (currentLocation.value != null) {
         currentZoom.value = _minZoom.toDouble();
@@ -2192,7 +1652,9 @@ void _resetTapState() {
           ),
           mapbox.MapAnimationOptions(duration: 1500),
         );
-        debugPrint('[MapControllerNew] ✅ Fallback: Used current location with zoom ${currentZoom.value}');
+        debugPrint(
+          '[MapControllerNew] ✅ Fallback: Used current location with zoom ${currentZoom.value}',
+        );
       } else {
         // Default world view
         currentZoom.value = _minZoom.toDouble();
@@ -2205,12 +1667,15 @@ void _resetTapState() {
           ),
           mapbox.MapAnimationOptions(duration: 1500),
         );
-        debugPrint('[MapControllerNew] ✅ Fallback: Used world center with zoom ${currentZoom.value}');
+        debugPrint(
+          '[MapControllerNew] ✅ Fallback: Used world center with zoom ${currentZoom.value}',
+        );
       }
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error in fallback zoom: $e');
     }
   }
+
   /// Add hashtag to selected hashtags (used by FilterDropdown)
   void addHashtag(String hashtag) {
     if (!selectedHashtags.contains(hashtag)) {
@@ -2264,7 +1729,9 @@ void _resetTapState() {
     // Clear MapMarkerService annotations (old approach)
     if (_mapMarkerService != null) {
       await _mapMarkerService!.clearAll();
-      debugPrint('[MapControllerNew] MapMarkerService lines and markers cleared');
+      debugPrint(
+        '[MapControllerNew] MapMarkerService lines and markers cleared',
+      );
     }
 
     // Clear native arrow layers (new approach)
@@ -2305,381 +1772,6 @@ void _resetTapState() {
     } catch (e) {
       debugPrint('[MapControllerNew] AddMemoriesController not found: $e');
     }
-  }
-
-  /// Generate and display chronological arrows between clusters and individual memories
-  Future<void> _generateAndDisplayArrows(
-    List<models.MemoryCluster> clusters,
-    List<Map<String, dynamic>> individualMemories,
-  ) async {
-    try {
-      debugPrint(
-        '[MapControllerNew] Generating chronological arrows for ${clusters.length} clusters',
-      );
-
-      debugPrint(
-        '[MapControllerNew] Found ${individualMemories.length} individual memories for arrow generation',
-      );
-
-      // Log some individual memories for debugging
-      for (int i = 0; i < math.min(2, individualMemories.length); i++) {
-        final memory = individualMemories[i];
-        debugPrint(
-          '[MapControllerNew] Individual memory ${i + 1}: ID=${memory['id']}, date=${memory['memory_date']}, lat=${memory['location_latitude']}, lng=${memory['location_longitude']}',
-        );
-      }
-
-      // Create unified memory list for arrow generation
-      final allMemoriesWithClusters = <clustering.MemoryWithCluster>[];
-
-      // Add clustered memories
-      for (final cluster in clusters) {
-        final clusteringCluster = clustering.MemoryCluster(
-          id: cluster.id,
-          memories:
-              cluster.memories
-                  .map(
-                    (memory) => clustering.MemoryLocation(
-                      id: (memory['id'] ?? 0).toString(),
-                      latitude: memory['location_latitude'] ?? 0.0,
-                      longitude: memory['location_longitude'] ?? 0.0,
-                      memoryDate:
-                          DateTime.tryParse(memory['memory_date'] ?? '') ??
-                          DateTime.now(),
-                      title: memory['text'] ?? memory['description'] ?? '',
-                      description:
-                          memory['text'] ?? memory['description'] ?? '',
-                      memoryData: Map<String, dynamic>.from(memory),
-                    ),
-                  )
-                  .toList(),
-          centerLatitude: cluster.latitude,
-          centerLongitude: cluster.longitude,
-          radiusKm: cluster.radiusKm,
-        );
-
-        // Add each memory in the cluster to the unified list
-        for (final memory in clusteringCluster.memories) {
-          allMemoriesWithClusters.add(
-            clustering.MemoryWithCluster(memory, clusteringCluster),
-          );
-        }
-      }
-
-      // Add individual memories as single-memory clusters
-      for (final individualMemory in individualMemories) {
-        final memoryLocation = clustering.MemoryLocation(
-          id: (individualMemory['id'] ?? 0).toString(),
-          latitude: individualMemory['location_latitude'] ?? 0.0,
-          longitude: individualMemory['location_longitude'] ?? 0.0,
-          memoryDate:
-              DateTime.tryParse(individualMemory['memory_date'] ?? '') ??
-              DateTime.now(),
-          title:
-              individualMemory['text'] ?? individualMemory['description'] ?? '',
-          description:
-              individualMemory['text'] ?? individualMemory['description'] ?? '',
-          memoryData: Map<String, dynamic>.from(individualMemory),
-        );
-
-        // Create virtual cluster for individual memory
-        final virtualCluster = clustering.MemoryCluster(
-          id: 'individual_${individualMemory['id']}',
-          memories: [memoryLocation],
-          centerLatitude: memoryLocation.latitude,
-          centerLongitude: memoryLocation.longitude,
-          radiusKm: 0.0,
-        );
-
-        allMemoriesWithClusters.add(
-          clustering.MemoryWithCluster(memoryLocation, virtualCluster),
-        );
-      }
-
-      debugPrint(
-        '[MapControllerNew] Created unified memory list with ${allMemoriesWithClusters.length} memories',
-      );
-
-      if (allMemoriesWithClusters.length < 2) {
-        debugPrint('[MapControllerNew] Not enough memories for arrows');
-        return;
-      }
-
-      // Generate arrows using the unified approach
-      final arrows = _generateChronologicalArrowsFromMemories(
-        allMemoriesWithClusters,
-      );
-      debugPrint(
-        '[MapControllerNew] Generated ${arrows.length} chronological arrows',
-      );
-
-      // Store arrows
-      currentArrows.assignAll(arrows);
-
-      // Display arrows using native Mapbox layers
-      if (arrows.isNotEmpty) {
-        debugPrint(
-          '[MapControllerNew] Displaying ${arrows.length} arrows using native Mapbox layers',
-        );
-
-        // Log arrow details for debugging
-        for (int i = 0; i < arrows.length; i++) {
-          final arrow = arrows[i];
-          debugPrint(
-            '[MapControllerNew] Arrow $i: ${arrow.fromClusterId} → ${arrow.toClusterId} (${arrow.fromLatitude}, ${arrow.fromLongitude}) → (${arrow.toLatitude}, ${arrow.toLongitude})',
-          );
-        }
-
-        await _displayArrowsAsLayers(arrows);
-        debugPrint(
-          '[MapControllerNew] ✅ Successfully displayed chronological arrows on map',
-        );
-      } else {
-        debugPrint('[MapControllerNew] ⚠️  No arrows to display');
-      }
-    } catch (e) {
-      debugPrint('[MapControllerNew] Error generating/displaying arrows: $e');
-    }
-  }
-
-  /// Display arrows as native Mapbox LineString layers
-  Future<void> _displayArrowsAsLayers(
-    List<clustering.ChronologicalArrow> arrows,
-  ) async {
-    if (mapboxMap == null) return;
-
-    try {
-      // Remove existing arrow layers and source
-      try {
-        await mapboxMap!.style.removeStyleLayer(ARROW_LINES_LAYER_ID);
-        debugPrint('[MapControllerNew] Removed existing arrow layer');
-      } catch (e) {
-        debugPrint('[MapControllerNew] No existing arrow layer to remove');
-      }
-
-      try {
-        await mapboxMap!.style.removeStyleSource(ARROW_LINES_SOURCE_ID);
-        debugPrint('[MapControllerNew] Removed existing arrow source');
-      } catch (e) {
-        debugPrint('[MapControllerNew] No existing arrow source to remove');
-      }
-
-      if (arrows.isEmpty) {
-        debugPrint('[MapControllerNew] No arrows to display');
-        return;
-      }
-
-      // Create GeoJSON features for arrows
-      final features = <Map<String, dynamic>>[];
-
-      for (final arrow in arrows) {
-        // Create curved line points
-        final points = _createCurvedArrowLine(
-          arrow.fromLatitude,
-          arrow.fromLongitude,
-          arrow.toLatitude,
-          arrow.toLongitude,
-        );
-
-        // Convert to GeoJSON coordinates format [lng, lat]
-        final coordinates = points
-            .map((point) => [point.lng, point.lat])
-            .toList();
-
-        // Get color based on year
-        final year = arrow.toDate.year;
-        final color = _mapMarkerService?.markerCreationService.getColorForYear(year) ?? Colors.blue;
-
-        features.add({
-          'type': 'Feature',
-          'geometry': {
-            'type': 'LineString',
-            'coordinates': coordinates,
-          },
-          'properties': {
-            'fromClusterId': arrow.fromClusterId,
-            'toClusterId': arrow.toClusterId,
-            'fromDate': arrow.fromDate.toIso8601String(),
-            'toDate': arrow.toDate.toIso8601String(),
-            'year': year,
-            'color': '#${color.value.toRadixString(16).substring(2)}',
-          },
-        });
-      }
-
-      // Create GeoJSON source
-      final geoJson = {
-        'type': 'FeatureCollection',
-        'features': features,
-      };
-
-      debugPrint(
-        '[MapControllerNew] Creating arrow source with ${features.length} features',
-      );
-      debugPrint('[MapControllerNew] GeoJSON: ${json.encode(geoJson)}');
-
-      await mapboxMap!.style.addSource(
-        mapbox.GeoJsonSource(
-          id: ARROW_LINES_SOURCE_ID,
-          data: json.encode(geoJson),
-        ),
-      );
-      debugPrint('[MapControllerNew] ✅ Arrow GeoJSON source added');
-
-      // Add LineLayer for arrows (below individual markers)
-      // Using bright red color for high visibility during testing
-      await mapboxMap!.style.addLayer(
-        mapbox.LineLayer(
-          id: ARROW_LINES_LAYER_ID,
-          sourceId: ARROW_LINES_SOURCE_ID,
-          lineColor: 0xFFFF0000, // Bright red for visibility
-          lineWidth: 5.0, // Thicker for visibility
-          lineOpacity: 0.9,
-        ),
-      );
-      debugPrint('[MapControllerNew] ✅ Arrow LineLayer added with red color');
-
-      // Move arrow layer below individual markers
-      try {
-        await mapboxMap!.style.moveStyleLayer(
-          ARROW_LINES_LAYER_ID,
-          mapbox.LayerPosition(below: UNCLUSTERED_LAYER_ID),
-        );
-        debugPrint('[MapControllerNew] ✅ Arrow layer positioned below individual markers');
-      } catch (e) {
-        debugPrint('[MapControllerNew] ⚠️ Could not position arrow layer: $e');
-      }
-
-      debugPrint('[MapControllerNew] ✅ Arrow layers added successfully');
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error displaying arrows as layers: $e');
-    }
-  }
-
-  /// Create curved arrow line points (same as MapMarkerService)
-  List<mapbox.Position> _createCurvedArrowLine(
-    double fromLat,
-    double fromLng,
-    double toLat,
-    double toLng,
-  ) {
-    const int numPoints = 20;
-    final points = <mapbox.Position>[];
-
-    // Calculate control point for curve (perpendicular offset)
-    final midLat = (fromLat + toLat) / 2;
-    final midLng = (fromLng + toLng) / 2;
-
-    // Calculate perpendicular offset (10% of distance)
-    final dx = toLng - fromLng;
-    final dy = toLat - fromLat;
-    final distance = math.sqrt(dx * dx + dy * dy);
-    final offsetDistance = distance * 0.1;
-
-    // Perpendicular direction
-    final perpLng = -dy * offsetDistance;
-    final perpLat = dx * offsetDistance;
-
-    final controlLat = midLat + perpLat;
-    final controlLng = midLng + perpLng;
-
-    // Generate curved points using quadratic Bezier
-    for (int i = 0; i <= numPoints; i++) {
-      final t = i / numPoints;
-      final oneMinusT = 1 - t;
-
-      final lat = oneMinusT * oneMinusT * fromLat +
-          2 * oneMinusT * t * controlLat +
-          t * t * toLat;
-
-      final lng = oneMinusT * oneMinusT * fromLng +
-          2 * oneMinusT * t * controlLng +
-          t * t * toLng;
-
-      points.add(mapbox.Position(lng, lat));
-    }
-
-    return points;
-  }
-
-  /// Generate chronological arrows from unified memory list (clusters + individuals)
-  List<clustering.ChronologicalArrow> _generateChronologicalArrowsFromMemories(
-    List<clustering.MemoryWithCluster> memoriesWithClusters,
-  ) {
-    if (memoriesWithClusters.length < 2) return [];
-
-    final List<clustering.ChronologicalArrow> arrows = [];
-
-    // Sort all memories by date
-    memoriesWithClusters.sort(
-      (a, b) => a.memory.memoryDate.compareTo(b.memory.memoryDate),
-    );
-
-    debugPrint(
-      '[MapControllerNew] Sorted ${memoriesWithClusters.length} memories chronologically',
-    );
-
-    // Generate arrows between consecutive memories
-    for (int i = 0; i < memoriesWithClusters.length - 1; i++) {
-      final currentMemory = memoriesWithClusters[i];
-      final nextMemory = memoriesWithClusters[i + 1];
-
-      debugPrint(
-        '[MapControllerNew] Checking arrow between ${currentMemory.cluster.id} and ${nextMemory.cluster.id}',
-      );
-
-      // Create arrow if memories are in different clusters OR if they are far apart
-      final shouldCreateArrow =
-          currentMemory.cluster.id != nextMemory.cluster.id ||
-          _calculateDistance(
-                currentMemory.cluster.centerLatitude,
-                currentMemory.cluster.centerLongitude,
-                nextMemory.cluster.centerLatitude,
-                nextMemory.cluster.centerLongitude,
-              ) >
-              0.1; // Create arrow if distance > 100m
-
-      if (shouldCreateArrow) {
-        final arrow = clustering.ChronologicalArrow(
-          fromLatitude: currentMemory.cluster.centerLatitude,
-          fromLongitude: currentMemory.cluster.centerLongitude,
-          toLatitude: nextMemory.cluster.centerLatitude,
-          toLongitude: nextMemory.cluster.centerLongitude,
-          fromDate: currentMemory.memory.memoryDate,
-          toDate: nextMemory.memory.memoryDate,
-          fromClusterId: currentMemory.cluster.id,
-          toClusterId: nextMemory.cluster.id,
-        );
-
-        arrows.add(arrow);
-
-        debugPrint(
-          '[MapControllerNew] ✅ Created arrow: ${currentMemory.cluster.id} → ${nextMemory.cluster.id} (${currentMemory.memory.memoryDate} → ${nextMemory.memory.memoryDate})',
-        );
-      } else {
-        debugPrint(
-          '[MapControllerNew] ⚠️  Skipped arrow: same cluster and close distance',
-        );
-      }
-    }
-
-    // Remove duplicate arrows between same cluster pairs
-    final uniqueArrows = <clustering.ChronologicalArrow>[];
-    final seenConnections = <String>{};
-
-    for (final arrow in arrows) {
-      final connectionKey = '${arrow.fromClusterId}_${arrow.toClusterId}';
-      if (!seenConnections.contains(connectionKey)) {
-        uniqueArrows.add(arrow);
-        seenConnections.add(connectionKey);
-      }
-    }
-
-    debugPrint(
-      '[MapControllerNew] Generated ${uniqueArrows.length} unique arrows from ${arrows.length} total connections',
-    );
-
-    return uniqueArrows;
   }
 
   /// Get memory statistics (delegates to MemoryRepository)
@@ -2884,13 +1976,19 @@ void _resetTapState() {
       await _getCurrentLocation();
 
       // iOS FIX: If map is already ready but we just got location, animate now
-      if (isMapReady.value && mapboxMap != null && currentLocation.value != null) {
-        debugPrint('[MapControllerNew] 🎯 iOS: Permission granted after map ready - forcing animation');
+      if (isMapReady.value &&
+          mapboxMap != null &&
+          currentLocation.value != null) {
+        debugPrint(
+          '[MapControllerNew] 🎯 iOS: Permission granted after map ready - forcing animation',
+        );
         await Future.delayed(Duration(milliseconds: 500));
         await _moveCameraToCurrentLocation();
       }
     } catch (e) {
-      debugPrint('[MapControllerNew] Error getting location after permission granted: $e');
+      debugPrint(
+        '[MapControllerNew] Error getting location after permission granted: $e',
+      );
     }
   }
 
@@ -2948,16 +2046,20 @@ void _resetTapState() {
     mapbox.MapLoadingErrorEventData mapLoadingErrorEventData,
   ) async {
     debugPrint('[MapControllerNew] 🗺️ Map load error occurred');
-    debugPrint('[MapControllerNew] Error message: ${mapLoadingErrorEventData.message}');
-    debugPrint('[MapControllerNew] Error type: ${mapLoadingErrorEventData.type}');
+    debugPrint(
+      '[MapControllerNew] Error message: ${mapLoadingErrorEventData.message}',
+    );
+    debugPrint(
+      '[MapControllerNew] Error type: ${mapLoadingErrorEventData.type}',
+    );
 
     // Map errors are expected when using local tile server
     // The local tile server serves tiles via HTTP, so Mapbox style loads normally
     // No need to check for offline tiles or enable offline mode
-    debugPrint('[MapControllerNew] ℹ️ Map error logged - continuing with local tile server if available');
+    debugPrint(
+      '[MapControllerNew] ℹ️ Map error logged - continuing with local tile server if available',
+    );
   }
-
-
 
   /// Manually trigger layer visibility update (useful for testing or manual refresh)
   Future<void> updateLayerVisibility() async {
@@ -2967,9 +2069,13 @@ void _resetTapState() {
       final cameraState = await mapboxMap!.getCameraState();
       final currentZoomLevel = cameraState.zoom;
       await _updateLayerVisibilityForZoom(currentZoomLevel);
-      debugPrint('[MapControllerNew] 🔄 Manual layer visibility update completed for zoom: $currentZoomLevel');
+      debugPrint(
+        '[MapControllerNew] 🔄 Manual layer visibility update completed for zoom: $currentZoomLevel',
+      );
     } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error in manual layer visibility update: $e');
+      debugPrint(
+        '[MapControllerNew] ❌ Error in manual layer visibility update: $e',
+      );
     }
   }
 
@@ -2978,7 +2084,9 @@ void _resetTapState() {
     if (mapboxMap == null) return;
 
     try {
-      debugPrint('[MapControllerNew] 📹 Setting up zoom monitoring for layer visibility');
+      debugPrint(
+        '[MapControllerNew] 📹 Setting up zoom monitoring for layer visibility',
+      );
 
       // Since Mapbox Flutter doesn't have direct camera listeners,
       // we'll use a periodic check combined with manual updates
@@ -3019,7 +2127,9 @@ void _resetTapState() {
         // SAFETY CHECK: Only update layer visibility if we're in the main map view
         // Check if the current route is the map view to avoid updating layers in other map instances
         // (e.g., location picker, memory location picker)
-        if (Get.currentRoute == '/map-new' || Get.currentRoute == '/map' || Get.currentRoute == '/') {
+        if (Get.currentRoute == '/map-new' ||
+            Get.currentRoute == '/map' ||
+            Get.currentRoute == '/') {
           // Update layer visibility based on zoom level
           await _updateLayerVisibilityForZoom(currentZoomLevel);
         }
@@ -3028,8 +2138,6 @@ void _resetTapState() {
       // Silently ignore errors to avoid spam
     }
   }
-
-
 
   /// Update layer visibility based on current zoom level
   Future<void> _updateLayerVisibilityForZoom(double zoomLevel) async {
@@ -3044,19 +2152,16 @@ void _resetTapState() {
       // Details: visible at high zoom levels
       final showDetails = zoomLevel >= _detailVisibilityMinZoom;
 
-      debugPrint('[MapControllerNew] 👁️ Updating layer visibility for zoom $zoomLevel:');
-      debugPrint('[MapControllerNew] - Clusters: $showClusters (max: $_clusterVisibilityMaxZoom)');
-      debugPrint('[MapControllerNew] - Individual: $showIndividual (min: $_individualVisibilityMinZoom)');
-      debugPrint('[MapControllerNew] - Details: $showDetails (min: $_detailVisibilityMinZoom)');
-
       // Update cluster layers visibility (show when zoomed out)
       await _setLayerVisibility(CLUSTER_LAYER_ID, showClusters);
       await _setLayerVisibility(CLUSTER_COUNT_LAYER_ID, showClusters);
 
       // Update individual memory layers visibility (show when zoomed in)
       await _setLayerVisibility(UNCLUSTERED_LAYER_ID, showIndividual);
-      await _setLayerVisibility(INDIVIDUAL_COUNT_LAYER_ID, showIndividual && showDetails);
-
+      await _setLayerVisibility(
+        INDIVIDUAL_COUNT_LAYER_ID,
+        showIndividual && showDetails,
+      );
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error updating layer visibility: $e');
     }
@@ -3073,7 +2178,9 @@ void _resetTapState() {
         'visibility',
         visibility,
       );
-      debugPrint('[MapControllerNew] 🎨 Set layer $layerId visibility to: $visibility');
+      debugPrint(
+        '[MapControllerNew] 🎨 Set layer $layerId visibility to: $visibility',
+      );
     } catch (e) {
       // Layer might not exist - this is normal when in other map views (location picker, etc.)
       // Silently ignore to avoid log spam
@@ -3132,27 +2239,6 @@ void _resetTapState() {
     }
   }
 
-  /// Handle map tap with feature querying to detect clusters or individual memories
-  Future<void> _handleMapTapWithFeatureQuery(
-    mapbox.Point tapPoint,
-    double lat,
-    double lng,
-  ) async {
-    try {
-      debugPrint(
-        '[MapControllerNew] 🔍 Querying features at tap point: ($lat, $lng)',
-      );
-
-      // Query features at the tap point to detect clusters or individual markers
-      await _queryFeaturesAtTapPoint(tapPoint, lat, lng);
-
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error in tap handling: $e');
-      // Fallback to location info
-      // _showLocationInfo(lat, lng);
-    }
-  }
-
   /// Query map features at tap point to distinguish between clusters and individual markers
   Future<void> _queryFeaturesAtTapPoint(
     mapbox.Point tapPoint,
@@ -3164,44 +2250,78 @@ void _resetTapState() {
     try {
       debugPrint('[MapControllerNew] 🔍 === DETAILED TAP QUERY DEBUG ===');
       debugPrint('[MapControllerNew] 📍 Tap coordinates: lat=$lat, lng=$lng');
-      debugPrint('[MapControllerNew] 📱 Screen coordinates: x=${tapPoint.coordinates.lng}, y=${tapPoint.coordinates.lat}');
-      debugPrint('[MapControllerNew] 🎯 Target layers: [$CLUSTER_LAYER_ID, $UNCLUSTERED_LAYER_ID]');
+      debugPrint(
+        '[MapControllerNew] 📱 Screen coordinates: x=${tapPoint.coordinates.lng}, y=${tapPoint.coordinates.lat}',
+      );
+      debugPrint(
+        '[MapControllerNew] 🎯 Target layers: [$CLUSTER_LAYER_ID, $UNCLUSTERED_LAYER_ID]',
+      );
 
       // Get current zoom level for context
       try {
         final cameraState = await mapboxMap!.getCameraState();
-        debugPrint('[MapControllerNew] 🔍 Current zoom level: ${cameraState.zoom}');
-        debugPrint('[MapControllerNew] 🗺️ Current center: ${cameraState.center.coordinates.lat}, ${cameraState.center.coordinates.lng}');
+        debugPrint(
+          '[MapControllerNew] 🔍 Current zoom level: ${cameraState.zoom}',
+        );
+        debugPrint(
+          '[MapControllerNew] 🗺️ Current center: ${cameraState.center.coordinates.lat}, ${cameraState.center.coordinates.lng}',
+        );
       } catch (e) {
         debugPrint('[MapControllerNew] ⚠️ Could not get camera state: $e');
       }
 
       // Query features in cluster layer first (clusters have priority)
-      debugPrint('[MapControllerNew] 🔍 Querying cluster layer: $CLUSTER_LAYER_ID');
+      // Query all cluster layer variants (small, medium, large, etc.)
+      final clusterLayerIds = [
+        '$CLUSTER_LAYER_ID-small',
+        '$CLUSTER_LAYER_ID-medium-small',
+        '$CLUSTER_LAYER_ID-medium',
+        '$CLUSTER_LAYER_ID-medium-large',
+        '$CLUSTER_LAYER_ID-large',
+        '$CLUSTER_LAYER_ID-xlarge',
+        CLUSTERS_CIRCLE_LAYER_ID,
+        CLUSTER_LAYER_ID,
+        
+      ];
+
+      debugPrint(
+        '[MapControllerNew] 🔍 Querying cluster layers: $clusterLayerIds',
+      );
       final clusterFeatures = await mapboxMap!.queryRenderedFeatures(
         mapbox.RenderedQueryGeometry.fromScreenCoordinate(
-          mapbox.ScreenCoordinate(x: tapPoint.coordinates.lng.toDouble(), y: tapPoint.coordinates.lat.toDouble())
+          mapbox.ScreenCoordinate(
+            x: tapPoint.coordinates.lng.toDouble(),
+            y: tapPoint.coordinates.lat.toDouble(),
+          ),
         ),
-        mapbox.RenderedQueryOptions(
-          layerIds: [CLUSTER_LAYER_ID],
-        ),
+        mapbox.RenderedQueryOptions(layerIds: clusterLayerIds),
       );
 
-      debugPrint('[MapControllerNew] 🌐 Cluster features found: ${clusterFeatures.length}');
+      debugPrint(
+        '[MapControllerNew] 🌐 Cluster features found: ${clusterFeatures.length}',
+      );
 
       // Log detailed cluster feature data
       for (int i = 0; i < clusterFeatures.length; i++) {
         final feature = clusterFeatures[i];
         if (feature != null) {
           debugPrint('[MapControllerNew] 📊 Cluster feature $i:');
-          debugPrint('[MapControllerNew]   - Feature type: ${feature.runtimeType}');
+          debugPrint(
+            '[MapControllerNew]   - Feature type: ${feature.runtimeType}',
+          );
 
           try {
             final queriedFeature = feature.queriedFeature;
-            debugPrint('[MapControllerNew]   - Queried feature type: ${queriedFeature.runtimeType}');
-            debugPrint('[MapControllerNew]   - Feature data: ${queriedFeature.toString()}');
+            debugPrint(
+              '[MapControllerNew]   - Queried feature type: ${queriedFeature.runtimeType}',
+            );
+            debugPrint(
+              '[MapControllerNew]   - Feature data: ${queriedFeature.toString()}',
+            );
           } catch (e) {
-            debugPrint('[MapControllerNew]   - Error accessing queried feature: $e');
+            debugPrint(
+              '[MapControllerNew]   - Error accessing queried feature: $e',
+            );
           }
         } else {
           debugPrint('[MapControllerNew] 📊 Cluster feature $i: null');
@@ -3215,31 +2335,44 @@ void _resetTapState() {
       }
 
       // Query features in individual memory layer
-      debugPrint('[MapControllerNew] 🔍 Querying individual memory layer: $UNCLUSTERED_LAYER_ID');
+      debugPrint(
+        '[MapControllerNew] 🔍 Querying individual memory layer: $UNCLUSTERED_LAYER_ID',
+      );
       final individualFeatures = await mapboxMap!.queryRenderedFeatures(
         mapbox.RenderedQueryGeometry.fromScreenCoordinate(
-          mapbox.ScreenCoordinate(x: tapPoint.coordinates.lng.toDouble(), y: tapPoint.coordinates.lat.toDouble())
+          mapbox.ScreenCoordinate(
+            x: tapPoint.coordinates.lng.toDouble(),
+            y: tapPoint.coordinates.lat.toDouble(),
+          ),
         ),
-        mapbox.RenderedQueryOptions(
-          layerIds: [UNCLUSTERED_LAYER_ID],
-        ),
+        mapbox.RenderedQueryOptions(layerIds: [UNCLUSTERED_LAYER_ID]),
       );
 
-      debugPrint('[MapControllerNew] 👤 Individual features found: ${individualFeatures.length}');
+      debugPrint(
+        '[MapControllerNew] 👤 Individual features found: ${individualFeatures.length}',
+      );
 
       // Log detailed individual feature data
       for (int i = 0; i < individualFeatures.length; i++) {
         final feature = individualFeatures[i];
         if (feature != null) {
           debugPrint('[MapControllerNew] 📊 Individual feature $i:');
-          debugPrint('[MapControllerNew]   - Feature type: ${feature.runtimeType}');
+          debugPrint(
+            '[MapControllerNew]   - Feature type: ${feature.runtimeType}',
+          );
 
           try {
             final queriedFeature = feature.queriedFeature;
-            debugPrint('[MapControllerNew]   - Queried feature type: ${queriedFeature.runtimeType}');
-            debugPrint('[MapControllerNew]   - Feature data: ${queriedFeature.toString()}');
+            debugPrint(
+              '[MapControllerNew]   - Queried feature type: ${queriedFeature.runtimeType}',
+            );
+            debugPrint(
+              '[MapControllerNew]   - Feature data: ${queriedFeature.toString()}',
+            );
           } catch (e) {
-            debugPrint('[MapControllerNew]   - Error accessing queried feature: $e');
+            debugPrint(
+              '[MapControllerNew]   - Error accessing queried feature: $e',
+            );
           }
         } else {
           debugPrint('[MapControllerNew] 📊 Individual feature $i: null');
@@ -3253,32 +2386,45 @@ void _resetTapState() {
       }
 
       // Query all features at this point for debugging
-      debugPrint('[MapControllerNew] 🔍 Querying ALL features at tap point for debugging');
+      debugPrint(
+        '[MapControllerNew] 🔍 Querying ALL features at tap point for debugging',
+      );
       final allFeatures = await mapboxMap!.queryRenderedFeatures(
         mapbox.RenderedQueryGeometry.fromScreenCoordinate(
-          mapbox.ScreenCoordinate(x: tapPoint.coordinates.lng.toDouble(), y: tapPoint.coordinates.lat.toDouble())
+          mapbox.ScreenCoordinate(
+            x: tapPoint.coordinates.lng.toDouble(),
+            y: tapPoint.coordinates.lat.toDouble(),
+          ),
         ),
         mapbox.RenderedQueryOptions(),
       );
 
-      debugPrint('[MapControllerNew] 🌍 Total features found: ${allFeatures.length}');
-      for (int i = 0; i < allFeatures.length && i < 10; i++) { // Limit to first 10 to avoid spam
+      debugPrint(
+        '[MapControllerNew] 🌍 Total features found: ${allFeatures.length}',
+      );
+      for (int i = 0; i < allFeatures.length && i < 10; i++) {
+        // Limit to first 10 to avoid spam
         final feature = allFeatures[i];
         if (feature != null) {
           try {
             final queriedFeature = feature.queriedFeature;
-            debugPrint('[MapControllerNew] 📊 All feature $i: ${queriedFeature.toString()}');
+            debugPrint(
+              '[MapControllerNew] 📊 All feature $i: ${queriedFeature.toString()}',
+            );
           } catch (e) {
-            debugPrint('[MapControllerNew] 📊 All feature $i: Error accessing - $e');
+            debugPrint(
+              '[MapControllerNew] 📊 All feature $i: Error accessing - $e',
+            );
           }
         }
       }
 
       // No features found, show location info
-      debugPrint('[MapControllerNew] 📍 No target features found at tap point, showing location info');
+      debugPrint(
+        '[MapControllerNew] 📍 No target features found at tap point, showing location info',
+      );
       debugPrint('[MapControllerNew] 🔍 === END TAP QUERY DEBUG ===');
       _showLocationInfo(lat, lng);
-
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error querying features: $e');
       debugPrint('[MapControllerNew] 📊 Error details: ${e.toString()}');
@@ -3297,7 +2443,30 @@ void _resetTapState() {
     double lng,
   ) async {
     try {
-      debugPrint('[MapControllerNew] 🎯 Handling cluster feature tap at ($lat, $lng)');
+      debugPrint(
+        '[MapControllerNew] 🎯 Handling cluster feature tap at ($lat, $lng)',
+      );
+
+      // Extract cluster properties to get cluster_id and point_count
+      final featureData = clusterFeature.queriedFeature.feature;
+      final properties = featureData['properties'] as Map<String, dynamic>?;
+
+      if (properties != null) {
+        debugPrint('[MapControllerNew] 📊 Cluster Properties:');
+        final clusterId = properties['cluster_id'];
+        final pointCount = properties['point_count'];
+        debugPrint('[MapControllerNew] - cluster_id: $clusterId');
+        debugPrint('[MapControllerNew] - point_count: $pointCount');
+
+        // Fetch all memory leaves (individual memories) in this cluster
+        if (clusterId != null) {
+          await _fetchAndLogClusterMemories(clusterId, pointCount ?? 0);
+        } else {
+          debugPrint('[MapControllerNew] ⚠️ No cluster_id found in properties');
+        }
+      } else {
+        debugPrint('[MapControllerNew] ⚠️ No properties found in cluster feature');
+      }
 
       // Get current zoom level
       final cameraState = await mapboxMap!.getCameraState();
@@ -3308,33 +2477,40 @@ void _resetTapState() {
       // Check if we're at high zoom level (close to clusterMaxZoom of 14)
       // If zoom >= 13, show cluster details instead of zooming further
       if (currentZoomLevel >= 13.0) {
-        debugPrint('[MapControllerNew] 🔍 High zoom level detected, showing cluster details');
+        debugPrint(
+          '[MapControllerNew] 🔍 High zoom level detected, showing cluster details',
+        );
 
-        // Find the cluster by location proximity
-        final nearbyCluster = _findNearestCluster(lat, lng);
-
-        if (nearbyCluster != null) {
-          debugPrint('[MapControllerNew] 📊 Found cluster with ${nearbyCluster.memories.length} memories');
-          await _showClusterMemories(nearbyCluster);
+        // Fetch and show cluster memories in a bottom sheet
+        if (properties != null && properties['cluster_id'] != null) {
+          await _showClusterMemoriesBottomSheet(
+            properties['cluster_id'],
+            properties['point_count'] ?? 0,
+            lat,
+            lng,
+          );
         } else {
-          debugPrint('[MapControllerNew] ⚠️ No cluster found near tap location');
+          debugPrint(
+            '[MapControllerNew] ⚠️ No cluster_id found, showing location info',
+          );
           _showLocationInfo(lat, lng);
         }
       } else {
         // Zoom in smoothly (CircleLayerClusteringPage behavior)
         final newZoom = (currentZoomLevel + 2.0).clamp(0.0, 22.0);
 
-        debugPrint('[MapControllerNew] 🔍 Zooming into cluster: $currentZoomLevel → $newZoom');
+        debugPrint(
+          '[MapControllerNew] 🔍 Zooming into cluster: $currentZoomLevel → $newZoom',
+        );
 
         await mapboxMap!.flyTo(
           mapbox.CameraOptions(
-            center: mapbox.Point(
-              coordinates: mapbox.Position(lng, lat),
-            ),
+            center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
             zoom: newZoom,
           ),
           mapbox.MapAnimationOptions(
-            duration: 800, // Smooth 800ms animation like CircleLayerClusteringPage
+            duration:
+                800, // Smooth 800ms animation like CircleLayerClusteringPage
             startDelay: 0,
           ),
         );
@@ -3350,6 +2526,315 @@ void _resetTapState() {
     }
   }
 
+  /// Fetch and log all memory IDs in a cluster using getGeoJsonClusterLeaves
+  Future<void> _fetchAndLogClusterMemories(dynamic clusterId, int pointCount) async {
+    try {
+      debugPrint('[MapControllerNew] 🔍 Fetching cluster leaves for cluster_id: $clusterId');
+      debugPrint('[MapControllerNew] 📊 Expected point count: $pointCount');
+
+      // Create cluster feature map for querying
+      final clusterFeature = {
+        'cluster_id': clusterId,
+      };
+
+      // Fetch all leaves (individual memories) in this cluster
+      final result = await mapboxMap!.getGeoJsonClusterLeaves(
+        MEMORY_SOURCE_ID,
+        clusterFeature,
+        0, // offset - start from first memory
+        1000, // limit - fetch up to 1000 memories (should be enough)
+      );
+
+      final leavesData = result.value;
+
+      if (leavesData == null) {
+        debugPrint('[MapControllerNew] ⚠️ No leaves data returned from cluster');
+        return;
+      }
+
+      debugPrint('[MapControllerNew] 📦 Raw leaves data type: ${leavesData.runtimeType}');
+      debugPrint('[MapControllerNew] 📦 Raw leaves data: $leavesData');
+
+      // Parse the GeoJSON FeatureCollection
+      try {
+        final leavesJson = jsonDecode(leavesData.toString());
+
+        if (leavesJson is Map && leavesJson['type'] == 'FeatureCollection') {
+          final features = leavesJson['features'] as List<dynamic>?;
+
+          if (features != null && features.isNotEmpty) {
+            debugPrint('[MapControllerNew] ✅ Found ${features.length} memories in cluster');
+            debugPrint('[MapControllerNew] 🎯 Memory IDs in cluster:');
+
+            final memoryIds = <String>[];
+            for (int i = 0; i < features.length; i++) {
+              final feature = features[i] as Map<String, dynamic>;
+              final properties = feature['properties'] as Map<String, dynamic>?;
+
+              if (properties != null) {
+                final memoryId = properties['id'];
+                final memoryTitle = properties['title'] ?? 'Untitled';
+                final memoryDate = properties['memory_date'] ?? '';
+
+                memoryIds.add(memoryId.toString());
+
+                debugPrint('[MapControllerNew]   [$i] ID: $memoryId');
+                debugPrint('[MapControllerNew]       Title: $memoryTitle');
+                debugPrint('[MapControllerNew]       Date: $memoryDate');
+              }
+            }
+
+            debugPrint('[MapControllerNew] 📋 All Memory IDs: ${memoryIds.join(', ')}');
+          } else {
+            debugPrint('[MapControllerNew] ⚠️ No features found in FeatureCollection');
+          }
+        } else {
+          debugPrint('[MapControllerNew] ⚠️ Unexpected leaves data format: ${leavesJson.runtimeType}');
+        }
+      } catch (parseError) {
+        debugPrint('[MapControllerNew] ❌ Error parsing leaves JSON: $parseError');
+        debugPrint('[MapControllerNew] Raw data: $leavesData');
+      }
+
+    } catch (e, stackTrace) {
+      debugPrint('[MapControllerNew] ❌ Error fetching cluster memories: $e');
+      debugPrint('[MapControllerNew] Stack trace: $stackTrace');
+    }
+  }
+
+  /// Show cluster memories in a bottom sheet
+  ///
+  /// This method supports TWO approaches to get cluster memories:
+  ///
+  /// **Approach 1: Using pre-aggregated memory IDs (FASTER)**
+  /// - Memory IDs are stored in cluster properties during GeoJSON creation
+  /// - Uses `clusterProperties` with reduce expressions to aggregate IDs
+  /// - Avoids additional API calls to fetch cluster leaves
+  /// - Best for performance when you need to fetch from database
+  ///
+  /// **Approach 2: Using getGeoJsonClusterLeaves (MORE FLEXIBLE)**
+  /// - Fetches individual features from the cluster dynamically
+  /// - Returns full GeoJSON features with all properties
+  /// - No need to query database separately
+  /// - Best when you need all feature properties
+  ///
+  /// Parameters:
+  /// - [clusterId]: The cluster ID from Mapbox
+  /// - [pointCount]: Number of points in the cluster
+  /// - [lat], [lng]: Cluster center coordinates
+  /// - [memoryIdsString]: Optional comma-separated memory IDs from cluster properties
+  Future<void> _showClusterMemoriesBottomSheet(
+    dynamic clusterId,
+    int pointCount,
+    double lat,
+    double lng, {
+    String? memoryIdsString, // Optional: pre-aggregated memory IDs from cluster properties
+  }) async {
+    try {
+      debugPrint('[MapControllerNew] 📋 Showing cluster memories bottom sheet');
+
+      // APPROACH 1: If memory IDs are provided in cluster properties, use them
+      if (memoryIdsString != null && memoryIdsString.isNotEmpty) {
+        final memoryIds = memoryIdsString.split(',').where((id) => id.trim().isNotEmpty).toList();
+        debugPrint('[MapControllerNew] 💾 Using pre-aggregated memory IDs (${memoryIds.length}): ${memoryIds.join(', ')}');
+
+        // TODO: Optionally fetch memories from database using these IDs
+        // Example:
+        // final memories = await _fetchMemoriesByIds(memoryIds);
+        // _showMemoriesInBottomSheet(memories);
+        // return;
+      }
+
+      // APPROACH 2: Use getGeoJsonClusterLeaves to fetch full GeoJSON features
+      debugPrint('[MapControllerNew] 🔍 Fetching cluster leaves using getGeoJsonClusterLeaves...');
+
+      // Create cluster feature map for querying
+      final clusterFeature = {
+        'cluster_id': clusterId,
+      };
+
+      // Fetch all leaves (individual memories) in this cluster
+      final result = await mapboxMap!.getGeoJsonClusterLeaves(
+        MEMORY_SOURCE_ID,
+        clusterFeature,
+        0, // offset
+        1000, // limit
+      );
+
+      final leavesData = result.value;
+
+      if (leavesData == null) {
+        debugPrint('[MapControllerNew] ⚠️ No leaves data returned from cluster');
+        Get.snackbar(
+          'Error',
+          'Could not load cluster memories',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+        return;
+      }
+
+      // Parse the GeoJSON FeatureCollection
+      final leavesJson = jsonDecode(leavesData.toString());
+
+      if (leavesJson is! Map || leavesJson['type'] != 'FeatureCollection') {
+        debugPrint('[MapControllerNew] ⚠️ Unexpected leaves data format');
+        return;
+      }
+
+      final features = leavesJson['features'] as List<dynamic>?;
+
+      if (features == null || features.isEmpty) {
+        debugPrint('[MapControllerNew] ⚠️ No features found in cluster');
+        return;
+      }
+
+      // Extract memory data from features
+      final memories = <Map<String, dynamic>>[];
+      for (final feature in features) {
+        final properties = (feature as Map<String, dynamic>)['properties'] as Map<String, dynamic>?;
+        if (properties != null) {
+          memories.add(properties);
+        }
+      }
+
+      debugPrint('[MapControllerNew] ✅ Showing ${memories.length} memories in bottom sheet');
+
+      // Show bottom sheet with cluster memories
+      Get.bottomSheet(
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Cluster Memories (${memories.length})',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Get.back(),
+                    ),
+                  ],
+                ),
+              ),
+              // Memory list
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: memories.length,
+                  itemBuilder: (context, index) {
+                    final memory = memories[index];
+                    final memoryId = memory['id'];
+                    final title = memory['title'] ?? 'Untitled';
+                    final date = memory['memory_date'] ?? '';
+                    final description = memory['description'] ?? '';
+                    final hasImages = memory['has_images'] == true;
+                    final hasAudios = memory['has_audios'] == true;
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.blue.shade100,
+                        child: Icon(
+                          hasImages ? Icons.image : Icons.location_on,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      title: Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (date.isNotEmpty)
+                            Text(
+                              date,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          if (description.isNotEmpty)
+                            Text(
+                              description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (hasImages)
+                            const Icon(Icons.image, size: 16, color: Colors.blue),
+                          if (hasAudios)
+                            const Icon(Icons.audiotrack, size: 16, color: Colors.orange),
+                        ],
+                      ),
+                      onTap: () {
+                        debugPrint('[MapControllerNew] 📝 Memory tapped: $memoryId');
+                        Get.back(); // Close bottom sheet
+                        // TODO: Navigate to memory detail page
+                        Get.snackbar(
+                          'Memory Selected',
+                          title,
+                          snackPosition: SnackPosition.BOTTOM,
+                          duration: const Duration(seconds: 2),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        isScrollControlled: true,
+        enableDrag: true,
+      );
+
+    } catch (e, stackTrace) {
+      debugPrint('[MapControllerNew] ❌ Error showing cluster memories: $e');
+      debugPrint('[MapControllerNew] Stack trace: $stackTrace');
+      Get.snackbar(
+        'Error',
+        'Could not load cluster memories',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
   /// Find the nearest cluster to the given coordinates
   models.MemoryCluster? _findNearestCluster(double lat, double lng) {
     if (currentClusters.isEmpty) return null;
@@ -3359,7 +2844,12 @@ void _resetTapState() {
     const double maxDistance = 0.001; // ~100m tolerance
 
     for (final cluster in currentClusters) {
-      final distance = _calculateDistance(lat, lng, cluster.latitude, cluster.longitude);
+      final distance = _calculateDistance(
+        lat,
+        lng,
+        cluster.latitude,
+        cluster.longitude,
+      );
       if (distance < minDistance && distance < maxDistance) {
         minDistance = distance;
         nearestCluster = cluster;
@@ -3370,7 +2860,12 @@ void _resetTapState() {
   }
 
   /// Calculate distance between two coordinates (simple Euclidean distance)
-  double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+  double _calculateDistance(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
     final dLat = lat1 - lat2;
     final dLng = lng1 - lng2;
     return math.sqrt(dLat * dLat + dLng * dLng);
@@ -3379,7 +2874,9 @@ void _resetTapState() {
   /// Show all memories in a cluster
   Future<void> _showClusterMemories(models.MemoryCluster cluster) async {
     try {
-      debugPrint('[MapControllerNew] 📋 Showing ${cluster.memories.length} memories from cluster ${cluster.id}');
+      debugPrint(
+        '[MapControllerNew] 📋 Showing ${cluster.memories.length} memories from cluster ${cluster.id}',
+      );
 
       if (cluster.memories.length == 1) {
         // Single memory, show directly
@@ -3400,7 +2897,9 @@ void _resetTapState() {
     double lng,
   ) async {
     try {
-      debugPrint('[MapControllerNew] 🎯 Handling individual memory feature tap at ($lat, $lng)');
+      debugPrint(
+        '[MapControllerNew] 🎯 Handling individual memory feature tap at ($lat, $lng)',
+      );
 
       // Find the nearest individual memory by location proximity
       final nearbyMemory = _findNearestMemory(lat, lng);
@@ -3413,7 +2912,9 @@ void _resetTapState() {
         _showLocationInfo(lat, lng);
       }
     } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error handling individual feature tap: $e');
+      debugPrint(
+        '[MapControllerNew] ❌ Error handling individual feature tap: $e',
+      );
       _showLocationInfo(lat, lng);
     }
   }
@@ -3442,13 +2943,14 @@ void _resetTapState() {
     return nearestMemory;
   }
 
-
-
   /// Fallback to location-based tap handling when feature querying fails
   Future<void> _fallbackToLocationBasedTap(double lat, double lng) async {
-    debugPrint('[MapControllerNew] 🔄 Using fallback location-based tap handling');
+    debugPrint(
+      '[MapControllerNew] 🔄 Using fallback location-based tap handling',
+    );
 
-    if (_mapMarkerService != null && (currentClusters.isNotEmpty || _currentMemories.isNotEmpty)) {
+    if (_mapMarkerService != null &&
+        (currentClusters.isNotEmpty || _currentMemories.isNotEmpty)) {
       // Get current zoom level for dynamic tap radius
       double? currentZoom;
       if (mapboxMap != null) {
@@ -3456,7 +2958,9 @@ void _resetTapState() {
           final cameraState = await mapboxMap!.getCameraState();
           currentZoom = cameraState.zoom;
         } catch (e) {
-          debugPrint('[MapControllerNew] Could not get zoom level for fallback tap: $e');
+          debugPrint(
+            '[MapControllerNew] Could not get zoom level for fallback tap: $e',
+          );
         }
       }
 
@@ -3532,7 +3036,7 @@ void _resetTapState() {
       // Generate cluster icon set using defined size tiers
       final icons = await ClusterIconGenerator.generateClusterIconSet(
         counts: CLUSTER_SIZE_TIERS,
-        size: 50.0,
+        size: 30.0,
       );
 
       // Add each icon to the map style
@@ -3544,11 +3048,7 @@ void _resetTapState() {
           await mapboxMap!.style.addStyleImage(
             iconName,
             1.0, // scale
-            mapbox.MbxImage(
-              width: 50,
-              height: 50,
-              data: iconData,
-            ),
+            mapbox.MbxImage(width: 30, height: 30, data: iconData),
             false, // sdf (signed distance field)
             [], // stretchX
             [], // stretchY
@@ -3562,32 +3062,6 @@ void _resetTapState() {
 
       // Generate and add individual point icon
       debugPrint('[MapControllerNew] 🎨 Generating individual point icon...');
-      final individualIcon = await ClusterIconGenerator.generateIndividualIcon(
-        size: 50.0, // Same size as cluster icons
-        backgroundColor: const Color(0xFF11B4DA),
-        strokeColor: Colors.white,
-        strokeWidth: 6.0, // Same stroke width as cluster icons
-      );
-      debugPrint('[MapControllerNew] ✅ Individual icon generated: ${individualIcon.length} bytes');
-
-      try {
-        await mapboxMap!.style.addStyleImage(
-          'individual-point',
-          1.0,
-          mapbox.MbxImage(
-            width: 50,
-            height: 50,
-            data: individualIcon,
-          ),
-          false,
-          [],
-          [],
-          null,
-        );
-        debugPrint('[MapControllerNew] ✅ Individual point icon added to style');
-      } catch (e) {
-        debugPrint('[MapControllerNew] ❌ Failed to add individual icon: $e');
-      }
 
       debugPrint('[MapControllerNew] ✅ All cluster icons loaded successfully');
     } catch (e) {
@@ -3601,10 +3075,12 @@ void _resetTapState() {
     if (mapboxMap == null) return;
 
     try {
-      debugPrint('[MapControllerNew] 🎨 Adding enhanced cluster layers with custom icons...');
+      debugPrint(
+        '[MapControllerNew] 🎨 Adding enhanced cluster layers with custom icons...',
+      );
 
       // Load custom cluster icons first
-      await _loadClusterIcons();
+      // await _loadClusterIcons();
 
       // Get all style layers to find proper insertion point
       final layers = await mapboxMap!.style.getStyleLayers();
@@ -3612,90 +3088,167 @@ void _resetTapState() {
 
       // Find the first symbol layer for proper ordering
       String? labelLayerId = layers.last!.id;
-    
+      await mapboxMap!.style.addLayer(
+        mapbox.CircleLayer(
+          id: CLUSTERS_CIRCLE_LAYER_ID,
+          sourceId: MEMORY_SOURCE_ID,
+          filter: ['has', 'point_count'],
+          // Initial simple paint; will refine via setStyleLayerProperty below if needed
+          circleColor: 0xFF11B4DA, // default (will be overridden)
+          circleRadius: 10.0,
+          circleStrokeWidth: 5.0,
+          circleStrokeColor: 0xFFFFFFFF,
+          circleOpacity: 1.0,
+        ),
+      );
 
-      // Layer 1: Cluster icons - Dynamically generated layers for different sizes
-      // Since Flutter SDK doesn't support expressions in iconImage, we use multiple layers with filters
-      debugPrint('[MapControllerNew] 🎨 Adding ${CLUSTER_SIZE_TIERS.length} cluster size tier layers...');
+      // Optional: use expressions for circle-color / circle-radius by point_count
+      await mapboxMap!.style.setStyleLayerProperty(
+        CLUSTERS_CIRCLE_LAYER_ID,
+        'circle-color',
+        [
+          'step',
+          ['get', 'point_count'],
+          '#51bbd6', // <= first threshold
+          100, '#f1f075',
+          750, '#f28cb1',
+        ],
+      );
 
-      for (int i = 0; i < CLUSTER_SIZE_TIERS.length; i++) {
-        final currentTier = CLUSTER_SIZE_TIERS[i];
-        final nextTier = i < CLUSTER_SIZE_TIERS.length - 1 ? CLUSTER_SIZE_TIERS[i + 1] : null;
+      await mapboxMap!.style.setStyleLayerProperty(
+        CLUSTERS_CIRCLE_LAYER_ID,
+        'circle-radius',
+        [
+          'step',
+          ['get', 'point_count'],
+          10.0,
+          100,
+          10.0,
+          750,
+          10.0,
+        ],
+      );
 
-        // Create filter based on tier position
-        final List<Object> filter;
-        if (nextTier != null) {
-          // Not the last tier: point_count >= currentTier AND point_count < nextTier
-          filter = [
-            'all',
-            ['has', 'point_count'],
-            ['>=', ['get', 'point_count'], currentTier],
-            ['<', ['get', 'point_count'], nextTier],
-          ];
-        } else {
-          // Last tier: point_count >= currentTier
-          filter = [
-            'all',
-            ['has', 'point_count'],
-            ['>=', ['get', 'point_count'], currentTier],
-          ];
-        }
+      // 2) Cluster count text (symbol layer)
+      await mapboxMap!.style.addLayer(
+        mapbox.SymbolLayer(
+          id: CLUSTERS_COUNT_LAYER_ID,
+          sourceId: MEMORY_SOURCE_ID,
+          filter: ['has', 'point_count'],
+          textField: '', // or null; gets overridden
+          textSize: 12.0,
+          textColor: 0xFFFFFFFF,
+          textIgnorePlacement: true,
+          textAllowOverlap: true,
+        ),
+      );
 
-        // Add layer for this tier
-        await mapboxMap!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: '$CLUSTER_LAYER_ID-tier-$currentTier',
-            sourceId: MEMORY_SOURCE_ID,
-            filter: filter,
-            iconImage: 'cluster-$currentTier',
-            iconSize: 1.0,
-            iconAllowOverlap: true,
-            iconIgnorePlacement: true,
-          ),
-        );
+      await mapboxMap!.style.setStyleLayerProperty(
+        CLUSTERS_COUNT_LAYER_ID,
+        'text-field',
+        ['get', 'point_count_abbreviated'],
+      );
 
-        debugPrint('[MapControllerNew] ✅ Added cluster layer for tier $currentTier (${nextTier != null ? '$currentTier-${nextTier - 1}' : '$currentTier+'} points)');
-      }
-
-      debugPrint('[MapControllerNew] ✅ All ${CLUSTER_SIZE_TIERS.length} cluster icon layers added');
+      debugPrint(
+        '[MapControllerNew] ✅ All ${CLUSTER_SIZE_TIERS.length} cluster icon layers added',
+      );
 
       // Layer 2: Individual memory points using custom icon
-      debugPrint('[MapControllerNew] 🎨          Adding individual point layer...');
+      debugPrint(
+        '[MapControllerNew] 🎨          Adding individual point layer...',
+      );
       try {
-        await mapboxMap!.style.addLayer(
-          mapbox.SymbolLayer(
-            id: UNCLUSTERED_LAYER_ID,
-            sourceId: MEMORY_SOURCE_ID,
-            filter: ['!', ['has', 'point_count']],
-            iconImage: 'individual-point',
-            iconSize: 1.0,
-            iconAllowOverlap: true,
-            iconIgnorePlacement: true,
-          ),
-        );
-        debugPrint('[MapControllerNew] ✅ Individual point icon layer added');
-      } catch (e) {
-        debugPrint('[MapControllerNew] ❌ Failed to add individual icon layer: $e');
-        // Fallback: use circle layer if icon fails
-        debugPrint('[MapControllerNew] 🔄 Adding fallback circle layer for individual points...');
         await mapboxMap!.style.addLayer(
           mapbox.CircleLayer(
             id: UNCLUSTERED_LAYER_ID,
             sourceId: MEMORY_SOURCE_ID,
-            filter: ['!', ['has', 'point_count']],
-            circleColor: 0xFF11B4DA,
-            circleRadius: 15.0,
-            circleStrokeWidth: 3.0,
+            filter: [
+              '!',
+              ['has', 'point_count'],
+            ],
+            circleColor: 0xFF11B4DA, // default (will be overridden)
+            circleRadius: 10.0,
+            circleStrokeWidth: 5.0,
             circleStrokeColor: 0xFFFFFFFF,
             circleOpacity: 1.0,
           ),
         );
+
+        try {
+          await mapboxMap!.style.setStyleLayerProperty(
+            UNCLUSTERED_LAYER_ID,
+            'circle-color',
+            [
+              'match',
+              ['get', 'toMemoryYear'],
+              2020.0, Colors.red.value.toRGBA(),
+              2021.0, Colors.green.value.toRGBA(),
+              2022.0, Colors.purple.value.toRGBA(),
+              2023.0, Colors.purple.value.toRGBA(),
+              2024.0, Colors.deepOrange.value.toRGBA(),
+              2025.0, Colors.orange.value.toRGBA(),
+              2026.0, Colors.pink.value.toRGBA(),
+              Colors.blue.value.toRGBA(), // Default
+            ],
+          );
+        } catch (e) {
+          print('MapControllerNew toMemoryYear circle-color erro $e');
+        }
+        debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
+
+        debugPrint('[MapControllerNew] ✅ Individual point icon layer added');
+      } catch (e) {
+        debugPrint(
+          '[MapControllerNew] ❌ Failed to add individual icon layer: $e',
+        );
+        // Fallback: use circle layer if icon fails
+        debugPrint(
+          '[MapControllerNew] 🔄 Adding fallback circle layer for individual points...',
+        );
+        await mapboxMap!.style.addLayer(
+          mapbox.CircleLayer(
+            id: UNCLUSTERED_LAYER_ID,
+            sourceId: MEMORY_SOURCE_ID,
+            filter: [
+              '!',
+              ['has', 'point_count'],
+            ],
+            circleColor: 0xFF11B4DA,
+            circleRadius: 10.0,
+            circleStrokeWidth: .0,
+            circleStrokeColor: 0xFFFFFFFF,
+            circleOpacity: 1.0,
+          ),
+        );
+
+        try {
+          await mapboxMap!.style.setStyleLayerProperty(
+            UNCLUSTERED_LAYER_ID,
+            'circle-color',
+            [
+              'match',
+              ['get', 'toMemoryYear'],
+              2020.0, Colors.red.value.toRGBA(),
+              2021.0, Colors.green.value.toRGBA(),
+              2022.0, Colors.purple.value.toRGBA(),
+              2023.0, Colors.purple.value.toRGBA(),
+              2024.0, Colors.deepOrange.value.toRGBA(),
+              2025.0, Colors.orange.value.toRGBA(),
+              2026.0, Colors.pink.value.toRGBA(),
+              Colors.blue.value.toRGBA(), // Default
+            ],
+          );
+        } catch (e) {
+          print('MapControllerNew toMemoryYear circle-color erro $e');
+        }
         debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
       }
 
       // Note: Individual points now use icon with embedded "1" text
       // No separate text layer needed since the icon includes the number
-      debugPrint('[MapControllerNew] ✅ Individual point icon includes embedded "1" text');
+      debugPrint(
+        '[MapControllerNew] ✅ Individual point icon includes embedded "1" text',
+      );
       // Move all cluster layers above the symbol/label layer for proper ordering
       if (labelLayerId != null) {
         // Move all cluster size tiers
@@ -3721,34 +3274,324 @@ void _resetTapState() {
           mapbox.LayerPosition(above: labelLayerId),
         );
 
-        debugPrint('[MapControllerNew] ✅ Moved all cluster icon layers above symbol layer: $labelLayerId');
+        debugPrint(
+          '[MapControllerNew] ✅ Moved all cluster icon layers above symbol layer: $labelLayerId',
+        );
       } else {
-        debugPrint('[MapControllerNew] ⚠️ No symbol layer found, layers added on top');
+        debugPrint(
+          '[MapControllerNew] ⚠️ No symbol layer found, layers added on top',
+        );
       }
 
       // Verify individual layer was added
-      final layerExists = await mapboxMap!.style.styleLayerExists(UNCLUSTERED_LAYER_ID);
+      final layerExists = await mapboxMap!.style.styleLayerExists(
+        UNCLUSTERED_LAYER_ID,
+      );
       debugPrint('[MapControllerNew] 🔍 Individual layer exists: $layerExists');
 
       if (layerExists) {
         // Check current zoom level
         final cameraState = await mapboxMap!.getCameraState();
         final currentZoom = cameraState.zoom;
-        debugPrint('[MapControllerNew] 🔍 Current zoom: $currentZoom (individual points show at zoom >= 14)');
+        debugPrint(
+          '[MapControllerNew] 🔍 Current zoom: $currentZoom (individual points show at zoom >= 14)',
+        );
 
         if (currentZoom < 14) {
-          debugPrint('[MapControllerNew] ⚠️ Zoom in to level 14+ to see individual points');
+          debugPrint(
+            '[MapControllerNew] ⚠️ Zoom in to level 14+ to see individual points',
+          );
         }
       }
 
-      debugPrint('[MapControllerNew] ✅ Successfully added all enhanced cluster layers');
+      debugPrint(
+        '[MapControllerNew] ✅ Successfully added all enhanced cluster layers',
+      );
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error adding cluster layers: $e');
       // rethrow;
     }
-    _createClustersAndUpdateMarkers(memories);
+
+    // await _generateAndDisplayArrowsFromMemories(memories);
+
+    // _createClustersAndUpdateMarkers(memories);
   }
 
+  /// Call this on map tap - Add interactions for individual markers AND clusters
+  Future<void> handleMapTap() async {
+    
+    if (mapboxMap == null) {
+      debugPrint('[MapControllerNew] ⚠️ Map not ready for adding interactions');
+      return;
+    }
+
+    try {
+      // ========== CLUSTER INTERACTIONS ==========
+      // Add tap interactions for all cluster layer variants
+      final clusterLayerIds = [
+        '$CLUSTER_LAYER_ID-small',
+        '$CLUSTER_LAYER_ID-medium-small',
+        '$CLUSTER_LAYER_ID-medium',
+        '$CLUSTER_LAYER_ID-medium-large',
+        '$CLUSTER_LAYER_ID-large',
+        '$CLUSTER_LAYER_ID-xlarge',
+        CLUSTERS_CIRCLE_LAYER_ID,
+        CLUSTERS_COUNT_LAYER_ID,
+        CLUSTER_LAYER_ID,
+        CLUSTER_COUNT_LAYER_ID
+      ];
+
+      for (final layerId in clusterLayerIds) {
+        try {
+          debugPrint('[MapControllerNew] 🎯 Adding tap interaction for cluster layer: $layerId');
+          mapboxMap!.addInteraction(
+            mapbox.TapInteraction(
+              mapbox.FeaturesetDescriptor(layerId: layerId),
+              (feature, context) async {
+                await _handleClusterMarkerTap(feature, layerId, context);
+              },
+            ),
+            interactionID: "clusterTapInteraction_$layerId",
+          );
+        } catch (e) {
+          debugPrint('[MapControllerNew] ⚠️ Could not add interaction for $layerId: $e');
+        }
+      }
+
+      // ========== INDIVIDUAL MARKER INTERACTIONS ==========
+      // Add tap interaction for individual memory markers (icon layer)
+      debugPrint('[MapControllerNew] 🎯 Adding tap interaction for $UNCLUSTERED_LAYER_ID');
+      mapboxMap!.addInteraction(
+        mapbox.TapInteraction(
+          mapbox.FeaturesetDescriptor(layerId: UNCLUSTERED_LAYER_ID),
+          (feature, context) async {
+            await _handleIndividualMarkerTap(feature, 'UNCLUSTERED_LAYER');
+          },
+        ),
+        interactionID: "individualMarkerTapInteraction",
+      );
+
+      // Add tap interaction for individual memory count labels
+      debugPrint('[MapControllerNew] 🎯 Adding tap interaction for $INDIVIDUAL_COUNT_LAYER_ID');
+      mapboxMap!.addInteraction(
+        mapbox.TapInteraction(
+          mapbox.FeaturesetDescriptor(layerId: INDIVIDUAL_COUNT_LAYER_ID),
+          (feature, context) async {
+            await _handleIndividualMarkerTap(feature, 'INDIVIDUAL_COUNT_LAYER');
+          },
+        ),
+        interactionID: "individualCountTapInteraction",
+      );
+
+      debugPrint('[MapControllerNew] ✅ All tap interactions (clusters + individual markers) added successfully');
+    } catch (e, stackTrace) {
+      debugPrint('[MapControllerNew] ❌ Error adding tap interactions: $e');
+      debugPrint('[MapControllerNew] Stack trace: $stackTrace');
+    }
+  }
+
+  /// Handle tap on cluster marker
+  /// This is called when user taps on any cluster layer
+  Future<void> _handleClusterMarkerTap(
+    mapbox.TypedFeaturesetFeature<mapbox.FeaturesetDescriptor> feature,
+    String layerName,
+    mapbox.MapContentGestureContext context,
+  ) async {
+    try {
+      debugPrint('[MapControllerNew] 🎯 Cluster marker tapped on layer: $layerName');
+      debugPrint('[MapControllerNew] Feature: $feature');
+
+      final properties = feature.properties;
+
+      // Debug: Print ALL properties to see what's available
+      debugPrint('[MapControllerNew] 📋 ALL Feature properties:');
+      properties.forEach((key, value) {
+        debugPrint('[MapControllerNew]   - $key: $value (${value.runtimeType})');
+      });
+
+      if (properties.isEmpty) {
+        debugPrint('[MapControllerNew] ⚠️ No properties found in cluster feature');
+        return;
+      }
+
+      // Extract cluster information
+      final clusterId = properties['cluster_id'];
+      final pointCountRaw = properties['point_count'];
+      final pointCount = (pointCountRaw is int) ? pointCountRaw : (pointCountRaw is double) ? pointCountRaw.toInt() : 0;
+
+      // Extract aggregated memory IDs from cluster properties
+      final memoryIdsString = properties['memory_ids'].toString() ?? '';
+      final memoryCount = properties['memory_count'];
+
+      // Get coordinates from context
+      final coordinates = context.point.coordinates;
+      final lat = coordinates.lat.toDouble();
+      final lng = coordinates.lng.toDouble();
+
+      debugPrint('[MapControllerNew] 📊 Cluster Details:');
+      debugPrint('[MapControllerNew] - cluster_id: $clusterId');
+      debugPrint('[MapControllerNew] - point_count: $pointCount');
+      debugPrint('[MapControllerNew] - memory_count: $memoryCount');
+      debugPrint('[MapControllerNew] - memory_ids (raw): $memoryIdsString');
+      debugPrint('[MapControllerNew] - Location: ($lat, $lng)');
+
+      // Parse memory IDs from the aggregated string
+      if (memoryIdsString.isNotEmpty) {
+        final memoryIds = memoryIdsString.split(',').where((id) => id.trim().isNotEmpty).toList();
+        debugPrint('[MapControllerNew] 🎯 Parsed Memory IDs (${memoryIds.length}): ${memoryIds.join(', ')}');
+      }
+
+      // Get current zoom level
+      final cameraState = await mapboxMap!.getCameraState();
+      final currentZoomLevel = cameraState.zoom;
+
+      debugPrint('[MapControllerNew] 📊 Current zoom: $currentZoomLevel');
+
+      // Check if we're at high zoom level (close to clusterMaxZoom of 14)
+      // If zoom >= 13, show cluster details instead of zooming further
+      if (currentZoomLevel >= 13.0) {
+        debugPrint(
+          '[MapControllerNew] 🔍 High zoom level detected, showing cluster details',
+        );
+
+        // Fetch and show cluster memories in a bottom sheet
+        if (clusterId != null) {
+          await _showClusterMemoriesBottomSheet(
+            clusterId,
+            pointCount,
+            lat,
+            lng,
+            memoryIdsString: memoryIdsString, // Pass the aggregated memory IDs
+          );
+        } else {
+          debugPrint(
+            '[MapControllerNew] ⚠️ No cluster_id found, showing snackbar',
+          );
+          Get.snackbar(
+            'Cluster',
+            '$pointCount memories at this location',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 2),
+          );
+        }
+      } else {
+        // Zoom in smoothly
+        final newZoom = (currentZoomLevel + 2.0).clamp(0.0, 22.0);
+
+        debugPrint(
+          '[MapControllerNew] 🔍 Zooming into cluster: $currentZoomLevel → $newZoom',
+        );
+
+        await mapboxMap!.flyTo(
+          mapbox.CameraOptions(
+            center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+            zoom: newZoom,
+          ),
+          mapbox.MapAnimationOptions(
+            duration: 800, // Smooth 800ms animation
+            startDelay: 0,
+          ),
+        );
+
+        // Update reactive zoom variable
+        currentZoom.value = newZoom;
+
+        debugPrint('[MapControllerNew] ✅ Zoomed into cluster (zoom: $newZoom)');
+      }
+
+    } catch (e, stackTrace) {
+      debugPrint('[MapControllerNew] ❌ Error handling cluster marker tap: $e');
+      debugPrint('[MapControllerNew] Stack trace: $stackTrace');
+    }
+  }
+
+  /// Handle tap on individual memory marker
+  /// This is called when user taps on UNCLUSTERED_LAYER_ID or INDIVIDUAL_COUNT_LAYER_ID
+  Future<void> _handleIndividualMarkerTap(
+    mapbox.TypedFeaturesetFeature<mapbox.FeaturesetDescriptor> feature,
+    String layerName,
+  ) async {
+    try {
+      debugPrint('[MapControllerNew] 🎯 Individual marker tapped on layer: $layerName');
+      debugPrint('[MapControllerNew] Feature: $feature');
+      debugPrint('[MapControllerNew] Feature properties: ${feature.properties}');
+
+      final properties = feature.properties;
+
+      if (properties == null || properties.isEmpty) {
+        debugPrint('[MapControllerNew] ⚠️ No properties found in feature');
+        return;
+      }
+
+      // Extract memory information from properties
+      final memoryId = properties['id'];
+      final memoryTitle = (properties['title'] ?? 'Untitled Memory').toString();
+      final memoryDate = (properties['memory_date'] ?? '').toString();
+      final latitude = properties['latitude'];
+      final longitude = properties['longitude'];
+      final description = (properties['description'] ?? '').toString();
+
+      debugPrint('[MapControllerNew] 📝 Memory Details:');
+      debugPrint('[MapControllerNew] - ID: $memoryId');
+      debugPrint('[MapControllerNew] - Title: $memoryTitle');
+      debugPrint('[MapControllerNew] - Date: $memoryDate');
+      debugPrint('[MapControllerNew] - Location: ($latitude, $longitude)');
+      debugPrint('[MapControllerNew] - Description: $description');
+
+      // Show memory details in a snackbar (temporary - replace with bottom sheet or navigation)
+      Get.snackbar(
+        '📍 Memory',
+        memoryTitle,
+        messageText: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              memoryTitle,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
+            if (memoryDate.isNotEmpty)
+              Text(
+                '📅 $memoryDate',
+                style: const TextStyle(fontSize: 14, color: Colors.white70),
+              ),
+            if (description.isNotEmpty)
+              Text(
+                description,
+                style: const TextStyle(fontSize: 12, color: Colors.white60),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+        backgroundColor: Colors.black87,
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 8,
+      );
+
+      // TODO: Navigate to memory detail page or show bottom sheet
+      // Example: Get.toNamed('/memory-detail', arguments: {'memoryId': memoryId});
+      // Or: _showMemoryBottomSheet(memoryId, memoryTitle, memoryDate, description);
+
+    } catch (e, stackTrace) {
+      debugPrint('[MapControllerNew] ❌ Error handling individual marker tap: $e');
+      debugPrint('[MapControllerNew] Stack trace: $stackTrace');
+    }
+  }
+
+  void _getClusterLeaves(int clusterId) async {
+
+  }
+
+
+  ///
   /// Set initial layer visibility based on current zoom level
   Future<void> _updateInitialLayerVisibility() async {
     if (mapboxMap == null) return;
@@ -3759,10 +3602,14 @@ void _resetTapState() {
       _lastKnownZoom = currentZoomLevel;
       currentZoom.value = currentZoomLevel;
 
-      debugPrint('[MapControllerNew] 🎯 Setting initial layer visibility for zoom: $currentZoomLevel');
+      debugPrint(
+        '[MapControllerNew] 🎯 Setting initial layer visibility for zoom: $currentZoomLevel',
+      );
       await _updateLayerVisibilityForZoom(currentZoomLevel);
     } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error setting initial layer visibility: $e');
+      debugPrint(
+        '[MapControllerNew] ❌ Error setting initial layer visibility: $e',
+      );
     }
   }
 
@@ -3800,145 +3647,48 @@ void _resetTapState() {
     }
   }
 
-  /// Setup enhanced click handlers for native clustering
-  Future<void> _setupNativeClusterClickHandlers() async {
-    if (mapboxMap == null) return;
+  // /// Setup enhanced click handlers for native clustering
+  // Future<void> _setupNativeClusterClickHandlers() async {
+  //   if (mapboxMap == null) return;
 
-    try {
-      debugPrint(
-        '[MapControllerNew] 👆 Setting up enhanced cluster click handlers...',
-      );
+  //   try {
+  //     debugPrint(
+  //       '[MapControllerNew] 👆 Setting up enhanced cluster click handlers...',
+  //     );
 
-      // Setup map tap listener with feature querying
-      mapboxMap!.setOnMapTapListener((context) async {
-        final lat = context.point.coordinates.lat;
-        final lng = context.point.coordinates.lng;
-        debugPrint('[MapControllerNew] 🎯 Map tapped at: ($lat, $lng)');
+  //     // Setup map tap listener with feature querying
+  //     mapboxMap!.setOnMapTapListener((context) async {
+  //       final lat = context.point.coordinates.lat;
+  //       final lng = context.point.coordinates.lng;
+  //       debugPrint('[MapControllerNew] 🎯 Map tapped at: ($lat, $lng)');
 
-        try {
-          // Query features at the tap point to detect clusters or individual memories
-          await _handleMapTapWithFeatureQuery(
-            context.point,
-            lat.toDouble(),
-            lng.toDouble(),
-          );
-        } catch (e) {
-          debugPrint('[MapControllerNew] ❌ Error handling map tap: $e');
-          // Fallback to simple location display
-          Get.snackbar(
-            'Map Tapped',
-            'Location: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
-            backgroundColor: Colors.blue.withValues(alpha: 0.8),
-            colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-          );
-        }
-      });
+  //       try {
+  //         // Query features at the tap point to detect clusters or individual memories
+  //         await _handleMapTapWithFeatureQuery(
+  //           context.point,
+  //           lat.toDouble(),
+  //           lng.toDouble(),
+  //         );
+  //       } catch (e) {
+  //         debugPrint('[MapControllerNew] ❌ Error handling map tap: $e');
+  //         // Fallback to simple location display
+  //         Get.snackbar(
+  //           'Map Tapped',
+  //           'Location: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
+  //           backgroundColor: Colors.blue.withValues(alpha: 0.8),
+  //           colorText: Colors.white,
+  //           duration: const Duration(seconds: 2),
+  //         );
+  //       }
+  //     });
 
-      debugPrint(
-        '[MapControllerNew] ✅ Enhanced cluster click handlers setup complete',
-      );
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error setting up click handlers: $e');
-    }
-  }
-
-  /// Generate and display arrows from memories (simplified version)
-  Future<void> _generateAndDisplayArrowsFromMemories(
-    List<Map<String, dynamic>> memories,
-  ) async {
-    try {
-      debugPrint(
-        '[MapControllerNew] Generating arrows from ${memories.length} memories',
-      );
-
-      if (memories.length < 2) {
-        debugPrint('[MapControllerNew] Not enough memories for arrows');
-        return;
-      }
-
-      // Sort memories by date
-      final sortedMemories = List<Map<String, dynamic>>.from(memories);
-      sortedMemories.sort((a, b) {
-        final dateA =
-            DateTime.tryParse(a['memory_date'] ?? '') ?? DateTime.now();
-        final dateB =
-            DateTime.tryParse(b['memory_date'] ?? '') ?? DateTime.now();
-        return dateA.compareTo(dateB);
-      });
-
-      // Create simple arrows between consecutive memories
-      final arrows = <clustering.ChronologicalArrow>[];
-      for (int i = 0; i < sortedMemories.length - 1; i++) {
-        final currentMemory = sortedMemories[i];
-        final nextMemory = sortedMemories[i + 1];
-
-        final currentLat = currentMemory['location_latitude'] as double?;
-        final currentLng = currentMemory['location_longitude'] as double?;
-        final nextLat = nextMemory['location_latitude'] as double?;
-        final nextLng = nextMemory['location_longitude'] as double?;
-
-        if (currentLat != null &&
-            currentLng != null &&
-            nextLat != null &&
-            nextLng != null) {
-          final arrow = clustering.ChronologicalArrow(
-            fromLatitude: currentLat,
-            fromLongitude: currentLng,
-            toLatitude: nextLat,
-            toLongitude: nextLng,
-            fromDate:
-                DateTime.tryParse(currentMemory['memory_date'] ?? '') ??
-                DateTime.now(),
-            toDate:
-                DateTime.tryParse(nextMemory['memory_date'] ?? '') ??
-                DateTime.now(),
-            fromClusterId: 'memory_${currentMemory['id']}',
-            toClusterId: 'memory_${nextMemory['id']}',
-          );
-          arrows.add(arrow);
-        }
-      }
-
-      debugPrint('[MapControllerNew] Generated ${arrows.length} arrows');
-
-      // Log arrow details for debugging
-      for (int i = 0; i < arrows.length; i++) {
-        final arrow = arrows[i];
-        debugPrint(
-          '[MapControllerNew] Arrow $i: (${arrow.fromLatitude}, ${arrow.fromLongitude}) → (${arrow.toLatitude}, ${arrow.toLongitude})',
-        );
-      }
-
-      // Store arrows
-      currentArrows.assignAll(arrows);
-
-      // Display arrows using MapMarkerService (if available)
-      if (_mapMarkerService != null) {
-        if (arrows.isNotEmpty) {
-          debugPrint(
-            '[MapControllerNew] Calling MapMarkerService.displayChronologicalArrows with ${arrows.length} arrows',
-          );
-          await _mapMarkerService!.displayChronologicalArrows(arrows);
-          debugPrint(
-            '[MapControllerNew] ✅ Successfully displayed arrows using MapMarkerService',
-          );
-        } else {
-          debugPrint('[MapControllerNew] ⚠️  No arrows generated to display');
-        }
-      } else {
-        debugPrint(
-          '[MapControllerNew] ❌ MapMarkerService is null - cannot display arrows',
-        );
-      }
-    } catch (e) {
-      debugPrint(
-        '[MapControllerNew] Error generating arrows from memories: $e',
-      );
-    }
-  }
-
-
+  //     debugPrint(
+  //       '[MapControllerNew] ✅ Enhanced cluster click handlers setup complete',
+  //     );
+  //   } catch (e) {
+  //     debugPrint('[MapControllerNew] ❌ Error setting up click handlers: $e');
+  //   }
+  // }
 
   // ============================================================================
   // OFFLINE MAP FUNCTIONALITY (Delegated to OfflineMapCoordinatorService)
@@ -3969,11 +3719,619 @@ void _resetTapState() {
     await _offlineCoordinator?.clearOfflineData();
   }
 
+  List<List<double>> _createMinorCurvedLine({
+    required double startLat,
+    required double startLng,
+    required double endLat,
+    required double endLng,
+    double curvature = 0.001, // 0.1% curve for nearly straight lines
+  }) {
+    final midLat = (startLat + endLat) / 2;
+    final midLng = (startLng + endLng) / 2;
 
+    final dx = endLng - startLng;
+    final dy = endLat - startLat;
+    final length = math.sqrt(dx * dx + dy * dy);
 
+    if (length == 0) {
+      return [
+        [startLng, startLat],
+        [endLng, endLat],
+      ];
+    }
 
+    final offsetLat = midLat + (-dx / length) * curvature;
+    final offsetLng = midLng + (dy / length) * curvature;
 
+    return [
+      [startLng, startLat],
+      [offsetLng, offsetLat],
+      [endLng, endLat],
+    ];
+  }
 
+  Future<void> _addHardcodedArrow(mapbox.MapboxMap mapboxMap) async {
+    const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
+    const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
+
+    try {
+      // 1️⃣ Remove old layer if exists
+      try {
+        await mapboxMap.style.removeStyleLayer(ARROW_LINES_LAYER_ID);
+        debugPrint('[Arrow] Removed existing layer');
+      } catch (_) {
+        debugPrint('[Arrow] No existing layer to remove');
+      }
+
+      // 2️⃣ Remove old source if exists
+      try {
+        await mapboxMap.style.removeStyleSource(ARROW_LINES_SOURCE_ID);
+        debugPrint('[Arrow] Removed existing source');
+      } catch (_) {
+        debugPrint('[Arrow] No existing source to remove');
+      }
+
+      // 3️⃣ Add GeoJSON source with hardcoded coordinates (Islamabad → Karachi)
+      await mapboxMap.style.addSource(
+        mapbox.GeoJsonSource(
+          id: ARROW_LINES_SOURCE_ID, // e.g. "arrow_lines"
+          data: '''
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [73.0479, 33.6844],
+          [67.0011, 24.8607]
+        ]
+      },
+      "properties": {
+        "from": "Islamabad",
+        "to": "Karachi"
+      }
+    }
+  ]
+}
+''',
+        ),
+      );
+
+      debugPrint('[Arrow] Source added');
+
+      // 4️⃣ Add LineLayer on top of all layers to ensure visibility
+      await mapboxMap.style.addLayer(
+        mapbox.LineLayer(
+          minZoom: 5,
+          id: 'arrow_line_layer',
+          sourceId: ARROW_LINES_SOURCE_ID,
+          lineJoin: mapbox.LineJoin.ROUND,
+          lineCap: mapbox.LineCap.ROUND,
+          lineColor: Colors.red.value,
+          lineWidth: 4.0,
+        ),
+      );
+
+      var layers = await mapboxMap.style.getStyleLayers();
+      // 5️⃣ Move layer to top to ensure it’s visible over custom tiles
+      await mapboxMap.style.moveStyleLayer(
+        ARROW_LINES_LAYER_ID,
+        mapbox.LayerPosition(above: layers.last!.id),
+      );
+      debugPrint('[Arrow] Layer positioned at top ✅');
+    } catch (e, s) {
+      debugPrint('[Arrow] ERROR: $e');
+      debugPrintStack(stackTrace: s);
+    }
+  }
+
+  Future<Uint8List> createPrettyArrowPng({
+    double size = 64,
+    Color fillColor = const Color(0xFF2196F3), // nice blue
+    Color strokeColor = Colors.white,
+  }) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
+
+    final Path path = Path();
+    // Centered, right-pointing arrow
+    final w = size;
+    final h = size;
+    path.moveTo(w * 0.15, h * 0.30); // tail top
+    path.lineTo(w * 0.60, h * 0.30);
+    path.lineTo(w * 0.60, h * 0.15);
+    path.lineTo(w * 0.90, h * 0.50); // tip
+    path.lineTo(w * 0.60, h * 0.85);
+    path.lineTo(w * 0.60, h * 0.70);
+    path.lineTo(w * 0.15, h * 0.70); // tail bottom
+    path.close();
+
+    // 1) White stroke (outline)
+    final strokePaint =
+        Paint()
+          ..color = strokeColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = size * 0.10
+          ..strokeJoin = StrokeJoin.round
+          ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, strokePaint);
+
+    // 2) Colored fill on top
+    final fillPaint =
+        Paint()
+          ..color = fillColor
+          ..style = PaintingStyle.fill;
+    canvas.drawPath(path, fillPaint);
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size.toInt(), size.toInt());
+    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+    return bytes!.buffer.asUint8List();
+  }
+
+  Future<void> generateAndDisplayArrowsFromMemories(
+    List<Map<String, dynamic>> memories,
+    mapbox.MapboxMap mapboxMap,
+  ) async {
+    const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
+    const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
+    const String ARROW_POINTS_SOURCE_ID = 'arrow_points_source';
+    const String ARROW_SYMBOLS_LAYER_ID = 'arrow_symbols_layer';
+    try {
+      if (memories.length < 2) return;
+
+      // 1. Sort memories by date
+      final sortedMemories = List<Map<String, dynamic>>.from(memories)
+        ..sort((a, b) {
+          final aDate =
+              DateTime.tryParse(a['memory_date'] ?? '') ?? DateTime.now();
+          final bDate =
+              DateTime.tryParse(b['memory_date'] ?? '') ?? DateTime.now();
+          return aDate.compareTo(bDate);
+        });
+
+      // 2. Build line features and midpoint arrow point features
+      final List<mapbox.Feature> lineFeatures = [];
+      final List<mapbox.Feature> arrowPointFeatures = [];
+
+      for (int i = 0; i < sortedMemories.length - 1; i++) {
+        final current = sortedMemories[i];
+        final next = sortedMemories[i + 1];
+
+        final startLat = current['location_latitude'];
+        final startLng = current['location_longitude'];
+        final endLat = next['location_latitude'];
+        final endLng = next['location_longitude'];
+
+        if ([startLat, startLng, endLat, endLng].contains(null)) continue;
+
+        // your curved line generator (returns [lng, lat] pairs)
+        final coords = _createMinorCurvedLine(
+          startLat: startLat!,
+          startLng: startLng!,
+          endLat: endLat!,
+          endLng: endLng!,
+        );
+
+        final linePositions =
+            coords.map((c) => mapbox.Position(c[0], c[1])).toList();
+        final endDate =
+            DateTime.tryParse(next['memory_date'] ?? '') ?? DateTime.now();
+        final toMemoryYear = endDate.year; // e.g., 2023
+
+        // line feature
+        final lineFeature = mapbox.Feature(
+          id: 'arrow_$i',
+          geometry: mapbox.LineString(coordinates: linePositions),
+          properties: {
+            'fromMemoryId': current['id'],
+            'toMemoryId': next['id'],
+            'toMemoryYear': toMemoryYear, // Add this
+          },
+        );
+        lineFeatures.add(lineFeature);
+
+        // midpoint + bearing for arrow icon
+        final start = linePositions.first;
+        final end = linePositions.last;
+
+        final midLng = (start.lng + end.lng) / 2.0;
+        final midLat = (start.lat + end.lat) / 2.0;
+
+        final dx = end.lng - start.lng;
+        final dy = end.lat - start.lat;
+        final bearingDeg = bearingBetween(
+          start.lat.toDouble(),
+          start.lng.toDouble(),
+          end.lat.toDouble(),
+          end.lng.toDouble(),
+        );
+        arrowPointFeatures.add(
+          mapbox.Feature(
+            id: 'arrow_point_$i',
+            geometry: mapbox.Point(
+              coordinates: mapbox.Position(midLng, midLat),
+            ),
+            properties: {'rotation': bearingDeg + 90},
+          ),
+        );
+      }
+
+      // 3. Remove old layers/sources
+      for (final id in [ARROW_SYMBOLS_LAYER_ID, ARROW_LINES_LAYER_ID]) {
+        try {
+          await mapboxMap.style.removeStyleLayer(id);
+        } catch (_) {}
+      }
+      for (final id in [ARROW_POINTS_SOURCE_ID, ARROW_LINES_SOURCE_ID]) {
+        try {
+          await mapboxMap.style.removeStyleSource(id);
+        } catch (_) {}
+      }
+
+      // 4. Add line source
+      final lineCollection = mapbox.FeatureCollection(features: lineFeatures);
+      await mapboxMap.style.addSource(
+        mapbox.GeoJsonSource(
+          id: ARROW_LINES_SOURCE_ID,
+          data: json.encode(lineCollection.toJson()),
+        ),
+      );
+
+      // 5. Add line layer
+      await mapboxMap.style.addLayer(
+        mapbox.LineLayer(
+          id: ARROW_LINES_LAYER_ID,
+          sourceId: ARROW_LINES_SOURCE_ID,
+          minZoom: 7.0,
+          lineColor: Colors.red.value, // Green fill (change per type)
+          lineBorderColor: 0xFFFFFFFF, // White stroke/border
+          lineBorderWidth: 0.5, // Stroke thickness
+          lineWidth: 6.0, // Main line thickness
+          lineOpacity: 0.9,
+          // lineOpacity: 0.9,
+          lineCap: mapbox.LineCap.ROUND,
+          lineJoin: mapbox.LineJoin.ROUND,
+        ),
+      );
+
+      try {
+        await mapboxMap!.style.setStyleLayerProperty(
+          ARROW_LINES_LAYER_ID,
+          'line-color',
+          Colors.blue.value.toRGBA(),
+        );
+
+        await mapboxMap!.style.setStyleLayerProperty(
+          ARROW_LINES_LAYER_ID,
+          'line-color',
+          [
+            'match',
+            ['get', 'toMemoryYear'],
+            2020.0, Colors.red.value.toRGBA(),
+            2021.0, Colors.green.value.toRGBA(),
+            2022.0, Colors.purple.value.toRGBA(),
+            2023.0, Colors.purple.value.toRGBA(),
+            2024.0, Colors.deepOrange.value.toRGBA(),
+            2025.0, Colors.orange.value.toRGBA(),
+            2026.0, Colors.pink.value.toRGBA(),
+            Colors.blue.value.toRGBA(), // Default
+          ],
+        );
+        debugPrint('✅ Green lines set');
+      } catch (e) {
+        debugPrint('❌ Color error: $e');
+      }
+      // 6. Add arrow point source
+      final arrowCollection = mapbox.FeatureCollection(
+        features: arrowPointFeatures,
+      );
+      await mapboxMap.style.addSource(
+        mapbox.GeoJsonSource(
+          id: ARROW_POINTS_SOURCE_ID,
+          data: json.encode(arrowCollection.toJson()),
+        ),
+      );
+
+      // 7. Create and register arrow image
+      final Uint8List arrowPngBytes = await _createPrettyArrowPng(size: 45);
+
+      final mbxImage = mapbox.MbxImage(
+        width: 45,
+        height: 45,
+        data: arrowPngBytes, // use PNG bytes directly
+      );
+
+      await mapboxMap.style.addStyleImage(
+        'arrow-icon',
+        1.0,
+        mbxImage,
+        false,
+        const <mapbox.ImageStretches>[], // not [null]
+        const <mapbox.ImageStretches>[],
+        null,
+      );
+
+      // 8. Add symbol layer for arrows at line centers
+      await mapboxMap.style.addLayer(
+        mapbox.SymbolLayer(
+          id: ARROW_SYMBOLS_LAYER_ID,
+          sourceId: ARROW_POINTS_SOURCE_ID,
+          symbolPlacement: mapbox.SymbolPlacement.POINT,
+          iconImage: 'arrow-icon',
+          iconSize: 0.5,
+          minZoom: 7.0,
+          iconAllowOverlap: true,
+          iconRotationAlignment: mapbox.IconRotationAlignment.MAP,
+          iconRotateExpression: ['get', 'rotation'],
+        ),
+      );
+    } catch (_) {}
+
+    var layers = await mapboxMap.style.getStyleLayers();
+
+    var beforeLayerId = '';
+
+    for (var l in layers) {
+      if (l!.id.toLowerCase().contains('cluster')) {
+        print('Cluster D Found Breaking');
+
+        break;
+      }
+
+      print('Cluster D Not Found Breaking');
+
+      beforeLayerId = l.id;
+    }
+
+    await mapboxMap!.style.moveStyleLayer(
+      ARROW_LINES_LAYER_ID,
+      mapbox.LayerPosition(below: beforeLayerId),
+    );
+  }
+
+  double bearingBetween(double lat1, double lng1, double lat2, double lng2) {
+    final a = lat1 * math.pi / 180.0;
+    final b = lat2 * math.pi / 180.0;
+    final c = (lng2 - lng1) * math.pi / 180.0;
+
+    final y = math.sin(c) * math.cos(b);
+    final x =
+        math.cos(a) * math.sin(b) - math.sin(a) * math.cos(b) * math.cos(c);
+
+    var d = math.atan2(y, x); // -π..+π
+    var deg = d * 180.0 / math.pi; // -180..+180
+    if (deg < 0) deg += 360.0; // 0..360
+
+    return deg;
+  }
+
+  Future<Uint8List> _createPrettyArrowPng({
+    double size = 64,
+    Color fillColor = const Color(0xFF2196F3),
+    Color strokeColor = Colors.white,
+  }) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
+
+    final Path path = Path();
+    final w = size;
+    final h = size;
+
+    // right-pointing arrow
+    path.moveTo(w * 0.15, h * 0.30);
+    path.lineTo(w * 0.60, h * 0.30);
+    path.lineTo(w * 0.60, h * 0.15);
+    path.lineTo(w * 0.90, h * 0.50);
+    path.lineTo(w * 0.60, h * 0.85);
+    path.lineTo(w * 0.60, h * 0.70);
+    path.lineTo(w * 0.15, h * 0.70);
+    path.close();
+
+    final strokePaint =
+        Paint()
+          ..color = strokeColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = size * 0.10
+          ..strokeJoin = StrokeJoin.round
+          ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, strokePaint);
+
+    final fillPaint =
+        Paint()
+          ..color = fillColor
+          ..style = PaintingStyle.fill;
+    canvas.drawPath(path, fillPaint);
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size.toInt(), size.toInt());
+    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+    return bytes!.buffer.asUint8List();
+  }
+
+  Future<void> _setupMapboxClustering(
+    List<Map<String, dynamic>> memories,
+  ) async {
+    try {
+      // Add a small delay to ensure cleanup is complete
+      await Future.delayed(const Duration(milliseconds: 100));
+      // Convert memories to GeoJSON
+      final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
+        memories,
+      );
+
+      try {
+        await mapboxMap!.style.addSource(
+          mapbox.GeoJsonSource(
+            id: MEMORY_SOURCE_ID,
+            data: geoJsonString,
+            cluster: true,
+            clusterRadius:
+                50, // Radius of each cluster (pixels) - optimized for smooth clustering
+            clusterMaxZoom:
+                13.5, // Max zoom to cluster points - stops clustering at zoom 15+
+            clusterMinPoints: 2, // Minimum points to form a cluster
+            clusterProperties: {
+              // Aggregate memory IDs into a comma-separated string
+              // Format: [operator, mapExpression, reduceExpression]
+              // The operator is applied in the reduce step
+  'memory_ids': ['concat', ['to-string', ['get', 'id']]]
+              
+              // Store the count of memories
+              // 'memory_count': [
+                // '+',
+                // 1, // Map: each feature contributes 1
+                // ['+', ['accumulated'], 1], // Reduce: sum all values
+              // ],
+            },
+          ),
+        );
+      } catch (e) {
+        if (e.toString().contains('already exists')) {
+          try {
+            // Try to update the existing source data instead of adding a new one
+            await mapboxMap!.style.setStyleSourceProperty(
+              MEMORY_SOURCE_ID,
+              'data',
+              geoJsonString,
+            );
+          } catch (updateError) {
+            // If update fails, force remove and re-add
+            await _forceRemoveAndReaddSource(geoJsonString);
+          }
+        } else {
+          throw e; // Re-throw to be caught by outer try-catch
+        }
+      }
+
+      // Add cluster layers
+      await _addClusterLayers(memories);
+
+      // Setup click handlers
+      // await _setupNativeClusterClickHandlers();
+
+      // Initialize MapMarkerService with MapBox map before arrow generation
+      if (_mapMarkerService != null) {
+        _mapMarkerService!.initialize(mapboxMap!);
+      }
+
+      // Generate and display chronological arrows
+    } catch (e) {
+      debugPrint('[MapControllerNew] Error setting up MapBox clustering: $e');
+    }
+  }
+
+  /// Handle map tap to query rendered features and get memories from clusters
+  Future<void> handleMapTap1(mapbox.MapContentGestureContext c) async {
+    if (mapboxMap == null) {
+      debugPrint('[MapControllerNew] ⚠️ Map not ready for tap handling');
+      return;
+    }
+
+    try {
+      final coordinates = c.point.coordinates; // Position (lng, lat)
+      final touchPosition = c.touchPosition; // ScreenCoordinate (x, y)
+
+      debugPrint('[MapControllerNew] 🎯 Map tapped at: (${coordinates.lng}, ${coordinates.lat})');
+      debugPrint('[MapControllerNew] 📍 Screen position: (${touchPosition.x}, ${touchPosition.y})');
+
+      // Query rendered features at the tap point
+      // Check clusters first, then individual markers
+
+      // 1. Check if a cluster was tapped
+      // Query all cluster layer variants (small, medium, large, etc.)
+      final clusterLayerIds = [
+        '$CLUSTER_LAYER_ID-small',
+        '$CLUSTER_LAYER_ID-medium-small',
+        '$CLUSTER_LAYER_ID-medium',
+        '$CLUSTER_LAYER_ID-medium-large',
+        '$CLUSTER_LAYER_ID-large',
+        '$CLUSTER_LAYER_ID-xlarge',
+        CLUSTERS_CIRCLE_LAYER_ID,
+        CLUSTER_LAYER_ID,
+        CLUSTERS_COUNT_LAYER_ID, 
+        CLUSTER_LAYER_ID
+      ];
+
+      final clusterFeatures = await mapboxMap!.queryRenderedFeatures(
+        mapbox.RenderedQueryGeometry.fromScreenCoordinate(touchPosition),
+        mapbox.RenderedQueryOptions(
+          layerIds: clusterLayerIds, // Query all cluster layer variants
+        ),
+      );
+
+      if (clusterFeatures.isNotEmpty && clusterFeatures.first != null) {
+        debugPrint('[MapControllerNew] 🎯 Cluster tapped - ${clusterFeatures.length} cluster features found');
+        // Use existing _handleClusterFeatureTap method
+        await _handleClusterFeatureTap(
+          clusterFeatures.first!,
+          coordinates.lat.toDouble(),
+          coordinates.lng.toDouble(),
+        );
+        return;
+      }
+
+      // 2. Check if an individual memory was tapped
+      final individualFeatures = await mapboxMap!.queryRenderedFeatures(
+        mapbox.RenderedQueryGeometry.fromScreenCoordinate(touchPosition),
+        mapbox.RenderedQueryOptions(
+          layerIds: [UNCLUSTERED_LAYER_ID], // Query individual marker layer
+        ),
+      );
+
+      if (individualFeatures.isNotEmpty && individualFeatures.first != null) {
+        debugPrint('[MapControllerNew] 🎯 Individual memory tapped - ${individualFeatures.length} features found');
+        await _handleIndividualMemoryTapFromQuery(individualFeatures.first!);
+        return;
+      }
+
+      debugPrint('[MapControllerNew] ℹ️ No features found at tap location');
+
+    } catch (e, stackTrace) {
+      debugPrint('[MapControllerNew] ❌ Error handling map tap: $e');
+      debugPrint('[MapControllerNew] Stack trace: $stackTrace');
+    }
+  }
+
+  /// Handle individual memory tap from query - show memory details
+  Future<void> _handleIndividualMemoryTapFromQuery(
+    mapbox.QueriedRenderedFeature memoryFeature,
+  ) async {
+    try {
+      final properties = memoryFeature.queriedFeature.feature['properties'] as Map<String, dynamic>?;
+
+      if (properties == null) {
+        debugPrint('[MapControllerNew] ⚠️ No properties found in memory feature');
+        return;
+      }
+
+      final memoryId = '${properties['id']}';
+      final memoryTitle = properties['title'] ?? 'Untitled';
+      final memoryDate = properties['memory_date'] ?? '';
+
+      debugPrint('[MapControllerNew] 📝 Memory tapped:');
+      debugPrint('[MapControllerNew] - ID: $memoryId');
+      debugPrint('[MapControllerNew] - Title: $memoryTitle');
+      debugPrint('[MapControllerNew] - Date: $memoryDate');
+
+      // TODO: Show memory details in a bottom sheet or navigate to memory detail page
+      // TODO: You can use Get.bottomSheet() or Get.toNamed() here
+
+      // Example: Show a simple snackbar for now
+      Get.snackbar(
+        'Memory Tapped',
+        memoryTitle,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+      );
+
+    } catch (e, stackTrace) {
+      debugPrint('[MapControllerNew] ❌ Error handling individual memory tap: $e');
+      debugPrint('[MapControllerNew] Stack trace: $stackTrace');
+    }
+  }
 }
 
 /// Helper class for tracking app lifecycle changes

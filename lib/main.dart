@@ -121,7 +121,8 @@ Future<void> main() async {
   Get.put(ClusterRepository(), permanent: true);
   Get.put(MapMarkerCreationService(), permanent: true);
 
-  // Get.put(MapMarkerService(), permanent: true);MemoryLocationPickerController
+  Get.put(MapMarkerService(), permanent: true);
+  // MemoryLocationPickerController
 
   // Mapbox tile downloading services removed - using URL-based mbtiles download instead
   // Get.put(BackgroundTileDownloadService(), permanent: true);
@@ -137,10 +138,12 @@ Future<void> main() async {
   Get.put(UiController(), permanent: true);
   Get.put(MemoryController(), permanent: true);
   Get.put(AddMemoriesController(), permanent: true);
+  // Get.put(MapMarkerService(), permanent: true);
+
   Get.put(MapControllerNew(), permanent: true);
   Get.put(MemoryController(), permanent: true);
 
-  Get.put(MemoryLocationPickerControllerWithRadius(), permanent: true);
+  Get.put(MemoryController(), permanent: true);
   debugPrint('✅ Controllers initialized as permanent singletons');
 
   // Test the geocoding service

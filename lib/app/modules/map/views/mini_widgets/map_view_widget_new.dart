@@ -37,10 +37,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // MapControllerNew is initialized in main.dart as permanent singleton
-    // Always use Get.find() - never create new instance
     controller = Get.find<MapControllerNew>();
-    debugPrint('[MapViewWidgetNew] Using MapControllerNew instance: ${controller.hashCode}');
 
     // Initialize local tile server BEFORE map creation (like GlobeTestView)
     _initializeLocalTileServer();
@@ -58,9 +55,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 
     if (state == AppLifecycleState.resumed && controller != null) {
       // App resumed from background (possibly from settings)
-      debugPrint(
-        '[MapViewWidgetNew] App resumed, checking location permissions',
-      );
       controller!.checkPermissionsAfterResume();
     }
   }
@@ -69,7 +63,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   /// Server is started in main.dart, so we just check if it's running
   Future<void> _initializeLocalTileServer() async {
     try {
-      debugPrint('[MapViewWidgetNew] � Checking if local tile server is running...');
 
       final serverService = MbtilesServerService.instance;
 
@@ -79,13 +72,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           _serverUrl = serverService.serverUrl;
           _isInitializing = false;
         });
-        debugPrint('[MapViewWidgetNew] ✅ Using existing tile server at: $_serverUrl');
-        debugPrint('[MapViewWidgetNew] 📡 Tiles will be served from: $_serverUrl/{z}/{x}/{y}.pbf');
         return;
       }
-
-      // If server is not running, try to start it (fallback)
-      debugPrint('[MapViewWidgetNew] ⚠️ Server not running, attempting to start...');
 
       final mbtilesService = MbtilesDownloadService.instance;
       final isDownloaded = await mbtilesService.isMbtilesDownloaded();
@@ -96,7 +84,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           _errorMessage = 'MBTiles file not downloaded. Please download from Get Started screen first.';
           _isInitializing = false;
         });
-        debugPrint('[MapViewWidgetNew] ❌ $_errorMessage');
         return;
       }
 
@@ -107,20 +94,17 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           _serverUrl = url;
           _isInitializing = false;
         });
-        debugPrint('[MapViewWidgetNew] ✅ Local tile server started at: $url');
       } else {
         setState(() {
           _errorMessage = 'Failed to start local tile server';
           _isInitializing = false;
         });
-        debugPrint('[MapViewWidgetNew] ❌ $_errorMessage');
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Error initializing tile server: $e';
         _isInitializing = false;
       });
-      debugPrint('[MapViewWidgetNew] ❌ $_errorMessage');
     }
   }
 
@@ -234,7 +218,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                 ],
               ),
             ),
-            floatingActionButton: _buildFloatingActionButton(controller),
           );
         });
       },
@@ -244,6 +227,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   /// Build the MapBox map widget
   Widget _buildMapWidget(MapControllerNew controller) {
     // If server URL is not available, show blank style immediately
+
     if (_serverUrl == null) {
       return mapbox.MapWidget(
         key: ValueKey("mapbox_map_new"),
@@ -255,18 +239,19 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         onMapCreated: (mapboxMap) async {
           mapboxMap = mapboxMap;
           controller.mapboxMap = mapboxMap;
-          debugPrint('[MapViewWidgetNew] 🗺️ onMapCreated callback triggered (blank style)');
+         
           // Enable online mode even for blank style
           await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-          debugPrint('[MapViewWidgetNew] 🌐 Online mode ENABLED (blank style fallback)');
           controller.onMapCreated(mapboxMap);
+
+
           
         },
-        onStyleLoadedListener: (styleLoadedEventData) async {
-          debugPrint('[MapViewWidgetNew] 🎨 onStyleLoaded callback triggered (blank style)');
-          controller.onStyleLoaded(styleLoadedEventData);
-           await _addLocalTileSource();
-        },
+       onTapListener: (c) {
+
+        controller.handleMapTap1(c);
+  //    
+       },
       );
     }
 
@@ -364,19 +349,16 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
    Future<void> _addLocalTileSource() async {
     try {
       if (_serverUrl == null) {
-        debugPrint('[MemoryLocationPicker] ⚠️ Server URL is null, skipping tile source addition');
         return;
       }
 
       if (mapController == null) {
-        debugPrint('[MemoryLocationPicker] ⚠️ Map controller is null, skipping tile source addition');
+
         return;
+
       }
 
-      debugPrint('[MemoryLocationPicker] 🗺️ Adding local tile source...');
-
       final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-      debugPrint('[MemoryLocationPicker] Tile URL template: $tileUrl');
 
       // Add vector source with zoom levels from MapboxZoomHelper
       final zoomHelper = MapboxZoomHelper();
@@ -389,12 +371,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         ),
       );
 
-      debugPrint('[MemoryLocationPicker] ✅ Local tile source added (zoom: ${zoomHelper.minZoom.value}-${zoomHelper.maxZoom.value})');
-
-      // Add layers to display the tiles (CRITICAL - without this, tiles won't show!)
-      // await _addLocalTileLayers();
     } catch (e) {
-      debugPrint('[MemoryLocationPicker] ❌ Error adding tile source: $e');
       // Continue anyway - map will use default Mapbox tiles
     }
   }
@@ -404,93 +381,28 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   /// Get custom style URI with local tile server URL
   String _getCustomStyleUri() {
 
-
-    // Load style.json from assets and replace placeholder with actual server URL
     final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-    debugPrint('[MapViewWidgetNew] 📡 Using custom style with tile URL: $tileUrl');
 
-    // Return the style JSON with the local tile URL
-    // Note: We'll load and modify the assets/style.json content
     return _getStyleJsonWithLocalTiles(tileUrl);
   }
 
-  /// Get style JSON from assets with local tile URL
-  /// Loads assets/style.json and replaces {LOCAL_TILE_URL} placeholder
   String _getStyleJsonWithLocalTiles(String tileUrl) {
-    // This method is synchronous but needs to load from assets
-    // We'll use a FutureBuilder in _buildMapWidget instead
-    // For now, return a placeholder that indicates loading is needed
     return 'LOADING_FROM_ASSETS';
   }
 
-  /// Load style.json from assets and replace placeholders with actual server URLs
   Future<String> _loadStyleJsonFromAssets(String tileUrl, String serverUrl) async {
     try {
       debugPrint('[MapViewWidgetNew] 📂 Loading style.json from assets...');
 
-      // Load style.json from assets folder
       final styleJsonString = await rootBundle.loadString('assets/custom-style.json');
       debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from assets');
 
-      // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
-      // This prevents the tile URL pattern from interfering with server URL
       var modifiedStyleJson = styleJsonString
           .replaceAll('{LOCAL_SERVER_URL}', serverUrl)
           .replaceAll('{LOCAL_TILE_URL}', tileUrl);
 
-      debugPrint('[MapViewWidgetNew] 📡 Replaced {LOCAL_SERVER_URL} with: $serverUrl');
-      debugPrint('[MapViewWidgetNew] 📡 Replaced {LOCAL_TILE_URL} with: $tileUrl');
-      debugPrint('[MapViewWidgetNew] ✅ Style JSON configured with local MBTiles server');
-
-      // Debug: Check if glyphs and sprite fields are correctly replaced
-      if (modifiedStyleJson.contains('{LOCAL_SERVER_URL}') || modifiedStyleJson.contains('{LOCAL_TILE_URL}')) {
-        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: Placeholders still present in style JSON!');
-      }
-
-      // Check for glyphs field
-      if (modifiedStyleJson.contains('"glyphs"')) {
-        final glyphsMatch = RegExp(r'"glyphs":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
-        if (glyphsMatch != null) {
-          debugPrint('[MapViewWidgetNew] 📝 Glyphs URL: ${glyphsMatch.group(1)}');
-        } else {
-          debugPrint('[MapViewWidgetNew] ⚠️ WARNING: glyphs field found but URL could not be extracted!');
-        }
-      } else {
-        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: No glyphs field found in style JSON!');
-      }
-      // Check for sprite field
-      if (modifiedStyleJson.contains('"sprite"')) {
-        final spriteMatch = RegExp(r'"sprite":\s*"([^"]+)"').firstMatch(modifiedStyleJson);
-        if (spriteMatch != null) {
-          debugPrint('[MapViewWidgetNew] 🎨 Sprite URL: ${spriteMatch.group(1)}');
-        } else {
-          debugPrint('[MapViewWidgetNew] ⚠️ WARNING: sprite field found but URL could not be extracted!');
-        }
-      } else {
-        debugPrint('[MapViewWidgetNew] ⚠️ WARNING: No sprite field found in style JSON!');
-      }
-
-      // Print the sources, sprite, and glyphs section for verification
-      debugPrint('[MapViewWidgetNew] 📄 ========== STYLE JSON VERIFICATION ==========');
-      final sourcesMatch = RegExp(r'"sources":\s*\{[^}]+\}', multiLine: true, dotAll: true).firstMatch(modifiedStyleJson);
-      if (sourcesMatch != null) {
-        debugPrint('[MapViewWidgetNew] 📦 Sources section: ${sourcesMatch.group(0)}');
-      }
-
-      // Extract and print sprite and glyphs lines
-      final lines = modifiedStyleJson.split('\n');
-      for (int i = 0; i < lines.length; i++) {
-        if (lines[i].contains('"sprite"') || lines[i].contains('"glyphs"')) {
-          debugPrint('[MapViewWidgetNew] 📄 Line ${i + 1}: ${lines[i].trim()}');
-        }
-      }
-      debugPrint('[MapViewWidgetNew] 📄 ==========================================');
-
       return modifiedStyleJson;
     } catch (e) {
-      debugPrint('[MapViewWidgetNew] ❌ Error loading style.json from assets: $e');
-      debugPrint('[MapViewWidgetNew] ⚠️ Falling back to simplified style');
-
       // Fallback to a simplified style if assets/style.json is not found
       return '''
 {
@@ -536,503 +448,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 ''';
     }
   }
-
-  // ============================================================================
-  // OLD METHODS - COMMENTED OUT
-  // These methods are no longer needed because style.json handles all layers
-  // Keeping them here for reference in case we need to debug or modify later
-  // ============================================================================
-
-  /*
-  /// Add local tile source from downloaded mbtiles (called after style loads)
-  /// NOTE: This method is no longer used - style.json handles the tile source
-  Future<void> _addLocalTileSource() async {
-    try {
-      if (_serverUrl == null) {
-        debugPrint('[MapViewWidgetNew] ⚠️ Local tile server not running');
-        return;
-      }
-
-      final mapboxMap = controller?.mapboxMap;
-      if (mapboxMap == null) {
-        debugPrint('[MapViewWidgetNew] ❌ MapboxMap not available yet');
-        return;
-      }
-
-      debugPrint('[MapViewWidgetNew] 📡 Adding local tile source...');
-
-      final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
-      debugPrint('[MapViewWidgetNew] Tile URL template: $tileUrl');
-
-      // Add vector source with maxzoom restricted to 10 (as per requirements)
-      await mapboxMap.style.addSource(
-        mapbox.VectorSource(
-          id: 'local-tiles',
-          tiles: [tileUrl],
-          minzoom: 0,
-          maxzoom: 10, // Restricted to zoom level 10 (was 14)
-        ),
-      );
-
-      debugPrint('[MapViewWidgetNew] ✅ Local tile source added (zoom: 0-10)');
-
-      // INSPECT TILES: Print all available layer IDs from the vector tiles
-      await _inspectVectorTileLayers();
-
-      // Add layers to display the tiles (CRITICAL - without this, tiles won't show!)
-      await _addLocalTileLayers();
-    } catch (e) {
-      debugPrint('[MapViewWidgetNew] ❌ Error adding tile source: $e');
-      // Continue anyway - map will use default Mapbox tiles
-    }
-  }
-
-  /// Inspect vector tiles and print all available layer IDs
-  /// This method tries to add test layers to see which source layers exist
-  Future<void> _inspectVectorTileLayers() async {
-    try {
-      final mapboxMap = controller?.mapboxMap;
-      if (mapboxMap == null) return;
-
-      debugPrint('[MapViewWidgetNew] 🔍 ========================================');
-      debugPrint('[MapViewWidgetNew] 🔍 INSPECTING VECTOR TILE LAYERS');
-      debugPrint('[MapViewWidgetNew] 🔍 ========================================');
-      debugPrint('[MapViewWidgetNew] 🔍 ');
-      debugPrint('[MapViewWidgetNew] 🔍 Testing common OpenMapTiles layer names...');
-      debugPrint('[MapViewWidgetNew] 🔍 Method: Attempting to add test layers and checking for errors');
-      debugPrint('[MapViewWidgetNew] 🔍 ');
-
-      // Actual vector tile layer names from your mbtiles file
-      final commonLayers = [
-        'aeroway',
-        'boundary',
-        'building',
-        'housenumber',
-        'landcover',
-        'landuse',
-        'mountain_peak',
-        'park',
-        'place',
-        'poi',
-        'transportation',
-        'transportation_name',
-        'water',
-        'water_name',
-        'waterway',
-      ];
-
-      debugPrint('[MapViewWidgetNew] 🔍 Testing ${commonLayers.length} common layer names:');
-      debugPrint('[MapViewWidgetNew] 🔍 ----------------------------------------');
-
-      final foundLayers = <String>[];
-      final notFoundLayers = <String>[];
-
-      for (final layerName in commonLayers) {
-        try {
-          // Try to add a test fill layer for this source layer
-          await mapboxMap.style.addLayer(
-            mapbox.FillLayer(
-              id: 'test-layer-$layerName',
-              sourceId: 'local-tiles',
-              sourceLayer: layerName,
-              fillColor: 0xFF000000,
-              fillOpacity: 0.0, // Invisible
-            ),
-          );
-
-          // If we got here, the layer exists!
-          foundLayers.add(layerName);
-          debugPrint('[MapViewWidgetNew] 🔍 ✅ FOUND: "$layerName"');
-
-          // Remove the test layer immediately
-          await mapboxMap.style.removeStyleLayer('test-layer-$layerName');
-        } catch (e) {
-          // Layer doesn't exist in the tiles
-          notFoundLayers.add(layerName);
-          debugPrint('[MapViewWidgetNew] 🔍 ❌ NOT FOUND: "$layerName"');
-        }
-      }
-
-      debugPrint('[MapViewWidgetNew] 🔍 ========================================');
-      debugPrint('[MapViewWidgetNew] 🔍 INSPECTION COMPLETE');
-      debugPrint('[MapViewWidgetNew] 🔍 ========================================');
-      debugPrint('[MapViewWidgetNew] 🔍 ');
-      debugPrint('[MapViewWidgetNew] 🔍 📊 SUMMARY:');
-      debugPrint('[MapViewWidgetNew] 🔍 ✅ Found ${foundLayers.length} layers');
-      debugPrint('[MapViewWidgetNew] 🔍 ❌ Not found: ${notFoundLayers.length} layers');
-      debugPrint('[MapViewWidgetNew] 🔍 ');
-      debugPrint('[MapViewWidgetNew] 🔍 📋 AVAILABLE LAYERS IN YOUR MBTILES:');
-      debugPrint('[MapViewWidgetNew] 🔍 ----------------------------------------');
-      for (final layer in foundLayers) {
-        debugPrint('[MapViewWidgetNew] 🔍    - $layer');
-      }
-      debugPrint('[MapViewWidgetNew] 🔍 ========================================');
-      debugPrint('[MapViewWidgetNew] 🔍 ');
-      debugPrint('[MapViewWidgetNew] 🔍 💡 NEXT STEPS:');
-      debugPrint('[MapViewWidgetNew] 🔍 1. Use the layer names above in _addLocalTileLayers()');
-      debugPrint('[MapViewWidgetNew] 🔍 2. Add FillLayer for polygon layers (water, landcover, landuse, building)');
-      debugPrint('[MapViewWidgetNew] 🔍 3. Add LineLayer for line layers (transportation, waterway, boundary)');
-      debugPrint('[MapViewWidgetNew] 🔍 4. Add SymbolLayer for label layers (place, poi, transportation_name)');
-      debugPrint('[MapViewWidgetNew] 🔍 ========================================');
-
-    } catch (e) {
-      debugPrint('[MapViewWidgetNew] ⚠️ Error inspecting vector tile layers: $e');
-      debugPrint('[MapViewWidgetNew] ℹ️ This is normal - will proceed with standard layer setup');
-    }
-  }
-
-  /// Add layers to display local tiles
-  /// Using all 15 layers from OpenMapTiles schema
-  Future<void> _addLocalTileLayers() async {
-    try {
-      final mapboxMap = controller?.mapboxMap;
-      if (mapboxMap == null) return;
-
-      debugPrint('[MapViewWidgetNew] 🎨 Adding all 15 OpenMapTiles layers...');
-
-      // LAYER ORDER IS IMPORTANT! Bottom to top rendering:
-      // 1. Background (ocean)
-      // 2. Water bodies
-      // 3. Landcover (land masses)
-      // 4. Landuse (parks, residential, etc.)
-      // 5. Parks
-      // 6. Waterways (rivers)
-      // 7. Buildings
-      // 8. Aeroway
-      // 9. Transportation (roads)
-      // 10. Boundaries
-      // 11. Water names
-      // 12. Transportation names
-      // 13. Place names
-      // 14. POI
-      // 15. Mountain peaks
-      // 16. House numbers
-
-      // 1. Background layer (ocean/sea - light blue)
-      await mapboxMap.style.addLayer(
-        mapbox.BackgroundLayer(
-          id: 'local-background',
-          backgroundColor: 0xFFAAD3DF, // Light blue for ocean
-        ),
-      );
-      debugPrint('[MapViewWidgetNew] ✅ Added background layer');
-
-      // 2. Water bodies (oceans, lakes)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-water',
-            sourceId: 'local-tiles',
-            sourceLayer: 'water',
-            fillColor: 0xFFAAD3DF, // Blue for water
-            fillOpacity: 1.0,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added water layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ water layer error: $e');
-      }
-
-      // 3. Landcover (land masses - forests, grass, ice, etc.)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landcover',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landcover',
-            fillColor: 0xFFE8E8E8, // Light gray for land
-            fillOpacity: 1.0,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added landcover layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ landcover layer error: $e');
-      }
-
-      // 4. Landuse (residential, commercial, industrial, etc.)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-landuse',
-            sourceId: 'local-tiles',
-            sourceLayer: 'landuse',
-            fillColor: 0xFFD4E7D4, // Light green for landuse
-            fillOpacity: 0.6,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added landuse layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ landuse layer error: $e');
-      }
-
-      // 5. Parks (parks and green spaces)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-park',
-            sourceId: 'local-tiles',
-            sourceLayer: 'park',
-            fillColor: 0xFFC8E6C9, // Green for parks
-            fillOpacity: 0.7,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added park layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ park layer error: $e');
-      }
-
-      // 6. Waterways (rivers, streams)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-waterway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'waterway',
-            lineColor: 0xFFAAD3DF, // Blue for waterways
-            lineWidth: 1.0,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added waterway layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ waterway layer error: $e');
-      }
-
-      // 7. Buildings
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-building',
-            sourceId: 'local-tiles',
-            sourceLayer: 'building',
-            fillColor: 0xFFD0D0D0, // Gray for buildings
-            fillOpacity: 0.7,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added building layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ building layer error: $e');
-      }
-
-      // 8. Aeroway (airports, runways)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.FillLayer(
-            id: 'local-aeroway',
-            sourceId: 'local-tiles',
-            sourceLayer: 'aeroway',
-            fillColor: 0xFFE0E0E0, // Light gray for aeroway
-            fillOpacity: 0.5,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added aeroway layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ aeroway layer error: $e');
-      }
-
-      // 9. Transportation (roads, railways, paths)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-transportation',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation',
-            lineColor: 0xFFFFFFFF, // White for roads
-            lineWidth: 1.5,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added transportation layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ transportation layer error: $e');
-      }
-
-      // 10. Boundaries (administrative boundaries)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.LineLayer(
-            id: 'local-boundary',
-            sourceId: 'local-tiles',
-            sourceLayer: 'boundary',
-            lineColor: 0xFFCCCCCC, // Gray for boundaries
-            lineWidth: 0.5,
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added boundary layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ boundary layer error: $e');
-      }
-
-      // 11. Water names (labels for water bodies)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-water-name',
-            sourceId: 'local-tiles',
-            sourceLayer: 'water_name',
-            textField: '{name}',
-            textSize: 11.0,
-            textColor: 0xFF4A90E2, // Blue text for water names
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added water_name layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ water_name layer error: $e');
-      }
-
-      // 12. Transportation names (road names)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-transportation-name',
-            sourceId: 'local-tiles',
-            sourceLayer: 'transportation_name',
-            textField: '{name}',
-            textSize: 10.0,
-            textColor: 0xFF666666, // Gray text for road names
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added transportation_name layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ transportation_name layer error: $e');
-      }
-
-      // 13. Place names (cities, towns, villages)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-place',
-            sourceId: 'local-tiles',
-            sourceLayer: 'place',
-            textField: '{name}',
-            textSize: 12.0,
-            textColor: 0xFF000000, // Black text for place names
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added place layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ place layer error: $e');
-      }
-
-      // 14. POI (points of interest)
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-poi',
-            sourceId: 'local-tiles',
-            sourceLayer: 'poi',
-            textField: '{name}',
-            textSize: 10.0,
-            textColor: 0xFF333333, // Dark gray for POI
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added poi layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ poi layer error: $e');
-      }
-
-      // 15. Mountain peaks
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-mountain-peak',
-            sourceId: 'local-tiles',
-            sourceLayer: 'mountain_peak',
-            textField: '{name}',
-            textSize: 10.0,
-            textColor: 0xFF8B4513, // Brown text for mountains
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added mountain_peak layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ mountain_peak layer error: $e');
-      }
-
-      // 16. House numbers
-      try {
-        await mapboxMap.style.addLayer(
-          mapbox.SymbolLayer(
-            id: 'local-housenumber',
-            sourceId: 'local-tiles',
-            sourceLayer: 'housenumber',
-            textField: '{housenumber}',
-            textSize: 9.0,
-            textColor: 0xFF999999, // Light gray for house numbers
-          ),
-        );
-        debugPrint('[MapViewWidgetNew] ✅ Added housenumber layer');
-      } catch (e) {
-        debugPrint('[MapViewWidgetNew] ⚠️ housenumber layer error: $e');
-      }
-
-      debugPrint('[MapViewWidgetNew] ✅ All 15 OpenMapTiles layers added successfully');
-    } catch (e) {
-      debugPrint('[MapViewWidgetNew] ❌ Error adding tile layers: $e');
-      // Don't throw - continue with whatever layers were added
-    }
-  }
-  */
-
-  // ============================================================================
-  // END OF COMMENTED OUT METHODS
-  // ============================================================================
-
-  /// Build floating action button for location actions
-  Widget _buildFloatingActionButton(MapControllerNew controller) {
-    return Obx(() {
-     
-      if (!controller.hasLocationPermission.value) {
-     
-        return Container(); // Hide when no permission
-     
-      }
-
-      return FloatingActionButton(
-        onPressed: controller.refreshLocation,
-        backgroundColor: Colors.blue,
-        tooltip: 'Go to Current Location',
-        child:
-            controller.isLoadingLocation.value
-                ? SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-                : Icon(Icons.my_location, color: Colors.white),
-      );
-    });
-  }
-
-
 }
 
-
-/// Example page demonstrating Mapbox circle layer clustering
-///
-/// This page shows how to:
-/// - Load GeoJSON data from assets
-/// - Create a clustered source
-/// - Add circle layers for clusters and unclustered points
-/// - Add symbol layers for cluster counts
-///
-/// **Mapbox API Key Configuration:**
-/// The Mapbox access token is automatically loaded from the `.env` file
-/// and set globally in `main.dart` via:
-/// ```dart
-/// await dotenv.load(fileName: ".env");
-/// MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
-/// ```
-///
-/// **Requirements:**
-/// - Add `assets/earthquakes.geojson` file to your project
-/// - Add the file to `pubspec.yaml` under assets section
-///
-/// **Usage:**
-/// Navigate to this page using:
-/// ```dart
-/// Get.to(() => const CircleLayerClusteringPage());
-/// ```
 class CircleLayerClusteringPage extends StatefulWidget {
   const CircleLayerClusteringPage({super.key});
 

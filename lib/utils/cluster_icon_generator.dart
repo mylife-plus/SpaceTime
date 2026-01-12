@@ -12,7 +12,7 @@ class ClusterIconGenerator {
     Color backgroundColor = const Color(0xFF51BBD6),
     Color textColor = Colors.white,
     Color strokeColor = Colors.white,
-    double strokeWidth = 6.0,
+    double strokeWidth = 4.0,
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -37,15 +37,15 @@ class ClusterIconGenerator {
       text: count.toString(),
       style: TextStyle(
         color: textColor,
-        fontSize: size * 0.35, // 35% of icon size
+        fontSize: size * 0.45, // 35% of icon size
         fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(
-            color: Colors.black.withOpacity(0.5),
-            offset: const Offset(0, 1),
-            blurRadius: 2,
-          ),
-        ],
+        // shadows: [
+        //   Shadow(
+        //     color: Colors.black.withOpacity(0.5),
+        //     offset: const Offset(0, 1),
+        //     blurRadius: 2,
+        //   ),
+        // ],
       ),
     );
 
