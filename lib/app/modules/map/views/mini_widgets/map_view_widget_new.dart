@@ -237,10 +237,10 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         styleUri: _getCustomStyleUri(), // Returns blank style
         textureView: io.Platform.isAndroid,
         onMapCreated: (mapboxMap) async {
+
           mapboxMap = mapboxMap;
           controller.mapboxMap = mapboxMap;
          
-          // Enable online mode even for blank style
           await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
           controller.onMapCreated(mapboxMap);
 

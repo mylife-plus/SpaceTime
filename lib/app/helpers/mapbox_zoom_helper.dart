@@ -75,7 +75,7 @@ class MapboxZoomHelper {
   final RxDouble minZoom = defaultMinZoom.obs;
   final RxDouble maxZoom = defaultMaxZoom.obs;
   final RxDouble clusterVisibilityMaxZoom = defaultClusterVisibilityMaxZoom.obs;
-  final RxDouble individualVisibilityMinZoom = defaultIndividualVisibilityMinZoom.obs;
+  final RxDouble individualVisibilityMinZoom = 0.0.obs;
   final RxDouble detailVisibilityMinZoom = defaultDetailVisibilityMinZoom.obs;
   final RxDouble clusterMaxZoom = defaultClusterMaxZoom.obs;
   final RxDouble initialCameraZoom = defaultInitialCameraZoom.obs;

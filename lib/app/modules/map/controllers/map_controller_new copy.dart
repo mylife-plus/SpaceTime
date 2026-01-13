@@ -1381,15 +1381,15 @@ void _resetTapState() {
 
     _isBottomPanelOpen = true;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => BottomPanel(cluster, specificMemories: specificMemories),
-    ).whenComplete(() {
-      _isBottomPanelOpen = false;
-      debugPrint('[MapControllerNew] Bottom panel closed');
-    });
+    // showModalBottomSheet(
+    //   context: context,
+    //   backgroundColor: Colors.transparent,
+    //   isScrollControlled: true,
+    //   builder: (_) => BottomPanel(cluster, specificMemories: specificMemories),
+    // ).whenComplete(() {
+    //   _isBottomPanelOpen = false;
+    //   debugPrint('[MapControllerNew] Bottom panel closed');
+    // });
   }
 
   /// Handle memory tap - similar to _onDrillDownMarkerTapped in old controller

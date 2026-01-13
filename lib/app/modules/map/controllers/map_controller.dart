@@ -4675,7 +4675,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
   }
 
   void _showClusterMemoriesBottomPanel(MemoryCluster cluster) {
-    Get.bottomSheet(BottomPanel(cluster));
+    // Get.bottomSheet(BottomPanel(cluster));
   }
 
   Widget _buildMemoryDetailsGrid(MemoryLocation memory) {
@@ -6440,12 +6440,12 @@ class MapController extends GetxController with WidgetsBindingObserver {
     MemoryCluster cluster, {
     List<Map<String, dynamic>>? specificMemories,
   }) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => BottomPanel(cluster, specificMemories: specificMemories),
-    );
+    // showModalBottomSheet(
+    //   context: context,
+    //   backgroundColor: Colors.transparent,
+    //   isScrollControlled: true,
+    //   builder: (_) => BottomPanel(cluster, specificMemories: specificMemories),
+    // );
   }
 
   Future<bool> _checkLocationPermission() async {

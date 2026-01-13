@@ -319,6 +319,7 @@ class MapControllerNew extends GetxController {
   void onMapCreated(mapbox.MapboxMap mapboxMapInstance) {
     mapboxMap = mapboxMapInstance;
     isMapReady.value = true;
+
     loadMemoriesFromDB();
 
     Future.delayed(Duration(milliseconds: 200), () {
@@ -375,9 +376,11 @@ class MapControllerNew extends GetxController {
     Future.delayed(Duration(seconds: 1), () {
       _setupMapboxClustering(_currentMemories);
 
-      generateAndDisplayArrowsFromMemories(_currentMemories, mapboxMap!);
-handleMapTap();
-      // _setupNativeClusterClickHandlers();
+      generateAndDisplayArrowsFromMemoriesGeometry(
+        _currentMemories,
+        mapboxMap!,
+      );
+      handleMapTap();
     });
   }
 
@@ -810,20 +813,19 @@ handleMapTap();
         return;
       }
 
-      final memoryCluster = clustering.MemoryCluster(
-        id: 'cluster_${DateTime.now().millisecondsSinceEpoch}',
-        memories: memoryLocations,
-        centerLatitude: centerLat,
-        centerLongitude: centerLng,
-        radiusKm: 0.5, // Default radius for cluster
+      // Extract memory IDs from the cluster memories
+      final memoryIds =
+          clusterMemories
+              .map((m) => m['id']?.toString() ?? '')
+              .where((id) => id.isNotEmpty)
+              .toList();
+
+      debugPrint(
+        '[MapControllerNew] 🔍 DRILL DOWN - Extracted ${memoryIds.length} memory IDs',
       );
 
-      // Show bottom panel with cluster memories (like the old controller)
-      showLocationBottomPanel(
-        Get.context!,
-        memoryCluster,
-        specificMemories: normalizedMemories,
-      );
+      // Show bottom panel with memory IDs
+      showLocationBottomPanel(Get.context!, memoryIds);
 
       debugPrint(
         '[MapControllerNew] 🔍 DRILL DOWN - Showing bottom panel with cluster details',
@@ -844,13 +846,10 @@ handleMapTap();
     }
   }
 
-  /// Show location bottom panel - similar to showLocationBottomPanel in old controller
-  void showLocationBottomPanel(
-    BuildContext context,
-    clustering.MemoryCluster cluster, {
-    List<Map<String, dynamic>>? specificMemories,
-  }) {
+  /// Show location bottom panel with memory IDs
+  void showLocationBottomPanel(BuildContext context, List<String> memoryIds) {
     if (_isBottomPanelOpen) {
+      debugPrint('[MapControllerNew] ⚠️ Bottom panel already open');
       return;
     }
 
@@ -860,7 +859,7 @@ handleMapTap();
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => BottomPanel(cluster, specificMemories: specificMemories),
+      builder: (_) => BottomPanel(memoryIds: memoryIds),
     ).whenComplete(() {
       _isBottomPanelOpen = false;
       debugPrint('[MapControllerNew] Bottom panel closed');
@@ -2157,7 +2156,7 @@ handleMapTap();
       await _setLayerVisibility(CLUSTER_COUNT_LAYER_ID, showClusters);
 
       // Update individual memory layers visibility (show when zoomed in)
-      await _setLayerVisibility(UNCLUSTERED_LAYER_ID, showIndividual);
+      // await _setLayerVisibility(UNCLUSTERED_LAYER_ID, showIndividual);
       await _setLayerVisibility(
         INDIVIDUAL_COUNT_LAYER_ID,
         showIndividual && showDetails,
@@ -2272,17 +2271,7 @@ handleMapTap();
 
       // Query features in cluster layer first (clusters have priority)
       // Query all cluster layer variants (small, medium, large, etc.)
-      final clusterLayerIds = [
-        '$CLUSTER_LAYER_ID-small',
-        '$CLUSTER_LAYER_ID-medium-small',
-        '$CLUSTER_LAYER_ID-medium',
-        '$CLUSTER_LAYER_ID-medium-large',
-        '$CLUSTER_LAYER_ID-large',
-        '$CLUSTER_LAYER_ID-xlarge',
-        CLUSTERS_CIRCLE_LAYER_ID,
-        CLUSTER_LAYER_ID,
-        
-      ];
+      final clusterLayerIds = [CLUSTERS_CIRCLE_LAYER_ID, CLUSTER_LAYER_ID];
 
       debugPrint(
         '[MapControllerNew] 🔍 Querying cluster layers: $clusterLayerIds',
@@ -2453,8 +2442,10 @@ handleMapTap();
 
       if (properties != null) {
         debugPrint('[MapControllerNew] 📊 Cluster Properties:');
+
         final clusterId = properties['cluster_id'];
         final pointCount = properties['point_count'];
+
         debugPrint('[MapControllerNew] - cluster_id: $clusterId');
         debugPrint('[MapControllerNew] - point_count: $pointCount');
 
@@ -2465,7 +2456,9 @@ handleMapTap();
           debugPrint('[MapControllerNew] ⚠️ No cluster_id found in properties');
         }
       } else {
-        debugPrint('[MapControllerNew] ⚠️ No properties found in cluster feature');
+        debugPrint(
+          '[MapControllerNew] ⚠️ No properties found in cluster feature',
+        );
       }
 
       // Get current zoom level
@@ -2527,15 +2520,18 @@ handleMapTap();
   }
 
   /// Fetch and log all memory IDs in a cluster using getGeoJsonClusterLeaves
-  Future<void> _fetchAndLogClusterMemories(dynamic clusterId, int pointCount) async {
+  Future<void> _fetchAndLogClusterMemories(
+    dynamic clusterId,
+    int pointCount,
+  ) async {
     try {
-      debugPrint('[MapControllerNew] 🔍 Fetching cluster leaves for cluster_id: $clusterId');
+      debugPrint(
+        '[MapControllerNew] 🔍 Fetching cluster leaves for cluster_id: $clusterId',
+      );
       debugPrint('[MapControllerNew] 📊 Expected point count: $pointCount');
 
       // Create cluster feature map for querying
-      final clusterFeature = {
-        'cluster_id': clusterId,
-      };
+      final clusterFeature = {'cluster_id': clusterId};
 
       // Fetch all leaves (individual memories) in this cluster
       final result = await mapboxMap!.getGeoJsonClusterLeaves(
@@ -2548,11 +2544,15 @@ handleMapTap();
       final leavesData = result.value;
 
       if (leavesData == null) {
-        debugPrint('[MapControllerNew] ⚠️ No leaves data returned from cluster');
+        debugPrint(
+          '[MapControllerNew] ⚠️ No leaves data returned from cluster',
+        );
         return;
       }
 
-      debugPrint('[MapControllerNew] 📦 Raw leaves data type: ${leavesData.runtimeType}');
+      debugPrint(
+        '[MapControllerNew] 📦 Raw leaves data type: ${leavesData.runtimeType}',
+      );
       debugPrint('[MapControllerNew] 📦 Raw leaves data: $leavesData');
 
       // Parse the GeoJSON FeatureCollection
@@ -2563,7 +2563,9 @@ handleMapTap();
           final features = leavesJson['features'] as List<dynamic>?;
 
           if (features != null && features.isNotEmpty) {
-            debugPrint('[MapControllerNew] ✅ Found ${features.length} memories in cluster');
+            debugPrint(
+              '[MapControllerNew] ✅ Found ${features.length} memories in cluster',
+            );
             debugPrint('[MapControllerNew] 🎯 Memory IDs in cluster:');
 
             final memoryIds = <String>[];
@@ -2584,18 +2586,25 @@ handleMapTap();
               }
             }
 
-            debugPrint('[MapControllerNew] 📋 All Memory IDs: ${memoryIds.join(', ')}');
+            debugPrint(
+              '[MapControllerNew] 📋 All Memory IDs: ${memoryIds.join(', ')}',
+            );
           } else {
-            debugPrint('[MapControllerNew] ⚠️ No features found in FeatureCollection');
+            debugPrint(
+              '[MapControllerNew] ⚠️ No features found in FeatureCollection',
+            );
           }
         } else {
-          debugPrint('[MapControllerNew] ⚠️ Unexpected leaves data format: ${leavesJson.runtimeType}');
+          debugPrint(
+            '[MapControllerNew] ⚠️ Unexpected leaves data format: ${leavesJson.runtimeType}',
+          );
         }
       } catch (parseError) {
-        debugPrint('[MapControllerNew] ❌ Error parsing leaves JSON: $parseError');
+        debugPrint(
+          '[MapControllerNew] ❌ Error parsing leaves JSON: $parseError',
+        );
         debugPrint('[MapControllerNew] Raw data: $leavesData');
       }
-
     } catch (e, stackTrace) {
       debugPrint('[MapControllerNew] ❌ Error fetching cluster memories: $e');
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
@@ -2628,30 +2637,53 @@ handleMapTap();
     int pointCount,
     double lat,
     double lng, {
-    String? memoryIdsString, // Optional: pre-aggregated memory IDs from cluster properties
+    String?
+    memoryIdsString, // Optional: pre-aggregated memory IDs from cluster properties
   }) async {
     try {
       debugPrint('[MapControllerNew] 📋 Showing cluster memories bottom sheet');
 
-      // APPROACH 1: If memory IDs are provided in cluster properties, use them
+      // APPROACH 1: If memory IDs are provided in cluster properties, use them (FAST)
       if (memoryIdsString != null && memoryIdsString.isNotEmpty) {
-        final memoryIds = memoryIdsString.split(',').where((id) => id.trim().isNotEmpty).toList();
-        debugPrint('[MapControllerNew] 💾 Using pre-aggregated memory IDs (${memoryIds.length}): ${memoryIds.join(', ')}');
+        final memoryIds =
+            memoryIdsString
+                .split(',')
+                .where((id) => id.trim().isNotEmpty)
+                .map((id) => id.trim())
+                .toList();
 
-        // TODO: Optionally fetch memories from database using these IDs
-        // Example:
-        // final memories = await _fetchMemoriesByIds(memoryIds);
-        // _showMemoriesInBottomSheet(memories);
-        // return;
+        debugPrint(
+          '[MapControllerNew] 💾 Using pre-aggregated memory IDs (${memoryIds.length}): ${memoryIds.join(', ')}',
+        );
+
+        // Show BottomPanel with memory IDs
+        if (_isBottomPanelOpen) {
+          debugPrint('[MapControllerNew] ⚠️ Bottom panel already open');
+          return;
+        }
+
+        _isBottomPanelOpen = true;
+
+        await showModalBottomSheet(
+          context: Get.context!,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (_) => BottomPanel(memoryIds: memoryIds),
+        ).whenComplete(() {
+          _isBottomPanelOpen = false;
+          debugPrint('[MapControllerNew] Bottom panel closed');
+        });
+
+        return;
       }
 
-      // APPROACH 2: Use getGeoJsonClusterLeaves to fetch full GeoJSON features
-      debugPrint('[MapControllerNew] 🔍 Fetching cluster leaves using getGeoJsonClusterLeaves...');
+      // APPROACH 2: Use getGeoJsonClusterLeaves to fetch full GeoJSON features (FALLBACK)
+      debugPrint(
+        '[MapControllerNew] 🔍 Fetching cluster leaves using getGeoJsonClusterLeaves...',
+      );
 
       // Create cluster feature map for querying
-      final clusterFeature = {
-        'cluster_id': clusterId,
-      };
+      final clusterFeature = {'cluster_id': clusterId};
 
       // Fetch all leaves (individual memories) in this cluster
       final result = await mapboxMap!.getGeoJsonClusterLeaves(
@@ -2664,7 +2696,9 @@ handleMapTap();
       final leavesData = result.value;
 
       if (leavesData == null) {
-        debugPrint('[MapControllerNew] ⚠️ No leaves data returned from cluster');
+        debugPrint(
+          '[MapControllerNew] ⚠️ No leaves data returned from cluster',
+        );
         Get.snackbar(
           'Error',
           'Could not load cluster memories',
@@ -2692,13 +2726,17 @@ handleMapTap();
       // Extract memory data from features
       final memories = <Map<String, dynamic>>[];
       for (final feature in features) {
-        final properties = (feature as Map<String, dynamic>)['properties'] as Map<String, dynamic>?;
+        final properties =
+            (feature as Map<String, dynamic>)['properties']
+                as Map<String, dynamic>?;
         if (properties != null) {
           memories.add(properties);
         }
       }
 
-      debugPrint('[MapControllerNew] ✅ Showing ${memories.length} memories in bottom sheet');
+      debugPrint(
+        '[MapControllerNew] ✅ Showing ${memories.length} memories in bottom sheet',
+      );
 
       // Show bottom sheet with cluster memories
       Get.bottomSheet(
@@ -2796,13 +2834,23 @@ handleMapTap();
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (hasImages)
-                            const Icon(Icons.image, size: 16, color: Colors.blue),
+                            const Icon(
+                              Icons.image,
+                              size: 16,
+                              color: Colors.blue,
+                            ),
                           if (hasAudios)
-                            const Icon(Icons.audiotrack, size: 16, color: Colors.orange),
+                            const Icon(
+                              Icons.audiotrack,
+                              size: 16,
+                              color: Colors.orange,
+                            ),
                         ],
                       ),
                       onTap: () {
-                        debugPrint('[MapControllerNew] 📝 Memory tapped: $memoryId');
+                        debugPrint(
+                          '[MapControllerNew] 📝 Memory tapped: $memoryId',
+                        );
                         Get.back(); // Close bottom sheet
                         // TODO: Navigate to memory detail page
                         Get.snackbar(
@@ -2822,7 +2870,6 @@ handleMapTap();
         isScrollControlled: true,
         enableDrag: true,
       );
-
     } catch (e, stackTrace) {
       debugPrint('[MapControllerNew] ❌ Error showing cluster memories: $e');
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
@@ -3093,9 +3140,10 @@ handleMapTap();
           id: CLUSTERS_CIRCLE_LAYER_ID,
           sourceId: MEMORY_SOURCE_ID,
           filter: ['has', 'point_count'],
+
           // Initial simple paint; will refine via setStyleLayerProperty below if needed
           circleColor: 0xFF11B4DA, // default (will be overridden)
-          circleRadius: 10.0,
+          circleRadius: 15.0,
           circleStrokeWidth: 5.0,
           circleStrokeColor: 0xFFFFFFFF,
           circleOpacity: 1.0,
@@ -3115,19 +3163,19 @@ handleMapTap();
         ],
       );
 
-      await mapboxMap!.style.setStyleLayerProperty(
-        CLUSTERS_CIRCLE_LAYER_ID,
-        'circle-radius',
-        [
-          'step',
-          ['get', 'point_count'],
-          10.0,
-          100,
-          10.0,
-          750,
-          10.0,
-        ],
-      );
+      // await mapboxMap!.style.setStyleLayerProperty(
+      //   CLUSTERS_CIRCLE_LAYER_ID,
+      //   'circle-radius',
+      //   [
+      //     'step',
+      //     ['get', 'point_count'],
+      //     10.0,
+      //     100,
+      //     10.0,
+      //     750,
+      //     10.0,
+      //   ],
+      // );
 
       // 2) Cluster count text (symbol layer)
       await mapboxMap!.style.addLayer(
@@ -3136,7 +3184,7 @@ handleMapTap();
           sourceId: MEMORY_SOURCE_ID,
           filter: ['has', 'point_count'],
           textField: '', // or null; gets overridden
-          textSize: 12.0,
+          textSize: 14.0,
           textColor: 0xFFFFFFFF,
           textIgnorePlacement: true,
           textAllowOverlap: true,
@@ -3167,7 +3215,7 @@ handleMapTap();
               ['has', 'point_count'],
             ],
             circleColor: 0xFF11B4DA, // default (will be overridden)
-            circleRadius: 10.0,
+            circleRadius: 15.0,
             circleStrokeWidth: 5.0,
             circleStrokeColor: 0xFFFFFFFF,
             circleOpacity: 1.0,
@@ -3214,7 +3262,7 @@ handleMapTap();
               ['has', 'point_count'],
             ],
             circleColor: 0xFF11B4DA,
-            circleRadius: 10.0,
+            circleRadius: 15.0,
             circleStrokeWidth: .0,
             circleStrokeColor: 0xFFFFFFFF,
             circleOpacity: 1.0,
@@ -3252,14 +3300,7 @@ handleMapTap();
       // Move all cluster layers above the symbol/label layer for proper ordering
       if (labelLayerId != null) {
         // Move all cluster size tiers
-        final clusterLayerIds = [
-          '$CLUSTER_LAYER_ID-small',
-          '$CLUSTER_LAYER_ID-medium-small',
-          '$CLUSTER_LAYER_ID-medium',
-          '$CLUSTER_LAYER_ID-medium-large',
-          '$CLUSTER_LAYER_ID-large',
-          '$CLUSTER_LAYER_ID-xlarge',
-        ];
+        final clusterLayerIds = [];
 
         for (final layerId in clusterLayerIds) {
           await mapboxMap!.style.moveStyleLayer(
@@ -3319,31 +3360,25 @@ handleMapTap();
 
   /// Call this on map tap - Add interactions for individual markers AND clusters
   Future<void> handleMapTap() async {
-    
     if (mapboxMap == null) {
       debugPrint('[MapControllerNew] ⚠️ Map not ready for adding interactions');
       return;
     }
 
     try {
-      // ========== CLUSTER INTERACTIONS ==========
-      // Add tap interactions for all cluster layer variants
       final clusterLayerIds = [
-        '$CLUSTER_LAYER_ID-small',
-        '$CLUSTER_LAYER_ID-medium-small',
-        '$CLUSTER_LAYER_ID-medium',
-        '$CLUSTER_LAYER_ID-medium-large',
-        '$CLUSTER_LAYER_ID-large',
-        '$CLUSTER_LAYER_ID-xlarge',
         CLUSTERS_CIRCLE_LAYER_ID,
         CLUSTERS_COUNT_LAYER_ID,
         CLUSTER_LAYER_ID,
-        CLUSTER_COUNT_LAYER_ID
+        CLUSTER_COUNT_LAYER_ID,
       ];
 
       for (final layerId in clusterLayerIds) {
         try {
-          debugPrint('[MapControllerNew] 🎯 Adding tap interaction for cluster layer: $layerId');
+          debugPrint(
+            '[MapControllerNew] 🎯 Adding tap interaction for cluster layer: $layerId',
+          );
+
           mapboxMap!.addInteraction(
             mapbox.TapInteraction(
               mapbox.FeaturesetDescriptor(layerId: layerId),
@@ -3354,13 +3389,18 @@ handleMapTap();
             interactionID: "clusterTapInteraction_$layerId",
           );
         } catch (e) {
-          debugPrint('[MapControllerNew] ⚠️ Could not add interaction for $layerId: $e');
+          debugPrint(
+            '[MapControllerNew] ⚠️ Could not add interaction for $layerId: $e',
+          );
         }
       }
 
       // ========== INDIVIDUAL MARKER INTERACTIONS ==========
       // Add tap interaction for individual memory markers (icon layer)
-      debugPrint('[MapControllerNew] 🎯 Adding tap interaction for $UNCLUSTERED_LAYER_ID');
+      debugPrint(
+        '[MapControllerNew] 🎯 Adding tap interaction for $UNCLUSTERED_LAYER_ID',
+      );
+
       mapboxMap!.addInteraction(
         mapbox.TapInteraction(
           mapbox.FeaturesetDescriptor(layerId: UNCLUSTERED_LAYER_ID),
@@ -3372,7 +3412,10 @@ handleMapTap();
       );
 
       // Add tap interaction for individual memory count labels
-      debugPrint('[MapControllerNew] 🎯 Adding tap interaction for $INDIVIDUAL_COUNT_LAYER_ID');
+      debugPrint(
+        '[MapControllerNew] 🎯 Adding tap interaction for $INDIVIDUAL_COUNT_LAYER_ID',
+      );
+
       mapboxMap!.addInteraction(
         mapbox.TapInteraction(
           mapbox.FeaturesetDescriptor(layerId: INDIVIDUAL_COUNT_LAYER_ID),
@@ -3383,7 +3426,9 @@ handleMapTap();
         interactionID: "individualCountTapInteraction",
       );
 
-      debugPrint('[MapControllerNew] ✅ All tap interactions (clusters + individual markers) added successfully');
+      debugPrint(
+        '[MapControllerNew] ✅ All tap interactions (clusters + individual markers) added successfully',
+      );
     } catch (e, stackTrace) {
       debugPrint('[MapControllerNew] ❌ Error adding tap interactions: $e');
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
@@ -3398,26 +3443,39 @@ handleMapTap();
     mapbox.MapContentGestureContext context,
   ) async {
     try {
-      debugPrint('[MapControllerNew] 🎯 Cluster marker tapped on layer: $layerName');
+      debugPrint(
+        '[MapControllerNew] 🎯 Cluster marker tapped on layer: $layerName',
+      );
       debugPrint('[MapControllerNew] Feature: $feature');
 
       final properties = feature.properties;
 
       // Debug: Print ALL properties to see what's available
       debugPrint('[MapControllerNew] 📋 ALL Feature properties:');
+
       properties.forEach((key, value) {
-        debugPrint('[MapControllerNew]   - $key: $value (${value.runtimeType})');
+        debugPrint(
+          '[MapControllerNew]   - $key: $value (${value.runtimeType})',
+        );
       });
 
       if (properties.isEmpty) {
-        debugPrint('[MapControllerNew] ⚠️ No properties found in cluster feature');
+        debugPrint(
+          '[MapControllerNew] ⚠️ No properties found in cluster feature',
+        );
+
         return;
       }
 
       // Extract cluster information
       final clusterId = properties['cluster_id'];
       final pointCountRaw = properties['point_count'];
-      final pointCount = (pointCountRaw is int) ? pointCountRaw : (pointCountRaw is double) ? pointCountRaw.toInt() : 0;
+      final pointCount =
+          (pointCountRaw is int)
+              ? pointCountRaw
+              : (pointCountRaw is double)
+              ? pointCountRaw.toInt()
+              : 0;
 
       // Extract aggregated memory IDs from cluster properties
       final memoryIdsString = properties['memory_ids'].toString() ?? '';
@@ -3437,8 +3495,20 @@ handleMapTap();
 
       // Parse memory IDs from the aggregated string
       if (memoryIdsString.isNotEmpty) {
-        final memoryIds = memoryIdsString.split(',').where((id) => id.trim().isNotEmpty).toList();
-        debugPrint('[MapControllerNew] 🎯 Parsed Memory IDs (${memoryIds.length}): ${memoryIds.join(', ')}');
+        final memoryIds =
+            memoryIdsString
+                .split(',')
+                .where((id) => id.trim().isNotEmpty)
+                .map((id) => id.trim())
+                .toList();
+
+        debugPrint(
+          '[MapControllerNew] 📋 Showing BottomPanel with ${memoryIds.length} memory IDs',
+        );
+
+        // Show BottomPanel with memory IDs
+        showLocationBottomPanel(Get.context!, memoryIds);
+        //  BottomPanel
       }
 
       // Get current zoom level
@@ -3447,25 +3517,29 @@ handleMapTap();
 
       debugPrint('[MapControllerNew] 📊 Current zoom: $currentZoomLevel');
 
-      // Check if we're at high zoom level (close to clusterMaxZoom of 14)
-      // If zoom >= 13, show cluster details instead of zooming further
       if (currentZoomLevel >= 13.0) {
         debugPrint(
           '[MapControllerNew] 🔍 High zoom level detected, showing cluster details',
         );
 
-        // Fetch and show cluster memories in a bottom sheet
-        if (clusterId != null) {
-          await _showClusterMemoriesBottomSheet(
-            clusterId,
-            pointCount,
-            lat,
-            lng,
-            memoryIdsString: memoryIdsString, // Pass the aggregated memory IDs
+        // Parse memory IDs and show BottomPanel
+        if (memoryIdsString.isNotEmpty) {
+          final memoryIds =
+              memoryIdsString
+                  .split(',')
+                  .where((id) => id.trim().isNotEmpty)
+                  .map((id) => id.trim())
+                  .toList();
+
+          debugPrint(
+            '[MapControllerNew] 📋 Showing BottomPanel with ${memoryIds.length} memory IDs',
           );
+
+          // Show BottomPanel with memory IDs
+          showLocationBottomPanel(Get.context!, memoryIds);
         } else {
           debugPrint(
-            '[MapControllerNew] ⚠️ No cluster_id found, showing snackbar',
+            '[MapControllerNew] ⚠️ No memory IDs found, showing snackbar',
           );
           Get.snackbar(
             'Cluster',
@@ -3498,7 +3572,6 @@ handleMapTap();
 
         debugPrint('[MapControllerNew] ✅ Zoomed into cluster (zoom: $newZoom)');
       }
-
     } catch (e, stackTrace) {
       debugPrint('[MapControllerNew] ❌ Error handling cluster marker tap: $e');
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
@@ -3512,14 +3585,19 @@ handleMapTap();
     String layerName,
   ) async {
     try {
-      debugPrint('[MapControllerNew] 🎯 Individual marker tapped on layer: $layerName');
+      debugPrint(
+        '[MapControllerNew] 🎯 Individual marker tapped on layer: $layerName',
+      );
       debugPrint('[MapControllerNew] Feature: $feature');
-      debugPrint('[MapControllerNew] Feature properties: ${feature.properties}');
+      debugPrint(
+        '[MapControllerNew] Feature properties: ${feature.properties}',
+      );
 
       final properties = feature.properties;
 
       if (properties == null || properties.isEmpty) {
         debugPrint('[MapControllerNew] ⚠️ No properties found in feature');
+
         return;
       }
 
@@ -3575,36 +3653,31 @@ handleMapTap();
         margin: const EdgeInsets.all(16),
         borderRadius: 8,
       );
-
-      // TODO: Navigate to memory detail page or show bottom sheet
-      // Example: Get.toNamed('/memory-detail', arguments: {'memoryId': memoryId});
-      // Or: _showMemoryBottomSheet(memoryId, memoryTitle, memoryDate, description);
-
     } catch (e, stackTrace) {
-      debugPrint('[MapControllerNew] ❌ Error handling individual marker tap: $e');
+      debugPrint(
+        '[MapControllerNew] ❌ Error handling individual marker tap: $e',
+      );
+
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
     }
   }
 
-  void _getClusterLeaves(int clusterId) async {
+  void _getClusterLeaves(int clusterId) async {}
 
-  }
-
-
-  ///
-  /// Set initial layer visibility based on current zoom level
   Future<void> _updateInitialLayerVisibility() async {
     if (mapboxMap == null) return;
 
     try {
       final cameraState = await mapboxMap!.getCameraState();
       final currentZoomLevel = cameraState.zoom;
+
       _lastKnownZoom = currentZoomLevel;
       currentZoom.value = currentZoomLevel;
 
       debugPrint(
         '[MapControllerNew] 🎯 Setting initial layer visibility for zoom: $currentZoomLevel',
       );
+
       await _updateLayerVisibilityForZoom(currentZoomLevel);
     } catch (e) {
       debugPrint(
@@ -3619,11 +3692,13 @@ handleMapTap();
 
     try {
       final layers = await mapboxMap!.style.getStyleLayers();
+
       debugPrint(
         '[MapControllerNew] 📋 Total layers in style: ${layers.length}',
       );
 
       final layerIds = layers.map((l) => l!.id).whereType<String>().toList();
+
       debugPrint(
         '[MapControllerNew] 🔍 Looking for our layers in: ${layerIds.take(10).join(", ")}...',
       );
@@ -3635,6 +3710,7 @@ handleMapTap();
         UNCLUSTERED_LAYER_ID,
         INDIVIDUAL_COUNT_LAYER_ID,
       ];
+
       for (final layerId in ourLayers) {
         if (layerIds.contains(layerId)) {
           debugPrint('[MapControllerNew] ✅ Layer found: $layerId');
@@ -3647,54 +3723,6 @@ handleMapTap();
     }
   }
 
-  // /// Setup enhanced click handlers for native clustering
-  // Future<void> _setupNativeClusterClickHandlers() async {
-  //   if (mapboxMap == null) return;
-
-  //   try {
-  //     debugPrint(
-  //       '[MapControllerNew] 👆 Setting up enhanced cluster click handlers...',
-  //     );
-
-  //     // Setup map tap listener with feature querying
-  //     mapboxMap!.setOnMapTapListener((context) async {
-  //       final lat = context.point.coordinates.lat;
-  //       final lng = context.point.coordinates.lng;
-  //       debugPrint('[MapControllerNew] 🎯 Map tapped at: ($lat, $lng)');
-
-  //       try {
-  //         // Query features at the tap point to detect clusters or individual memories
-  //         await _handleMapTapWithFeatureQuery(
-  //           context.point,
-  //           lat.toDouble(),
-  //           lng.toDouble(),
-  //         );
-  //       } catch (e) {
-  //         debugPrint('[MapControllerNew] ❌ Error handling map tap: $e');
-  //         // Fallback to simple location display
-  //         Get.snackbar(
-  //           'Map Tapped',
-  //           'Location: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
-  //           backgroundColor: Colors.blue.withValues(alpha: 0.8),
-  //           colorText: Colors.white,
-  //           duration: const Duration(seconds: 2),
-  //         );
-  //       }
-  //     });
-
-  //     debugPrint(
-  //       '[MapControllerNew] ✅ Enhanced cluster click handlers setup complete',
-  //     );
-  //   } catch (e) {
-  //     debugPrint('[MapControllerNew] ❌ Error setting up click handlers: $e');
-  //   }
-  // }
-
-  // ============================================================================
-  // OFFLINE MAP FUNCTIONALITY (Delegated to OfflineMapCoordinatorService)
-  // ============================================================================
-
-  /// Start downloading offline map tiles (delegated to coordinator)
   Future<void> startOfflineDownload() async {
     await _offlineCoordinator?.startOfflineDownload(mapboxMap: mapboxMap);
   }
@@ -3804,7 +3832,7 @@ handleMapTap();
       // 4️⃣ Add LineLayer on top of all layers to ensure visibility
       await mapboxMap.style.addLayer(
         mapbox.LineLayer(
-          minZoom: 5,
+          minZoom: 0,
           id: 'arrow_line_layer',
           sourceId: ARROW_LINES_SOURCE_ID,
           lineJoin: mapbox.LineJoin.ROUND,
@@ -3820,6 +3848,7 @@ handleMapTap();
         ARROW_LINES_LAYER_ID,
         mapbox.LayerPosition(above: layers.last!.id),
       );
+
       debugPrint('[Arrow] Layer positioned at top ✅');
     } catch (e, s) {
       debugPrint('[Arrow] ERROR: $e');
@@ -3856,6 +3885,7 @@ handleMapTap();
           ..strokeWidth = size * 0.10
           ..strokeJoin = StrokeJoin.round
           ..strokeCap = StrokeCap.round;
+
     canvas.drawPath(path, strokePaint);
 
     // 2) Colored fill on top
@@ -3863,6 +3893,7 @@ handleMapTap();
         Paint()
           ..color = fillColor
           ..style = PaintingStyle.fill;
+
     canvas.drawPath(path, fillPaint);
 
     final picture = recorder.endRecording();
@@ -3879,10 +3910,10 @@ handleMapTap();
     const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
     const String ARROW_POINTS_SOURCE_ID = 'arrow_points_source';
     const String ARROW_SYMBOLS_LAYER_ID = 'arrow_symbols_layer';
+
     try {
       if (memories.length < 2) return;
 
-      // 1. Sort memories by date
       final sortedMemories = List<Map<String, dynamic>>.from(memories)
         ..sort((a, b) {
           final aDate =
@@ -3892,7 +3923,6 @@ handleMapTap();
           return aDate.compareTo(bDate);
         });
 
-      // 2. Build line features and midpoint arrow point features
       final List<mapbox.Feature> lineFeatures = [];
       final List<mapbox.Feature> arrowPointFeatures = [];
 
@@ -3907,7 +3937,6 @@ handleMapTap();
 
         if ([startLat, startLng, endLat, endLng].contains(null)) continue;
 
-        // your curved line generator (returns [lng, lat] pairs)
         final coords = _createMinorCurvedLine(
           startLat: startLat!,
           startLng: startLng!,
@@ -3917,8 +3946,10 @@ handleMapTap();
 
         final linePositions =
             coords.map((c) => mapbox.Position(c[0], c[1])).toList();
+
         final endDate =
             DateTime.tryParse(next['memory_date'] ?? '') ?? DateTime.now();
+
         final toMemoryYear = endDate.year; // e.g., 2023
 
         // line feature
@@ -3940,14 +3971,13 @@ handleMapTap();
         final midLng = (start.lng + end.lng) / 2.0;
         final midLat = (start.lat + end.lat) / 2.0;
 
-        final dx = end.lng - start.lng;
-        final dy = end.lat - start.lat;
         final bearingDeg = bearingBetween(
           start.lat.toDouble(),
           start.lng.toDouble(),
           end.lat.toDouble(),
           end.lng.toDouble(),
         );
+
         arrowPointFeatures.add(
           mapbox.Feature(
             id: 'arrow_point_$i',
@@ -3973,6 +4003,7 @@ handleMapTap();
 
       // 4. Add line source
       final lineCollection = mapbox.FeatureCollection(features: lineFeatures);
+
       await mapboxMap.style.addSource(
         mapbox.GeoJsonSource(
           id: ARROW_LINES_SOURCE_ID,
@@ -3981,11 +4012,12 @@ handleMapTap();
       );
 
       // 5. Add line layer
+
       await mapboxMap.style.addLayer(
         mapbox.LineLayer(
           id: ARROW_LINES_LAYER_ID,
           sourceId: ARROW_LINES_SOURCE_ID,
-          minZoom: 7.0,
+          minZoom: 0.0,
           lineColor: Colors.red.value, // Green fill (change per type)
           lineBorderColor: 0xFFFFFFFF, // White stroke/border
           lineBorderWidth: 0.5, // Stroke thickness
@@ -4020,14 +4052,17 @@ handleMapTap();
             Colors.blue.value.toRGBA(), // Default
           ],
         );
+
         debugPrint('✅ Green lines set');
       } catch (e) {
         debugPrint('❌ Color error: $e');
       }
+
       // 6. Add arrow point source
       final arrowCollection = mapbox.FeatureCollection(
         features: arrowPointFeatures,
       );
+
       await mapboxMap.style.addSource(
         mapbox.GeoJsonSource(
           id: ARROW_POINTS_SOURCE_ID,
@@ -4036,25 +4071,27 @@ handleMapTap();
       );
 
       // 7. Create and register arrow image
-      final Uint8List arrowPngBytes = await _createPrettyArrowPng(size: 45);
 
-      final mbxImage = mapbox.MbxImage(
-        width: 45,
-        height: 45,
-        data: arrowPngBytes, // use PNG bytes directly
-      );
+      // final Uint8List arrowPngBytes = await _createPrettyArrowPng(size: 45);
 
-      await mapboxMap.style.addStyleImage(
-        'arrow-icon',
-        1.0,
-        mbxImage,
-        false,
-        const <mapbox.ImageStretches>[], // not [null]
-        const <mapbox.ImageStretches>[],
-        null,
-      );
+      // final mbxImage = mapbox.MbxImage(
+      //   width: 45,
+      //   height: 45,
+      //   data: arrowPngBytes, // use PNG bytes directly
+      // );
+
+      // await mapboxMap.style.addStyleImage(
+      //   'arrow-icon',
+      //   1.0,
+      //   mbxImage,
+      //   false,
+      //   const <mapbox.ImageStretches>[], // not [null]
+      //   const <mapbox.ImageStretches>[],
+      //   null,
+      // );
 
       // 8. Add symbol layer for arrows at line centers
+
       await mapboxMap.style.addLayer(
         mapbox.SymbolLayer(
           id: ARROW_SYMBOLS_LAYER_ID,
@@ -4062,7 +4099,7 @@ handleMapTap();
           symbolPlacement: mapbox.SymbolPlacement.POINT,
           iconImage: 'arrow-icon',
           iconSize: 0.5,
-          minZoom: 7.0,
+          minZoom: 0,
           iconAllowOverlap: true,
           iconRotationAlignment: mapbox.IconRotationAlignment.MAP,
           iconRotateExpression: ['get', 'rotation'],
@@ -4108,48 +4145,593 @@ handleMapTap();
     return deg;
   }
 
-  Future<Uint8List> _createPrettyArrowPng({
-    double size = 64,
-    Color fillColor = const Color(0xFF2196F3),
-    Color strokeColor = Colors.white,
-  }) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
+  /// Creates arrowhead lines as small LineStrings
+  /// Returns list of segments [[ [lng, lat], [lng, lat] ], ...]
+  List<List<List<double>>> _createArrowHead({
+    required double endLat,
+    required double endLng,
+    required double bearingDeg,
+    double length = 0.0005,
+    double angleDeg = 25,
+  }) {
+    final angleRad = angleDeg * (pi / 180);
+    final bearingRad = bearingDeg * (pi / 180);
 
-    final Path path = Path();
-    final w = size;
-    final h = size;
+    final left = [
+      endLng - length * cos(bearingRad - angleRad),
+      endLat - length * sin(bearingRad - angleRad),
+    ];
 
-    // right-pointing arrow
-    path.moveTo(w * 0.15, h * 0.30);
-    path.lineTo(w * 0.60, h * 0.30);
-    path.lineTo(w * 0.60, h * 0.15);
-    path.lineTo(w * 0.90, h * 0.50);
-    path.lineTo(w * 0.60, h * 0.85);
-    path.lineTo(w * 0.60, h * 0.70);
-    path.lineTo(w * 0.15, h * 0.70);
-    path.close();
+    final right = [
+      endLng - length * cos(bearingRad + angleRad),
+      endLat - length * sin(bearingRad + angleRad),
+    ];
 
-    final strokePaint =
-        Paint()
-          ..color = strokeColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = size * 0.10
-          ..strokeJoin = StrokeJoin.round
-          ..strokeCap = StrokeCap.round;
-    canvas.drawPath(path, strokePaint);
-
-    final fillPaint =
-        Paint()
-          ..color = fillColor
-          ..style = PaintingStyle.fill;
-    canvas.drawPath(path, fillPaint);
-
-    final picture = recorder.endRecording();
-    final img = await picture.toImage(size.toInt(), size.toInt());
-    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
-    return bytes!.buffer.asUint8List();
+    // Each segment is a mini LineString from tip to wing
+    return [
+      [
+        [endLng, endLat],
+        left,
+      ],
+      [
+        [endLng, endLat],
+        right,
+      ],
+    ];
   }
+
+  final String ARROW_DEBUG = 'ARROW_DEBUG';
+
+
+// const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
+// const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
+final  ARROW_BACK_DISTANCE = 0.15; // ~150m in degrees (adjust for your map scale)
+final  ARROW_SIZE = 100.00; // arrowhead size
+
+Future<void> generateAndDisplayArrowsFromMemoriesGeometry(
+  List<Map<String, dynamic>> memories,
+  mapbox.MapboxMap mapboxMap,
+) async {
+  debugPrint('[ARROW_DEBUG] called with memories=${memories.length}');
+  if (memories.length < 2) return;
+
+  try {
+    /// 1️⃣ Sort memories by date
+    final sorted = List<Map<String, dynamic>>.from(memories)
+      ..sort((a, b) {
+        final ad = DateTime.tryParse(a['memory_date'] ?? '') ?? DateTime.now();
+        final bd = DateTime.tryParse(b['memory_date'] ?? '') ?? DateTime.now();
+        return ad.compareTo(bd);
+      });
+
+    final List<mapbox.Feature> features = [];
+
+    /// 2️⃣ Build line + arrow features
+    for (int i = 0; i < sorted.length - 1; i++) {
+      debugPrint('[ARROW_DEBUG] ── Processing segment $i');
+
+      final a = sorted[i];
+      final b = sorted[i + 1];
+
+      final double? startLat = a['location_latitude'];
+      final double? startLng = a['location_longitude'];
+      final double? endLat = b['location_latitude'];
+      final double? endLng = b['location_longitude'];
+
+      if ([startLat, startLng, endLat, endLng].contains(null)) continue;
+
+      /// 2a️⃣ Densify line
+      final coords = _densifyLine(
+        start: [startLng!, startLat!],
+        end: [endLng!, endLat!],
+        segments: 120,
+      );
+      if (coords.length < 3) continue;
+
+      /// 2b️⃣ Move arrow tip back by distance (~meters)
+      final tip = coords.last;
+      final base = _movePointBack(
+        tip: tip,
+        start: coords.first,
+        distance: ARROW_BACK_DISTANCE,
+      );
+
+      /// 2c️⃣ Trim line before arrow
+      final trimmedLine = coords.where((c) {
+        final dx = c[0] - base[0];
+        final dy = c[1] - base[1];
+        return (dx * dx + dy * dy) > 0;
+      }).toList();
+
+      debugPrint('[ARROW_DEBUG] trimmedLine.length=${trimmedLine.length}');
+      debugPrint('[ARROW_DEBUG] arrowBase=$base arrowTip=$tip');
+
+      /// 2d️⃣ Add main line
+      features.add(
+        mapbox.Feature(
+          id: 'line_$i',
+          geometry: mapbox.LineString(
+            coordinates:
+                trimmedLine.map((c) => mapbox.Position(c[0], c[1])).toList(),
+          ),
+          properties: {'type': 'line'},
+        ),
+      );
+
+      /// 2e️⃣ Add arrowhead
+      final arrowHeadCoords = _createArrowHeadGeometry(
+        base: base,
+        tip: tip,
+  size: 0.0045, // was 0.00015 → ~30x bigger
+      );
+
+      features.add(
+        mapbox.Feature(
+          id: 'arrow_$i',
+          geometry: mapbox.LineString(
+            coordinates:
+                arrowHeadCoords.map((c) => mapbox.Position(c[0], c[1])).toList(),
+          ),
+          properties: {'type': 'arrow'},
+        ),
+      );
+    }
+
+    debugPrint('[ARROW_DEBUG] totalFeatures=${features.length}');
+
+    /// 3️⃣ Ensure source + layer exist
+    await _ensureArrowSourceAndLayer(mapboxMap);
+
+    /// 4️⃣ Update GeoJSON data
+    await mapboxMap.style.setStyleSourceProperty(
+      ARROW_LINES_SOURCE_ID,
+      'data',
+      json.encode(mapbox.FeatureCollection(features: features).toJson()),
+    );
+    debugPrint('[ARROW_DEBUG] geojson updated');
+
+    /// 5️⃣ Apply styling
+    await mapboxMap.style.setStyleLayerProperty(
+      ARROW_LINES_LAYER_ID,
+      'line-width',
+      [
+        'case',
+        ['==', ['get', 'type'], 'arrow'],
+        8.0,
+        5.0,
+      ],
+    );
+    debugPrint('[ARROW_DEBUG] style applied');
+  } catch (e, st) {
+    debugPrint('[ARROW_DEBUG] ❌ ERROR: $e');
+    debugPrint(st.toString());
+  }
+}
+
+/// Move arrow tip back along line by a fixed distance
+List<double> _movePointBack({
+  required List<double> tip,
+  required List<double> start,
+  required double distance,
+}) {
+  // distance = 100;
+  final dx = tip[0] - start[0];
+  final dy = tip[1] - start[1];
+  final len = math.sqrt(dx * dx + dy * dy);
+  if (len == 0) return tip;
+  final factor = distance / len;
+  return [
+    tip[0] - dx * factor,
+    tip[1] - dy * factor,
+  ];
+}
+
+/// Arrowhead V geometry
+List<List<double>> _createArrowHeadGeometry({
+  required List<double> base,
+  required List<double> tip,
+  double size = 0.00015,
+}) {
+  final dx = tip[0] - base[0];
+  final dy = tip[1] - base[1];
+  final length = math.sqrt(dx * dx + dy * dy);
+  if (length == 0) return [];
+
+  final ux = dx / length;
+  final uy = dy / length;
+  final px = -uy;
+  final py = ux;
+
+  final left = [
+    tip[0] - ux * size + px * size * 0.6,
+    tip[1] - uy * size + py * size * 0.6,
+  ];
+  final right = [
+    tip[0] - ux * size - px * size * 0.6,
+    tip[1] - uy * size - py * size * 0.6,
+  ];
+
+  return [left, tip, right];
+}
+
+Future<void> _ensureArrowSourceAndLayer(mapbox.MapboxMap mapboxMap) async {
+  final exists = await mapboxMap.style.styleSourceExists(ARROW_LINES_SOURCE_ID);
+  if (!exists) {
+    debugPrint('[$ARROW_DEBUG] creating arrow source + layer');
+
+    await mapboxMap.style.addSource(
+      mapbox.GeoJsonSource(
+        id: ARROW_LINES_SOURCE_ID,
+        data: json.encode(
+          mapbox.FeatureCollection<mapbox.GeometryObject>(features: []).toJson(),
+        ),
+      ),
+    );
+
+    await mapboxMap.style.addLayer(
+      mapbox.LineLayer(
+        id:  'line-width',
+              [
+                      'case',
+                              ['==', ['get', 'type'], 'arrow'],
+                                      8.0,
+                                              5.0,
+                                                    ],
+                                                        );
+                                                            debugPrint('[ARROW_DEBUG] style applied');
+                                                              } catch (e, st) {
+                                                                  debugPrint('[ARROW_DEBUG] ❌ ERROR: $e');
+                                                                      debugPrint(st.toString());
+                                                                        }
+                                                                        }
+                                                                        
+                                                                        /// Move arrow tip back along line by a fixed distance
+                                                                        List<double> _movePointBack({
+                                                                          required List<double> tip,
+                                                                            required List<double> start,
+                                                                              required double distance,
+                                                                              }) {
+                                                                                // distance = 100;
+                                                                                  final dx = tip[0] - start[0];
+                                                                                    final dy = tip[1] - start[1];
+                                                                                      final len = math.sqrt(dx * dx + dy * dy);
+                                                                                        if (len == 0) return tip;
+                                                                                          final factor = distance / len;
+                                                                                            return [
+                                                                                                tip[0] - dx * factor,
+                                                                                                    tip[1] - dy * factor,
+                                                                                                      ];
+                                                                                                      }
+                                                                                                      
+                                                                                                      /// Arrowhead V geometry
+                                                                                                      List<List<double>> _createArrowHeadGeometry({
+                                                                                                        required List<double> base,
+                                                                                                          required List<double> tip,
+                                                                                                            double size = 0.00015,
+                                                                                                            }) {
+                                                                                                              final dx = tip[0] - base[0];
+                                                                                                                final dy = tip[1] - base[1];
+                                                                                                                  final length = math.sqrt(dx * dx + dy * dy);
+                                                                                                                    if (length == 0) return [];
+                                                                                                                    
+                                                                                                                      final ux = dx / length;
+                                                                                                                        final uy = dy / length;
+                                                                                                                          final px = -uy;
+                                                                                                                            final py = ux;
+                                                                                                                            
+                                                                                                                              final left = [
+                                                                                                                                  tip[0] - ux * size + px * size * 0.6,
+                                                                                                                                      tip[1] - uy * size + py * size * 0.6,
+                                                                                                                                        ];
+                                                                                                                                          final right = [
+                                                                                                                                              tip[0] - ux * size - px * size * 0.6,
+                                                                                                                                                  tip[1] - uy * size - py * size * 0.6,
+                                                                                                                                                    ];
+                                                                                                                                                    
+                                                                                                                                                      return [left, tip, right];
+                                                                                                                                                      }
+                                                                                                                                                      
+                                                                                                                                                      Future<void> _ensureArrowSourceAndLayer(mapbox.MapboxMap mapboxMap) async {
+                                                                                                                                                        final exists = await mapboxMap.style.styleSourceExists(ARROW_LINES_SOURCE_ID);
+                                                                                                                                                          if (!exists) {
+                                                                                                                                                              debugPrint('[$ARROW_DEBUG] creating arrow source + layer');
+                                                                                                                                                              
+                                                                                                                                                                  await mapboxMap.style.addSource(
+                                                                                                                                                                        mapbox.GeoJsonSource(
+                                                                                                                                                                                id: ARROW_LINES_SOURCE_ID,
+                                                                                                                                                                                        data: json.encode(
+                                                                                                                                                                                                  mapbox.FeatureCollection<mapbox.GeometryObject>(features: []).toJson(),
+                                                                                                                                                                                                          ),
+                                                                                                                                                                                                                ),
+                                                                                                                                                                                                                    );
+                                                                                                                                                                                                                    
+                                                                                                                                                                                                                        await mapboxMap.style.addLayer(
+                                                                                                                                                                                                                              mapbox.LineLayer(
+                                                                                                                                                                                                                                      id: ARROW_LINES_LAYER_ID,
+                                                                                                                                                                                                                                              sourceId: ARROW_LINES_SOURCE_ID,
+                                                                                                                                                                                                                                                      lineCap: mapbox.LineCap.ROUND,
+                                                                                                                                                                                                                                                              lineJoin: mapbox.LineJoin.ROUND,
+                                                                                                                                                                                                                                                                      lineColor: Colors.blue.value,
+                                                                                                                                                                                                                                                                              lineOpacity: 0.9,
+                                                                                                                                                                                                                                                                                      lineWidth: 5.0,
+                                                                                                                                                                                                                                                                                            ),
+                                                                                                                                                                                                                                                                                                );
+                                                                                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                    List<List<double>> _densifyLine({
+                                                                                                                                                                                                                                                                                                        required List<double> start,
+                                                                                                                                                                                                                                                                                                            required List<double> end,
+                                                                                                                                                                                                                                                                                                                int segments = 100,
+                                                                                                                                                                                                                                                                                                                  }) {
+                                                                                                                                                                                                                                                                                                                      final List<List<double>> result = [];
+                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                          for (int i = 0; i <= segments; i++) {
+                                                                                                                                                                                                                                                                                                                                final t = i / segments;
+                                                                                                                                                                                                                                                                                                                                      result.add([
+                                                                                                                                                                                                                                                                                                                                              start[0] + (end[0] - start[0]) * t,
+                                                                                                                                                                                                                                                                                                                                                      start[1] + (end[1] - start[1]) * t,
+                                                                                                                                                                                                                                                                                                                                                            ]);
+                                                                                                                                                                                                                                                                                                                                                                }
+                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                    return result;
+                                                                                                                                                                                                                                                                                                                                                                      }
+                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                        // List<List<double>> _createArrowHeadGeometry({
+                                                                                                                                                                                                                                                                                                                                                                          //   required List<double> base,
+                                                                                                                                                                                                                                                                                                                                                                            //   required List<double> tip,
+                                                                                                                                                                                                                                                                                                                                                                              // }) {
+                                                                                                                                                                                                                                                                                                                                                                                //   const double size = 0.002; // 🔥 visible at mid zoom
+                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                  //   final dx = tip[0] - base[0];
+                                                                                                                                                                                                                                                                                                                                                                                    //   final dy = tip[1] - base[1];
+                                                                                                                                                                                                                                                                                                                                                                                      //   final length = math.sqrt(dx * dx + dy * dy);
+                                                                                                                                                                                                                                                                                                                                                                                        //   if (length == 0) return [];
+                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                          //   final ux = dx / length;
+                                                                                                                                                                                                                                                                                                                                                                                            //   final uy = dy / length;
+                                                                                                                                                                                                                                                                                                                                                                                              //   final px = -uy;
+                                                                                                                                                                                                                                                                                                                                                                                                //   final py = ux;
+                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                  //   final left = [
+                                                                                                                                                                                                                                                                                                                                                                                                    //     tip[0] - ux * size + px * size * 0.6,
+                                                                                                                                                                                                                                                                                                                                                                                                      //     tip[1] - uy * size + py * size * 0.6,
+                                                                                                                                                                                                                                                                                                                                                                                                        //   ];
+                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                          //   final right = [
+                                                                                                                                                                                                                                                                                                                                                                                                            //     tip[0] - ux * size - px * size * 0.6,
+                                                                                                                                                                                                                                                                                                                                                                                                              //     tip[1] - uy * size - py * size * 0.6,
+                                                                                                                                                                                                                                                                                                                                                                                                                //   ];
+                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                  //   return [left, tip, right];
+                                                                                                                                                                                                                                                                                                                                                                                                                    // }
+                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                      Future<void> _setupMapboxClustering(
+                                                                                                                                                                                                                                                                                                                                                                                                                          List<Map<String, dynamic>> memories,
+                                                                                                                                                                                                                                                                                                                                                                                                                            ) async {
+                                                                                                                                                                                                                                                                                                                                                                                                                                try {
+                                                                                                                                                                                                                                                                                                                                                                                                                                      // Add a small delay to ensure cleanup is complete
+                                                                                                                                                                                                                                                                                                                                                                                                                                            await Future.delayed(const Duration(milliseconds: 100));
+                                                                                                                                                                                                                                                                                                                                                                                                                                                  // Convert memories to GeoJSON
+                                                                                                                                                                                                                                                                                                                                                                                                                                                        final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                memories,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                            try {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    await mapboxMap!.style.addSource(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              mapbox.GeoJsonSource(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          id: MEMORY_SOURCE_ID,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      data: geoJsonString,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  cluster: true,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              // clusterMinZoom: 4, // 👈 IMPORTANT
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          clusterRadius:
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          10, // Radius of each cluster (pixels) - optimized for smooth clustering
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      clusterMaxZoom:
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      13.5, // Max zoom to cluster points - stops clustering at zoom 15+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  clusterMinPoints: 2, // Minimum points to form a cluster
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              clusterProperties: {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            // Aggregate memory IDs into a comma-separated string
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          // Format: [operator, mapExpression, reduceExpression]
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        // The operator is applied in the reduce step
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      'memory_ids': [
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      'concat',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      [
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        'to-string',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ['get', 'id'],
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ],
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ],
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            } catch (e) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    if (e.toString().contains('already exists')) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              try {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          // Try to update the existing source data instead of adding a new one
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      await mapboxMap!.style.setStyleSourceProperty(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    MEMORY_SOURCE_ID,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  'data',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                geoJsonString,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      } catch (updateError) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  // If update fails, force remove and re-add
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              await _forceRemoveAndReaddSource(geoJsonString);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                } else {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          throw e; // Re-throw to be caught by outer try-catch
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              // Add cluster layers
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    await _addClusterLayers(memories);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          // Initialize MapMarkerService with MapBox map before arrow generation
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                if (_mapMarkerService != null) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        _mapMarkerService!.initialize(mapboxMap!);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    // Generate and display chronological arrows
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        } catch (e) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              debugPrint('[MapControllerNew] Error setting up MapBox clustering: $e');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      /// Handle map tap to query rendered features and get memories from clusters
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        Future<void> handleMapTap1(mapbox.MapContentGestureContext c) async {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            if (mapboxMap == null) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  debugPrint('[MapControllerNew] ⚠️ Map not ready for tap handling');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        return;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                try {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      final coordinates = c.point.coordinates; // Position (lng, lat)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            final touchPosition = c.touchPosition; // ScreenCoordinate (x, y)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  debugPrint(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          '[MapControllerNew] 🎯 Map tapped at: (${coordinates.lng}, ${coordinates.lat})',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      debugPrint(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              '[MapControllerNew] 📍 Screen position: (${touchPosition.x}, ${touchPosition.y})',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          // Query rendered features at the tap point
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                // Check clusters first, then individual markers
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      // 1. Check if a cluster was tapped
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            // Query all cluster layer variants (small, medium, large, etc.)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  final clusterLayerIds = [
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          CLUSTERS_CIRCLE_LAYER_ID,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  CLUSTER_LAYER_ID,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          CLUSTERS_COUNT_LAYER_ID,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  CLUSTER_LAYER_ID,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ];
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              final clusterFeatures = await mapboxMap!.queryRenderedFeatures(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      mapbox.RenderedQueryGeometry.fromScreenCoordinate(touchPosition),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              mapbox.RenderedQueryOptions(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        layerIds: clusterLayerIds, // Query all cluster layer variants
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            if (clusterFeatures.isNotEmpty && clusterFeatures.first != null) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    debugPrint(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              '[MapControllerNew] 🎯 Cluster tapped - ${clusterFeatures.length} cluster features found',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              // Use existing _handleClusterFeatureTap method
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      await _handleClusterFeatureTap(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                clusterFeatures.first!,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          coordinates.lat.toDouble(),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    coordinates.lng.toDouble(),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    return;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                // 2. Check if an individual memory was tapped
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      final individualFeatures = await mapboxMap!.queryRenderedFeatures(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              mapbox.RenderedQueryGeometry.fromScreenCoordinate(touchPosition),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      mapbox.RenderedQueryOptions(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                layerIds: [UNCLUSTERED_LAYER_ID], // Query individual marker layer
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    if (individualFeatures.isNotEmpty && individualFeatures.first != null) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            debugPrint(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      '[MapControllerNew] 🎯 Individual memory tapped - ${individualFeatures.length} features found',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      await _handleIndividualMemoryTapFromQuery(individualFeatures.first!);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              return;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          debugPrint('[MapControllerNew] ℹ️ No features found at tap location');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              } catch (e, stackTrace) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    debugPrint('[MapControllerNew] ❌ Error handling map tap: $e');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          debugPrint('[MapControllerNew] Stack trace: $stackTrace');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  /// Handle individual memory tap from query - show memory details
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    Future<void> _handleIndividualMemoryTapFromQuery(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        mapbox.QueriedRenderedFeature memoryFeature,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ) async {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              try {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    final properties =
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              memoryFeature.queriedFeature.feature['properties']
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            as Map<String, dynamic>?;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  if (properties == null) {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          debugPrint(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    '[MapControllerNew] ⚠️ No properties found in memory feature',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    return;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                final memoryId = '${properties['id']}';
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      final memoryTitle = properties['title'] ?? 'Untitled';
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            final memoryDate = properties['memory_date'] ?? '';
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  debugPrint('[MapControllerNew] 📝 Memory tapped:');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        debugPrint('[MapControllerNew] - ID: $memoryId');_ID,
+        sourceId: ARROW_LINES_SOURCE_ID,
+        lineCap: mapbox.LineCap.ROUND,
+        lineJoin: mapbox.LineJoin.ROUND,
+        lineColor: Colors.blue.value,
+        lineOpacity: 0.9,
+        lineWidth: 5.0,
+      ),
+    );
+  }
+}
+
+
+  List<List<double>> _densifyLine({
+    required List<double> start,
+    required List<double> end,
+    int segments = 100,
+  }) {
+    final List<List<double>> result = [];
+
+    for (int i = 0; i <= segments; i++) {
+      final t = i / segments;
+      result.add([
+        start[0] + (end[0] - start[0]) * t,
+        start[1] + (end[1] - start[1]) * t,
+      ]);
+    }
+
+    return result;
+  }
+
+  // List<List<double>> _createArrowHeadGeometry({
+  //   required List<double> base,
+  //   required List<double> tip,
+  // }) {
+  //   const double size = 0.002; // 🔥 visible at mid zoom
+
+  //   final dx = tip[0] - base[0];
+  //   final dy = tip[1] - base[1];
+  //   final length = math.sqrt(dx * dx + dy * dy);
+  //   if (length == 0) return [];
+
+  //   final ux = dx / length;
+  //   final uy = dy / length;
+  //   final px = -uy;
+  //   final py = ux;
+
+  //   final left = [
+  //     tip[0] - ux * size + px * size * 0.6,
+  //     tip[1] - uy * size + py * size * 0.6,
+  //   ];
+
+  //   final right = [
+  //     tip[0] - ux * size - px * size * 0.6,
+  //     tip[1] - uy * size - py * size * 0.6,
+  //   ];
+
+  //   return [left, tip, right];
+  // }
 
   Future<void> _setupMapboxClustering(
     List<Map<String, dynamic>> memories,
@@ -4168,8 +4750,10 @@ handleMapTap();
             id: MEMORY_SOURCE_ID,
             data: geoJsonString,
             cluster: true,
+
+            // clusterMinZoom: 4, // 👈 IMPORTANT
             clusterRadius:
-                50, // Radius of each cluster (pixels) - optimized for smooth clustering
+                10, // Radius of each cluster (pixels) - optimized for smooth clustering
             clusterMaxZoom:
                 13.5, // Max zoom to cluster points - stops clustering at zoom 15+
             clusterMinPoints: 2, // Minimum points to form a cluster
@@ -4177,14 +4761,13 @@ handleMapTap();
               // Aggregate memory IDs into a comma-separated string
               // Format: [operator, mapExpression, reduceExpression]
               // The operator is applied in the reduce step
-  'memory_ids': ['concat', ['to-string', ['get', 'id']]]
-              
-              // Store the count of memories
-              // 'memory_count': [
-                // '+',
-                // 1, // Map: each feature contributes 1
-                // ['+', ['accumulated'], 1], // Reduce: sum all values
-              // ],
+              'memory_ids': [
+                'concat',
+                [
+                  'to-string',
+                  ['get', 'id'],
+                ],
+              ],
             },
           ),
         );
@@ -4192,6 +4775,7 @@ handleMapTap();
         if (e.toString().contains('already exists')) {
           try {
             // Try to update the existing source data instead of adding a new one
+
             await mapboxMap!.style.setStyleSourceProperty(
               MEMORY_SOURCE_ID,
               'data',
@@ -4209,10 +4793,8 @@ handleMapTap();
       // Add cluster layers
       await _addClusterLayers(memories);
 
-      // Setup click handlers
-      // await _setupNativeClusterClickHandlers();
-
       // Initialize MapMarkerService with MapBox map before arrow generation
+
       if (_mapMarkerService != null) {
         _mapMarkerService!.initialize(mapboxMap!);
       }
@@ -4234,8 +4816,12 @@ handleMapTap();
       final coordinates = c.point.coordinates; // Position (lng, lat)
       final touchPosition = c.touchPosition; // ScreenCoordinate (x, y)
 
-      debugPrint('[MapControllerNew] 🎯 Map tapped at: (${coordinates.lng}, ${coordinates.lat})');
-      debugPrint('[MapControllerNew] 📍 Screen position: (${touchPosition.x}, ${touchPosition.y})');
+      debugPrint(
+        '[MapControllerNew] 🎯 Map tapped at: (${coordinates.lng}, ${coordinates.lat})',
+      );
+      debugPrint(
+        '[MapControllerNew] 📍 Screen position: (${touchPosition.x}, ${touchPosition.y})',
+      );
 
       // Query rendered features at the tap point
       // Check clusters first, then individual markers
@@ -4243,16 +4829,10 @@ handleMapTap();
       // 1. Check if a cluster was tapped
       // Query all cluster layer variants (small, medium, large, etc.)
       final clusterLayerIds = [
-        '$CLUSTER_LAYER_ID-small',
-        '$CLUSTER_LAYER_ID-medium-small',
-        '$CLUSTER_LAYER_ID-medium',
-        '$CLUSTER_LAYER_ID-medium-large',
-        '$CLUSTER_LAYER_ID-large',
-        '$CLUSTER_LAYER_ID-xlarge',
         CLUSTERS_CIRCLE_LAYER_ID,
         CLUSTER_LAYER_ID,
-        CLUSTERS_COUNT_LAYER_ID, 
-        CLUSTER_LAYER_ID
+        CLUSTERS_COUNT_LAYER_ID,
+        CLUSTER_LAYER_ID,
       ];
 
       final clusterFeatures = await mapboxMap!.queryRenderedFeatures(
@@ -4263,7 +4843,9 @@ handleMapTap();
       );
 
       if (clusterFeatures.isNotEmpty && clusterFeatures.first != null) {
-        debugPrint('[MapControllerNew] 🎯 Cluster tapped - ${clusterFeatures.length} cluster features found');
+        debugPrint(
+          '[MapControllerNew] 🎯 Cluster tapped - ${clusterFeatures.length} cluster features found',
+        );
         // Use existing _handleClusterFeatureTap method
         await _handleClusterFeatureTap(
           clusterFeatures.first!,
@@ -4282,13 +4864,14 @@ handleMapTap();
       );
 
       if (individualFeatures.isNotEmpty && individualFeatures.first != null) {
-        debugPrint('[MapControllerNew] 🎯 Individual memory tapped - ${individualFeatures.length} features found');
+        debugPrint(
+          '[MapControllerNew] 🎯 Individual memory tapped - ${individualFeatures.length} features found',
+        );
         await _handleIndividualMemoryTapFromQuery(individualFeatures.first!);
         return;
       }
 
       debugPrint('[MapControllerNew] ℹ️ No features found at tap location');
-
     } catch (e, stackTrace) {
       debugPrint('[MapControllerNew] ❌ Error handling map tap: $e');
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
@@ -4300,10 +4883,14 @@ handleMapTap();
     mapbox.QueriedRenderedFeature memoryFeature,
   ) async {
     try {
-      final properties = memoryFeature.queriedFeature.feature['properties'] as Map<String, dynamic>?;
+      final properties =
+          memoryFeature.queriedFeature.feature['properties']
+              as Map<String, dynamic>?;
 
       if (properties == null) {
-        debugPrint('[MapControllerNew] ⚠️ No properties found in memory feature');
+        debugPrint(
+          '[MapControllerNew] ⚠️ No properties found in memory feature',
+        );
         return;
       }
 
@@ -4326,9 +4913,10 @@ handleMapTap();
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 2),
       );
-
     } catch (e, stackTrace) {
-      debugPrint('[MapControllerNew] ❌ Error handling individual memory tap: $e');
+      debugPrint(
+        '[MapControllerNew] ❌ Error handling individual memory tap: $e',
+      );
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
     }
   }

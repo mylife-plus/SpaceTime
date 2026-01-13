@@ -2184,7 +2184,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
   }
 
   void _showClusterMemoriesBottomPanel(MemoryCluster cluster) {
-    Get.bottomSheet(BottomPanel(cluster));
+    // Get.bottomSheet(BottomPanel(cluster));
   }
 
   Widget _buildMemoryDetailsGrid(MemoryLocation memory) {
@@ -3539,7 +3539,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => BottomPanel(cluster, specificMemories: specificMemories),
+      builder: (_) => BottomPanel(memoryIds: [],),
     );
   }
 
