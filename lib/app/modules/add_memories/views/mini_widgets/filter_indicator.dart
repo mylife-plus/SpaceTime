@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/modules/map/controllers/map_controller_new%20copy.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
 
@@ -73,11 +74,10 @@ class FilterIndicator extends StatelessWidget {
         activeFilters.add('Map View');
       }
 
-
-      if(activeFilterCount == 0) {
+      if (activeFilterCount == 0) {
         return Container();
       }
-      
+
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -134,6 +134,11 @@ class FilterIndicator extends StatelessWidget {
             const SizedBox(width: 8),
             GestureDetector(
               onTap: () {
+                final mapController = Get.find<MapControllerNew>();
+                mapController?.loadMemoriesFromDB();
+                controller.resetFilters();
+                mapController?.resetFilters();
+                mapController?.isFilterOpen.value = false;
                 controller.resetFilters();
               },
               child: Container(

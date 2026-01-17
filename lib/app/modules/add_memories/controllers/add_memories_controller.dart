@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -1814,9 +1815,76 @@ class AddMemoriesController extends GetxController {
         ..addAll(selectedCategories);
       mapController.hasActiveFilters.value = hasActiveFilters.value;
 
+  mapController?.refreshMapView();
+
+  mapController?.loadMemoriesFromDB();
+    Future.delayed(Duration(milliseconds: 200), () {
+        mapController?.
+initializeMapAfterCreation();
+    });
+                          // controller.resetFilters();
+                          // mapController?.resetFilters();
+                          // mapController?.isFilterOpen.value = false;
       debugPrint('[AddMemoriesController] Synced filters to MapController - Categories: ${selectedCategories.length}, Hashtags: ${selectedHashtags.length}, Contacts: ${selectedContacts.length}');
     } catch (e) {
       debugPrint('[AddMemoriesController] Failed to sync filters to MapController: $e');
+    }
+  }
+
+  /// Sync filters to MapController and load filtered memories from database
+  /// Returns the filtered list of memories based on current filter settings
+  Future<List<Map<String, dynamic>>> syncFiltersAndLoadMemories() async {
+    try {
+      debugPrint('[AddMemoriesController] 🔄 Syncing filters and loading memories...');
+
+      if (!Get.isRegistered<MapControllerNew>()) {
+        debugPrint('[AddMemoriesController] ⚠️ MapController not registered');
+        return [];
+      }
+
+      final mapController = Get.find<MapControllerNew>();
+
+      // Sync all filter values from AddMemoriesController to MapController
+      mapController.filterValues
+        ..clear()
+        ..addAll(filterValues);
+      mapController.selectedLocation.value = selectedLocation.value;
+      mapController.selectedRadius.value = selectedRadius.value;
+      mapController.selectedHashtags
+        ..clear()
+        ..addAll(selectedHashtags);
+      mapController.selectedContacts
+        ..clear()
+        ..addAll(selectedContacts);
+      mapController.selectedCategories
+        ..clear()
+        ..addAll(selectedCategories);
+      mapController.hasActiveFilters.value = hasActiveFilters.value;
+
+      debugPrint('[AddMemoriesController] ✅ Filters synced to MapController');
+      debugPrint('[AddMemoriesController] 📋 Active filters:');
+      if (filterValues.isNotEmpty) {
+        debugPrint('  - Text filters: ${filterValues.values.join(", ")}');
+      }
+      if (selectedHashtags.isNotEmpty) {
+        debugPrint('  - Hashtags: ${selectedHashtags.join(", ")}');
+      }
+      if (selectedContacts.isNotEmpty) {
+        debugPrint('  - Contacts: ${selectedContacts.join(", ")}');
+      }
+      if (selectedCategories.isNotEmpty) {
+        debugPrint('  - Categories: ${selectedCategories.join(", ")}');
+      }
+      if (selectedLocation.value.isNotEmpty && selectedRadius.value.isNotEmpty) {
+        debugPrint('  - Location: ${selectedLocation.value} (radius: ${selectedRadius.value}km)');
+      }      
+
+      debugPrint('[AddMemoriesController] 📊 Loaded ${filteredMemories.length} filtered memories');
+
+      return filteredMemories;
+    } catch (e) {
+      debugPrint('[AddMemoriesController] ❌ Error syncing filters and loading memories: $e');
+      return [];
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service to download mbtiles file from server
@@ -53,12 +54,22 @@ class MbtilesDownloadService extends GetxController {
 
       if (isDownloaded && savedPath != null) {
         final file = File(savedPath);
+        // file.delete();
+                // final file1 = File(savedPath);
+
         final exists = await file.exists();
+        
         debugPrint('[MbtilesDownload] 🔍 File exists check: $exists for path: $savedPath');
 
         if (exists) {
           _localMbtilesPath = savedPath;
           debugPrint('[MbtilesDownload] ✅ MBTiles already downloaded at: $savedPath');
+
+          // Reset any error states since file exists
+          hasError.value = false;
+          errorMessage.value = "";
+          isCompleted.value = true;
+
           return true;
         } else {
           debugPrint('[MbtilesDownload] ❌ File does not exist at saved path: $savedPath');
@@ -67,14 +78,37 @@ class MbtilesDownloadService extends GetxController {
           await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, false);
           await prefs.remove(PREFS_KEY_MBTILES_PATH);
           await prefs.remove('offline_downloaded_tile_count');
+
+          // Reset states for fresh download
+          hasError.value = false;
+          errorMessage.value = "";
+          isCompleted.value = false;
+          isDownloading.value = false;
+          downloadProgress.value = 0.0;
+          statusText.value = "Ready to download";
         }
       } else {
         debugPrint('[MbtilesDownload] ❌ MBTiles not marked as downloaded in preferences');
+
+        // Reset states for fresh download
+        hasError.value = false;
+        errorMessage.value = "";
+        isCompleted.value = false;
+        isDownloading.value = false;
+        downloadProgress.value = 0.0;
+        statusText.value = "Ready to download";
       }
 
       return false;
     } catch (e) {
       debugPrint('[MbtilesDownload] ❌ Error checking mbtiles: $e');
+
+      // Reset states on error
+      hasError.value = false;
+      errorMessage.value = "";
+      isCompleted.value = false;
+      isDownloading.value = false;
+
       return false;
     }
   }
@@ -84,11 +118,133 @@ class MbtilesDownloadService extends GetxController {
     return _localMbtilesPath;
   }
 
+  /// Check and request storage permissions
+  Future<bool> _checkStoragePermissions() async {
+    try {
+      debugPrint('[MbtilesDownload] 🔐 Checking storage permissions...');
+
+      // Note: We're using getApplicationSupportDirectory() which is app-specific storage
+      // On Android 10+ (API 29+), app-specific directories don't require storage permissions
+      // On Android 9 and below, we still need to request storage permission
+
+      if (Platform.isAndroid) {
+        // Try to check storage permission status
+        // On Android 13+ (API 33+), Permission.storage is deprecated but still works for compatibility
+        var status = await Permission.storage.status;
+        debugPrint('[MbtilesDownload] � Storage permission status: $status');
+
+        // If permission is already granted, we're good
+        if (status.isGranted) {
+          debugPrint('[MbtilesDownload] ✅ Storage permission already granted');
+          return true;
+        }
+
+        // If permission is not granted, request it
+        // Note: On Android 13+, this might not be needed, but it won't hurt to ask
+        debugPrint('[MbtilesDownload] 🔐 Requesting storage permission...');
+        statusText.value = "Requesting storage permission...";
+
+        status = await Permission.storage.request();
+        debugPrint('[MbtilesDownload] 🔐 Storage permission after request: $status');
+
+        if (!status.isGranted) {
+          if (status.isPermanentlyDenied) {
+            debugPrint('[MbtilesDownload] ❌ Storage permission permanently denied');
+            hasError.value = true;
+            errorMessage.value = "Storage permission is required to download offline maps. Please enable it in app settings.";
+            statusText.value = "Permission denied";
+
+            // Show dialog to open settings
+            await _showPermissionDeniedDialog();
+            return false;
+          } else if (status.isDenied) {
+            debugPrint('[MbtilesDownload] ⚠️ Storage permission denied');
+            // On newer Android versions, this might be expected for app-specific storage
+            // Let's try to proceed anyway since we're using app-specific directory
+            debugPrint('[MbtilesDownload] ℹ️ Proceeding with app-specific storage (no permission needed on Android 10+)');
+            return true;
+          }
+        }
+
+        debugPrint('[MbtilesDownload] ✅ Storage permission granted');
+        return true;
+      } else if (Platform.isIOS) {
+        // iOS doesn't need storage permissions for app-specific directories
+        debugPrint('[MbtilesDownload] ✅ iOS: No storage permission needed for app directory');
+        return true;
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ❌ Error checking storage permissions: $e');
+      debugPrint('[MbtilesDownload] ℹ️ Proceeding anyway - app-specific storage should work without permissions');
+      // Don't fail the download - app-specific storage should work without permissions
+      return true;
+    }
+  }
+
+  /// Show permission denied dialog
+  Future<void> _showPermissionDeniedDialog() async {
+    return Get.dialog(
+      AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text(
+          'Storage Permission Required',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          'Storage permission is required to download offline maps. Please enable it in app settings.',
+          style: TextStyle(
+            color: Colors.white70,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Colors.grey[400],
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              openAppSettings();
+              Get.back();
+            },
+            child: const Text(
+              'Open Settings',
+              style: TextStyle(
+                color: Colors.blue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
   /// Download mbtiles file from Google Drive
   Future<String?> downloadMbtiles() async {
-    if (isDownloading.value) {
-      debugPrint('[MbtilesDownload] ⚠️ Download already in progress');
-      return null;
+    // if (isDownloading.value) {
+    //   debugPrint('[MbtilesDownload] ⚠️ Download already in progress');
+    //   return null;
+    // }
+
+    try { 
+       final appDir = await getApplicationSupportDirectory();
+      final tilesDir = Directory('${appDir.path}/offline_tiles');
+              debugPrint('[MbtilesDownload] 📁 fetching tiles directory ${tilesDir.path}');
+
+    }catch(e) {
+            debugPrint('[MbtilesDownload] 🗺️ File Creation issue ${e}');
+
     }
 
     try {
@@ -100,16 +256,26 @@ class MbtilesDownloadService extends GetxController {
       downloadProgress.value = 0.0;
       statusText.value = "Preparing download...";
 
+      // Note: We use getApplicationSupportDirectory() which doesn't require storage permissions
+      debugPrint('[MbtilesDownload] ℹ️ Using app-specific storage - no permissions required');
+
       // Get app support directory (more persistent than documents directory)
       // Note: On iOS, this directory persists across app updates but NOT across uninstalls
       // For truly persistent storage across uninstalls, we would need iCloud or external storage
       final appDir = await getApplicationSupportDirectory();
       final tilesDir = Directory('${appDir.path}/offline_tiles');
+              debugPrint('[MbtilesDownload] 📁 fetching tiles directory ${tilesDir.path}');
 
       // Create tiles directory if it doesn't exist
       if (!await tilesDir.exists()) {
         await tilesDir.create(recursive: true);
         debugPrint('[MbtilesDownload] 📁 Created tiles directory: ${tilesDir.path}');
+      } else {
+        debugPrint('[MbtilesDownload] 📁 Deleting Folder: ${tilesDir.path}');
+
+        
+        await tilesDir.delete(); 
+           await tilesDir.create(recursive: true);
       }
 
       // Define local file path

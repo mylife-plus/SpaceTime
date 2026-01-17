@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -42,6 +43,8 @@ class GetStartedController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Initialize services immediately
+    _initializeServices();
     _checkIfShouldShowGetStarted();
   }
 
@@ -49,21 +52,31 @@ class GetStartedController extends GetxController {
   Future<void> _checkIfShouldShowGetStarted() async {
     debugPrint('[GetStartedController] Always showing Get Started screen for tile download');
 
-    // Initialize services first
-    _initializeServices();
+    // Services are already initialized in onInit()
+    // Ensure they are initialized (defensive check)
+    if (_mbtilesDownloadService == null) {
+      debugPrint('[GetStartedController] ⚠️ Services not initialized, initializing now...');
+      _initializeServices();
+    }
 
     // 1. First, always check and request location permissions
     await _checkAndRequestLocationPermissions();
 
-    // 2. Check if mbtiles are already downloaded (just for logging, don't auto-complete)
+    // 2. Check if mbtiles are already downloaded
     if (_mbtilesDownloadService != null) {
       final isAlreadyDownloaded = await _mbtilesDownloadService!.isMbtilesDownloaded();
       if (isAlreadyDownloaded) {
         debugPrint('[GetStartedController] MBTiles already downloaded - user can re-download or continue');
-        // Don't set completed state - let user choose to download again or continue
-        statusText.value = "Map tiles already downloaded. Tap to re-download or continue.";
+        // Set completed state so user sees "Get Started" button instead of "Download" button
+        isCompleted.value = true;
+        hasError.value = false;
+        statusText.value = "Map tiles already downloaded. Tap to continue.";
       } else {
         debugPrint('[GetStartedController] MBTiles not downloaded yet');
+        // Reset states for fresh download
+        isCompleted.value = false;
+        hasError.value = false;
+        isDownloading.value = false;
         statusText.value = "Download 4.5GB of map tiles to use offline";
       }
     }
@@ -155,6 +168,21 @@ class GetStartedController extends GetxController {
     try {
       debugPrint('[GetStartedController] 🚀 Starting mbtiles download from Google Drive...');
 
+      // Ensure service is initialized
+      if (_mbtilesDownloadService == null) {
+        debugPrint('[GetStartedController] ⚠️ MbtilesDownloadService not initialized, initializing now...');
+        _mbtilesDownloadService = MbtilesDownloadService.instance;
+
+        if (_mbtilesDownloadService == null) {
+          debugPrint('[GetStartedController] ❌ Failed to initialize MbtilesDownloadService');
+          hasError.value = true;
+          errorMessage.value = "Failed to initialize download service";
+          statusText.value = "Initialization failed";
+          return;
+        }
+        debugPrint('[GetStartedController] ✅ MbtilesDownloadService initialized successfully');
+      }
+
       // Reset state before starting download
       isDownloading.value = true;
       hasError.value = false;
@@ -169,7 +197,7 @@ class GetStartedController extends GetxController {
       // Start the download from Google Drive
       // This will download the file to: {appDocumentsDir}/offline_tiles/11_included.mbtiles
       debugPrint('[GetStartedController] 📥 Calling MbtilesDownloadService.downloadMbtiles()...');
-      final downloadedPath = await _mbtilesDownloadService?.downloadMbtiles();
+      final downloadedPath = await _mbtilesDownloadService!.downloadMbtiles();
 
       if (downloadedPath != null && downloadedPath.isNotEmpty) {
         debugPrint('[GetStartedController] ✅ MBTiles download completed successfully');
@@ -214,40 +242,67 @@ class GetStartedController extends GetxController {
 
   /// Setup listeners for mbtiles download progress updates
   void _setupMbtilesDownloadListeners() {
-    if (_mbtilesDownloadService == null) return;
+    if (_mbtilesDownloadService == null) {
+      debugPrint('[GetStartedController] ⚠️ Cannot setup listeners - service is null');
+      return;
+    }
 
-    // Listen to download progress
-    ever(_mbtilesDownloadService!.downloadProgress, (double progress) {
-      downloadProgress.value = progress;
-      debugPrint('[GetStartedController] Download progress: ${(progress * 100).toStringAsFixed(1)}%');
-    });
+    debugPrint('[GetStartedController] 📡 Setting up download progress listeners...');
 
-    // Listen to status text updates
-    ever(_mbtilesDownloadService!.statusText, (String status) {
-      if (status.isNotEmpty) {
-        statusText.value = status;
+    // Use interval to poll progress instead of ever() to avoid listener issues
+    // This ensures we always get the latest values
+    Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (_mbtilesDownloadService == null) {
+        timer.cancel();
+        return;
       }
-    });
 
-    // Listen to download state changes
-    ever(_mbtilesDownloadService!.isDownloading, (bool downloading) {
-      isDownloading.value = downloading;
-    });
+      // Update progress
+      final progress = _mbtilesDownloadService!.downloadProgress.value;
+      if (downloadProgress.value != progress) {
+        downloadProgress.value = progress;
+        debugPrint('[GetStartedController] 📊 Download progress: ${(progress * 100).toStringAsFixed(1)}%');
+      }
 
-    // Listen to error state
-    ever(_mbtilesDownloadService!.hasError, (bool error) {
-      if (error) {
+      // Update status text
+      final status = _mbtilesDownloadService!.statusText.value;
+      if (status.isNotEmpty && statusText.value != status) {
+        statusText.value = status;
+        debugPrint('[GetStartedController] 📝 Status: $status');
+      }
+
+      // Update downloading state
+      final downloading = _mbtilesDownloadService!.isDownloading.value;
+      if (isDownloading.value != downloading) {
+        isDownloading.value = downloading;
+        debugPrint('[GetStartedController] 🔄 Downloading: $downloading');
+      }
+
+      // Check for errors
+      final hasErr = _mbtilesDownloadService!.hasError.value;
+      if (hasErr && !hasError.value) {
         hasError.value = true;
         errorMessage.value = _mbtilesDownloadService!.errorMessage.value;
+        debugPrint('[GetStartedController] ❌ Error detected: ${errorMessage.value}');
+        timer.cancel();
+      }
+
+      // Check for completion
+      final completed = _mbtilesDownloadService!.isCompleted.value;
+      if (completed && !isCompleted.value) {
+        isCompleted.value = true;
+        debugPrint('[GetStartedController] ✅ Download completed!');
+        timer.cancel();
+      }
+
+      // Cancel timer if download is no longer in progress and not completed
+      if (!downloading && !completed && !hasErr) {
+        debugPrint('[GetStartedController] ⏹️ Download stopped, canceling listener timer');
+        timer.cancel();
       }
     });
 
-    // Listen to completion
-    ever(_mbtilesDownloadService!.isCompleted, (bool completed) {
-      if (completed) {
-        isCompleted.value = true;
-      }
-    });
+    debugPrint('[GetStartedController] ✅ Download listeners setup complete');
   }
 
   /// Setup listeners for download progress updates (old method - kept for compatibility)

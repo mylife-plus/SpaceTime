@@ -471,7 +471,7 @@ class GetStartedView extends GetView<GetStartedController> {
 
   /// Build progress state
   Widget _buildProgressState(UiController uiController) {
-    return Column(
+    return Obx(() => Column(
       children: [
         LinearProgressIndicator(
           value: controller.downloadProgress.value,
@@ -499,7 +499,7 @@ class GetStartedView extends GetView<GetStartedController> {
           ),
         ),
       ],
-    );
+    ));
   }
 
   /// Build completed state

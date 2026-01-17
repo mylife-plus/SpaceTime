@@ -168,7 +168,7 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                           ),
                         ],
                       ),
-
+            
             const SizedBox(height: 8),
 
             // Name label

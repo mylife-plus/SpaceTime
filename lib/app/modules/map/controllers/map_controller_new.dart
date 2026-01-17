@@ -48,8 +48,6 @@ class MapControllerNew extends GetxController {
   static const String CLUSTER_COUNT_LAYER_ID = 'cluster-count-layer';
   static const String UNCLUSTERED_LAYER_ID = 'unclustered-layer';
   static const String INDIVIDUAL_COUNT_LAYER_ID = 'individual-count-layer';
-  static const String ARROW_LINES_SOURCE_ID = 'arrow-lines-source';
-  static const String ARROW_LINES_LAYER_ID = 'arrow-lines-layer';
   static const String CLUSTERS_CIRCLE_LAYER_ID = 'memory-clusters-circle';
   static const String CLUSTERS_COUNT_LAYER_ID = 'memory-clusters-count';
   // Cluster size tiers - used for both icon generation and layer creation
@@ -376,10 +374,7 @@ class MapControllerNew extends GetxController {
     Future.delayed(Duration(seconds: 1), () {
       _setupMapboxClustering(_currentMemories);
 
-      generateAndDisplayArrowsFromMemoriesGeometry(
-        _currentMemories,
-        mapboxMap!,
-      );
+      generateAndDisplayArrowsAsSymbols(_currentMemories, mapboxMap!);
       handleMapTap();
     });
   }
@@ -462,10 +457,13 @@ class MapControllerNew extends GetxController {
     }
   }
 
-  Future<void> loadMemoriesFromDB() async {
+  Future<void> loadMemoriesFromDB([
+    List<Map<String, dynamic>>? filteredMemoriesData,
+  ]) async {
     _memoryRepository ??= MemoryRepository();
 
-    var memories = await _memoryRepository!.loadAllMemories();
+    var memories =
+        filteredMemoriesData ?? await _memoryRepository!.loadAllMemories();
 
     if (memories != null && memories.isNotEmpty) {
       // Store memories for tap handling
@@ -476,6 +474,75 @@ class MapControllerNew extends GetxController {
     } else {
       // Clear memories list
       _currentMemories.clear();
+    }
+  }
+
+  /// Load filtered memories from database based on current filter settings
+  /// Returns the filtered list without performing any other actions
+  Future<List<Map<String, dynamic>>> loadFilteredMemoriesFromDB() async {
+    try {
+      debugPrint('[MapControllerNew] 🔍 Loading filtered memories from DB...');
+
+      _memoryRepository ??= MemoryRepository();
+
+      // Load all memories from database
+      var allMemories = await _memoryRepository!.loadAllMemories();
+
+      if (allMemories == null || allMemories.isEmpty) {
+        debugPrint('[MapControllerNew] ⚠️ No memories found in database');
+        return [];
+      }
+
+      debugPrint(
+        '[MapControllerNew] 📊 Total memories loaded: ${allMemories.length}',
+      );
+
+      // Check if any filters are active
+      final hasFilters =
+          filterValues.isNotEmpty ||
+          selectedLocation.value.isNotEmpty ||
+          selectedRadius.value.isNotEmpty ||
+          selectedHashtags.isNotEmpty ||
+          selectedContacts.isNotEmpty ||
+          selectedCategories.isNotEmpty;
+
+      if (!hasFilters) {
+        debugPrint(
+          '[MapControllerNew] ℹ️ No filters active, returning all memories',
+        );
+        return allMemories;
+      }
+
+      // Apply filters
+      final filteredMemories = allMemories.where(_matchesFilters).toList();
+
+      debugPrint(
+        '[MapControllerNew] ✅ Filtered memories: ${filteredMemories.length}/${allMemories.length}',
+      );
+      debugPrint('[MapControllerNew] 📋 Active filters:');
+      if (filterValues.isNotEmpty) {
+        debugPrint('  - Text filters: ${filterValues.values.join(", ")}');
+      }
+      if (selectedHashtags.isNotEmpty) {
+        debugPrint('  - Hashtags: ${selectedHashtags.join(", ")}');
+      }
+      if (selectedContacts.isNotEmpty) {
+        debugPrint('  - Contacts: ${selectedContacts.join(", ")}');
+      }
+      if (selectedCategories.isNotEmpty) {
+        debugPrint('  - Categories: ${selectedCategories.join(", ")}');
+      }
+      if (selectedLocation.value.isNotEmpty &&
+          selectedRadius.value.isNotEmpty) {
+        debugPrint(
+          '  - Location: ${selectedLocation.value} (radius: ${selectedRadius.value}km)',
+        );
+      }
+
+      return filteredMemories;
+    } catch (e) {
+      debugPrint('[MapControllerNew] ❌ Error loading filtered memories: $e');
+      return [];
     }
   }
 
@@ -1226,14 +1293,26 @@ class MapControllerNew extends GetxController {
     _syncFiltersFromAddMemoriesController(addMemoriesController);
 
     closeFilter();
+
     _updateFilterStatus();
 
     await _applyFiltersAndReloadMap();
 
-    final result = await Get.to(() => AddMemoriesView());
-    if (result == true) {
-      await refreshMapView();
-    }
+    await refreshMapView();
+
+    var memories = await addMemoriesController.syncFiltersAndLoadMemories();
+
+    loadMemoriesFromDB(memories);
+
+    //  loadMemoriesFromDB();
+
+    Future.delayed(Duration(milliseconds: 200), () {
+      _initializeMapAfterCreation();
+    });
+    // final result = await Get.to(() => AddMemoriesView());
+    // if (result == true) {
+    //   await refreshMapView();
+    // }
   }
 
   /// Reset all filters
@@ -2140,30 +2219,30 @@ class MapControllerNew extends GetxController {
 
   /// Update layer visibility based on current zoom level
   Future<void> _updateLayerVisibilityForZoom(double zoomLevel) async {
-    if (mapboxMap == null) return;
+    // if (mapboxMap == null) return;
 
-    try {
-      // Determine which layers should be visible at current zoom
-      // Clusters: visible when zoomed out (below half zoom ~9.0)
-      final showClusters = zoomLevel < _clusterVisibilityMaxZoom;
-      // Individual memories: visible when zoomed in (above half zoom ~9.0)
-      final showIndividual = zoomLevel >= _individualVisibilityMinZoom;
-      // Details: visible at high zoom levels
-      final showDetails = zoomLevel >= _detailVisibilityMinZoom;
+    // try {
+    //   // Determine which layers should be visible at current zoom
+    //   // Clusters: visible when zoomed out (below half zoom ~9.0)
+    //   final showClusters = zoomLevel < _clusterVisibilityMaxZoom;
+    //   // Individual memories: visible when zoomed in (above half zoom ~9.0)
+    //   final showIndividual = zoomLevel >= _individualVisibilityMinZoom;
+    //   // Details: visible at high zoom levels
+    //   final showDetails = zoomLevel >= 0;
 
-      // Update cluster layers visibility (show when zoomed out)
-      await _setLayerVisibility(CLUSTER_LAYER_ID, showClusters);
-      await _setLayerVisibility(CLUSTER_COUNT_LAYER_ID, showClusters);
+    //   // Update cluster layers visibility (show when zoomed out)
+    //   await _setLayerVisibility(CLUSTER_LAYER_ID, showClusters);
+    //   await _setLayerVisibility(CLUSTER_COUNT_LAYER_ID, showClusters);
 
-      // Update individual memory layers visibility (show when zoomed in)
-      // await _setLayerVisibility(UNCLUSTERED_LAYER_ID, showIndividual);
-      await _setLayerVisibility(
-        INDIVIDUAL_COUNT_LAYER_ID,
-        showIndividual && showDetails,
-      );
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error updating layer visibility: $e');
-    }
+    //   // Update individual memory layers visibility (show when zoomed in)
+    //   // await _setLayerVisibility(UNCLUSTERED_LAYER_ID, showIndividual);
+    //   await _setLayerVisibility(
+    //     INDIVIDUAL_COUNT_LAYER_ID,
+    //     showIndividual && showDetails,
+    //   );
+    // } catch (e) {
+    //   debugPrint('[MapControllerNew] ❌ Error updating layer visibility: $e');
+    // }
   }
 
   /// Set visibility for a specific layer
@@ -3143,7 +3222,7 @@ class MapControllerNew extends GetxController {
 
           // Initial simple paint; will refine via setStyleLayerProperty below if needed
           circleColor: 0xFF11B4DA, // default (will be overridden)
-          circleRadius: 15.0,
+          circleRadius: 12.0,
           circleStrokeWidth: 5.0,
           circleStrokeColor: 0xFFFFFFFF,
           circleOpacity: 1.0,
@@ -3215,7 +3294,7 @@ class MapControllerNew extends GetxController {
               ['has', 'point_count'],
             ],
             circleColor: 0xFF11B4DA, // default (will be overridden)
-            circleRadius: 15.0,
+            circleRadius: 12.0,
             circleStrokeWidth: 5.0,
             circleStrokeColor: 0xFFFFFFFF,
             circleOpacity: 1.0,
@@ -3262,7 +3341,7 @@ class MapControllerNew extends GetxController {
               ['has', 'point_count'],
             ],
             circleColor: 0xFF11B4DA,
-            circleRadius: 15.0,
+            circleRadius: 12.0,
             circleStrokeWidth: .0,
             circleStrokeColor: 0xFFFFFFFF,
             circleOpacity: 1.0,
@@ -3667,23 +3746,23 @@ class MapControllerNew extends GetxController {
   Future<void> _updateInitialLayerVisibility() async {
     if (mapboxMap == null) return;
 
-    try {
-      final cameraState = await mapboxMap!.getCameraState();
-      final currentZoomLevel = cameraState.zoom;
+    // try {
+    //   final cameraState = await mapboxMap!.getCameraState();
+    //   final currentZoomLevel = cameraState.zoom;
 
-      _lastKnownZoom = currentZoomLevel;
-      currentZoom.value = currentZoomLevel;
+    //   _lastKnownZoom = currentZoomLevel;
+    //   currentZoom.value = currentZoomLevel;
 
-      debugPrint(
-        '[MapControllerNew] 🎯 Setting initial layer visibility for zoom: $currentZoomLevel',
-      );
+    //   debugPrint(
+    //     '[MapControllerNew] 🎯 Setting initial layer visibility for zoom: $currentZoomLevel',
+    //   );
 
-      await _updateLayerVisibilityForZoom(currentZoomLevel);
-    } catch (e) {
-      debugPrint(
-        '[MapControllerNew] ❌ Error setting initial layer visibility: $e',
-      );
-    }
+    //   await _updateLayerVisibilityForZoom(currentZoomLevel);
+    // } catch (e) {
+    //   debugPrint(
+    //     '[MapControllerNew] ❌ Error setting initial layer visibility: $e',
+    //   );
+    // }
   }
 
   /// Verify that layers were successfully added to the map
@@ -3843,10 +3922,11 @@ class MapControllerNew extends GetxController {
       );
 
       var layers = await mapboxMap.style.getStyleLayers();
+      var layerID = getLayerID(layers);
       // 5️⃣ Move layer to top to ensure it’s visible over custom tiles
       await mapboxMap.style.moveStyleLayer(
         ARROW_LINES_LAYER_ID,
-        mapbox.LayerPosition(above: layers.last!.id),
+        mapbox.LayerPosition(below: layerID),
       );
 
       debugPrint('[Arrow] Layer positioned at top ✅');
@@ -3856,140 +3936,130 @@ class MapControllerNew extends GetxController {
     }
   }
 
-  Future<Uint8List> createPrettyArrowPng({
+  final String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
+  final String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
+  final String ARROW_POINTS_SOURCE_ID = 'arrow_points_source';
+  final String ARROW_SYMBOLS_LAYER_ID = 'arrow_symbols_layer';
+
+  final double ARROW_ICON_SIZE = 2.0; // adjust for bigger arrows
+
+  Future<Uint8List> createChevronArrowPng({
     double size = 64,
-    Color fillColor = const Color(0xFF2196F3), // nice blue
+    Color fillColor = Colors.blue,
     Color strokeColor = Colors.white,
   }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
 
-    final Path path = Path();
-    // Centered, right-pointing arrow
     final w = size;
     final h = size;
-    path.moveTo(w * 0.15, h * 0.30); // tail top
-    path.lineTo(w * 0.60, h * 0.30);
-    path.lineTo(w * 0.60, h * 0.15);
-    path.lineTo(w * 0.90, h * 0.50); // tip
-    path.lineTo(w * 0.60, h * 0.85);
-    path.lineTo(w * 0.60, h * 0.70);
-    path.lineTo(w * 0.15, h * 0.70); // tail bottom
-    path.close();
 
-    // 1) White stroke (outline)
+    // 🔄 Move origin to center
+    canvas.translate(w / 2, h / 2);
+
+    // 🔄 Rotate 90 degrees clockwise
+    canvas.rotate(math.pi / 2);
+
+    // 🔄 Move origin back
+    canvas.translate(-w / 2, -h / 2);
+
+    final path = Path();
+
+    // Chevron "<" shape (base shape)
+    path.moveTo(w * 0.7, h * 0.2);
+    path.lineTo(w * 0.3, h * 0.5);
+    path.lineTo(w * 0.7, h * 0.8);
+
     final strokePaint =
         Paint()
-          ..color = strokeColor
+          ..color = fillColor
           ..style = PaintingStyle.stroke
-          ..strokeWidth = size * 0.10
-          ..strokeJoin = StrokeJoin.round
-          ..strokeCap = StrokeCap.round;
+          ..strokeWidth = size * 0.12
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
 
     canvas.drawPath(path, strokePaint);
 
-    // 2) Colored fill on top
-    final fillPaint =
-        Paint()
-          ..color = fillColor
-          ..style = PaintingStyle.fill;
-
-    canvas.drawPath(path, fillPaint);
-
     final picture = recorder.endRecording();
-    final img = await picture.toImage(size.toInt(), size.toInt());
-    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
-    return bytes!.buffer.asUint8List();
+    final image = await picture.toImage(size.toInt(), size.toInt());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    return byteData!.buffer.asUint8List();
   }
 
-  Future<void> generateAndDisplayArrowsFromMemories(
+  Future<void> generateAndDisplayArrowsAsSymbols(
     List<Map<String, dynamic>> memories,
     mapbox.MapboxMap mapboxMap,
   ) async {
-    const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
-    const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
-    const String ARROW_POINTS_SOURCE_ID = 'arrow_points_source';
-    const String ARROW_SYMBOLS_LAYER_ID = 'arrow_symbols_layer';
+    if (memories.length < 2) return;
+
+    const double ARROW_ICON_SIZE = 4.0;
+    const double ARROW_POSITION_FACTOR = 0.65; // 🔥 65% toward end
 
     try {
-      if (memories.length < 2) return;
-
-      final sortedMemories = List<Map<String, dynamic>>.from(memories)
-        ..sort((a, b) {
-          final aDate =
-              DateTime.tryParse(a['memory_date'] ?? '') ?? DateTime.now();
-          final bDate =
-              DateTime.tryParse(b['memory_date'] ?? '') ?? DateTime.now();
-          return aDate.compareTo(bDate);
-        });
+      // 1️⃣ Sort memories by date
+      final sorted = List<Map<String, dynamic>>.from(memories)..sort((a, b) {
+        final ad = DateTime.tryParse(a['memory_date'] ?? '') ?? DateTime.now();
+        final bd = DateTime.tryParse(b['memory_date'] ?? '') ?? DateTime.now();
+        return ad.compareTo(bd);
+      });
 
       final List<mapbox.Feature> lineFeatures = [];
       final List<mapbox.Feature> arrowPointFeatures = [];
 
-      for (int i = 0; i < sortedMemories.length - 1; i++) {
-        final current = sortedMemories[i];
-        final next = sortedMemories[i + 1];
+      for (int i = 0; i < sorted.length - 1; i++) {
+        final a = sorted[i];
+        final b = sorted[i + 1];
 
-        final startLat = current['location_latitude'];
-        final startLng = current['location_longitude'];
-        final endLat = next['location_latitude'];
-        final endLng = next['location_longitude'];
+        final double? startLat = a['location_latitude'];
+        final double? startLng = a['location_longitude'];
+        final double? endLat = b['location_latitude'];
+        final double? endLng = b['location_longitude'];
 
         if ([startLat, startLng, endLat, endLng].contains(null)) continue;
 
-        final coords = _createMinorCurvedLine(
-          startLat: startLat!,
-          startLng: startLng!,
-          endLat: endLat!,
-          endLng: endLng!,
+        // 2️⃣ Densify line
+        final coords = _densifyLine(
+          start: [startLng!, startLat!],
+          end: [endLng!, endLat!],
+          segments: 120,
+        );
+        if (coords.length < 5) continue;
+
+        // 3️⃣ Add main line
+        lineFeatures.add(
+          mapbox.Feature(
+            id: 'line_$i',
+            geometry: mapbox.LineString(
+              coordinates:
+                  coords.map((c) => mapbox.Position(c[0], c[1])).toList(),
+            ),
+            properties: {'type': 'line'},
+          ),
         );
 
-        final linePositions =
-            coords.map((c) => mapbox.Position(c[0], c[1])).toList();
+        // 4️⃣ Arrow placement (~65% toward end)
+        final int arrowIndex = (coords.length * ARROW_POSITION_FACTOR)
+            .round()
+            .clamp(1, coords.length - 1);
 
-        final endDate =
-            DateTime.tryParse(next['memory_date'] ?? '') ?? DateTime.now();
+        final base = coords[arrowIndex - 1];
+        final tip = coords[arrowIndex];
 
-        final toMemoryYear = endDate.year; // e.g., 2023
-
-        // line feature
-        final lineFeature = mapbox.Feature(
-          id: 'arrow_$i',
-          geometry: mapbox.LineString(coordinates: linePositions),
-          properties: {
-            'fromMemoryId': current['id'],
-            'toMemoryId': next['id'],
-            'toMemoryYear': toMemoryYear, // Add this
-          },
-        );
-        lineFeatures.add(lineFeature);
-
-        // midpoint + bearing for arrow icon
-        final start = linePositions.first;
-        final end = linePositions.last;
-
-        final midLng = (start.lng + end.lng) / 2.0;
-        final midLat = (start.lat + end.lat) / 2.0;
-
-        final bearingDeg = bearingBetween(
-          start.lat.toDouble(),
-          start.lng.toDouble(),
-          end.lat.toDouble(),
-          end.lng.toDouble(),
-        );
+        final rotation = _bearingBetween(base, tip);
 
         arrowPointFeatures.add(
           mapbox.Feature(
-            id: 'arrow_point_$i',
+            id: 'arrow_$i',
             geometry: mapbox.Point(
-              coordinates: mapbox.Position(midLng, midLat),
+              coordinates: mapbox.Position(tip[0], tip[1]),
             ),
-            properties: {'rotation': bearingDeg + 90},
+            properties: {'rotation': rotation},
           ),
         );
       }
 
-      // 3. Remove old layers/sources
+      // 5️⃣ Cleanup old layers/sources
       for (final id in [ARROW_SYMBOLS_LAYER_ID, ARROW_LINES_LAYER_ID]) {
         try {
           await mapboxMap.style.removeStyleLayer(id);
@@ -4001,148 +4071,129 @@ class MapControllerNew extends GetxController {
         } catch (_) {}
       }
 
-      // 4. Add line source
-      final lineCollection = mapbox.FeatureCollection(features: lineFeatures);
-
+      // 6️⃣ Line source + layer
       await mapboxMap.style.addSource(
         mapbox.GeoJsonSource(
           id: ARROW_LINES_SOURCE_ID,
-          data: json.encode(lineCollection.toJson()),
+          data: json.encode(
+            mapbox.FeatureCollection(features: lineFeatures).toJson(),
+          ),
         ),
       );
-
-      // 5. Add line layer
 
       await mapboxMap.style.addLayer(
         mapbox.LineLayer(
           id: ARROW_LINES_LAYER_ID,
           sourceId: ARROW_LINES_SOURCE_ID,
-          minZoom: 0.0,
-          lineColor: Colors.red.value, // Green fill (change per type)
-          lineBorderColor: 0xFFFFFFFF, // White stroke/border
-          lineBorderWidth: 0.5, // Stroke thickness
-          lineWidth: 6.0, // Main line thickness
+          lineColor: Colors.blue.value,
+          lineWidth: 5.0,
           lineOpacity: 0.9,
-          // lineOpacity: 0.9,
           lineCap: mapbox.LineCap.ROUND,
           lineJoin: mapbox.LineJoin.ROUND,
+          minZoom: 0,
         ),
       );
 
-      try {
-        await mapboxMap!.style.setStyleLayerProperty(
-          ARROW_LINES_LAYER_ID,
-          'line-color',
-          Colors.blue.value.toRGBA(),
-        );
-
-        await mapboxMap!.style.setStyleLayerProperty(
-          ARROW_LINES_LAYER_ID,
-          'line-color',
-          [
-            'match',
-            ['get', 'toMemoryYear'],
-            2020.0, Colors.red.value.toRGBA(),
-            2021.0, Colors.green.value.toRGBA(),
-            2022.0, Colors.purple.value.toRGBA(),
-            2023.0, Colors.purple.value.toRGBA(),
-            2024.0, Colors.deepOrange.value.toRGBA(),
-            2025.0, Colors.orange.value.toRGBA(),
-            2026.0, Colors.pink.value.toRGBA(),
-            Colors.blue.value.toRGBA(), // Default
-          ],
-        );
-
-        debugPrint('✅ Green lines set');
-      } catch (e) {
-        debugPrint('❌ Color error: $e');
-      }
-
-      // 6. Add arrow point source
-      final arrowCollection = mapbox.FeatureCollection(
-        features: arrowPointFeatures,
-      );
-
+      // 7️⃣ Arrow point source
       await mapboxMap.style.addSource(
         mapbox.GeoJsonSource(
           id: ARROW_POINTS_SOURCE_ID,
-          data: json.encode(arrowCollection.toJson()),
+          data: json.encode(
+            mapbox.FeatureCollection(features: arrowPointFeatures).toJson(),
+          ),
         ),
       );
 
-      // 7. Create and register arrow image
+      // 8️⃣ Add arrow image (once)
+      if (!await mapboxMap.style.hasStyleImage('arrow-icon')) {
+        final Uint8List arrowBytes = await createChevronArrowPng(size: 64);
+        await mapboxMap.style.addStyleImage(
+          'arrow-icon',
+          8,
+          mapbox.MbxImage(width: 64, height: 64, data: arrowBytes),
+          false,
+          const [],
+          const [],
+          null,
+        );
+      }
 
-      // final Uint8List arrowPngBytes = await _createPrettyArrowPng(size: 45);
-
-      // final mbxImage = mapbox.MbxImage(
-      //   width: 45,
-      //   height: 45,
-      //   data: arrowPngBytes, // use PNG bytes directly
-      // );
-
-      // await mapboxMap.style.addStyleImage(
-      //   'arrow-icon',
-      //   1.0,
-      //   mbxImage,
-      //   false,
-      //   const <mapbox.ImageStretches>[], // not [null]
-      //   const <mapbox.ImageStretches>[],
-      //   null,
-      // );
-
-      // 8. Add symbol layer for arrows at line centers
-
+      // 9️⃣ Symbol layer for arrows
       await mapboxMap.style.addLayer(
         mapbox.SymbolLayer(
           id: ARROW_SYMBOLS_LAYER_ID,
           sourceId: ARROW_POINTS_SOURCE_ID,
-          symbolPlacement: mapbox.SymbolPlacement.POINT,
           iconImage: 'arrow-icon',
-          iconSize: 0.5,
-          minZoom: 0,
+          iconSize: ARROW_ICON_SIZE,
           iconAllowOverlap: true,
           iconRotationAlignment: mapbox.IconRotationAlignment.MAP,
           iconRotateExpression: ['get', 'rotation'],
+          minZoom: 0,
         ),
       );
-    } catch (_) {}
 
-    var layers = await mapboxMap.style.getStyleLayers();
+      var layers = await mapboxMap.style.getStyleLayers();
+      var layerID = getLayerID(layers);
+      // 5️⃣ Move layer to top to ensure it’s visible over custom tiles
+      await mapboxMap.style.moveStyleLayer(
+        ARROW_LINES_LAYER_ID,
+        mapbox.LayerPosition(below: layerID),
+      );
 
-    var beforeLayerId = '';
+      try {
+        await mapboxMap.style.moveStyleLayer(
+          ARROW_LINES_LAYER_ID,
+          mapbox.LayerPosition(below: layerID),
+        );
+      } catch (_) {}
+      // 🔝 Keep arrows above lines
+      try {
+        await mapboxMap.style.moveStyleLayer(
+          ARROW_SYMBOLS_LAYER_ID,
+          mapbox.LayerPosition(above: ARROW_LINES_LAYER_ID),
+        );
+      } catch (_) {}
 
-    for (var l in layers) {
-      if (l!.id.toLowerCase().contains('cluster')) {
-        print('Cluster D Found Breaking');
-
-        break;
-      }
-
-      print('Cluster D Not Found Breaking');
-
-      beforeLayerId = l.id;
+      debugPrint('✅ Arrows positioned at 65% and oriented correctly');
+    } catch (e, st) {
+      // debugPrint('❌ ERROR: $e');
+      debugPrint(st.toString());
     }
-
-    await mapboxMap!.style.moveStyleLayer(
-      ARROW_LINES_LAYER_ID,
-      mapbox.LayerPosition(below: beforeLayerId),
-    );
   }
 
-  double bearingBetween(double lat1, double lng1, double lat2, double lng2) {
-    final a = lat1 * math.pi / 180.0;
-    final b = lat2 * math.pi / 180.0;
-    final c = (lng2 - lng1) * math.pi / 180.0;
+  // Helper: calculate bearing from base → tip in degrees
+  double _bearingBetween(List<double> start, List<double> end) {
+    final lat1 = start[1] * math.pi / 180;
+    final lon1 = start[0] * math.pi / 180;
+    final lat2 = end[1] * math.pi / 180;
+    final lon2 = end[0] * math.pi / 180;
 
-    final y = math.sin(c) * math.cos(b);
+    final dLon = lon2 - lon1;
+    final y = math.sin(dLon) * math.cos(lat2);
     final x =
-        math.cos(a) * math.sin(b) - math.sin(a) * math.cos(b) * math.cos(c);
+        math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
 
-    var d = math.atan2(y, x); // -π..+π
-    var deg = d * 180.0 / math.pi; // -180..+180
-    if (deg < 0) deg += 360.0; // 0..360
+    var brng = math.atan2(y, x) * 180 / math.pi;
+    if (brng < 0) brng += 360;
+    return brng;
+  }
 
-    return deg;
+  // Densify line
+  List<List<double>> _densifyLine({
+    required List<double> start,
+    required List<double> end,
+    int segments = 100,
+  }) {
+    final List<List<double>> result = [];
+    for (int i = 0; i <= segments; i++) {
+      final t = i / segments;
+      result.add([
+        start[0] + (end[0] - start[0]) * t,
+        start[1] + (end[1] - start[1]) * t,
+      ]);
+    }
+    return result;
   }
 
   /// Creates arrowhead lines as small LineStrings
@@ -4182,526 +4233,76 @@ class MapControllerNew extends GetxController {
 
   final String ARROW_DEBUG = 'ARROW_DEBUG';
 
+  // const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
+  // const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
+  final ARROW_BACK_DISTANCE =
+      10000; // ~150m in degrees (adjust for your map scale)
+  final ARROW_SIZE = 100.00; // arrowhead size
 
-// const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
-// const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
-final  ARROW_BACK_DISTANCE = 0.15; // ~150m in degrees (adjust for your map scale)
-final  ARROW_SIZE = 100.00; // arrowhead size
+  // const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
+  // const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
+  // const String ARROW_POINTS_SOURCE_ID = 'arrow_points_source';
+  // const String ARROW_SYMBOLS_LAYER_ID = 'arrow_symbols_layer';
+  // const double ARROW_ICON_SIZE = 2.0; // adjust for bigger arrows
 
-Future<void> generateAndDisplayArrowsFromMemoriesGeometry(
-  List<Map<String, dynamic>> memories,
-  mapbox.MapboxMap mapboxMap,
-) async {
-  debugPrint('[ARROW_DEBUG] called with memories=${memories.length}');
-  if (memories.length < 2) return;
-
-  try {
-    /// 1️⃣ Sort memories by date
-    final sorted = List<Map<String, dynamic>>.from(memories)
-      ..sort((a, b) {
-        final ad = DateTime.tryParse(a['memory_date'] ?? '') ?? DateTime.now();
-        final bd = DateTime.tryParse(b['memory_date'] ?? '') ?? DateTime.now();
-        return ad.compareTo(bd);
-      });
-
-    final List<mapbox.Feature> features = [];
-
-    /// 2️⃣ Build line + arrow features
-    for (int i = 0; i < sorted.length - 1; i++) {
-      debugPrint('[ARROW_DEBUG] ── Processing segment $i');
-
-      final a = sorted[i];
-      final b = sorted[i + 1];
-
-      final double? startLat = a['location_latitude'];
-      final double? startLng = a['location_longitude'];
-      final double? endLat = b['location_latitude'];
-      final double? endLng = b['location_longitude'];
-
-      if ([startLat, startLng, endLat, endLng].contains(null)) continue;
-
-      /// 2a️⃣ Densify line
-      final coords = _densifyLine(
-        start: [startLng!, startLat!],
-        end: [endLng!, endLat!],
-        segments: 120,
-      );
-      if (coords.length < 3) continue;
-
-      /// 2b️⃣ Move arrow tip back by distance (~meters)
-      final tip = coords.last;
-      final base = _movePointBack(
-        tip: tip,
-        start: coords.first,
-        distance: ARROW_BACK_DISTANCE,
-      );
-
-      /// 2c️⃣ Trim line before arrow
-      final trimmedLine = coords.where((c) {
-        final dx = c[0] - base[0];
-        final dy = c[1] - base[1];
-        return (dx * dx + dy * dy) > 0;
-      }).toList();
-
-      debugPrint('[ARROW_DEBUG] trimmedLine.length=${trimmedLine.length}');
-      debugPrint('[ARROW_DEBUG] arrowBase=$base arrowTip=$tip');
-
-      /// 2d️⃣ Add main line
-      features.add(
-        mapbox.Feature(
-          id: 'line_$i',
-          geometry: mapbox.LineString(
-            coordinates:
-                trimmedLine.map((c) => mapbox.Position(c[0], c[1])).toList(),
-          ),
-          properties: {'type': 'line'},
-        ),
-      );
-
-      /// 2e️⃣ Add arrowhead
-      final arrowHeadCoords = _createArrowHeadGeometry(
-        base: base,
-        tip: tip,
-  size: 0.0045, // was 0.00015 → ~30x bigger
-      );
-
-      features.add(
-        mapbox.Feature(
-          id: 'arrow_$i',
-          geometry: mapbox.LineString(
-            coordinates:
-                arrowHeadCoords.map((c) => mapbox.Position(c[0], c[1])).toList(),
-          ),
-          properties: {'type': 'arrow'},
-        ),
-      );
-    }
-
-    debugPrint('[ARROW_DEBUG] totalFeatures=${features.length}');
-
-    /// 3️⃣ Ensure source + layer exist
-    await _ensureArrowSourceAndLayer(mapboxMap);
-
-    /// 4️⃣ Update GeoJSON data
-    await mapboxMap.style.setStyleSourceProperty(
-      ARROW_LINES_SOURCE_ID,
-      'data',
-      json.encode(mapbox.FeatureCollection(features: features).toJson()),
-    );
-    debugPrint('[ARROW_DEBUG] geojson updated');
-
-    /// 5️⃣ Apply styling
-    await mapboxMap.style.setStyleLayerProperty(
-      ARROW_LINES_LAYER_ID,
-      'line-width',
-      [
-        'case',
-        ['==', ['get', 'type'], 'arrow'],
-        8.0,
-        5.0,
-      ],
-    );
-    debugPrint('[ARROW_DEBUG] style applied');
-  } catch (e, st) {
-    debugPrint('[ARROW_DEBUG] ❌ ERROR: $e');
-    debugPrint(st.toString());
-  }
-}
-
-/// Move arrow tip back along line by a fixed distance
-List<double> _movePointBack({
-  required List<double> tip,
-  required List<double> start,
-  required double distance,
-}) {
-  // distance = 100;
-  final dx = tip[0] - start[0];
-  final dy = tip[1] - start[1];
-  final len = math.sqrt(dx * dx + dy * dy);
-  if (len == 0) return tip;
-  final factor = distance / len;
-  return [
-    tip[0] - dx * factor,
-    tip[1] - dy * factor,
-  ];
-}
-
-/// Arrowhead V geometry
-List<List<double>> _createArrowHeadGeometry({
-  required List<double> base,
-  required List<double> tip,
-  double size = 0.00015,
-}) {
-  final dx = tip[0] - base[0];
-  final dy = tip[1] - base[1];
-  final length = math.sqrt(dx * dx + dy * dy);
-  if (length == 0) return [];
-
-  final ux = dx / length;
-  final uy = dy / length;
-  final px = -uy;
-  final py = ux;
-
-  final left = [
-    tip[0] - ux * size + px * size * 0.6,
-    tip[1] - uy * size + py * size * 0.6,
-  ];
-  final right = [
-    tip[0] - ux * size - px * size * 0.6,
-    tip[1] - uy * size - py * size * 0.6,
-  ];
-
-  return [left, tip, right];
-}
-
-Future<void> _ensureArrowSourceAndLayer(mapbox.MapboxMap mapboxMap) async {
-  final exists = await mapboxMap.style.styleSourceExists(ARROW_LINES_SOURCE_ID);
-  if (!exists) {
-    debugPrint('[$ARROW_DEBUG] creating arrow source + layer');
-
-    await mapboxMap.style.addSource(
-      mapbox.GeoJsonSource(
-        id: ARROW_LINES_SOURCE_ID,
-        data: json.encode(
-          mapbox.FeatureCollection<mapbox.GeometryObject>(features: []).toJson(),
-        ),
-      ),
-    );
-
-    await mapboxMap.style.addLayer(
-      mapbox.LineLayer(
-        id:  'line-width',
-              [
-                      'case',
-                              ['==', ['get', 'type'], 'arrow'],
-                                      8.0,
-                                              5.0,
-                                                    ],
-                                                        );
-                                                            debugPrint('[ARROW_DEBUG] style applied');
-                                                              } catch (e, st) {
-                                                                  debugPrint('[ARROW_DEBUG] ❌ ERROR: $e');
-                                                                      debugPrint(st.toString());
-                                                                        }
-                                                                        }
-                                                                        
-                                                                        /// Move arrow tip back along line by a fixed distance
-                                                                        List<double> _movePointBack({
-                                                                          required List<double> tip,
-                                                                            required List<double> start,
-                                                                              required double distance,
-                                                                              }) {
-                                                                                // distance = 100;
-                                                                                  final dx = tip[0] - start[0];
-                                                                                    final dy = tip[1] - start[1];
-                                                                                      final len = math.sqrt(dx * dx + dy * dy);
-                                                                                        if (len == 0) return tip;
-                                                                                          final factor = distance / len;
-                                                                                            return [
-                                                                                                tip[0] - dx * factor,
-                                                                                                    tip[1] - dy * factor,
-                                                                                                      ];
-                                                                                                      }
-                                                                                                      
-                                                                                                      /// Arrowhead V geometry
-                                                                                                      List<List<double>> _createArrowHeadGeometry({
-                                                                                                        required List<double> base,
-                                                                                                          required List<double> tip,
-                                                                                                            double size = 0.00015,
-                                                                                                            }) {
-                                                                                                              final dx = tip[0] - base[0];
-                                                                                                                final dy = tip[1] - base[1];
-                                                                                                                  final length = math.sqrt(dx * dx + dy * dy);
-                                                                                                                    if (length == 0) return [];
-                                                                                                                    
-                                                                                                                      final ux = dx / length;
-                                                                                                                        final uy = dy / length;
-                                                                                                                          final px = -uy;
-                                                                                                                            final py = ux;
-                                                                                                                            
-                                                                                                                              final left = [
-                                                                                                                                  tip[0] - ux * size + px * size * 0.6,
-                                                                                                                                      tip[1] - uy * size + py * size * 0.6,
-                                                                                                                                        ];
-                                                                                                                                          final right = [
-                                                                                                                                              tip[0] - ux * size - px * size * 0.6,
-                                                                                                                                                  tip[1] - uy * size - py * size * 0.6,
-                                                                                                                                                    ];
-                                                                                                                                                    
-                                                                                                                                                      return [left, tip, right];
-                                                                                                                                                      }
-                                                                                                                                                      
-                                                                                                                                                      Future<void> _ensureArrowSourceAndLayer(mapbox.MapboxMap mapboxMap) async {
-                                                                                                                                                        final exists = await mapboxMap.style.styleSourceExists(ARROW_LINES_SOURCE_ID);
-                                                                                                                                                          if (!exists) {
-                                                                                                                                                              debugPrint('[$ARROW_DEBUG] creating arrow source + layer');
-                                                                                                                                                              
-                                                                                                                                                                  await mapboxMap.style.addSource(
-                                                                                                                                                                        mapbox.GeoJsonSource(
-                                                                                                                                                                                id: ARROW_LINES_SOURCE_ID,
-                                                                                                                                                                                        data: json.encode(
-                                                                                                                                                                                                  mapbox.FeatureCollection<mapbox.GeometryObject>(features: []).toJson(),
-                                                                                                                                                                                                          ),
-                                                                                                                                                                                                                ),
-                                                                                                                                                                                                                    );
-                                                                                                                                                                                                                    
-                                                                                                                                                                                                                        await mapboxMap.style.addLayer(
-                                                                                                                                                                                                                              mapbox.LineLayer(
-                                                                                                                                                                                                                                      id: ARROW_LINES_LAYER_ID,
-                                                                                                                                                                                                                                              sourceId: ARROW_LINES_SOURCE_ID,
-                                                                                                                                                                                                                                                      lineCap: mapbox.LineCap.ROUND,
-                                                                                                                                                                                                                                                              lineJoin: mapbox.LineJoin.ROUND,
-                                                                                                                                                                                                                                                                      lineColor: Colors.blue.value,
-                                                                                                                                                                                                                                                                              lineOpacity: 0.9,
-                                                                                                                                                                                                                                                                                      lineWidth: 5.0,
-                                                                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                                                                                );
-                                                                                                                                                                                                                                                                                                  }
-                                                                                                                                                                                                                                                                                                  }
-                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                    List<List<double>> _densifyLine({
-                                                                                                                                                                                                                                                                                                        required List<double> start,
-                                                                                                                                                                                                                                                                                                            required List<double> end,
-                                                                                                                                                                                                                                                                                                                int segments = 100,
-                                                                                                                                                                                                                                                                                                                  }) {
-                                                                                                                                                                                                                                                                                                                      final List<List<double>> result = [];
-                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                          for (int i = 0; i <= segments; i++) {
-                                                                                                                                                                                                                                                                                                                                final t = i / segments;
-                                                                                                                                                                                                                                                                                                                                      result.add([
-                                                                                                                                                                                                                                                                                                                                              start[0] + (end[0] - start[0]) * t,
-                                                                                                                                                                                                                                                                                                                                                      start[1] + (end[1] - start[1]) * t,
-                                                                                                                                                                                                                                                                                                                                                            ]);
-                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                    return result;
-                                                                                                                                                                                                                                                                                                                                                                      }
-                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                        // List<List<double>> _createArrowHeadGeometry({
-                                                                                                                                                                                                                                                                                                                                                                          //   required List<double> base,
-                                                                                                                                                                                                                                                                                                                                                                            //   required List<double> tip,
-                                                                                                                                                                                                                                                                                                                                                                              // }) {
-                                                                                                                                                                                                                                                                                                                                                                                //   const double size = 0.002; // 🔥 visible at mid zoom
-                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                  //   final dx = tip[0] - base[0];
-                                                                                                                                                                                                                                                                                                                                                                                    //   final dy = tip[1] - base[1];
-                                                                                                                                                                                                                                                                                                                                                                                      //   final length = math.sqrt(dx * dx + dy * dy);
-                                                                                                                                                                                                                                                                                                                                                                                        //   if (length == 0) return [];
-                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                          //   final ux = dx / length;
-                                                                                                                                                                                                                                                                                                                                                                                            //   final uy = dy / length;
-                                                                                                                                                                                                                                                                                                                                                                                              //   final px = -uy;
-                                                                                                                                                                                                                                                                                                                                                                                                //   final py = ux;
-                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                  //   final left = [
-                                                                                                                                                                                                                                                                                                                                                                                                    //     tip[0] - ux * size + px * size * 0.6,
-                                                                                                                                                                                                                                                                                                                                                                                                      //     tip[1] - uy * size + py * size * 0.6,
-                                                                                                                                                                                                                                                                                                                                                                                                        //   ];
-                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                          //   final right = [
-                                                                                                                                                                                                                                                                                                                                                                                                            //     tip[0] - ux * size - px * size * 0.6,
-                                                                                                                                                                                                                                                                                                                                                                                                              //     tip[1] - uy * size - py * size * 0.6,
-                                                                                                                                                                                                                                                                                                                                                                                                                //   ];
-                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                  //   return [left, tip, right];
-                                                                                                                                                                                                                                                                                                                                                                                                                    // }
-                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                      Future<void> _setupMapboxClustering(
-                                                                                                                                                                                                                                                                                                                                                                                                                          List<Map<String, dynamic>> memories,
-                                                                                                                                                                                                                                                                                                                                                                                                                            ) async {
-                                                                                                                                                                                                                                                                                                                                                                                                                                try {
-                                                                                                                                                                                                                                                                                                                                                                                                                                      // Add a small delay to ensure cleanup is complete
-                                                                                                                                                                                                                                                                                                                                                                                                                                            await Future.delayed(const Duration(milliseconds: 100));
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  // Convert memories to GeoJSON
-                                                                                                                                                                                                                                                                                                                                                                                                                                                        final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                memories,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                            try {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    await mapboxMap!.style.addSource(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              mapbox.GeoJsonSource(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          id: MEMORY_SOURCE_ID,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      data: geoJsonString,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  cluster: true,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              // clusterMinZoom: 4, // 👈 IMPORTANT
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          clusterRadius:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          10, // Radius of each cluster (pixels) - optimized for smooth clustering
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      clusterMaxZoom:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      13.5, // Max zoom to cluster points - stops clustering at zoom 15+
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  clusterMinPoints: 2, // Minimum points to form a cluster
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              clusterProperties: {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            // Aggregate memory IDs into a comma-separated string
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          // Format: [operator, mapExpression, reduceExpression]
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        // The operator is applied in the reduce step
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      'memory_ids': [
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      'concat',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      [
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        'to-string',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ['get', 'id'],
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ],
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ],
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    },
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            } catch (e) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    if (e.toString().contains('already exists')) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              try {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          // Try to update the existing source data instead of adding a new one
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      await mapboxMap!.style.setStyleSourceProperty(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    MEMORY_SOURCE_ID,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  'data',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                geoJsonString,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      } catch (updateError) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  // If update fails, force remove and re-add
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              await _forceRemoveAndReaddSource(geoJsonString);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                } else {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          throw e; // Re-throw to be caught by outer try-catch
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              // Add cluster layers
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    await _addClusterLayers(memories);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          // Initialize MapMarkerService with MapBox map before arrow generation
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                if (_mapMarkerService != null) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        _mapMarkerService!.initialize(mapboxMap!);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    // Generate and display chronological arrows
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        } catch (e) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              debugPrint('[MapControllerNew] Error setting up MapBox clustering: $e');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      /// Handle map tap to query rendered features and get memories from clusters
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        Future<void> handleMapTap1(mapbox.MapContentGestureContext c) async {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            if (mapboxMap == null) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  debugPrint('[MapControllerNew] ⚠️ Map not ready for tap handling');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        return;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                try {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      final coordinates = c.point.coordinates; // Position (lng, lat)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            final touchPosition = c.touchPosition; // ScreenCoordinate (x, y)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  debugPrint(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          '[MapControllerNew] 🎯 Map tapped at: (${coordinates.lng}, ${coordinates.lat})',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      debugPrint(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              '[MapControllerNew] 📍 Screen position: (${touchPosition.x}, ${touchPosition.y})',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          // Query rendered features at the tap point
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                // Check clusters first, then individual markers
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      // 1. Check if a cluster was tapped
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            // Query all cluster layer variants (small, medium, large, etc.)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  final clusterLayerIds = [
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          CLUSTERS_CIRCLE_LAYER_ID,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  CLUSTER_LAYER_ID,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          CLUSTERS_COUNT_LAYER_ID,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  CLUSTER_LAYER_ID,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ];
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              final clusterFeatures = await mapboxMap!.queryRenderedFeatures(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      mapbox.RenderedQueryGeometry.fromScreenCoordinate(touchPosition),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              mapbox.RenderedQueryOptions(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        layerIds: clusterLayerIds, // Query all cluster layer variants
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            if (clusterFeatures.isNotEmpty && clusterFeatures.first != null) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    debugPrint(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              '[MapControllerNew] 🎯 Cluster tapped - ${clusterFeatures.length} cluster features found',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              // Use existing _handleClusterFeatureTap method
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      await _handleClusterFeatureTap(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                clusterFeatures.first!,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          coordinates.lat.toDouble(),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    coordinates.lng.toDouble(),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    return;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                // 2. Check if an individual memory was tapped
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      final individualFeatures = await mapboxMap!.queryRenderedFeatures(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              mapbox.RenderedQueryGeometry.fromScreenCoordinate(touchPosition),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      mapbox.RenderedQueryOptions(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                layerIds: [UNCLUSTERED_LAYER_ID], // Query individual marker layer
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    if (individualFeatures.isNotEmpty && individualFeatures.first != null) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            debugPrint(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      '[MapControllerNew] 🎯 Individual memory tapped - ${individualFeatures.length} features found',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      await _handleIndividualMemoryTapFromQuery(individualFeatures.first!);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              return;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          debugPrint('[MapControllerNew] ℹ️ No features found at tap location');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              } catch (e, stackTrace) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    debugPrint('[MapControllerNew] ❌ Error handling map tap: $e');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          debugPrint('[MapControllerNew] Stack trace: $stackTrace');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  /// Handle individual memory tap from query - show memory details
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    Future<void> _handleIndividualMemoryTapFromQuery(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        mapbox.QueriedRenderedFeature memoryFeature,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ) async {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              try {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    final properties =
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              memoryFeature.queriedFeature.feature['properties']
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            as Map<String, dynamic>?;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  if (properties == null) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          debugPrint(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    '[MapControllerNew] ⚠️ No properties found in memory feature',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    return;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                final memoryId = '${properties['id']}';
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      final memoryTitle = properties['title'] ?? 'Untitled';
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            final memoryDate = properties['memory_date'] ?? '';
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  debugPrint('[MapControllerNew] 📝 Memory tapped:');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        debugPrint('[MapControllerNew] - ID: $memoryId');_ID,
-        sourceId: ARROW_LINES_SOURCE_ID,
-        lineCap: mapbox.LineCap.ROUND,
-        lineJoin: mapbox.LineJoin.ROUND,
-        lineColor: Colors.blue.value,
-        lineOpacity: 0.9,
-        lineWidth: 5.0,
-      ),
-    );
-  }
-}
-
-
-  List<List<double>> _densifyLine({
-    required List<double> start,
-    required List<double> end,
-    int segments = 100,
+  /// Arrowhead V geometry (tip + wings)
+  List<List<double>> _createArrowHeadGeometry({
+    required List<double> base,
+    required List<double> tip,
+    double size = 0.00015,
   }) {
-    final List<List<double>> result = [];
+    final dx = tip[0] - base[0];
+    final dy = tip[1] - base[1];
+    final length = math.sqrt(dx * dx + dy * dy);
+    if (length == 0) return [];
 
-    for (int i = 0; i <= segments; i++) {
-      final t = i / segments;
-      result.add([
-        start[0] + (end[0] - start[0]) * t,
-        start[1] + (end[1] - start[1]) * t,
-      ]);
+    final ux = dx / length;
+    final uy = dy / length;
+    final px = -uy;
+    final py = ux;
+
+    final left = [
+      tip[0] - ux * size + px * size * 0.6,
+      tip[1] - uy * size + py * size * 0.6,
+    ];
+    final right = [
+      tip[0] - ux * size - px * size * 0.6,
+      tip[1] - uy * size - py * size * 0.6,
+    ];
+
+    return [left, tip, right];
+  }
+
+  Future<void> _ensureArrowSourceAndLayer(mapbox.MapboxMap mapboxMap) async {
+    final exists = await mapboxMap.style.styleSourceExists(
+      ARROW_LINES_SOURCE_ID,
+    );
+    if (!exists) {
+      debugPrint('[$ARROW_DEBUG] creating arrow source + layer');
+
+      await mapboxMap.style.addSource(
+        mapbox.GeoJsonSource(
+          id: ARROW_LINES_SOURCE_ID,
+          data: json.encode(
+            mapbox.FeatureCollection<mapbox.GeometryObject>(
+              features: [],
+            ).toJson(),
+          ),
+        ),
+      );
+
+      await mapboxMap.style.addLayer(
+        mapbox.LineLayer(
+          id: ARROW_LINES_LAYER_ID,
+          sourceId: ARROW_LINES_SOURCE_ID,
+          lineCap: mapbox.LineCap.ROUND,
+          lineJoin: mapbox.LineJoin.ROUND,
+          lineColor: Colors.blue.value,
+          lineOpacity: 0.9,
+          lineWidth: 5.0,
+        ),
+      );
     }
-
-    return result;
   }
 
   // List<List<double>> _createArrowHeadGeometry({
@@ -4919,6 +4520,19 @@ Future<void> _ensureArrowSourceAndLayer(mapbox.MapboxMap mapboxMap) async {
       );
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
     }
+  }
+
+  getLayerID(List<mapbox.StyleObjectInfo?> layers) {
+    for (var l in layers) {
+      if (l!.id.toLowerCase().contains('cluster')) {
+        return l.id;
+      }
+    }
+    return layers.last!.id;
+  }
+
+  void initializeMapAfterCreation() {
+    _initializeMapAfterCreation();
   }
 }
 
