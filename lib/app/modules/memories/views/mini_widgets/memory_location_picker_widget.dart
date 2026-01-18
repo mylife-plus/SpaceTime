@@ -220,7 +220,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         color: isDark ? Colors.white : Colors.black87,
       ),
       decoration: InputDecoration(
-        hintText: 'Search locations...',
+        hintText: 'search locations',
         hintStyle: AppFonts.regular(
           16,
           color: isDark ? Colors.white54 : Colors.grey[600]!,
@@ -241,14 +241,14 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   Widget _buildSearchResultsOverlay() {
     return Obx(() {
       if (!controller.showSearchResults.value ||
-          (controller.searchController.text.isEmpty && controller.searchResults.isEmpty && !controller.isSearching.value)) {
+          (controller.searchController.text.isEmpty && controller.searchResults.isEmpty)) {
         return const SizedBox.shrink();
       }
 
       return Positioned(
         top: 98, // Below search bar
         left: 4,
-        right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
+        right: controller.hasLocationPermission.value? 60 : 4,
         child: Container(
           margin: const EdgeInsets.only(top: 4),
           constraints: const BoxConstraints(maxHeight: 200),
@@ -364,7 +364,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   /// Build current location button - matching new location picker design
   Widget _buildCurrentLocationButton() {
     return Obx(() {
-      if (!controller.hasLocationPermission.value || controller.currentPosition.value == null) {
+      if (!controller.hasLocationPermission.value) {
         return const SizedBox.shrink();
       }
 

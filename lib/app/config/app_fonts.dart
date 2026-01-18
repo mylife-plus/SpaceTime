@@ -37,4 +37,14 @@ class AppFonts {
       color: color,
     );
   }
+
+
+  static TextStyle bold(double size, {Color color = Colors.black}) {
+    return TextStyle(
+      fontFamily: fontFamily,
+      fontWeight: FontWeight.w700,
+      fontSize: size,
+      color: color,
+    );
+  }
 }

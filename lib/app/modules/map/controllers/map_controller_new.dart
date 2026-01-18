@@ -1357,7 +1357,7 @@ class MapControllerNew extends GetxController {
 
   /// Handle filter apply action when overlay is launched from the map
   Future<void> handleFilterApplyFromMap({List<int>? memoryIds}) async {
-    // AddMemoriesController is initialized in main.dart as permanent singleton
+
     final addMemoriesController = Get.find<AddMemoriesController>();
 
     addMemoriesController.isOpenedFromMap = true;
@@ -1377,14 +1377,15 @@ class MapControllerNew extends GetxController {
     print('Syncing Filtered Memories ${memories.length}');
 
     if (!hasActiveFilters.value) {
+
       await loadMemoriesFromDB(null);
 
       return;
     }
+
     await loadMemoriesFromDB(memories);
 
     showLoadedDataOnMap();
-    // if(memories.length == 0)
   }
 
   /// Reset all filters

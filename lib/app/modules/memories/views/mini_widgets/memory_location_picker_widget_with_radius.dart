@@ -73,7 +73,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
         Positioned(
         top: 50,
         left: 4,
-        right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
+        right: controller.hasLocationPermission.value ? 60 : 4,
         child: buildSearchContainer(controller.uiController.darkMode.value),),
 
         // Radius seekbar below search
@@ -211,7 +211,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
       }
 
       return Positioned(
-        top: 180, // Below search bar (50) + search height (44) + seekbar height (~78) + spacing (8)
+        top: 100, // Below search bar (50) + search height (44) + seekbar height (~78) + spacing (8)
         left: 4,
         right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
         child: Container(
@@ -437,13 +437,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
       return Positioned(
         top: 102, // Below search bar (50 + 44 + 8)
         left: 4,
-        right: hasLocation ? 60 : 4,
+        right: 4,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isDark
                 ? Colors.black.withValues(alpha: 0.8)
-                : Colors.white.withValues(alpha: 0.9),
+                : Colors.white.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(2),
             boxShadow: [
               BoxShadow(
@@ -458,22 +458,22 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Radius',
-                    style: AppFonts.medium(
-                      12,
-                      color: isDark ? Colors.white70 : Colors.grey[700]!,
-                    ),
-                  ),
+                  
                   Text(
                     controller.radiusInKm.value < 1
-                        ? '${(controller.radiusInKm.value * 1000).toStringAsFixed(0)} m'
-                        : '${controller.radiusInKm.value.toStringAsFixed(1)} km',
-                    style: AppFonts.medium(
-                      12,
+                        ? '${(controller.radiusInKm.value * 1000).toStringAsFixed(0)} m '
+                        : '${controller.radiusInKm.value.toStringAsFixed(1)} km ',
+                    style: AppFonts.bold(
+                      14,
                       color: controller.uiController.currentMainColor,
+                    ),
+                  ),Text(
+                    'radius',
+                    style: AppFonts.bold(
+                      14,
+                      color: isDark ? Colors.white70 : Colors.grey[700]!,
                     ),
                   ),
                 ],
@@ -481,10 +481,10 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
               SliderTheme(
                 data: SliderThemeData(
                   trackHeight: 3,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
                   overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                   activeTrackColor: controller.uiController.currentMainColor,
-                  inactiveTrackColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                  inactiveTrackColor: isDark ? Colors.grey[700] : Colors.white,
                   thumbColor: controller.uiController.currentMainColor,
                   overlayColor: controller.uiController.currentMainColor.withValues(alpha: 0.2),
                 ),
