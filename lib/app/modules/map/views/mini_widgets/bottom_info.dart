@@ -159,20 +159,42 @@ class _BottomPanelState extends State<BottomPanel> {
 
     debugPrint('[BottomPanel] Converted ${memoryLocations.length} memories to MemoryLocation objects');
 
-    // Use showSpecificMemories which properly handles the data
-    controller.showSpecificMemories(memoryLocations);
-    final result = await Get.toNamed(Routes.ADD_MEMORIES);
+    final c1 = Get.find<MapControllerNew>();
+      List<int> memoryIdInt = [];
 
-    // If memories were edited/deleted, refresh the map
-    if (result == true) {
-      try {
-        final mapController = Get.find<MapControllerNew>();
-        await mapController.refreshMapView();
-        debugPrint('[BottomPanel] Map refreshed after memory editing');
-      } catch (e) {
-        debugPrint('[BottomPanel] MapControllerNew not found: $e');
+      for(var memory in memoryLocations){
+
+        memoryIdInt.add(int.parse(memory.id));
       }
-    }
+      // Show the specific memory in AddMemories view
+      // controller.showSpecificMemories([memoryLocation]);
+
+      // Apply filter with the memory ID
+      // final memoryIdInt = int.tryParse(memoryId);
+      if (memoryIdInt.isNotEmpty) {
+      controller.applyFilters(memoryIds: memoryIdInt);
+        await c1.loadFilteredMemoriesFromDB();
+        c1.handleFilterApplyFromMap();
+        debugPrint('[MapControllerNew] 🎯 Applied memory IDs filter: [$memoryIdInt]');
+      }
+
+      // debugPrint('[MapControllerNew] 🎯 Navigating to AddMemories view with memory: ${foundMemory['category'] ?? foundMemory['description']}');
+
+      final result = await Get.toNamed(Routes.ADD_MEMORIES);
+    // Use showSpecificMemories which properly handles the data
+    // controller.showSpecificMemories(memoryLocations);
+    // final result = await Get.toNamed(Routes.ADD_MEMORIES);
+
+    // // If memories were edited/deleted, refresh the map
+    // if (result == true) {
+    //   try {
+    //     final mapController = Get.find<MapControllerNew>();
+    //     await mapController.refreshMapView();
+    //     debugPrint('[BottomPanel] Map refreshed after memory editing');
+    //   } catch (e) {
+    //     debugPrint('[BottomPanel] MapControllerNew not found: $e');
+    //   }
+    // }
   }
 
   /// Build memory groups based on year/month
@@ -323,20 +345,28 @@ class _BottomPanelState extends State<BottomPanel> {
     debugPrint('[BottomPanel] Converted ${memoryLocations.length} memories to MemoryLocation objects for subset');
 
     // Use showSpecificMemories which properly handles the data
-    controller.showSpecificMemories(memoryLocations);
+    final c1 = Get.find<MapControllerNew>();
+      List<int> memoryIdInt = [];
 
-    final result = await Get.toNamed(Routes.ADD_MEMORIES);
+      for(var memory in memoryLocations){
 
-    // If user made changes, refresh the map
-    if (result == true) {
-      try {
-        final mapController = Get.find<MapControllerNew>();
-        await mapController.refreshMapView();
-        debugPrint('[BottomPanel] Map refreshed after memory editing');
-      } catch (e) {
-        debugPrint('[BottomPanel] MapControllerNew not found: $e');
+        memoryIdInt.add(int.parse(memory.id));
       }
-    }
+      // Show the specific memory in AddMemories view
+      // controller.showSpecificMemories([memoryLocation]);
+
+      // Apply filter with the memory ID
+      // final memoryIdInt = int.tryParse(memoryId);
+      if (memoryIdInt.isNotEmpty) {
+      controller.applyFilters(memoryIds: memoryIdInt);
+        await c1.loadFilteredMemoriesFromDB();
+        c1.handleFilterApplyFromMap();
+        debugPrint('[MapControllerNew] 🎯 Applied memory IDs filter: [$memoryIdInt]');
+      }
+
+      // debugPrint('[MapControllerNew] 🎯 Navigating to AddMemories view with memory: ${foundMemory['category'] ?? foundMemory['description']}');
+
+      final result = await Get.toNamed(Routes.ADD_MEMORIES);
   }
 
 

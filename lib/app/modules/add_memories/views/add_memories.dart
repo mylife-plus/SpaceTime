@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart';
 import 'package:spacetime/app/config/app_images.dart';
+import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import '../../../config/app_colors.dart';

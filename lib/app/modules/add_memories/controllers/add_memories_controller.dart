@@ -44,6 +44,7 @@ class AddMemoriesController extends GetxController {
   final RxList<String> selectedHashtags = <String>[].obs;
   final RxList<String> selectedContacts = <String>[].obs;
   final RxList<String> selectedCategories = <String>[].obs;
+  final RxList<String> selectedMemoryIds = <String>[].obs; // Filter by specific memory IDs
   final RxBool hasActiveFilters = false.obs;
 
   // Cached hierarchical data for display logic
@@ -1455,7 +1456,8 @@ class AddMemoriesController extends GetxController {
         selectedRadius.value.isNotEmpty ||
         selectedHashtags.isNotEmpty ||
         selectedContacts.isNotEmpty ||
-        selectedCategories.isNotEmpty;
+        selectedCategories.isNotEmpty ||
+        selectedMemoryIds.isNotEmpty;
 
     debugPrint(
       'Filter status updated: hasActiveFilters=${hasActiveFilters.value}',
@@ -1651,10 +1653,17 @@ class AddMemoriesController extends GetxController {
   }
 
   // Apply filters based on filter values
-  void applyFilters() {
+  void applyFilters({List<int>? memoryIds}) {
+    _clearFiltersWithoutClosing();
     // Note: When opened from map, we apply filters directly without navigation
     // The navigation is handled by the MapController
-    debugPrint('=== APPLYING FILTERS (isOpenedFromMap: $isOpenedFromMap) ===');
+    debugPrint('=== APPLYING FILTERS (isOpenedFromMap: $isOpenedFromMap, memoryIds: $memoryIds) ===');
+
+    // If memory IDs are provided, set them as a filter
+    if (memoryIds != null && memoryIds.isNotEmpty) {
+      selectedMemoryIds.value = memoryIds.map((id) => id.toString()).toList();
+      debugPrint('[AddMemoriesController] 🎯 Memory IDs filter set: $memoryIds');
+    }
 
     // Validate location and radius dependency
     final hasLocation = selectedLocation.value.isNotEmpty;
@@ -1696,7 +1705,8 @@ class AddMemoriesController extends GetxController {
         selectedRadius.value.isNotEmpty ||
         selectedHashtags.isNotEmpty ||
         selectedContacts.isNotEmpty ||
-        selectedCategories.isNotEmpty;
+        selectedCategories.isNotEmpty ||
+        selectedMemoryIds.isNotEmpty;
 
     debugPrint('=== APPLYING FILTERS ===');
     debugPrint('Filter values: ${filterValues.toString()}');
@@ -1717,6 +1727,27 @@ class AddMemoriesController extends GetxController {
 
     isSearching.value = true;
     hasActiveFilters.value = true;
+
+    // If memory IDs filter is active, show only those specific memories
+    if (selectedMemoryIds.isNotEmpty) {
+      debugPrint('[AddMemoriesController] 🎯 Applying memory IDs filter: ${selectedMemoryIds.join(", ")}');
+
+      final memories = allMemories.where((m) {
+        final memoryId = m['id']?.toString();
+        return selectedMemoryIds.contains(memoryId);
+      }).toList();
+
+      if (memories.isEmpty) {
+        debugPrint('[AddMemoriesController] ⚠️ No memories found with IDs: ${selectedMemoryIds.join(", ")}');
+        filteredMemories.value = [];
+      } else {
+        debugPrint('[AddMemoriesController] ✅ Found ${memories.length} memories with IDs: ${selectedMemoryIds.join(", ")}');
+        filteredMemories.value = memories;
+      }
+
+      debugPrint('[AddMemoriesController] 📊 Memory IDs filter applied: ${filteredMemories.length} memories');
+      return;
+    }
 
     // Use MemoryFilterHelper for filtering
     filteredMemories.value =
@@ -1743,7 +1774,7 @@ class AddMemoriesController extends GetxController {
     );
 
     // Sync filters to MapController to keep both controllers in sync
-    _syncFiltersToMapController();
+    // _syncFiltersToMapController();
 
     // Update backup to match current state since filters were applied
     _backupFilterValues = Map<String, String>.from(filterValues);
@@ -1765,6 +1796,7 @@ class AddMemoriesController extends GetxController {
     selectedHashtags.clear();
     selectedContacts.clear();
     selectedCategories.clear();
+    selectedMemoryIds.clear();
     filteredMemories.clear();
     isSearching.value = false;
     hasActiveFilters.value = false;
@@ -1859,6 +1891,9 @@ initializeMapAfterCreation();
       mapController.selectedCategories
         ..clear()
         ..addAll(selectedCategories);
+      mapController.selectedMemoryIds
+        ..clear()
+        ..addAll(selectedMemoryIds);
       mapController.hasActiveFilters.value = hasActiveFilters.value;
 
       debugPrint('[AddMemoriesController] ✅ Filters synced to MapController');
@@ -1875,6 +1910,9 @@ initializeMapAfterCreation();
       if (selectedCategories.isNotEmpty) {
         debugPrint('  - Categories: ${selectedCategories.join(", ")}');
       }
+      if (selectedMemoryIds.isNotEmpty) {
+        debugPrint('  - Memory IDs: ${selectedMemoryIds.join(", ")}');
+      }
       if (selectedLocation.value.isNotEmpty && selectedRadius.value.isNotEmpty) {
         debugPrint('  - Location: ${selectedLocation.value} (radius: ${selectedRadius.value}km)');
       }      
@@ -1888,7 +1926,60 @@ initializeMapAfterCreation();
     }
   }
 
-  // Helper method to clear filters without closing the filter panel
+  // /// Show a specific memory by ID in the AddMemories view
+  // /// This sets the memory ID filter and displays only that memory
+  // Future<void> showMemoryById(String memoryId) async {
+  //   try {
+  //     debugPrint('[AddMemoriesController] 🎯 Showing memory by ID: $memoryId');
+
+  //     // Clear all other filters first
+  //     filterValues.clear();
+  //     selectedLocation.value = '';
+  //     selectedLocationDisplayName.value = '';
+  //     selectedRadius.value = '';
+  //     selectedHashtags.clear();
+  //     selectedContacts.clear();
+  //     selectedCategories.clear();
+
+  //     // Set the memory ID filter
+  //     selectedMemoryId.value = memoryId;
+  //     hasActiveFilters.value = true;
+  //     isSearching.value = true;
+
+  //     // Find the memory in allMemories
+  //     final memory = allMemories.firstWhere(
+  //       (m) => m['id']?.toString() == memoryId,
+  //       orElse: () => <String, dynamic>{},
+  //     );
+
+  //     if (memory.isEmpty) {
+  //       debugPrint('[AddMemoriesController] ⚠️ Memory not found with ID: $memoryId');
+  //       filteredMemories.clear();
+  //       hasActiveFilters.value = false;
+  //       isSearching.value = false;
+  //       selectedMemoryIds.value = [];
+  //       return;
+  //     }
+
+  //     // Set filtered memories to just this one memory
+  //     filteredMemories.value = [memory];
+
+  //     debugPrint('[AddMemoriesController] ✅ Showing memory: ${memory['title'] ?? 'Untitled'}');
+  //     debugPrint('[AddMemoriesController] 📋 Memory ID filter active');
+
+  //     // Sync to MapController if opened from map
+  //     if (isOpenedFromMap) {
+  //       _syncFiltersToMapController();
+  //     }
+  //   } catch (e) {
+  //     debugPrint('[AddMemoriesController] ❌ Error showing memory by ID: $e');
+  //     selectedMemoryIds.value = [];
+  //     hasActiveFilters.value = false;
+  //     isSearching.value = false;
+  //   }
+  // }
+
+  // // Helper method to clear filters without closing the filter panel
   void _clearFiltersWithoutClosing() {
     filterValues.clear();
     selectedLocation.value = '';

@@ -195,13 +195,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                   : uiController.mainColor.value == 'blue'
                   ? Color(0xFF92C3FF)
                   : uiController.primaryColor,
-          // boxShadow: [
-          //   BoxShadow(
-          //     color: Colors.black.withOpacity(0.11),
-          //     blurRadius: 10,
-          //     offset: const Offset(0, 2),
-          //   ),
-          // ],
+         
         ),
         height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
@@ -222,36 +216,23 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                         mapController?.isFilterOpen.value = false;
                       },
                       onReset: () async {
-                        mapController?.refreshMapView();
+
+                            final mapController = Get.find<MapControllerNew>();
+
+                        // mapController?.refreshMapView();
                         controller.resetFilters();
                         mapController?.resetFilters();
-                        mapController?.isFilterOpen.value = false;
-                        mapController?.loadMemoriesFromDB();
-
-                        Future.delayed(Duration(milliseconds: 200), () {
-                          mapController?.initializeMapAfterCreation();
-                        });
-                        //  await _applyFiltersAndReloadMap();
-                        // mapController.
-                        await mapController?.refreshMapView();
-
-                        // var memories = await addMemoriesController.syncFiltersAndLoadMemories();
-
-                        mapController?.loadMemoriesFromDB();
-
-                        //  loadMemoriesFromDB();
-
-                        Future.delayed(Duration(milliseconds: 200), () {
-                          mapController?.initializeMapAfterCreation();
-                        });
+                       Future.delayed(Duration(milliseconds: 500), () {
+                        closefilterAndReset(mapController);
+                       });
                       },
-                      onApply: () {
+                      onApply: () async {
+
+                        final mapController = Get.find<MapControllerNew>();
                         controller.applyFilters();
-                        // applyFilters() already closes the panel, no need to call closeFilter()
-                        if (widget.isOpenedFromMap) {
-                          mapController?.loadFilteredMemoriesFromDB();
-                          mapController?.handleFilterApplyFromMap();
-                        }
+                        mapController?.closeFilter();
+                        await mapController?.loadFilteredMemoriesFromDB();
+                        mapController?.handleFilterApplyFromMap();
                       },
                       hideButtons:
                           _focusedSearchField
@@ -660,5 +641,11 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
         ),
       ),
     );
+  }
+  
+  Future<void> closefilterAndReset(MapControllerNew? mapController) async {
+     mapController?.isFilterOpen.value = false;
+                        await mapController?.loadMemoriesFromDB(null);
+                        mapController?.showLoadedDataOnMap();
   }
 }
