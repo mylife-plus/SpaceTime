@@ -1,4 +1,3 @@
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -29,7 +28,8 @@ class AddMemoriesController extends GetxController {
   final RxBool isUIVisible = true.obs;
 
   // Track search type and memory data for description-based searches
-  var searchType = 'general'.obs; // 'general', 'hashtag', 'mention', 'description'
+  var searchType =
+      'general'.obs; // 'general', 'hashtag', 'mention', 'description'
   var searchSuggestionsWithMetadata = <Map<String, dynamic>>[].obs;
 
   late ScrollController scrollController;
@@ -44,7 +44,8 @@ class AddMemoriesController extends GetxController {
   final RxList<String> selectedHashtags = <String>[].obs;
   final RxList<String> selectedContacts = <String>[].obs;
   final RxList<String> selectedCategories = <String>[].obs;
-  final RxList<String> selectedMemoryIds = <String>[].obs; // Filter by specific memory IDs
+  final RxList<String> selectedMemoryIds =
+      <String>[].obs; // Filter by specific memory IDs
   final RxBool hasActiveFilters = false.obs;
 
   // Cached hierarchical data for display logic
@@ -192,7 +193,9 @@ class AddMemoriesController extends GetxController {
       applyFilters();
     }
 
-    debugPrint('AddMemoriesController: onAgainInit completed - filters preserved: ${hasActiveFilters.value}');
+    debugPrint(
+      'AddMemoriesController: onAgainInit completed - filters preserved: ${hasActiveFilters.value}',
+    );
   }
 
   // Load memories from database
@@ -334,11 +337,10 @@ class AddMemoriesController extends GetxController {
   Future<Map<String, dynamic>> transformDatabaseMemoryToUI(
     Map<String, dynamic> dbMemory,
   ) async {
-
     final createdAt = DateTime.tryParse(dbMemory['created_at'] ?? '');
-    
+
     final date = _formatDate(dbMemory['date'], dbMemory['created_at']);
-    
+
     final year = _formatYear(dbMemory['date'], dbMemory['created_at']);
 
     // Get images from the new 'images' field (loaded from separate table)
@@ -384,7 +386,9 @@ class AddMemoriesController extends GetxController {
 
     // Get video data from the new 'videos' field (loaded from separate table)
     final videosRaw = dbMemory['videos'];
-    debugPrint('🎥 Videos raw from DB (type: ${videosRaw.runtimeType}): $videosRaw');
+    debugPrint(
+      '🎥 Videos raw from DB (type: ${videosRaw.runtimeType}): $videosRaw',
+    );
 
     List<Map<String, dynamic>>? videosList;
     if (videosRaw is List) {
@@ -405,7 +409,9 @@ class AddMemoriesController extends GetxController {
           debugPrint('🎥 Video map keys: ${video.keys}');
           final relativePath = video['video_file_path'] as String;
           final absolutePath = await _getAbsolutePath(relativePath);
-          debugPrint('🎥 Converting video path: $relativePath -> $absolutePath');
+          debugPrint(
+            '🎥 Converting video path: $relativePath -> $absolutePath',
+          );
           return absolutePath;
         }),
       );
@@ -421,7 +427,9 @@ class AddMemoriesController extends GetxController {
       debugPrint('🎥 Video thumbnails: $videoThumbnails');
       debugPrint('🎥 Video durations: $videoDurations');
     } else {
-      debugPrint('🎥 No videos found in database for this memory (videosList is ${videosList == null ? "null" : "empty"})');
+      debugPrint(
+        '🎥 No videos found in database for this memory (videosList is ${videosList == null ? "null" : "empty"})',
+      );
     }
 
     // Format location coordinates
@@ -473,7 +481,9 @@ class AddMemoriesController extends GetxController {
       'created_at': dbMemory['created_at'],
     };
 
-    debugPrint('🎯 Transformed memory ${result['id']}: videoPaths=${result['videoPaths']}, images=${result['assetsImg']?.length}');
+    debugPrint(
+      '🎯 Transformed memory ${result['id']}: videoPaths=${result['videoPaths']}, images=${result['assetsImg']?.length}',
+    );
 
     return result;
   }
@@ -672,17 +682,20 @@ class AddMemoriesController extends GetxController {
     } else if (query.startsWith('@')) {
       searchType.value = 'mention';
     } else {
-      searchType.value = 'mixed'; // Changed from 'description' to 'mixed' for all types
+      searchType.value =
+          'mixed'; // Changed from 'description' to 'mixed' for all types
     }
 
     final suggestionsWithMetadata = <Map<String, dynamic>>[];
     final normalizedQuery = SearchUtils.normalizeText(query);
-    final queryWithoutPrefix = query.startsWith('#') || query.startsWith('@')
-        ? SearchUtils.normalizeText(query.substring(1))
-        : normalizedQuery;
+    final queryWithoutPrefix =
+        query.startsWith('#') || query.startsWith('@')
+            ? SearchUtils.normalizeText(query.substring(1))
+            : normalizedQuery;
 
     // Track unique suggestions to avoid duplicates
-    final seenMemoryIds = <int>{}; // Track memory IDs for description/location/category matches
+    final seenMemoryIds =
+        <int>{}; // Track memory IDs for description/location/category matches
     final seenHashtags = <String>{};
     final seenMentions = <String>{};
 
@@ -812,7 +825,8 @@ class AddMemoriesController extends GetxController {
             'location_country': locationCountry,
             'location_flag': locationFlag,
             'type': matchType,
-            'memoryId': memoryId, // Add memory ID for filtering to specific memory
+            'memoryId':
+                memoryId, // Add memory ID for filtering to specific memory
           });
         }
 
@@ -850,11 +864,15 @@ class AddMemoriesController extends GetxController {
       }
     }
 
-    searchSuggestionsWithMetadata.value = suggestionsWithMetadata.take(10).toList();
+    searchSuggestionsWithMetadata.value =
+        suggestionsWithMetadata.take(10).toList();
     showSuggestions.value = suggestionsWithMetadata.isNotEmpty;
   }
 
-  void selectSuggestion(String suggestion, {Map<String, dynamic>? suggestionData}) {
+  void selectSuggestion(
+    String suggestion, {
+    Map<String, dynamic>? suggestionData,
+  }) {
     searchQuery.value = suggestion;
     showSuggestions.value = false;
 
@@ -868,11 +886,14 @@ class AddMemoriesController extends GetxController {
           memoryId != null) {
         // Filter to show only this specific memory
         isSearching.value = true;
-        filteredMemories.value = allMemories.where((memory) {
-          return memory['id'] == memoryId;
-        }).toList();
+        filteredMemories.value =
+            allMemories.where((memory) {
+              return memory['id'] == memoryId;
+            }).toList();
 
-        debugPrint('Selected specific memory with ID: $memoryId, showing ${filteredMemories.length} memory');
+        debugPrint(
+          'Selected specific memory with ID: $memoryId, showing ${filteredMemories.length} memory',
+        );
         isSearchActive.value = false;
         return;
       }
@@ -906,17 +927,18 @@ class AddMemoriesController extends GetxController {
 
     // If filters are active, apply them first
     if (hasActiveFilters.value) {
-      memoriesToSearch = allMemories.where((memory) {
-        final helper = _MemoryFilterHelper(memory);
-        return helper.matchesAdvancedFilters(
-          filterValues,
-          selectedLocation.value,
-          selectedRadius.value,
-          selectedHashtags,
-          selectedContacts,
-          selectedCategories,
-        );
-      }).toList();
+      memoriesToSearch =
+          allMemories.where((memory) {
+            final helper = _MemoryFilterHelper(memory);
+            return helper.matchesAdvancedFilters(
+              filterValues,
+              selectedLocation.value,
+              selectedRadius.value,
+              selectedHashtags,
+              selectedContacts,
+              selectedCategories,
+            );
+          }).toList();
     }
 
     // Then apply search on top of filtered results
@@ -1084,80 +1106,108 @@ class AddMemoriesController extends GetxController {
 
   void addHashtagGroup(HashtagGroup group) async {
     final groupName = group.name;
-    debugPrint("[AddMemoriesController] Adding hashtag group: $groupName (id: ${group.id}, parentId: ${group.parentId})");
+    debugPrint(
+      "[AddMemoriesController] Adding hashtag group: $groupName (id: ${group.id}, parentId: ${group.parentId})",
+    );
 
     // If this is a main group, fetch and add all subgroups
     if (group.isMainGroup && group.id != null) {
       try {
         final hashtagGroupService = Get.find<HashtagGroupService>();
         final subgroups = await hashtagGroupService.getSubgroups(group.id!);
-        debugPrint("[AddMemoriesController] Fetched ${subgroups.length} subgroups for main group: $groupName");
+        debugPrint(
+          "[AddMemoriesController] Fetched ${subgroups.length} subgroups for main group: $groupName",
+        );
 
         // Remove all existing subgroups first (remove before add logic)
         for (final subgroup in subgroups) {
           if (selectedHashtags.contains(subgroup.name)) {
             selectedHashtags.remove(subgroup.name);
-            debugPrint("[AddMemoriesController]   - Removed existing subgroup: ${subgroup.name}");
+            debugPrint(
+              "[AddMemoriesController]   - Removed existing subgroup: ${subgroup.name}",
+            );
           }
         }
 
         // Now add all subgroups fresh
         for (final subgroup in subgroups) {
           selectedHashtags.add(subgroup.name);
-          debugPrint("[AddMemoriesController]   - Added subgroup: ${subgroup.name}");
+          debugPrint(
+            "[AddMemoriesController]   - Added subgroup: ${subgroup.name}",
+          );
         }
 
         _updateFilterStatus();
-        debugPrint("[AddMemoriesController] Added ${subgroups.length} subgroups from hashtag group: $groupName (total selected: ${selectedHashtags.length})");
+        debugPrint(
+          "[AddMemoriesController] Added ${subgroups.length} subgroups from hashtag group: $groupName (total selected: ${selectedHashtags.length})",
+        );
       } catch (e) {
-        debugPrint("[AddMemoriesController] Error fetching subgroups for $groupName: $e");
+        debugPrint(
+          "[AddMemoriesController] Error fetching subgroups for $groupName: $e",
+        );
       }
     } else {
       // For subgroups, just add the hashtag itself
       if (!selectedHashtags.contains(groupName)) {
         selectedHashtags.add(groupName);
         _updateFilterStatus();
-        debugPrint("[AddMemoriesController] Added hashtag: $groupName (total selected: ${selectedHashtags.length})");
+        debugPrint(
+          "[AddMemoriesController] Added hashtag: $groupName (total selected: ${selectedHashtags.length})",
+        );
       }
     }
   }
 
   void addContactGroup(ContactGroup group) async {
     final groupName = group.name;
-    debugPrint("[AddMemoriesController] Adding contact group: $groupName (id: ${group.id}, parentId: ${group.parentId})");
+    debugPrint(
+      "[AddMemoriesController] Adding contact group: $groupName (id: ${group.id}, parentId: ${group.parentId})",
+    );
 
     // If this is a main group, fetch and add all subgroups
     if (group.isMainGroup && group.id != null) {
       try {
         final contactGroupService = Get.find<ContactGroupService>();
         final subgroups = await contactGroupService.getSubgroups(group.id!);
-        debugPrint("[AddMemoriesController] Fetched ${subgroups.length} subgroups for main group: $groupName");
+        debugPrint(
+          "[AddMemoriesController] Fetched ${subgroups.length} subgroups for main group: $groupName",
+        );
 
         // Remove all existing subgroups first (remove before add logic)
         for (final subgroup in subgroups) {
           if (selectedContacts.contains(subgroup.name)) {
             selectedContacts.remove(subgroup.name);
-            debugPrint("[AddMemoriesController]   - Removed existing subgroup: ${subgroup.name}");
+            debugPrint(
+              "[AddMemoriesController]   - Removed existing subgroup: ${subgroup.name}",
+            );
           }
         }
 
         // Now add all subgroups fresh
         for (final subgroup in subgroups) {
           selectedContacts.add(subgroup.name);
-          debugPrint("[AddMemoriesController]   - Added subgroup: ${subgroup.name}");
+          debugPrint(
+            "[AddMemoriesController]   - Added subgroup: ${subgroup.name}",
+          );
         }
 
         _updateFilterStatus();
-        debugPrint("[AddMemoriesController] Added ${subgroups.length} subgroups from contact group: $groupName (total selected: ${selectedContacts.length})");
+        debugPrint(
+          "[AddMemoriesController] Added ${subgroups.length} subgroups from contact group: $groupName (total selected: ${selectedContacts.length})",
+        );
       } catch (e) {
-        debugPrint("[AddMemoriesController] Error fetching subgroups for $groupName: $e");
+        debugPrint(
+          "[AddMemoriesController] Error fetching subgroups for $groupName: $e",
+        );
       }
     } else {
       // For subgroups, just add the contact itself
       if (!selectedContacts.contains(groupName)) {
         selectedContacts.add(groupName);
         _updateFilterStatus();
-        debugPrint("[AddMemoriesController] Added contact: $groupName (total selected: ${selectedContacts.length})");
+        debugPrint(
+          "[AddMemoriesController] Added contact: $groupName (total selected: ${selectedContacts.length})",
+        );
       }
     }
   }
@@ -1171,20 +1221,24 @@ class AddMemoriesController extends GetxController {
   }
 
   void addCategoryGroup(PlaceCategory category) async {
-    final categoryWithEmoji = category.emoji.isNotEmpty
-        ? '${category.emoji} ${category.name}'
-        : category.name;
+    final categoryWithEmoji =
+        category.emoji.isNotEmpty
+            ? '${category.emoji} ${category.name}'
+            : category.name;
 
     if (!selectedCategories.contains(categoryWithEmoji)) {
       selectedCategories.add(categoryWithEmoji);
 
       // If this is a main category with subcategories, also add all subcategories
       if (category.isMainCategory && category.hasSubcategories) {
-        debugPrint("Adding main category with ${category.subcategories!.length} subcategories: $categoryWithEmoji");
+        debugPrint(
+          "Adding main category with ${category.subcategories!.length} subcategories: $categoryWithEmoji",
+        );
         for (final subcategory in category.subcategories!) {
-          final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
-              ? '${subcategory.emoji} ${subcategory.name}'
-              : subcategory.name;
+          final subCategoryWithEmoji =
+              subcategory.emoji.isNotEmpty
+                  ? '${subcategory.emoji} ${subcategory.name}'
+                  : subcategory.name;
           if (!selectedCategories.contains(subCategoryWithEmoji)) {
             selectedCategories.add(subCategoryWithEmoji);
             debugPrint("  - Added subcategory: $subCategoryWithEmoji");
@@ -1194,12 +1248,17 @@ class AddMemoriesController extends GetxController {
         // If main category doesn't have subcategories loaded, fetch them from service
         try {
           final placeCategoryService = Get.find<PlaceCategoryService>();
-          final subcategories = await placeCategoryService.getSubcategories(category.id!);
-          debugPrint("Fetched ${subcategories.length} subcategories for main category: $categoryWithEmoji");
+          final subcategories = await placeCategoryService.getSubcategories(
+            category.id!,
+          );
+          debugPrint(
+            "Fetched ${subcategories.length} subcategories for main category: $categoryWithEmoji",
+          );
           for (final subcategory in subcategories) {
-            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
-                ? '${subcategory.emoji} ${subcategory.name}'
-                : subcategory.name;
+            final subCategoryWithEmoji =
+                subcategory.emoji.isNotEmpty
+                    ? '${subcategory.emoji} ${subcategory.name}'
+                    : subcategory.name;
             if (!selectedCategories.contains(subCategoryWithEmoji)) {
               selectedCategories.add(subCategoryWithEmoji);
               debugPrint("  - Added subcategory: $subCategoryWithEmoji");
@@ -1211,7 +1270,9 @@ class AddMemoriesController extends GetxController {
       }
 
       _updateFilterStatus();
-      debugPrint("Added category group: $categoryWithEmoji (total selected: ${selectedCategories.length})");
+      debugPrint(
+        "Added category group: $categoryWithEmoji (total selected: ${selectedCategories.length})",
+      );
     }
   }
 
@@ -1239,15 +1300,22 @@ class AddMemoriesController extends GetxController {
 
   /// Replace all selected categories with new selection from picker
   void replaceSelectedCategories(List<PlaceCategory> categories) {
-    debugPrint('[AddMemoriesController] Replacing selected categories with ${categories.length} new categories');
-    debugPrint('[AddMemoriesController] Before clear: ${selectedCategories.length} categories');
+    debugPrint(
+      '[AddMemoriesController] Replacing selected categories with ${categories.length} new categories',
+    );
+    debugPrint(
+      '[AddMemoriesController] Before clear: ${selectedCategories.length} categories',
+    );
     selectedCategories.clear();
-    debugPrint('[AddMemoriesController] After clear: ${selectedCategories.length} categories');
+    debugPrint(
+      '[AddMemoriesController] After clear: ${selectedCategories.length} categories',
+    );
 
     for (final category in categories) {
-      final categoryWithEmoji = category.emoji.isNotEmpty
-          ? '${category.emoji} ${category.name}'
-          : category.name;
+      final categoryWithEmoji =
+          category.emoji.isNotEmpty
+              ? '${category.emoji} ${category.name}'
+              : category.name;
       selectedCategories.add(categoryWithEmoji);
       debugPrint('[AddMemoriesController] Added category: $categoryWithEmoji');
     }
@@ -1256,16 +1324,26 @@ class AddMemoriesController extends GetxController {
     selectedCategories.refresh();
 
     _updateFilterStatus();
-    debugPrint('[AddMemoriesController] Categories replaced. Total: ${selectedCategories.length}');
-    debugPrint('[AddMemoriesController] Final categories: ${selectedCategories.join(", ")}');
+    debugPrint(
+      '[AddMemoriesController] Categories replaced. Total: ${selectedCategories.length}',
+    );
+    debugPrint(
+      '[AddMemoriesController] Final categories: ${selectedCategories.join(", ")}',
+    );
   }
 
   /// Replace all selected hashtags with new selection from picker
   void replaceSelectedHashtags(List<HashtagGroup> groups) {
-    debugPrint('[AddMemoriesController] Replacing selected hashtags with ${groups.length} new groups');
-    debugPrint('[AddMemoriesController] Before clear: ${selectedHashtags.length} hashtags');
+    debugPrint(
+      '[AddMemoriesController] Replacing selected hashtags with ${groups.length} new groups',
+    );
+    debugPrint(
+      '[AddMemoriesController] Before clear: ${selectedHashtags.length} hashtags',
+    );
     selectedHashtags.clear();
-    debugPrint('[AddMemoriesController] After clear: ${selectedHashtags.length} hashtags');
+    debugPrint(
+      '[AddMemoriesController] After clear: ${selectedHashtags.length} hashtags',
+    );
 
     for (final group in groups) {
       selectedHashtags.add(group.name);
@@ -1276,16 +1354,26 @@ class AddMemoriesController extends GetxController {
     selectedHashtags.refresh();
 
     _updateFilterStatus();
-    debugPrint('[AddMemoriesController] Hashtags replaced. Total: ${selectedHashtags.length}');
-    debugPrint('[AddMemoriesController] Final hashtags: ${selectedHashtags.join(", ")}');
+    debugPrint(
+      '[AddMemoriesController] Hashtags replaced. Total: ${selectedHashtags.length}',
+    );
+    debugPrint(
+      '[AddMemoriesController] Final hashtags: ${selectedHashtags.join(", ")}',
+    );
   }
 
   /// Replace all selected contacts with new selection from picker
   void replaceSelectedContacts(List<ContactGroup> groups) {
-    debugPrint('[AddMemoriesController] Replacing selected contacts with ${groups.length} new groups');
-    debugPrint('[AddMemoriesController] Before clear: ${selectedContacts.length} contacts');
+    debugPrint(
+      '[AddMemoriesController] Replacing selected contacts with ${groups.length} new groups',
+    );
+    debugPrint(
+      '[AddMemoriesController] Before clear: ${selectedContacts.length} contacts',
+    );
     selectedContacts.clear();
-    debugPrint('[AddMemoriesController] After clear: ${selectedContacts.length} contacts');
+    debugPrint(
+      '[AddMemoriesController] After clear: ${selectedContacts.length} contacts',
+    );
 
     for (final group in groups) {
       selectedContacts.add(group.name);
@@ -1296,8 +1384,12 @@ class AddMemoriesController extends GetxController {
     selectedContacts.refresh();
 
     _updateFilterStatus();
-    debugPrint('[AddMemoriesController] Contacts replaced. Total: ${selectedContacts.length}');
-    debugPrint('[AddMemoriesController] Final contacts: ${selectedContacts.join(", ")}');
+    debugPrint(
+      '[AddMemoriesController] Contacts replaced. Total: ${selectedContacts.length}',
+    );
+    debugPrint(
+      '[AddMemoriesController] Final contacts: ${selectedContacts.join(", ")}',
+    );
   }
 
   void _updateFilterStatus() {
@@ -1305,7 +1397,9 @@ class AddMemoriesController extends GetxController {
   }
 
   /// Check if a removed hashtag was a subcategory and remove main group if all subcategories are gone
-  Future<void> _checkAndRemoveHashtagMainGroupIfNeeded(String removedHashtag) async {
+  Future<void> _checkAndRemoveHashtagMainGroupIfNeeded(
+    String removedHashtag,
+  ) async {
     try {
       final hashtagGroupService = Get.find<HashtagGroupService>();
       final allGroups = await hashtagGroupService.getAllGroupsHierarchical();
@@ -1325,7 +1419,9 @@ class AddMemoriesController extends GetxController {
       }
 
       if (parentMainGroup != null) {
-        debugPrint("Found parent main group for removed hashtag '$removedHashtag': ${parentMainGroup.name}");
+        debugPrint(
+          "Found parent main group for removed hashtag '$removedHashtag': ${parentMainGroup.name}",
+        );
 
         // Check if any subcategories of this main group are still selected
         bool hasRemainingSubcategories = false;
@@ -1339,9 +1435,12 @@ class AddMemoriesController extends GetxController {
         }
 
         // If no subcategories remain and main group is selected, remove it
-        if (!hasRemainingSubcategories && selectedHashtags.contains(parentMainGroup.name)) {
+        if (!hasRemainingSubcategories &&
+            selectedHashtags.contains(parentMainGroup.name)) {
           selectedHashtags.remove(parentMainGroup.name);
-          debugPrint("Removed main hashtag group '${parentMainGroup.name}' as all its subcategories were removed");
+          debugPrint(
+            "Removed main hashtag group '${parentMainGroup.name}' as all its subcategories were removed",
+          );
         }
       }
     } catch (e) {
@@ -1350,7 +1449,9 @@ class AddMemoriesController extends GetxController {
   }
 
   /// Check if a removed contact was a subcategory and remove main group if all subcategories are gone
-  Future<void> _checkAndRemoveContactMainGroupIfNeeded(String removedContact) async {
+  Future<void> _checkAndRemoveContactMainGroupIfNeeded(
+    String removedContact,
+  ) async {
     try {
       final contactGroupService = Get.find<ContactGroupService>();
       final allGroups = await contactGroupService.getAllGroupsHierarchical();
@@ -1370,7 +1471,9 @@ class AddMemoriesController extends GetxController {
       }
 
       if (parentMainGroup != null) {
-        debugPrint("Found parent main group for removed contact '$removedContact': ${parentMainGroup.name}");
+        debugPrint(
+          "Found parent main group for removed contact '$removedContact': ${parentMainGroup.name}",
+        );
 
         // Check if any subcategories of this main group are still selected
         bool hasRemainingSubcategories = false;
@@ -1384,9 +1487,12 @@ class AddMemoriesController extends GetxController {
         }
 
         // If no subcategories remain and main group is selected, remove it
-        if (!hasRemainingSubcategories && selectedContacts.contains(parentMainGroup.name)) {
+        if (!hasRemainingSubcategories &&
+            selectedContacts.contains(parentMainGroup.name)) {
           selectedContacts.remove(parentMainGroup.name);
-          debugPrint("Removed main contact group '${parentMainGroup.name}' as all its subcategories were removed");
+          debugPrint(
+            "Removed main contact group '${parentMainGroup.name}' as all its subcategories were removed",
+          );
         }
       }
     } catch (e) {
@@ -1395,19 +1501,23 @@ class AddMemoriesController extends GetxController {
   }
 
   /// Check if a removed category was a subcategory and remove main category if all subcategories are gone
-  Future<void> _checkAndRemoveCategoryMainGroupIfNeeded(String removedCategory) async {
+  Future<void> _checkAndRemoveCategoryMainGroupIfNeeded(
+    String removedCategory,
+  ) async {
     try {
       final placeCategoryService = Get.find<PlaceCategoryService>();
-      final allCategories = await placeCategoryService.getAllCategoriesHierarchical();
+      final allCategories =
+          await placeCategoryService.getAllCategoriesHierarchical();
 
       // Find which main category this subcategory belongs to
       PlaceCategory? parentMainCategory;
       for (final mainCategory in allCategories) {
         if (mainCategory.subcategories != null) {
           for (final subcategory in mainCategory.subcategories!) {
-            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
-                ? '${subcategory.emoji} ${subcategory.name}'
-                : subcategory.name;
+            final subCategoryWithEmoji =
+                subcategory.emoji.isNotEmpty
+                    ? '${subcategory.emoji} ${subcategory.name}'
+                    : subcategory.name;
             if (subCategoryWithEmoji == removedCategory) {
               parentMainCategory = mainCategory;
               break;
@@ -1418,18 +1528,22 @@ class AddMemoriesController extends GetxController {
       }
 
       if (parentMainCategory != null) {
-        final mainCategoryWithEmoji = parentMainCategory.emoji.isNotEmpty
-            ? '${parentMainCategory.emoji} ${parentMainCategory.name}'
-            : parentMainCategory.name;
-        debugPrint("Found parent main category for removed category '$removedCategory': $mainCategoryWithEmoji");
+        final mainCategoryWithEmoji =
+            parentMainCategory.emoji.isNotEmpty
+                ? '${parentMainCategory.emoji} ${parentMainCategory.name}'
+                : parentMainCategory.name;
+        debugPrint(
+          "Found parent main category for removed category '$removedCategory': $mainCategoryWithEmoji",
+        );
 
         // Check if any subcategories of this main category are still selected
         bool hasRemainingSubcategories = false;
         if (parentMainCategory.subcategories != null) {
           for (final subcategory in parentMainCategory.subcategories!) {
-            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
-                ? '${subcategory.emoji} ${subcategory.name}'
-                : subcategory.name;
+            final subCategoryWithEmoji =
+                subcategory.emoji.isNotEmpty
+                    ? '${subcategory.emoji} ${subcategory.name}'
+                    : subcategory.name;
             if (selectedCategories.contains(subCategoryWithEmoji)) {
               hasRemainingSubcategories = true;
               break;
@@ -1438,9 +1552,12 @@ class AddMemoriesController extends GetxController {
         }
 
         // If no subcategories remain and main category is selected, remove it
-        if (!hasRemainingSubcategories && selectedCategories.contains(mainCategoryWithEmoji)) {
+        if (!hasRemainingSubcategories &&
+            selectedCategories.contains(mainCategoryWithEmoji)) {
           selectedCategories.remove(mainCategoryWithEmoji);
-          debugPrint("Removed main category '$mainCategoryWithEmoji' as all its subcategories were removed");
+          debugPrint(
+            "Removed main category '$mainCategoryWithEmoji' as all its subcategories were removed",
+          );
         }
       }
     } catch (e) {
@@ -1557,7 +1674,9 @@ class AddMemoriesController extends GetxController {
     selectedCategories.addAll(_backupSelectedCategories);
 
     isFilterOpen.value = false;
-    debugPrint('[AddMemoriesController] Filter closed, state restored from backup');
+    debugPrint(
+      '[AddMemoriesController] Filter closed, state restored from backup',
+    );
   }
 
   void _closeFilterPanelOnly() {
@@ -1654,15 +1773,21 @@ class AddMemoriesController extends GetxController {
 
   // Apply filters based on filter values
   void applyFilters({List<int>? memoryIds}) {
-    _clearFiltersWithoutClosing();
+    if (memoryIds != null) {
+      _clearFiltersWithoutClosing();
+    }
     // Note: When opened from map, we apply filters directly without navigation
     // The navigation is handled by the MapController
-    debugPrint('=== APPLYING FILTERS (isOpenedFromMap: $isOpenedFromMap, memoryIds: $memoryIds) ===');
+    debugPrint(
+      '=== APPLYING FILTERS (isOpenedFromMap: $isOpenedFromMap, memoryIds: $memoryIds) ===',
+    );
 
     // If memory IDs are provided, set them as a filter
     if (memoryIds != null && memoryIds.isNotEmpty) {
       selectedMemoryIds.value = memoryIds.map((id) => id.toString()).toList();
-      debugPrint('[AddMemoriesController] 🎯 Memory IDs filter set: $memoryIds');
+      debugPrint(
+        '[AddMemoriesController] 🎯 Memory IDs filter set: $memoryIds',
+      );
     }
 
     // Validate location and radius dependency
@@ -1730,22 +1855,31 @@ class AddMemoriesController extends GetxController {
 
     // If memory IDs filter is active, show only those specific memories
     if (selectedMemoryIds.isNotEmpty) {
-      debugPrint('[AddMemoriesController] 🎯 Applying memory IDs filter: ${selectedMemoryIds.join(", ")}');
+      debugPrint(
+        '[AddMemoriesController] 🎯 Applying memory IDs filter: ${selectedMemoryIds.join(", ")}',
+      );
 
-      final memories = allMemories.where((m) {
-        final memoryId = m['id']?.toString();
-        return selectedMemoryIds.contains(memoryId);
-      }).toList();
+      final memories =
+          allMemories.where((m) {
+            final memoryId = m['id']?.toString();
+            return selectedMemoryIds.contains(memoryId);
+          }).toList();
 
       if (memories.isEmpty) {
-        debugPrint('[AddMemoriesController] ⚠️ No memories found with IDs: ${selectedMemoryIds.join(", ")}');
+        debugPrint(
+          '[AddMemoriesController] ⚠️ No memories found with IDs: ${selectedMemoryIds.join(", ")}',
+        );
         filteredMemories.value = [];
       } else {
-        debugPrint('[AddMemoriesController] ✅ Found ${memories.length} memories with IDs: ${selectedMemoryIds.join(", ")}');
+        debugPrint(
+          '[AddMemoriesController] ✅ Found ${memories.length} memories with IDs: ${selectedMemoryIds.join(", ")}',
+        );
         filteredMemories.value = memories;
       }
 
-      debugPrint('[AddMemoriesController] 📊 Memory IDs filter applied: ${filteredMemories.length} memories');
+      debugPrint(
+        '[AddMemoriesController] 📊 Memory IDs filter applied: ${filteredMemories.length} memories',
+      );
       return;
     }
 
@@ -1822,7 +1956,9 @@ class AddMemoriesController extends GetxController {
   // Helper method to sync filters to MapController
   void _syncFiltersToMapController() {
     if (!Get.isRegistered<MapControllerNew>()) {
-      debugPrint('[AddMemoriesController] MapController not registered, skipping sync');
+      debugPrint(
+        '[AddMemoriesController] MapController not registered, skipping sync',
+      );
       return;
     }
 
@@ -1847,19 +1983,22 @@ class AddMemoriesController extends GetxController {
         ..addAll(selectedCategories);
       mapController.hasActiveFilters.value = hasActiveFilters.value;
 
-  mapController?.refreshMapView();
+      mapController?.refreshMapView();
 
-  mapController?.loadMemoriesFromDB();
-    Future.delayed(Duration(milliseconds: 200), () {
-        mapController?.
-initializeMapAfterCreation();
-    });
-                          // controller.resetFilters();
-                          // mapController?.resetFilters();
-                          // mapController?.isFilterOpen.value = false;
-      debugPrint('[AddMemoriesController] Synced filters to MapController - Categories: ${selectedCategories.length}, Hashtags: ${selectedHashtags.length}, Contacts: ${selectedContacts.length}');
+      mapController?.loadMemoriesFromDB();
+      Future.delayed(Duration(milliseconds: 200), () {
+        mapController?.initializeMapAfterCreation();
+      });
+      // controller.resetFilters();
+      // mapController?.resetFilters();
+      // mapController?.isFilterOpen.value = false;
+      debugPrint(
+        '[AddMemoriesController] Synced filters to MapController - Categories: ${selectedCategories.length}, Hashtags: ${selectedHashtags.length}, Contacts: ${selectedContacts.length}',
+      );
     } catch (e) {
-      debugPrint('[AddMemoriesController] Failed to sync filters to MapController: $e');
+      debugPrint(
+        '[AddMemoriesController] Failed to sync filters to MapController: $e',
+      );
     }
   }
 
@@ -1867,7 +2006,9 @@ initializeMapAfterCreation();
   /// Returns the filtered list of memories based on current filter settings
   Future<List<Map<String, dynamic>>> syncFiltersAndLoadMemories() async {
     try {
-      debugPrint('[AddMemoriesController] 🔄 Syncing filters and loading memories...');
+      debugPrint(
+        '[AddMemoriesController] 🔄 Syncing filters and loading memories...',
+      );
 
       if (!Get.isRegistered<MapControllerNew>()) {
         debugPrint('[AddMemoriesController] ⚠️ MapController not registered');
@@ -1913,15 +2054,22 @@ initializeMapAfterCreation();
       if (selectedMemoryIds.isNotEmpty) {
         debugPrint('  - Memory IDs: ${selectedMemoryIds.join(", ")}');
       }
-      if (selectedLocation.value.isNotEmpty && selectedRadius.value.isNotEmpty) {
-        debugPrint('  - Location: ${selectedLocation.value} (radius: ${selectedRadius.value}km)');
-      }      
+      if (selectedLocation.value.isNotEmpty &&
+          selectedRadius.value.isNotEmpty) {
+        debugPrint(
+          '  - Location: ${selectedLocation.value} (radius: ${selectedRadius.value}km)',
+        );
+      }
 
-      debugPrint('[AddMemoriesController] 📊 Loaded ${filteredMemories.length} filtered memories');
+      debugPrint(
+        '[AddMemoriesController] 📊 Loaded ${filteredMemories.length} filtered memories',
+      );
 
       return filteredMemories;
     } catch (e) {
-      debugPrint('[AddMemoriesController] ❌ Error syncing filters and loading memories: $e');
+      debugPrint(
+        '[AddMemoriesController] ❌ Error syncing filters and loading memories: $e',
+      );
       return [];
     }
   }
@@ -2055,10 +2203,11 @@ initializeMapAfterCreation();
       var locationLongitude = locationData['longitude']?.toDouble();
 
       // Get display name from various possible fields
-      var displayName = locationData['name'] ??
-                       locationData['address'] ??
-                       locationData['city'] ??
-                       'Selected Location';
+      var displayName =
+          locationData['name'] ??
+          locationData['address'] ??
+          locationData['city'] ??
+          'Selected Location';
 
       // Set selectedLocation as coordinates for filtering
       // Set selectedLocationDisplayName for UI display
@@ -2069,7 +2218,9 @@ initializeMapAfterCreation();
         selectedLocation.value = '$formattedLat,$formattedLng';
         selectedLocationDisplayName.value = displayName;
 
-        debugPrint('🎯 Set selectedLocation (coords): ${selectedLocation.value}');
+        debugPrint(
+          '🎯 Set selectedLocation (coords): ${selectedLocation.value}',
+        );
         debugPrint('🎯 Set selectedLocationDisplayName: $displayName');
       } else {
         selectedLocation.value = '';
@@ -2085,11 +2236,16 @@ initializeMapAfterCreation();
       final contactGroupService = Get.find<ContactGroupService>();
       final placeCategoryService = Get.find<PlaceCategoryService>();
 
-      _cachedHashtagGroups = await hashtagGroupService.getAllGroupsHierarchical();
-      _cachedContactGroups = await contactGroupService.getAllGroupsHierarchical();
-      _cachedCategories = await placeCategoryService.getAllCategoriesHierarchical();
+      _cachedHashtagGroups =
+          await hashtagGroupService.getAllGroupsHierarchical();
+      _cachedContactGroups =
+          await contactGroupService.getAllGroupsHierarchical();
+      _cachedCategories =
+          await placeCategoryService.getAllCategoriesHierarchical();
 
-      debugPrint('[AddMemoriesController] Loaded hierarchical data: ${_cachedHashtagGroups.length} hashtag groups, ${_cachedContactGroups.length} contact groups, ${_cachedCategories.length} categories');
+      debugPrint(
+        '[AddMemoriesController] Loaded hierarchical data: ${_cachedHashtagGroups.length} hashtag groups, ${_cachedContactGroups.length} contact groups, ${_cachedCategories.length} categories',
+      );
     } catch (e) {
       debugPrint('[AddMemoriesController][_loadHierarchicalData] Error: $e');
     }
@@ -2128,7 +2284,8 @@ initializeMapAfterCreation();
 
     // Add any selected hashtags that weren't processed (individual hashtags, not groups)
     for (final hashtag in selectedHashtags) {
-      if (!processedSubgroups.contains(hashtag) && !displayList.contains(hashtag)) {
+      if (!processedSubgroups.contains(hashtag) &&
+          !displayList.contains(hashtag)) {
         displayList.add(hashtag);
       }
     }
@@ -2169,7 +2326,8 @@ initializeMapAfterCreation();
 
     // Add any selected contacts that weren't processed (individual contacts, not groups)
     for (final contact in selectedContacts) {
-      if (!processedSubgroups.contains(contact) && !displayList.contains(contact)) {
+      if (!processedSubgroups.contains(contact) &&
+          !displayList.contains(contact)) {
         displayList.add(contact);
       }
     }
@@ -2183,37 +2341,42 @@ initializeMapAfterCreation();
     final processedSubcategories = <String>{};
 
     for (final mainCategory in _cachedCategories) {
-      final mainCategoryWithEmoji = mainCategory.emoji.isNotEmpty
-          ? '${mainCategory.emoji} ${mainCategory.name}'
-          : mainCategory.name;
+      final mainCategoryWithEmoji =
+          mainCategory.emoji.isNotEmpty
+              ? '${mainCategory.emoji} ${mainCategory.name}'
+              : mainCategory.name;
 
       if (mainCategory.hasSubcategories) {
         // Check if all subcategories are selected
-        final allSubcategoriesSelected = mainCategory.subcategories!.every(
-          (subcategory) {
-            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
-                ? '${subcategory.emoji} ${subcategory.name}'
-                : subcategory.name;
-            return selectedCategories.contains(subCategoryWithEmoji);
-          },
-        );
+        final allSubcategoriesSelected = mainCategory.subcategories!.every((
+          subcategory,
+        ) {
+          final subCategoryWithEmoji =
+              subcategory.emoji.isNotEmpty
+                  ? '${subcategory.emoji} ${subcategory.name}'
+                  : subcategory.name;
+          return selectedCategories.contains(subCategoryWithEmoji);
+        });
 
-        if (allSubcategoriesSelected && selectedCategories.contains(mainCategoryWithEmoji)) {
+        if (allSubcategoriesSelected &&
+            selectedCategories.contains(mainCategoryWithEmoji)) {
           // Show only main category
           displayList.add(mainCategoryWithEmoji);
           // Mark all subcategories as processed
           for (final subcategory in mainCategory.subcategories!) {
-            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
-                ? '${subcategory.emoji} ${subcategory.name}'
-                : subcategory.name;
+            final subCategoryWithEmoji =
+                subcategory.emoji.isNotEmpty
+                    ? '${subcategory.emoji} ${subcategory.name}'
+                    : subcategory.name;
             processedSubcategories.add(subCategoryWithEmoji);
           }
         } else {
           // Show individual subcategories that are selected
           for (final subcategory in mainCategory.subcategories!) {
-            final subCategoryWithEmoji = subcategory.emoji.isNotEmpty
-                ? '${subcategory.emoji} ${subcategory.name}'
-                : subcategory.name;
+            final subCategoryWithEmoji =
+                subcategory.emoji.isNotEmpty
+                    ? '${subcategory.emoji} ${subcategory.name}'
+                    : subcategory.name;
             if (selectedCategories.contains(subCategoryWithEmoji)) {
               displayList.add(subCategoryWithEmoji);
               processedSubcategories.add(subCategoryWithEmoji);
@@ -2225,7 +2388,8 @@ initializeMapAfterCreation();
 
     // Add any selected categories that weren't processed (individual categories, not groups)
     for (final category in selectedCategories) {
-      if (!processedSubcategories.contains(category) && !displayList.contains(category)) {
+      if (!processedSubcategories.contains(category) &&
+          !displayList.contains(category)) {
         displayList.add(category);
       }
     }
