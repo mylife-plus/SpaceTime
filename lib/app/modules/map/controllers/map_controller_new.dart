@@ -357,7 +357,24 @@ class MapControllerNew extends GetxController {
     await clearAllLines();
     await _setupMapboxClustering(_currentMemories);
     await generateAndDisplayArrowsAsSymbols(_currentMemories, mapboxMap!);
+
     handleMapTap();
+    if (_currentMemories.value.length > 0) {
+      await mapboxMap!.flyTo(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(
+              _currentMemories.last['location_longitude'],
+              _currentMemories.last['location_latitude'],
+            ),
+          ),
+          zoom: 1,
+          bearing: 0,
+          pitch: 0,
+        ),
+        mapbox.MapAnimationOptions(duration: 1500),
+      );
+    }
   }
 
   /// Retry getting location permissions
@@ -1357,7 +1374,6 @@ class MapControllerNew extends GetxController {
 
   /// Handle filter apply action when overlay is launched from the map
   Future<void> handleFilterApplyFromMap({List<int>? memoryIds}) async {
-
     final addMemoriesController = Get.find<AddMemoriesController>();
 
     addMemoriesController.isOpenedFromMap = true;
@@ -1377,7 +1393,6 @@ class MapControllerNew extends GetxController {
     print('Syncing Filtered Memories ${memories.length}');
 
     if (!hasActiveFilters.value) {
-
       await loadMemoriesFromDB(null);
 
       return;
@@ -3311,13 +3326,32 @@ class MapControllerNew extends GetxController {
         await mapboxMap!.style.setStyleLayerProperty(
           CLUSTERS_CIRCLE_LAYER_ID,
           'circle-color',
-          [
-            'step',
-            ['get', 'point_count'],
-            '#51bbd6', // <= first threshold
-            100, '#f1f075',
-            750, '#f28cb1',
-          ],
+  [
+    'match',
+    ['get', 'latest_color_index'],
+    0, '#2196F3',
+    1, '#4CAF50',
+    2, '#FF9800',
+    3, '#9C27B0',
+    4, '#F44336',
+    5, '#00BCD4',
+    6, '#FFEB3B',
+    7, '#795548',
+    8, '#607D8B',
+    9, '#E91E63',
+    10, '#3F51B5',
+    11, '#009688',
+    12, '#FF5722',
+    13, '#8BC34A',
+    14, '#CDDC39',
+    15, '#FFC107',
+    16, '#673AB7',
+    17, '#00E676',
+    18, '#FF1744',
+    19, '#2979FF',
+    '#4A90E2',
+  ],
+
         );
       } catch (_) {}
 
@@ -3385,26 +3419,7 @@ class MapControllerNew extends GetxController {
           ),
         );
 
-        try {
-          await mapboxMap!.style.setStyleLayerProperty(
-            UNCLUSTERED_LAYER_ID,
-            'circle-color',
-            [
-              'match',
-              ['get', 'toMemoryYear'],
-              2020.0, Colors.red.value.toRGBA(),
-              2021.0, Colors.green.value.toRGBA(),
-              2022.0, Colors.purple.value.toRGBA(),
-              2023.0, Colors.purple.value.toRGBA(),
-              2024.0, Colors.deepOrange.value.toRGBA(),
-              2025.0, Colors.orange.value.toRGBA(),
-              2026.0, Colors.pink.value.toRGBA(),
-              Colors.blue.value.toRGBA(), // Default
-            ],
-          );
-        } catch (e) {
-          print('MapControllerNew toMemoryYear circle-color erro $e');
-        }
+       
         debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
 
         debugPrint('[MapControllerNew] ✅ Individual point icon layer added');
@@ -3440,18 +3455,7 @@ class MapControllerNew extends GetxController {
           await mapboxMap!.style.setStyleLayerProperty(
             UNCLUSTERED_LAYER_ID,
             'circle-color',
-            [
-              'match',
-              ['get', 'toMemoryYear'],
-              2020.0, Colors.red.value.toRGBA(),
-              2021.0, Colors.green.value.toRGBA(),
-              2022.0, Colors.purple.value.toRGBA(),
-              2023.0, Colors.purple.value.toRGBA(),
-              2024.0, Colors.deepOrange.value.toRGBA(),
-              2025.0, Colors.orange.value.toRGBA(),
-              2026.0, Colors.pink.value.toRGBA(),
-              Colors.blue.value.toRGBA(), // Default
-            ],
+            ['get', 'color'],
           );
         } catch (e) {
           print('MapControllerNew toMemoryYear circle-color erro $e');
@@ -4097,7 +4101,7 @@ class MapControllerNew extends GetxController {
 
     final strokePaint =
         Paint()
-          ..color = fillColor
+          ..color = Colors.white // always white
           ..style = PaintingStyle.stroke
           ..strokeWidth = size * 0.12
           ..strokeCap = StrokeCap.round
@@ -4124,8 +4128,8 @@ class MapControllerNew extends GetxController {
     try {
       // 1️⃣ Sort memories by date
       final sorted = List<Map<String, dynamic>>.from(memories)..sort((a, b) {
-        final ad = DateTime.tryParse(a['memory_date'] ?? '') ?? DateTime.now();
-        final bd = DateTime.tryParse(b['memory_date'] ?? '') ?? DateTime.now();
+        final ad = DateTime.tryParse(a['date'] ?? '') ?? DateTime.now();
+        final bd = DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
         return ad.compareTo(bd);
       });
 
@@ -4136,6 +4140,12 @@ class MapControllerNew extends GetxController {
         final a = sorted[i];
         final b = sorted[i + 1];
 
+ final memoryDate =
+          DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
+      final year = memoryDate.year;
+        // var color = MemoryGeoJsonService.createYearColorExpression();
+
+        var index = MemoryGeoJsonService.getColorIndexForYear(year);
         final double? startLat = a['location_latitude'];
         final double? startLng = a['location_longitude'];
         final double? endLat = b['location_latitude'];
@@ -4159,7 +4169,7 @@ class MapControllerNew extends GetxController {
               coordinates:
                   coords.map((c) => mapbox.Position(c[0], c[1])).toList(),
             ),
-            properties: {'type': 'line'},
+            properties: {'type': 'line', 'color': MemoryGeoJsonService.colors[index]},
           ),
         );
 
@@ -4179,7 +4189,7 @@ class MapControllerNew extends GetxController {
             geometry: mapbox.Point(
               coordinates: mapbox.Position(tip[0], tip[1]),
             ),
-            properties: {'rotation': rotation},
+            properties: {'rotation': rotation,'color': MemoryGeoJsonService.colors[index]}, // 🔥 assign same color as line},
           ),
         );
       }
@@ -4210,7 +4220,6 @@ class MapControllerNew extends GetxController {
         mapbox.LineLayer(
           id: ARROW_LINES_LAYER_ID,
           sourceId: ARROW_LINES_SOURCE_ID,
-          lineColor: Colors.blue.value,
           lineWidth: 5.0,
           lineOpacity: 0.9,
           lineCap: mapbox.LineCap.ROUND,
@@ -4218,6 +4227,21 @@ class MapControllerNew extends GetxController {
           minZoom: 0,
         ),
       );
+
+      try {
+
+        await mapboxMap!.style.setStyleLayerProperty(
+  ARROW_LINES_LAYER_ID, // your line layer ID
+  'line-color',
+  ['get', 'color'], // Pulls color from each feature's 'color' property
+);
+
+
+// lineColor: ['get', 'color']
+
+      }catch(_) {
+
+      }
 
       // 7️⃣ Arrow point source
       await mapboxMap.style.addSource(
@@ -4235,8 +4259,9 @@ class MapControllerNew extends GetxController {
         await mapboxMap.style.addStyleImage(
           'arrow-icon',
           8,
+          
           mapbox.MbxImage(width: 64, height: 64, data: arrowBytes),
-          false,
+          true,
           const [],
           const [],
           null,
@@ -4256,6 +4281,16 @@ class MapControllerNew extends GetxController {
           minZoom: 0,
         ),
       );
+
+      try {
+await mapboxMap.style.setStyleLayerProperty(
+  ARROW_SYMBOLS_LAYER_ID,
+  'icon-color',
+  ['get', 'color'], // dynamic color per feature
+);
+      } catch (_){
+
+      }
 
       var layers = await mapboxMap.style.getStyleLayers();
       var layerID = getLayerID(layers);
@@ -4433,6 +4468,14 @@ class MapControllerNew extends GetxController {
                   ['get', 'id'],
                 ],
               ],
+ 'latest_color_index': [
+    'max',
+    ['coalesce', ['get', 'color_index'], 0],
+  ],
+  'latest_timestamp': [
+    'max',
+    ['coalesce', ['get', 'memory_timestamp'], 0],
+  ],
             },
           ),
         );

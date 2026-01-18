@@ -15,7 +15,7 @@ class MemoryGeoJsonService {
 
       // Extract memory properties for styling and interaction
       final memoryDate =
-          DateTime.tryParse(memory['memory_date'] ?? '') ?? DateTime.now();
+          DateTime.tryParse(memory['date'] ?? '') ?? DateTime.now();
       final year = memoryDate.year;
       final category = memory['category'] as String? ?? 'general';
       final description =
@@ -23,9 +23,12 @@ class MemoryGeoJsonService {
       final images = memory['images'] as List<dynamic>? ?? [];
       final audios = memory['audios'] as List<dynamic>? ?? [];
 
-  var endDate = DateTime.tryParse(memory['memory_date'] ?? '') ?? DateTime.now();
+  var endDate = DateTime.tryParse(memory['date'] ?? '') ?? DateTime.now();
       final toMemoryYear = endDate.year; // e.g., 2023
 
+      print('🛑🛑🛑🛑🛑 checcking geo js');
+
+      print('🛑🛑🛑🛑🛑ColorsExpressionData Results for year $year ${colors[getColorIndexForYear(year)]}');
       // Create GeoJSON feature
       final feature = {
         'type': 'Feature',
@@ -38,16 +41,20 @@ class MemoryGeoJsonService {
           'year': year,
           'category': category,
           'description': description,
-          'memory_date': memory['memory_date'],
+          'memory_date': memory['date'],
           'has_images': images.isNotEmpty,
+          'timestamp': memoryDate.millisecondsSinceEpoch, // 👈 ADD
+          'color_index': getColorIndexForYear(year),
+          'memory_timestamp': memoryDate.millisecondsSinceEpoch,
           'has_audios': audios.isNotEmpty,
+          'color': colors[getColorIndexForYear(year)],
           'image_count': images.length,
           'audio_count': audios.length,
           'location_name': memory['location_name'] ?? '',
           'location_address': memory['location_address'] ?? '',
           'location_city': memory['location_city'] ?? '',
           'location_country': memory['location_country'] ?? '',
-          // 'color_index': _getColorIndexForYear(year),
+          // 'color_index': getColorIndexForYear(year),
           'memory_data': memory,
           'toMemoryYear': toMemoryYear,
         },
@@ -62,7 +69,7 @@ class MemoryGeoJsonService {
   }
 
   /// Get color index for year-based styling (matches map controller exactly)
-  static int _getColorIndexForYear(int year) {
+  static int getColorIndexForYear(int year) {
     // Use current year as base year (matches map controller)
     final baseYear = DateTime.now().year;
     const colorCount = 20; // Match existing 20-color system
@@ -70,11 +77,7 @@ class MemoryGeoJsonService {
     return (yearDifference % colorCount).abs();
   }
 
-  /// Create year-based color expression for MapBox styling
-  static List<dynamic> createYearColorExpression() {
-    // MapBox expression for year-based colors
-    // Uses the exact same 20-color system as map controller
-    const colors = [
+  static const colors = [
       '#2196F3', // Blue
       '#4CAF50', // Green
       '#FF9800', // Orange
@@ -96,6 +99,12 @@ class MemoryGeoJsonService {
       '#FF1744', // Red Accent
       '#2979FF', // Blue Accent
     ];
+
+  /// Create year-based color expression for MapBox styling
+  static List<dynamic> createYearColorExpression() {
+    // MapBox expression for year-based colors
+    // Uses the exact same 20-color system as map controller
+    
 
     final List<dynamic> expression = ['case'];
 
@@ -243,7 +252,7 @@ class MemoryGeoJsonService {
           'from_date': (arrow['fromDate'] as DateTime).toIso8601String(),
           'to_date': (arrow['toDate'] as DateTime).toIso8601String(),
           'year': (arrow['toDate'] as DateTime).year,
-          'color_index': _getColorIndexForYear(
+          'color_index': getColorIndexForYear(
             (arrow['toDate'] as DateTime).year,
           ),
         },
@@ -288,7 +297,7 @@ class MemoryGeoJsonService {
           'arrow_id': 'arrow_$i',
           'bearing': bearing,
           'year': (arrow['toDate'] as DateTime).year,
-          'color_index': _getColorIndexForYear(
+          'color_index': getColorIndexForYear(
             (arrow['toDate'] as DateTime).year,
           ),
           'from_memory_id': arrow['fromMemoryId'],
