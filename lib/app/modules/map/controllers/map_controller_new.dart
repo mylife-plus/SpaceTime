@@ -1375,6 +1375,10 @@ class MapControllerNew extends GetxController {
     filterValues.clear();
     selectedLocation.value = '';
     selectedRadius.value = '';
+    addMemoriesController?.selectedLocationDisplayName.value = '';
+    // selectedLocationDisplayName.value = '';
+
+    selectedRadius.value = '';
     selectedHashtags.clear();
     selectedContacts.clear();
     selectedCategories.clear();
