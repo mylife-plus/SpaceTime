@@ -1248,7 +1248,7 @@ class _MemoryCardState extends State<MemoryCard> {
 
       final mc = Get.find<MapControllerNew>();
       await mc.loadFilteredMemoriesFromDB();
-      mc.handleFilterApplyFromMap();
+      mc.handleFilterApplyFromMap(memoryIds: [memoryIdInt]);
       Get.back(result: true);
       debugPrint(
         '[MapControllerNew] 🎯 Applied memory ID filter: $memoryIdInt',

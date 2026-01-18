@@ -159,7 +159,7 @@ Container(
               addMemoriesController.onAgainInit();
                addMemoriesController.searchQuery.value = '';
                 addMemoriesController.isSearchActive.value = true;
-
+//
    await Get.to(() => AddMemoriesView());
 
 

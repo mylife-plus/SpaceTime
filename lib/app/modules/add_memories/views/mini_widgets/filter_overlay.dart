@@ -227,12 +227,20 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                        });
                       },
                       onApply: () async {
-
                         final mapController = Get.find<MapControllerNew>();
+
+                        // Apply filters (this will clear memory ID filters automatically)
+                        debugPrint('[FilterOverlay] 🎯 Applying filters from overlay');
                         controller.applyFilters();
-                        mapController?.closeFilter();
-                        await mapController?.loadFilteredMemoriesFromDB();
-                        mapController?.handleFilterApplyFromMap();
+
+                        // Sync to map controller
+                        // mapController.selectedMemoryIds.clear();
+                        // mapController./.clear();
+
+                        // Close filter and reload
+                        mapController.closeFilter();
+                        await mapController.loadFilteredMemoriesFromDB();
+                        mapController.handleFilterApplyFromMap();
                       },
                       hideButtons:
                           _focusedSearchField

@@ -384,7 +384,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
               // Done button
               _buildBottomButton(
                 iconPath: 'assets/images/ic_tick.png',
-                onTap: controller.onDonePressed,
+                onTap: controller.onDonePressed1,
               ),
             ],
           ),

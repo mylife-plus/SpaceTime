@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
+import 'package:spacetime/app/modules/add_memories/views/mini_widgets/search_overly.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_fab.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/top_buttons.dart';
 import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
@@ -25,6 +26,8 @@ class MapViewWidgetNew extends StatefulWidget {
 class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     with WidgetsBindingObserver {
   MapControllerNew? controller;
+  AddMemoriesController? addMemoriesController;
+
   mapbox.MapboxMap? mapController;
 
   // Server state (like GlobeTestView)
@@ -38,7 +41,9 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     WidgetsBinding.instance.addObserver(this);
 
     controller = Get.find<MapControllerNew>();
-
+    // addMemoriesController = Get.find<AddMemoriesController>();
+    // addMemoriesController ??= Get.put(AddMemoriesController());
+    // if(addMemoriesController == null) 
     // Initialize local tile server BEFORE map creation (like GlobeTestView)
     _initializeLocalTileServer();
   }
@@ -234,39 +239,56 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 Widget _buildOverlays(MapControllerNew controller) {
   return Stack(
     children: [
-      if (controller.isFilterOpen.value)
-        Positioned.fill(
+      // Dark overlay when filter is open
+      Obx(() {
+        if (!controller.isFilterOpen.value) {
+          return const SizedBox.shrink();
+        }
+        return Positioned.fill(
           child: Container(
             color: Colors.black.withOpacity(0.8),
           ),
-        ),
+        );
+      }),
 
-      if (!controller.isFilterOpen.value) ...[
-        const MapTopButtons(),
-        const MapFab(),
-      ],
+      // Top buttons and FAB (hidden when filter is open)
+      Obx(() {
+        if (controller.isFilterOpen.value) {
+          return const SizedBox.shrink();
+        }
+        return const Stack(
+          children: [
+            MapTopButtons(),
+            MapFab(),
+          ],
+        );
+      }),
 
-       if (!controller.isFilterOpen.value)
-                    Positioned(
-                      top: 60,
-                      left: 0,
-                      right: 0,
-                      child: Obx(() {
-                        // Only show if AddMemoriesController is registered and has active filters
-                        if (!Get.isRegistered<AddMemoriesController>()) {
-                          return const SizedBox.shrink();
-                        }
+      // Filter indicator (shown when filters are active and filter overlay is closed)
+      Obx(() {
+        if (controller.isFilterOpen.value) {
+          return const SizedBox.shrink();
+        }
 
-                        final addMemoriesController = Get.find<AddMemoriesController>();
-                        if (!addMemoriesController.hasActiveFilters.value) {
-                          return const SizedBox.shrink();
-                        }
+        if (!Get.isRegistered<AddMemoriesController>()) {
+          return const SizedBox.shrink();
+        }
 
-                        return const FilterIndicator();
-                      }),
-                    ),
+        final addMemoriesController = Get.find<AddMemoriesController>();
+        if (!addMemoriesController.hasActiveFilters.value) {
+          return const SizedBox.shrink();
+        }
 
-      Visibility(
+        return const Positioned(
+          top: 60,
+          left: 0,
+          right: 0,
+          child: FilterIndicator(),
+        );
+      }),
+
+      // Filter overlay
+     Visibility(
         visible: controller.isFilterOpen.value,
         maintainState: true,
         maintainAnimation: true,

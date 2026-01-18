@@ -421,11 +421,7 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   }
 
   Future<void> onDonePressed() async {
-    if (selectedLocationMarker == null) {
-      debugPrint('⚠️ Selected Location Marker Is Null');
-      Get.back();
-      return;
-    }
+    
 
     // Build location data in the same format as new location picker
     final locationData = {
@@ -1017,5 +1013,33 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       return 4;
     }
     return 4;
+  }
+
+  void onDonePressed1() {
+      
+
+    // Build location data in the same format as new location picker
+    final locationData = {
+      'latitude': lat,
+      'longitude': lng,
+      'address': name.isNotEmpty ? name : address,
+      'city': city,
+      'state': '', // Memory picker doesn't have state field
+      'country': country,
+      'postcode': null,
+      'timestamp': DateTime.now().toIso8601String(),
+      'type': 'selected',
+      'source': 'memory_location_picker',
+    };
+
+    final result = {
+      'location': locationData,
+      'radius': radiusInKm.value,
+    };
+
+    debugPrint('🎯 Returning location data (new format): $result');
+
+    Get.back(result: result);
+    
   }
 }

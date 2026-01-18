@@ -91,7 +91,8 @@ class MapControllerNew extends GetxController {
   final RxList<String> selectedHashtags = <String>[].obs;
   final RxList<String> selectedContacts = <String>[].obs;
   final RxList<String> selectedCategories = <String>[].obs;
-  final RxList<String> selectedMemoryIds = <String>[].obs; // Filter by specific memory IDs
+  final RxList<String> selectedMemoryIds = <String>[].obs; // Filter by specific memory IDs (from map/filter)
+  final RxList<String> searchedMemoryIds = <String>[].obs; // Filter by specific memory IDs (from search)
   final RxBool hasActiveFilters = false.obs;
 
   // Cache for available filter items
@@ -1341,12 +1342,15 @@ class MapControllerNew extends GetxController {
   }
 
   /// Handle filter apply action when overlay is launched from the map
-  Future<void> handleFilterApplyFromMap() async {
+  Future<void> handleFilterApplyFromMap({List<int>? memoryIds}) async {
     // AddMemoriesController is initialized in main.dart as permanent singleton
     final addMemoriesController = Get.find<AddMemoriesController>();
 
     addMemoriesController.isOpenedFromMap = true;
-    addMemoriesController.applyFilters();
+    if(memoryIds == null) {
+        addMemoriesController.applyFilters();
+    }
+    addMemoriesController.applyFilters(memoryIds: memoryIds);
     _syncFiltersFromAddMemoriesController(addMemoriesController);
 
     closeFilter();

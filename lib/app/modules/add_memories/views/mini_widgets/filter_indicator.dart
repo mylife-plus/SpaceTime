@@ -135,17 +135,15 @@ class FilterIndicator extends StatelessWidget {
             const SizedBox(width: 8),
             GestureDetector(
               onTap: () async {
-              
-              final mapController = Get.find<MapControllerNew>();
-                
+                final mapController = Get.find<MapControllerNew>();
+                debugPrint('[FilterIndicator] 🧹 Resetting all filters');
                 controller.resetFilters();
-                mapController?.resetFilters();
-                mapController?.isFilterOpen.value = false;
-                controller.resetFilters();
+                mapController.resetFilters();
+                mapController.isFilterOpen.value = false;
 
-                await mapController?.loadMemoriesFromDB();
-               mapController?.showLoadedDataOnMap();
-                
+                // Reload memories and update map
+                await mapController.loadMemoriesFromDB();
+                mapController.showLoadedDataOnMap();
               },
               child: Container(
                 padding: const EdgeInsets.all(2),

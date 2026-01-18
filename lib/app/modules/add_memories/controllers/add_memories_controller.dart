@@ -868,93 +868,181 @@ class AddMemoriesController extends GetxController {
         suggestionsWithMetadata.take(10).toList();
     showSuggestions.value = suggestionsWithMetadata.isNotEmpty;
   }
+Future<void> selectSuggestion(
+  String suggestion, {
+  Map<String, dynamic>? suggestionData,
+}) async {
+  const String tag = '[SearchController][selectSuggestion]';
 
-  void selectSuggestion(
-    String suggestion, {
-    Map<String, dynamic>? suggestionData,
-  }) {
-    searchQuery.value = suggestion;
-    showSuggestions.value = false;
+  debugPrint('$tag ▶ Called with suggestion="$suggestion"');
+  debugPrint('$tag ▶ suggestionData: $suggestionData');
 
-    // If this is a memory-specific suggestion (description, location, or category),
-    // show only that specific memory
-    if (suggestionData != null) {
-      final type = suggestionData['type'] ?? '';
-      final memoryId = suggestionData['memoryId'];
+  searchQuery.value = suggestion;
+  showSuggestions.value = false;
 
-      if ((type == 'description' || type == 'location' || type == 'category') &&
-          memoryId != null) {
-        // Filter to show only this specific memory
-        isSearching.value = true;
-        filteredMemories.value =
-            allMemories.where((memory) {
-              return memory['id'] == memoryId;
-            }).toList();
+  debugPrint('$tag ▶ Updated searchQuery & hid suggestions');
 
-        debugPrint(
-          'Selected specific memory with ID: $memoryId, showing ${filteredMemories.length} memory',
-        );
-        isSearchActive.value = false;
-        return;
-      }
+  // If this is a memory-specific suggestion (description, location, or category),
+  // show only that specific memory
+  if (suggestionData != null) {
+    final type = suggestionData['type'] ?? '';
+    final memoryId = suggestionData['memoryId'];
+
+    debugPrint('$tag ▶ Suggestion type: $type, memoryId: $memoryId');
+
+    if ((type == 'description' || type == 'location' || type == 'category') &&
+        memoryId != null) {
+      debugPrint('$tag 🎯 Memory-specific suggestion detected');
+
+      isSearching.value = true;
+
+      filteredMemories.value = allMemories.where((memory) {
+        final match = memory['id'] == memoryId;
+        debugPrint('$tag 🔍 Checking memory ID ${memory['id']} == $memoryId → $match');
+        return match;
+      }).toList();
+
+      debugPrint(
+        '$tag ✅ Selected specific memory with ID: $memoryId | Result count: ${filteredMemories.length}',
+      );
+
+  final c1 = Get.find<MapControllerNew>();
+  List<int> memoryIdInt = [];
+
+  for (var memory in filteredMemories) {
+    final idStr = memory['id'];
+    final idInt = int.tryParse(idStr.toString());
+
+    if (idInt != null) {
+      memoryIdInt.add(idInt);
+      debugPrint('$tag ➕ Parsed memory ID: $idInt');
+    } else {
+      debugPrint('$tag ❌ Failed to parse memory ID: $idStr');
     }
-
-    // For hashtags and mentions, perform normal search
-    performSearch();
-    isSearchActive.value = false;
   }
 
-  void performSearch() {
-    if (searchQuery.value.isEmpty) {
-      // If there are active filters, reapply them instead of clearing
-      if (hasActiveFilters.value) {
-        applyFilters();
-      } else {
-        filteredMemories.clear();
-        isSearching.value = false;
-      }
+  if (memoryIdInt.isNotEmpty) {
+    debugPrint('$tag 🎯 Applying memory ID filters to map: $memoryIdInt');
+
+    applyFilters(memoryIds: memoryIdInt);
+    await c1.loadFilteredMemoriesFromDB();
+    c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
+
+    debugPrint('$tag 🗺️ MapControllerNew updated with filtered memory IDs');
+  } else {
+    debugPrint('$tag ⚠️ No valid memory IDs found to apply to map');
+  }
+      isSearchActive.value = false;
+      debugPrint('$tag ⛔ Search deactivated and early return');
       return;
     }
-
-    // Don't clear filters when search is applied - allow both to work together
-    // Filters should persist until manually removed or reset
-
-    isSearching.value = true;
-    final query = searchQuery.value;
-
-    // Start with all memories or filtered memories if filters are active
-    List<Map<String, dynamic>> memoriesToSearch = allMemories;
-
-    // If filters are active, apply them first
-    if (hasActiveFilters.value) {
-      memoriesToSearch =
-          allMemories.where((memory) {
-            final helper = _MemoryFilterHelper(memory);
-            return helper.matchesAdvancedFilters(
-              filterValues,
-              selectedLocation.value,
-              selectedRadius.value,
-              selectedHashtags,
-              selectedContacts,
-              selectedCategories,
-            );
-          }).toList();
-    }
-
-    // Then apply search on top of filtered results
-    filteredMemories.value =
-        memoriesToSearch.where((memory) {
-          // Create a temporary MemoryCard to use its filtering methods
-          final tempCard = _createTempMemoryCard(memory);
-          return tempCard.matchesSearchQuery(query);
-        }).toList();
-
-    debugPrint(
-      'Filtered ${filteredMemories.length} memories for query: $query (with ${hasActiveFilters.value ? "active filters" : "no filters"})',
-    );
   }
 
-  // Helper method to create a temporary MemoryCard for filtering
+  debugPrint('$tag 🔄 No specific memory detected — performing full search');
+
+  // For hashtags and mentions, perform normal search
+  performSearch();
+  isSearchActive.value = false;
+
+  debugPrint('$tag ⛔ Search deactivated after performSearch');
+}
+
+Future<void> performSearch() async {
+  const String tag = '[SearchController][performSearch]';
+
+  debugPrint('$tag ▶ performSearch() called');
+  debugPrint('$tag ▶ Current searchQuery: "${searchQuery.value}"');
+  debugPrint('$tag ▶ hasActiveFilters: ${hasActiveFilters.value}');
+
+  if (searchQuery.value.isEmpty) {
+    debugPrint('$tag ⚠️ Search query is empty');
+
+    // If there are active filters, reapply them instead of clearing
+    if (hasActiveFilters.value) {
+      debugPrint('$tag 🔁 Reapplying active filters');
+      applyFilters();
+    } else {
+      debugPrint('$tag 🧹 Clearing filteredMemories & stopping search');
+      filteredMemories.clear();
+      isSearching.value = false;
+    }
+    return;
+  }
+
+  isSearching.value = true;
+  final query = searchQuery.value;
+
+  debugPrint('$tag 🔎 Starting search for: "$query"');
+
+  // Start with all memories or filtered memories if filters are active
+  List<Map<String, dynamic>> memoriesToSearch = allMemories;
+  debugPrint('$tag 📦 Total memories available: ${allMemories.length}');
+
+  // If filters are active, apply them first
+  if (hasActiveFilters.value) {
+    debugPrint('$tag 🧰 Applying advanced filters before search');
+
+    memoriesToSearch = allMemories.where((memory) {
+      final helper = _MemoryFilterHelper(memory);
+      final matches = helper.matchesAdvancedFilters(
+        filterValues,
+        selectedLocation.value,
+        selectedRadius.value,
+        selectedHashtags,
+        selectedContacts,
+        selectedCategories,
+      );
+
+      debugPrint('$tag 🔍 Memory ID ${memory['id']} → filter match: $matches');
+      return matches;
+    }).toList();
+
+    debugPrint('$tag 📉 Memories after filter: ${memoriesToSearch.length}');
+  }
+
+  // Then apply search on top of filtered results
+  filteredMemories.value = memoriesToSearch.where((memory) {
+    final tempCard = _createTempMemoryCard(memory);
+    final matchesSearch = tempCard.matchesSearchQuery(query);
+
+    debugPrint('$tag 🔎 Memory ID ${memory['id']} → search match: $matchesSearch');
+    return matchesSearch;
+  }).toList();
+
+  debugPrint('$tag ✅ Search results count: ${filteredMemories.length}');
+
+  final c1 = Get.find<MapControllerNew>();
+  List<int> memoryIdInt = [];
+
+  for (var memory in filteredMemories) {
+    final idStr = memory['id'];
+    final idInt = int.tryParse(idStr.toString());
+
+    if (idInt != null) {
+      memoryIdInt.add(idInt);
+      debugPrint('$tag ➕ Parsed memory ID: $idInt');
+    } else {
+      debugPrint('$tag ❌ Failed to parse memory ID: $idStr');
+    }
+  }
+
+  if (memoryIdInt.isNotEmpty) {
+    debugPrint('$tag 🎯 Applying memory ID filters to map: $memoryIdInt');
+
+    applyFilters(memoryIds: memoryIdInt);
+    await c1.loadFilteredMemoriesFromDB();
+    c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
+
+    debugPrint('$tag 🗺️ MapControllerNew updated with filtered memory IDs');
+  } else {
+    debugPrint('$tag ⚠️ No valid memory IDs found to apply to map');
+  }
+
+  debugPrint(
+    '$tag 🏁 Search completed | Query="$query" | Results=${filteredMemories.length} | Filters=${hasActiveFilters.value ? "ON" : "OFF"}',
+  );
+}
+// Helper method to create a temporary MemoryCard for filtering
   _MemoryFilterHelper _createTempMemoryCard(Map<String, dynamic> memory) {
     return _MemoryFilterHelper(memory);
   }
@@ -1773,9 +1861,13 @@ class AddMemoriesController extends GetxController {
 
   // Apply filters based on filter values
   void applyFilters({List<int>? memoryIds}) {
+
+    if(selectedMemoryIds.value.isNotEmpty && memoryIds == null) {
+      selectedMemoryIds.clear();
+    }
     if (memoryIds != null) {
       _clearFiltersWithoutClosing();
-    }
+    } 
     // Note: When opened from map, we apply filters directly without navigation
     // The navigation is handled by the MapController
     debugPrint(
@@ -1923,6 +2015,37 @@ class AddMemoriesController extends GetxController {
 
   // Reset all filters
   void resetFilters() {
+    filterValues.clear();
+    selectedLocation.value = '';
+    selectedLocationDisplayName.value = '';
+    selectedRadius.value = '';
+    selectedHashtags.clear();
+    selectedContacts.clear();
+    selectedCategories.clear();
+    selectedMemoryIds.clear();
+    filteredMemories.clear();
+    isSearching.value = false;
+    hasActiveFilters.value = false;
+
+    // Update backup to match cleared state
+    _backupFilterValues.clear();
+    _backupSelectedLocation = '';
+    _backupSelectedRadius = '';
+    _backupSelectedHashtags.clear();
+    _backupSelectedContacts.clear();
+    _backupSelectedCategories.clear();
+
+    _closeFilterPanelOnly();
+
+    // Sync back to MapController if opened from map
+    if (isOpenedFromMap) {
+      _syncFiltersToMapController();
+    }
+
+    debugPrint('All filters reset (isOpenedFromMap: $isOpenedFromMap)');
+  }
+
+   void resetSearchFilters() {
     filterValues.clear();
     selectedLocation.value = '';
     selectedLocationDisplayName.value = '';
