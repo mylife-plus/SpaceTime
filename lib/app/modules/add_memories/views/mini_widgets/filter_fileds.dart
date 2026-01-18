@@ -226,6 +226,7 @@ class _MemoriesFilterTextFieldRowState
         'latitude': locationData['latitude'],
         'longitude': locationData['longitude'],
         'country': locationData['country'] ?? '',
+        'location_flag': locationData['location_flag'] ?? '', // Add location flag
         'region': locationData['state'] ?? '',
         'city': locationData['city'] ?? '',
         'timestamp': locationData['timestamp'] ?? DateTime.now().toIso8601String(),
@@ -328,8 +329,15 @@ class _MemoriesFilterTextFieldRowState
                             controller.selectedLocationDisplayName.value.isEmpty &&
                             controller.selectedLocation.value.isEmpty;
 
-                        if (!isHint && _textController.text != currentValue) {
-                          _textController.text = currentValue;
+                        // Update text controller when value changes OR when clearing (isHint)
+                        if (_textController.text != currentValue) {
+                          if (!isHint) {
+                            // Set the location value
+                            _textController.text = currentValue;
+                          } else {
+                            // Clear the text when location is cleared
+                            _textController.clear();
+                          }
                         }
                       } else {
                         if (_textController.text != currentValue) {

@@ -91,8 +91,10 @@ class MapControllerNew extends GetxController {
   final RxList<String> selectedHashtags = <String>[].obs;
   final RxList<String> selectedContacts = <String>[].obs;
   final RxList<String> selectedCategories = <String>[].obs;
-  final RxList<String> selectedMemoryIds = <String>[].obs; // Filter by specific memory IDs (from map/filter)
-  final RxList<String> searchedMemoryIds = <String>[].obs; // Filter by specific memory IDs (from search)
+  final RxList<String> selectedMemoryIds =
+      <String>[].obs; // Filter by specific memory IDs (from map/filter)
+  final RxList<String> searchedMemoryIds =
+      <String>[].obs; // Filter by specific memory IDs (from search)
   final RxBool hasActiveFilters = false.obs;
 
   // Cache for available filter items
@@ -472,7 +474,9 @@ class MapControllerNew extends GetxController {
         return [];
       }
 
-      debugPrint('[MapControllerNew] 📊 Total memories in database: ${allMemories.length}');
+      debugPrint(
+        '[MapControllerNew] 📊 Total memories in database: ${allMemories.length}',
+      );
 
       // Convert memoryId to int for comparison (database stores ID as int)
       final searchId = int.tryParse(memoryId);
@@ -481,25 +485,30 @@ class MapControllerNew extends GetxController {
         return [];
       }
 
-      debugPrint('[MapControllerNew] 🔍 Searching for memory with ID: $searchId (int)');
+      debugPrint(
+        '[MapControllerNew] 🔍 Searching for memory with ID: $searchId (int)',
+      );
 
       // Find the memory with matching ID (compare as int)
-      final memory = allMemories.firstWhere(
-        (m) {
-          final dbId = m['id'];
-          debugPrint('[MapControllerNew] 🔍 Comparing: $dbId (${dbId.runtimeType}) == $searchId (${searchId.runtimeType})');
-          return dbId == searchId;
-        },
-        orElse: () => <String, dynamic>{},
-      );
+      final memory = allMemories.firstWhere((m) {
+        final dbId = m['id'];
+        debugPrint(
+          '[MapControllerNew] 🔍 Comparing: $dbId (${dbId.runtimeType}) == $searchId (${searchId.runtimeType})',
+        );
+        return dbId == searchId;
+      }, orElse: () => <String, dynamic>{});
 
       if (memory.isEmpty) {
         debugPrint('[MapControllerNew] ⚠️ Memory not found with ID: $searchId');
-        debugPrint('[MapControllerNew] 📋 Available IDs: ${allMemories.map((m) => m['id']).take(10).join(", ")}');
+        debugPrint(
+          '[MapControllerNew] 📋 Available IDs: ${allMemories.map((m) => m['id']).take(10).join(", ")}',
+        );
         return [];
       }
 
-      debugPrint('[MapControllerNew] ✅ Found memory: ${memory['category'] ?? memory['description'] ?? 'Untitled'}');
+      debugPrint(
+        '[MapControllerNew] ✅ Found memory: ${memory['category'] ?? memory['description'] ?? 'Untitled'}',
+      );
       debugPrint('[MapControllerNew] 📝 Memory data: $memory');
       return [memory];
     } catch (e, stackTrace) {
@@ -519,7 +528,9 @@ class MapControllerNew extends GetxController {
 
       // If memory IDs filter is active, load only those specific memories
       if (selectedMemoryIds.isNotEmpty) {
-        debugPrint('[MapControllerNew] 🎯 Memory IDs filter active: ${selectedMemoryIds.join(", ")}');
+        debugPrint(
+          '[MapControllerNew] 🎯 Memory IDs filter active: ${selectedMemoryIds.join(", ")}',
+        );
 
         var allMemories = await _memoryRepository!.loadAllMemories();
         if (allMemories == null || allMemories.isEmpty) {
@@ -527,12 +538,15 @@ class MapControllerNew extends GetxController {
         }
 
         // Filter to only include memories with IDs in selectedMemoryIds
-        final filteredMemories = allMemories.where((m) {
-          final memoryId = m['id']?.toString();
-          return selectedMemoryIds.contains(memoryId);
-        }).toList();
+        final filteredMemories =
+            allMemories.where((m) {
+              final memoryId = m['id']?.toString();
+              return selectedMemoryIds.contains(memoryId);
+            }).toList();
 
-        debugPrint('[MapControllerNew] ✅ Found ${filteredMemories.length} memories with IDs: ${selectedMemoryIds.join(", ")}');
+        debugPrint(
+          '[MapControllerNew] ✅ Found ${filteredMemories.length} memories with IDs: ${selectedMemoryIds.join(", ")}',
+        );
         return filteredMemories;
       }
 
@@ -559,7 +573,7 @@ class MapControllerNew extends GetxController {
 
       if (!hasFilters) {
         debugPrint(
-          '[MapControllerNew] ℹ️ No filters active, returning all memories',
+          '[MapControllerNew] ℹ️ No filters active, returning all memories ${allMemories.length}',
         );
         return allMemories;
       }
@@ -1347,8 +1361,8 @@ class MapControllerNew extends GetxController {
     final addMemoriesController = Get.find<AddMemoriesController>();
 
     addMemoriesController.isOpenedFromMap = true;
-    if(memoryIds == null) {
-        addMemoriesController.applyFilters();
+    if (memoryIds == null) {
+      addMemoriesController.applyFilters();
     }
     addMemoriesController.applyFilters(memoryIds: memoryIds);
     _syncFiltersFromAddMemoriesController(addMemoriesController);
@@ -1360,10 +1374,17 @@ class MapControllerNew extends GetxController {
     await _applyFiltersAndReloadMap();
 
     var memories = await addMemoriesController.syncFiltersAndLoadMemories();
+    print('Syncing Filtered Memories ${memories.length}');
 
+    if (!hasActiveFilters.value) {
+      await loadMemoriesFromDB(null);
+
+      return;
+    }
     await loadMemoriesFromDB(memories);
 
     showLoadedDataOnMap();
+    // if(memories.length == 0)
   }
 
   /// Reset all filters
@@ -1372,17 +1393,16 @@ class MapControllerNew extends GetxController {
     addMemoriesController?.isOpenedFromMap = true;
     addMemoriesController?.resetFilters();
 
-    filterValues.clear();
     selectedLocation.value = '';
     selectedRadius.value = '';
-    addMemoriesController?.selectedLocationDisplayName.value = '';
-    // selectedLocationDisplayName.value = '';
 
     selectedRadius.value = '';
     selectedHashtags.clear();
     selectedContacts.clear();
     selectedCategories.clear();
     selectedMemoryIds.clear();
+    filterValues.clear();
+
     _updateFilterStatus();
     closeFilter();
     hasActiveFilters.value = false;
@@ -3315,38 +3335,29 @@ class MapControllerNew extends GetxController {
       //     10.0,
       //   ],
       // );
-    try {
+      try {} catch (_) {}
 
-    }catch(_) {
+      try {
+        await mapboxMap!.style.addLayer(
+          mapbox.SymbolLayer(
+            id: CLUSTERS_COUNT_LAYER_ID,
+            sourceId: MEMORY_SOURCE_ID,
+            filter: ['has', 'point_count'],
+            textField: '', // or null; gets overridden
+            textSize: 14.0,
+            textColor: 0xFFFFFFFF,
+            textIgnorePlacement: true,
+            textAllowOverlap: true,
+          ),
+        );
 
-
-    }
-
-    try {
- await mapboxMap!.style.addLayer(
-        mapbox.SymbolLayer(
-          id: CLUSTERS_COUNT_LAYER_ID,
-          sourceId: MEMORY_SOURCE_ID,
-          filter: ['has', 'point_count'],
-          textField: '', // or null; gets overridden
-          textSize: 14.0,
-          textColor: 0xFFFFFFFF,
-          textIgnorePlacement: true,
-          textAllowOverlap: true,
-        ),
-      );
-
-      await mapboxMap!.style.setStyleLayerProperty(
-        CLUSTERS_COUNT_LAYER_ID,
-        'text-field',
-        ['get', 'point_count_abbreviated'],
-      );
-    }catch(_) {
-
-      
-    }
+        await mapboxMap!.style.setStyleLayerProperty(
+          CLUSTERS_COUNT_LAYER_ID,
+          'text-field',
+          ['get', 'point_count_abbreviated'],
+        );
+      } catch (_) {}
       // 2) Cluster count text (symbol layer)
-     
 
       debugPrint(
         '[MapControllerNew] ✅ All ${CLUSTER_SIZE_TIERS.length} cluster icon layers added',
@@ -3405,28 +3416,24 @@ class MapControllerNew extends GetxController {
           '[MapControllerNew] 🔄 Adding fallback circle layer for individual points...',
         );
 
-            // );
-    try {
- await mapboxMap!.style.addLayer(
-          mapbox.CircleLayer(
-            id: UNCLUSTERED_LAYER_ID,
-            sourceId: MEMORY_SOURCE_ID,
-            filter: [
-              '!',
-              ['has', 'point_count'],
-            ],
-            circleColor: 0xFF11B4DA,
-            circleRadius: 12.0,
-            circleStrokeWidth: .0,
-            circleStrokeColor: 0xFFFFFFFF,
-            circleOpacity: 1.0,
-          ),
-        );
-    }catch(_) {
-
-
-    }
-       
+        // );
+        try {
+          await mapboxMap!.style.addLayer(
+            mapbox.CircleLayer(
+              id: UNCLUSTERED_LAYER_ID,
+              sourceId: MEMORY_SOURCE_ID,
+              filter: [
+                '!',
+                ['has', 'point_count'],
+              ],
+              circleColor: 0xFF11B4DA,
+              circleRadius: 12.0,
+              circleStrokeWidth: .0,
+              circleStrokeColor: 0xFFFFFFFF,
+              circleOpacity: 1.0,
+            ),
+          );
+        } catch (_) {}
 
         try {
           await mapboxMap!.style.setStyleLayerProperty(
@@ -3765,8 +3772,12 @@ class MapControllerNew extends GetxController {
       // Clean the memory ID - remove any non-numeric characters (like trailing commas)
       final memoryId = rawMemoryId.replaceAll(RegExp(r'[^0-9]'), '').trim();
 
-      debugPrint('[MapControllerNew] 🔍 Raw memory ID: "$rawMemoryId" -> Cleaned: "$memoryId"');
-      debugPrint('[MapControllerNew] 📊 Total memories in _currentMemories: ${_currentMemories.length}');
+      debugPrint(
+        '[MapControllerNew] 🔍 Raw memory ID: "$rawMemoryId" -> Cleaned: "$memoryId"',
+      );
+      debugPrint(
+        '[MapControllerNew] 📊 Total memories in _currentMemories: ${_currentMemories.length}',
+      );
 
       // Find the memory from _currentMemories using the ID
       // Database stores ID as int, so we need to compare properly
@@ -3774,7 +3785,9 @@ class MapControllerNew extends GetxController {
 
       for (var data in _currentMemories) {
         final dbId = data['id']?.toString().trim();
-        debugPrint('[MapControllerNew] 🔍 Comparing: DB ID="$dbId" vs Search ID="$memoryId"');
+        debugPrint(
+          '[MapControllerNew] 🔍 Comparing: DB ID="$dbId" vs Search ID="$memoryId"',
+        );
 
         if (dbId == memoryId) {
           debugPrint('[MapControllerNew] ✅ Memory found with ID: $memoryId');
@@ -3784,8 +3797,12 @@ class MapControllerNew extends GetxController {
       }
 
       if (foundMemory == null) {
-        debugPrint('[MapControllerNew] ⚠️ Memory not found in _currentMemories with ID: $memoryId');
-        debugPrint('[MapControllerNew] 📋 Available IDs: ${_currentMemories.map((m) => m['id']).take(10).join(", ")}');
+        debugPrint(
+          '[MapControllerNew] ⚠️ Memory not found in _currentMemories with ID: $memoryId',
+        );
+        debugPrint(
+          '[MapControllerNew] 📋 Available IDs: ${_currentMemories.map((m) => m['id']).take(10).join(", ")}',
+        );
         Get.snackbar(
           '⚠️ Error',
           'Memory not found',
@@ -3821,13 +3838,17 @@ class MapControllerNew extends GetxController {
       // Apply filter with the memory ID
       final memoryIdInt = int.tryParse(memoryId);
       if (memoryIdInt != null) {
-      controller.applyFilters(memoryIds: [memoryIdInt]);
+        controller.applyFilters(memoryIds: [memoryIdInt]);
         await loadFilteredMemoriesFromDB();
         handleFilterApplyFromMap();
-        debugPrint('[MapControllerNew] 🎯 Applied memory IDs filter: [$memoryIdInt]');
+        debugPrint(
+          '[MapControllerNew] 🎯 Applied memory IDs filter: [$memoryIdInt]',
+        );
       }
 
-      debugPrint('[MapControllerNew] 🎯 Navigating to AddMemories view with memory: ${foundMemory['category'] ?? foundMemory['description']}');
+      debugPrint(
+        '[MapControllerNew] 🎯 Navigating to AddMemories view with memory: ${foundMemory['category'] ?? foundMemory['description']}',
+      );
 
       final result = await Get.toNamed(Routes.ADD_MEMORIES);
 

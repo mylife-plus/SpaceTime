@@ -2017,6 +2017,8 @@ Future<void> performSearch() async {
   void resetFilters() {
     filterValues.clear();
     selectedLocation.value = '';
+     selectedRadius.value = '';
+    selectedLocationDisplayName.value = '';
     selectedLocationDisplayName.value = '';
     selectedRadius.value = '';
     selectedHashtags.clear();

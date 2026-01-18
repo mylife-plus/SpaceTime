@@ -12,6 +12,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart'
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
+import 'package:spacetime/app/utils/place_categories_utils.dart';
 import 'package:spacetime/app/utils/radius_polygon_helper.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
 import 'package:spacetime/app/modules/location_picker/services/location_picker_service.dart';
@@ -1015,31 +1016,84 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     return 4;
   }
 
-  void onDonePressed1() {
-      
+Future<void> _getLocationDetails(double lat, double lng) async {
+    try {
+      // Use the geocoding isolate service for reverse geocoding
+      final geocodingService = GeocodingIsolateService.instance;
+      final result = await geocodingService.reverseGeocode(lat, lng);
 
-    // Build location data in the same format as new location picker
-    final locationData = {
+      if (result != null) {
+         country = result['country'] ?? '';
+         city = result['city'] ?? '';
+         address = result['address'] ?? '';
+         flag = result['flag'] ?? countryFlags[country.toLowerCase()] ?? '📍';
+         
+         
+
+      //   memoryController.setEnhancedLocationData({
+      //     'latitude': lat,
+      //     'longitude': lng,
+      //     'city': city,
+      //     'country': country,
+      //     'address': address,
+      //     'flag': flag,
+      //     'name': city.isNotEmpty ? '$city, $country' : country,
+      //   });
+
+      //   debugPrint('📍 Location details: $city, $country $flag');
+      // } else {
+      //   // Fallback to basic location data
+      //   memoryController.setEnhancedLocationData({
+      //     'latitude': lat,
+      //     'longitude': lng,
+      //     'city': 'Selected Location',
+      //     'country': 'Unknown',
+      //     'flag': '📍',
+      //   });
+      }
+
+       final locationData = {
       'latitude': lat,
       'longitude': lng,
-      'address': name.isNotEmpty ? name : address,
+      'address': '$flag $city, $country',
       'city': city,
       'state': '', // Memory picker doesn't have state field
       'country': country,
+      'location_flag': flag, // Add location flag
       'postcode': null,
       'timestamp': DateTime.now().toIso8601String(),
       'type': 'selected',
       'source': 'memory_location_picker',
     };
 
-    final result = {
+    final result1 = {
       'location': locationData,
       'radius': radiusInKm.value,
     };
 
     debugPrint('🎯 Returning location data (new format): $result');
+    debugPrint('🎯 Location flag: $flag');
 
-    Get.back(result: result);
+    Get.back(result: result1);
+    } catch (e) {
+      debugPrint('Error getting location details: $e');
+      // Fallback to basic location data
+      // memoryController.setEnhancedLocationData({
+      //   'latitude': lat,
+      //   'longitude': lng,
+      //   'city': 'Selected Location',
+      //   'country': 'Unknown',
+      //   'flag': '📍',
+      // });
+    }
+  }
+
+
+  Future<void> onDonePressed1() async {
+
+    await _getLocationDetails(lat,lng);
+    // Build location data in the same format as new location picker
+   
     
   }
 }

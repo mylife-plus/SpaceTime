@@ -217,7 +217,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                       },
                       onReset: () async {
 
-                            final mapController = Get.find<MapControllerNew>();
+                        final mapController = Get.find<MapControllerNew>();
 
                         // mapController?.refreshMapView();
                         controller.resetFilters();
@@ -233,11 +233,6 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                         debugPrint('[FilterOverlay] 🎯 Applying filters from overlay');
                         controller.applyFilters();
 
-                        // Sync to map controller
-                        // mapController.selectedMemoryIds.clear();
-                        // mapController./.clear();
-
-                        // Close filter and reload
                         mapController.closeFilter();
                         await mapController.loadFilteredMemoriesFromDB();
                         mapController.handleFilterApplyFromMap();
