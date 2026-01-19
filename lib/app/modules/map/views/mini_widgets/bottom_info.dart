@@ -174,7 +174,7 @@ class _BottomPanelState extends State<BottomPanel> {
       if (memoryIdInt.isNotEmpty) {
       controller.applyFilters(memoryIds: memoryIdInt);
         await c1.loadFilteredMemoriesFromDB();
-        c1.handleFilterApplyFromMap();
+        c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
         debugPrint('[MapControllerNew] 🎯 Applied memory IDs filter: [$memoryIdInt]');
       }
 

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:spacetime/app/config/app_images.dart';
+import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_audio_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_description_field_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_image_widget.dart';
@@ -1234,7 +1235,21 @@ class _MemoryViewState extends State<MemoryView> {
           ),
         );
         debugPrint('MemoryView: handleSave - EDIT MODE - Snackbar shown');
+ if (Get.isRegistered<MapControllerNew>()) {
+          final c = Get.find<MapControllerNew>();
+          c.loadMemoriesFromDB();
 
+          c.showLoadedDataOnMap();();
+          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
+        }
+
+         if (Get.isRegistered<MapControllerNew>()) {
+          final c = Get.find<MapControllerNew>();
+          await c.loadMemoriesFromDB(null);
+  
+          c.showLoadedDataOnMap();
+          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
+        }
         // Pop the view after showing snackbar
         debugPrint('MemoryView: handleSave - EDIT MODE - Popping view with result: true');
         Get.back(result: true);
@@ -1292,6 +1307,14 @@ class _MemoryViewState extends State<MemoryView> {
           debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
         }
 
+         if (Get.isRegistered<MapControllerNew>()) {
+          final c = Get.find<MapControllerNew>();
+          await c.loadMemoriesFromDB(null);
+  
+          c.showLoadedDataOnMap();
+          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
+        }
+
         // Show success snackbar before popping
         debugPrint('MemoryView: handleSave - CREATE MODE - Showing success snackbar');
         Get.back(result: true);
@@ -1315,6 +1338,14 @@ class _MemoryViewState extends State<MemoryView> {
     } catch (e) {
       debugPrint('MemoryView: handleSave - ERROR CAUGHT: $e');
       debugPrint('MemoryView: handleSave - ERROR - Stack trace: ${StackTrace.current}');
+
+       if (Get.isRegistered<MapControllerNew>()) {
+          final c = Get.find<MapControllerNew>();
+          c.loadMemoriesFromDB();
+
+          c.showLoadedDataOnMap();();
+          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
+        }
       Get.back(result: true);
       debugPrint('MemoryView: handleSave - ERROR - View popped after error');
       print('Error Log: $e');
@@ -1426,6 +1457,14 @@ class _MemoryViewState extends State<MemoryView> {
                         Get.find<AddMemoriesController>();
                     addMemoriesController.onAgainInit();
                   }
+
+                   if (Get.isRegistered<MapControllerNew>()) {
+          final c = Get.find<MapControllerNew>();
+          await c.loadMemoriesFromDB(null);
+  
+          c.showLoadedDataOnMap();
+          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
+        }
                 } catch (e) {
                   Get.snackbar(
                     'Unable to Delete',

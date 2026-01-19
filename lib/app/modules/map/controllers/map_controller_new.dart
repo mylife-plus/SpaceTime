@@ -3402,6 +3402,12 @@ class MapControllerNew extends GetxController {
       debugPrint(
         '[MapControllerNew] 🎨          Adding individual point layer...',
       );
+
+      try {
+        await mapboxMap!.style.removeStyleLayer(UNCLUSTERED_LAYER_ID);
+      }catch(_) {
+
+      }
       try {
         await mapboxMap!.style.addLayer(
           mapbox.CircleLayer(
@@ -3411,7 +3417,7 @@ class MapControllerNew extends GetxController {
               '!',
               ['has', 'point_count'],
             ],
-            circleColor: 0xFF11B4DA, // default (will be overridden)
+            // circleColor: 0xFF11B4DA, // default (will be overridden)
             circleRadius: 12.0,
             circleStrokeWidth: 5.0,
             circleStrokeColor: 0xFFFFFFFF,
@@ -3451,7 +3457,11 @@ class MapControllerNew extends GetxController {
           );
         } catch (_) {}
 
-        try {
+        
+        debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
+      }
+
+      try {
           await mapboxMap!.style.setStyleLayerProperty(
             UNCLUSTERED_LAYER_ID,
             'circle-color',
@@ -3460,8 +3470,6 @@ class MapControllerNew extends GetxController {
         } catch (e) {
           print('MapControllerNew toMemoryYear circle-color erro $e');
         }
-        debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
-      }
 
       // Note: Individual points now use icon with embedded "1" text
       // No separate text layer needed since the icon includes the number
@@ -3845,7 +3853,7 @@ class MapControllerNew extends GetxController {
       if (memoryIdInt != null) {
         controller.applyFilters(memoryIds: [memoryIdInt]);
         await loadFilteredMemoriesFromDB();
-        handleFilterApplyFromMap();
+        handleFilterApplyFromMap(memoryIds: [memoryIdInt]);
         debugPrint(
           '[MapControllerNew] 🎯 Applied memory IDs filter: [$memoryIdInt]',
         );
