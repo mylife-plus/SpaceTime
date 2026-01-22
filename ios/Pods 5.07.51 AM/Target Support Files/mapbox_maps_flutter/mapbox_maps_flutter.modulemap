@@ -1,0 +1,6 @@
+framework module mapbox_maps_flutter {
+  umbrella header "mapbox_maps_flutter-umbrella.h"
+
+  export *
+  module * { export * }
+}

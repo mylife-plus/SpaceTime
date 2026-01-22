@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
+import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
 
@@ -20,8 +21,8 @@ class SearchOverlay extends StatelessWidget {
     return Positioned.fill(
       child: GestureDetector(
         onTap: () {
-          controller.closeSearch();
-          FocusScope.of(context).unfocus();
+          // controller.closeSearch();
+          // FocusScope.of(context).unfocus();
         },
         child: Stack(
           children: [
@@ -94,7 +95,16 @@ class SearchOverlay extends StatelessWidget {
                                   : Color(0xFF9A9A9A),
                         ),
                         onPressed: () {
+                          if (controller.isOpenedFromMap) {
+      Navigator.of(Get.context!).pop(true);
+    }
                           controller.closeSearch();
+                           controller.resetFilters();
+                        controller?.resetFilters();
+                       Future.delayed(Duration(milliseconds: 500), () {
+                        var c = Get.find<MapControllerNew>();
+                        closefilterAndReset(c);
+                       });
                           FocusScope.of(context).unfocus();
                         },
                       ),
@@ -107,7 +117,28 @@ class SearchOverlay extends StatelessWidget {
             Obx(() {
               if (!controller.showSuggestions.value ||
                   controller.searchSuggestionsWithMetadata.isEmpty) {
-                return const SizedBox.shrink();
+                return Positioned(
+                top: 61,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                  child: Container(
+                    
+                       decoration: BoxDecoration(
+                      color:
+                          controller2.darkMode.value
+                              ? Colors.black
+                              : Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.11),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    ),
+                );
               }
 
               // Calculate max height to prevent keyboard overlap
@@ -317,4 +348,11 @@ class SearchOverlay extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> closefilterAndReset(MapControllerNew? mapController) async {
+     mapController?.isFilterOpen.value = false;
+                        await mapController?.loadMemoriesFromDB(null);
+                                                mapController?.showLoadedDataOnMap();
+
+}
 }

@@ -139,14 +139,15 @@ class Header extends StatelessWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     // border: BorderRadius.circular(0),
-                      // image: DecorationImage(
-                    borderRadius: BorderRadius.circular(8), 
-  color: controller2.darkMode.value
-    ? (controller2.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    : controller2.currentHomeIconColor,// ✔ correct
-                  
+                    // image: DecorationImage(
+                    borderRadius: BorderRadius.circular(8),
+                    color:
+                        controller2.darkMode.value
+                            ? (controller2.mainColor.value == 'blue'
+                                ? const Color(0xFF002B62)
+                                : (controller2.curentHomeIconColorDark ??
+                                    AppColors.blue))
+                            : controller2.currentHomeIconColor, // ✔ correct
                   ),
 
                   child: Image.asset(AppImages.settings3, fit: BoxFit.contain),
@@ -163,14 +164,15 @@ class Header extends StatelessWidget {
                     padding: const EdgeInsets.all(8),
                     height: 44,
                     decoration: BoxDecoration(
-                         // image: DecorationImage(
-                    borderRadius: BorderRadius.circular(8), 
-  color: controller2.darkMode.value
-    ? (controller2.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    : controller2.currentHomeIconColor,// ✔ correct
-                  
+                      // image: DecorationImage(
+                      borderRadius: BorderRadius.circular(8),
+                      color:
+                          controller2.darkMode.value
+                              ? (controller2.mainColor.value == 'blue'
+                                  ? const Color(0xFF002B62)
+                                  : (controller2.curentHomeIconColorDark ??
+                                      AppColors.blue))
+                              : controller2.currentHomeIconColor, // ✔ correct
                     ),
                     child: Image.asset(AppImages.filter, fit: BoxFit.contain),
                   ),
@@ -181,35 +183,38 @@ class Header extends StatelessWidget {
                     // Don't show badge when there are 0 filters
                     return (filterCount > 0)
                         ? Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.orange,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: controller2.darkMode.value ? Colors.black : Colors.white,
-                                  width: 1.5,
-                                ),
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color:
+                                    controller2.darkMode.value
+                                        ? Colors.black
+                                        : Colors.white,
+                                width: 1.5,
                               ),
-                              constraints: const BoxConstraints(
-                                minWidth: 18,
-                                minHeight: 18,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  filterCount > 9 ? '9+' : filterCount.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1.0,
-                                  ),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 18,
+                              minHeight: 18,
+                            ),
+                            child: Center(
+                              child: Text(
+                                filterCount > 9 ? '9+' : filterCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.0,
                                 ),
                               ),
                             ),
-                          )
+                          ),
+                        )
                         : const SizedBox.shrink();
                   }),
                 ],
@@ -220,6 +225,7 @@ class Header extends StatelessWidget {
             GestureDetector(
               onTap: () {
                 controller.searchQuery.value = '';
+                controller.isOpenedFromMap =false;
                 controller.isSearchActive.value = true;
               },
               child: Container(
@@ -227,14 +233,15 @@ class Header extends StatelessWidget {
                 // width: 42,
                 height: 44,
                 decoration: BoxDecoration(
-                     // image: DecorationImage(
-                    borderRadius: BorderRadius.circular(8), 
-  color: controller2.darkMode.value
-    ? (controller2.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    : controller2.currentHomeIconColor,// ✔ correct
-                  
+                  // image: DecorationImage(
+                  borderRadius: BorderRadius.circular(8),
+                  color:
+                      controller2.darkMode.value
+                          ? (controller2.mainColor.value == 'blue'
+                              ? const Color(0xFF002B62)
+                              : (controller2.curentHomeIconColorDark ??
+                                  AppColors.blue))
+                          : controller2.currentHomeIconColor, // ✔ correct
                 ),
 
                 child: Image.asset(
@@ -255,9 +262,7 @@ class Header extends StatelessWidget {
                   // MapControllerNew is initialized in main.dart as permanent singleton
                   // final mapController = Get.find<MapControllerNew>();
                   // await mapController.refreshMapView();
-                  debugPrint(
-                    '🌍 HEADER - Earth tapped: Refreshed map view',
-                  );
+                  debugPrint('🌍 HEADER - Earth tapped: Refreshed map view');
 
                   Get.back(result: true);
 
@@ -275,14 +280,15 @@ class Header extends StatelessWidget {
                 // width: 42,
                 height: 44,
                 decoration: BoxDecoration(
-                     // image: DecorationImage(
-                    borderRadius: BorderRadius.circular(8), 
-  color: controller2.darkMode.value
-    ? (controller2.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    :controller2.currentHomeIconColor,// ✔ correct
-                  
+                  // image: DecorationImage(
+                  borderRadius: BorderRadius.circular(8),
+                  color:
+                      controller2.darkMode.value
+                          ? (controller2.mainColor.value == 'blue'
+                              ? const Color(0xFF002B62)
+                              : (controller2.curentHomeIconColorDark ??
+                                  AppColors.blue))
+                          : controller2.currentHomeIconColor, // ✔ correct
                 ),
 
                 child: Image.asset(AppImages.earth, fit: BoxFit.contain),

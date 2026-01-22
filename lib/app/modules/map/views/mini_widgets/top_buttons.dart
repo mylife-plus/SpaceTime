@@ -18,14 +18,15 @@ class MapTopButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-        final controller2 = Get.find<UiController>();
+    final controller2 = Get.find<UiController>();
 
     final controller = Get.find<MapControllerNew>();
 
     // Get AddMemoriesController if registered to show filter badge
-    final addMemoriesController = Get.isRegistered<AddMemoriesController>()
-        ? Get.find<AddMemoriesController>()
-        : null;
+    final addMemoriesController =
+        Get.isRegistered<AddMemoriesController>()
+            ? Get.find<AddMemoriesController>()
+            : null;
 
     return Positioned(
       top: 0,
@@ -38,240 +39,238 @@ class MapTopButtons extends StatelessWidget {
         //             ? Color(0xFF001937)
         //             : controller2.primaryColorDark
         //         : controller2.currentMainColor,
-          height: 65,
+        height: 65,
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
 
-        child: Obx(() => 
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                 GestureDetector(
-              onTap: () {
-                Get.to(() => SettingsView());
-              },
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Container(
-                
-                  child: Container(
-                    
-                    padding: const EdgeInsets.all(3.5),
-                    // width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-  borderRadius: BorderRadius.circular(8), 
-  color: controller2.darkMode.value
-    ? (controller2.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    : controller2.currentHomeIconColor,// ✔ correct
-                  
-                    ),
-                  
-                    child: Image.asset(AppImages.settings3, fit: BoxFit.contain),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 5),
-
-
-
-            GestureDetector(
-              onTap: controller.openFilter,
-              child: Stack(
+        child: Obx(
+          () => Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-Container(
-                                child: Container(
-                      padding: const EdgeInsets.all(8),
-                      
-                      height: 44,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8), 
-  color: controller2.darkMode.value
-    ? (controller2.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    : controller2.currentHomeIconColor,// ✔ correct
-                  
+                  GestureDetector(
+                    onTap: () {
+                      Get.to(() => SettingsView());
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Container(
+                        child: Container(
+                          padding: const EdgeInsets.all(3.5),
+                          // width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color:
+                                controller2.darkMode.value
+                                    ? (controller2.mainColor.value == 'blue'
+                                        ? const Color(0xFF002B62)
+                                        : (controller2
+                                                .curentHomeIconColorDark ??
+                                            AppColors.blue))
+                                    : controller2
+                                        .currentHomeIconColor, // ✔ correct
+                          ),
+
+                          child: Image.asset(
+                            AppImages.settings3,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                       ),
-                      child: Image.asset(AppImages.filter, fit: BoxFit.contain),
                     ),
                   ),
+                  const SizedBox(width: 5),
 
-                  // Filter badge indicator with count
-                  Obx(() {
-                    final filterCount = addMemoriesController?.activeFilterCount ?? 0;
-                    // Don't show badge when there are 0 filters
-                    return (filterCount > 0)
-                        ? Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-    //               color: controller2.darkMode.value
-    // ? (controller2.mainColor.value == 'blue'
-    //     ? const Color(0xFF002B62)
-    //     : (controller2.primaryColorDark ?? AppColors.blue))
-    // : AppColors.blue,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: controller2.darkMode.value ? Colors.black : Colors.white,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 18,
-                                  minHeight: 18,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    filterCount > 9 ? '9+' : filterCount.toString(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      height: 1.0,
+                  GestureDetector(
+                    onTap: controller.openFilter,
+                    child: Stack(
+                      children: [
+                        Container(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+
+                            height: 44,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              color:
+                                  controller2.darkMode.value
+                                      ? (controller2.mainColor.value == 'blue'
+                                          ? const Color(0xFF002B62)
+                                          : (controller2
+                                                  .curentHomeIconColorDark ??
+                                              AppColors.blue))
+                                      : controller2
+                                          .currentHomeIconColor, // ✔ correct
+                            ),
+                            child: Image.asset(
+                              AppImages.filter,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+
+                        // Filter badge indicator with count
+                        Obx(() {
+                          final filterCount =
+                              addMemoriesController?.activeFilterCount ?? 0;
+                          // Don't show badge when there are 0 filters
+                          return (filterCount > 0)
+                              ? Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color:
+                                            controller2.darkMode.value
+                                                ? Colors.black
+                                                : Colors.white,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 18,
+                                      minHeight: 18,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        filterCount > 9
+                                            ? '9+'
+                                            : filterCount.toString(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          height: 1.0,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink();
-                  }),
+                              )
+                              : const SizedBox.shrink();
+                        }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+
+                  GestureDetector(
+                    onTap: () async {
+                      
+                      final addMemoriesController =
+                          Get.find<AddMemoriesController>();
+                      
+                      addMemoriesController.onAgainInit();
+                      addMemoriesController.searchQuery.value = '';
+                      addMemoriesController.isSearchActive.value = true;
+                      addMemoriesController.isOpenedFromMap = true;
+
+                      //
+                      var result = await Get.to(() => AddMemoriesView());
+                      addMemoriesController.isOpenedFromMap = false;
+
+                      if(result != null && result) {
+                        controller.resetFilters();
+                        addMemoriesController?.resetFilters();
+                       Future.delayed(Duration(milliseconds: 500), () {
+                        closefilterAndReset(controller);
+                       });
+                      }
+                      print('Getting back from Add Memories Search');
+                        // addMemoriesController.isOpenedFromMap = false;
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      // width: 42,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        // image: DecorationImage(
+                        borderRadius: BorderRadius.circular(8),
+                        color:
+                            controller2.darkMode.value
+                                ? (controller2.mainColor.value == 'blue'
+                                    ? const Color(0xFF002B62)
+                                    : (controller2.curentHomeIconColorDark ??
+                                        AppColors.blue))
+                                : controller2.currentHomeIconColor,
+                      ),
+
+                      child: Image.asset(
+                        AppImages.search,
+                        fit: BoxFit.contain,
+                        // color: Colors.white,
+                        // width: 31,
+                        // height: 31,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 5),
+
+                  // Globe Test Button
+           
                 ],
               ),
-            ),
-                        const SizedBox(width: 5),
 
-            
-                  GestureDetector(
-              onTap: () async {
+              GestureDetector(
+                onTap: () async {
+                  var result = await Get.to(() => AddMemoriesView());
 
-         final addMemoriesController = Get.find<AddMemoriesController>();
-              addMemoriesController.onAgainInit();
-               addMemoriesController.searchQuery.value = '';
-                addMemoriesController.isSearchActive.value = true;
-//
-   await Get.to(() => AddMemoriesView());
-
-
-             },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                // width: 42,
-                height: 44,
-                decoration: BoxDecoration(
-                  // image: DecorationImage(
+                  if (result == true) {
+                    // controller.refreshLocation();
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  // width: 42,
+                  height: 44,
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-  color: controller2.darkMode.value
-    ? (controller2.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    :controller2.currentHomeIconColor,
+                    color:
+                        controller2.darkMode.value
+                            ? (controller2.mainColor.value == 'blue'
+                                ? const Color(0xFF002B62)
+                                : (controller2.curentHomeIconColorDark ??
+                                    AppColors.blue))
+                            : controller2.currentHomeIconColor, // ✔ correct
+                  ),
 
-                ),
-
-                child: Image.asset(
-                  AppImages.search,
-                  fit: BoxFit.contain,
-                  // color: Colors.white,
-                  // width: 31,
-                  // height: 31,
+                  child: Image.asset(AppImages.memory, fit: BoxFit.contain),
                 ),
               ),
-            ),
 
-            const SizedBox(width: 5),
+              // MapCircleButton(
+              //   overlayImagePath: AppImages.memory,
+              //   size: 44, // Standardized size
+              //   onTap: () async {
+              //     var result = await Get.to(() => AddMemoriesView());
 
-            // Globe Test Button
-            GestureDetector(
-              onTap: () {
-                // Initialize GlobeTestController
-                Get.put(GlobeTestController());
-                // Navigate to GlobeTestView
-                Get.to(() => const GlobeTestView());
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                height: 44,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: controller2.darkMode.value
-                    ? (controller2.mainColor.value == 'blue'
-                        ? const Color(0xFF002B62)
-                        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-                    : controller2.currentHomeIconColor,
-                ),
-                child: const Icon(
-                  Icons.public, // Globe icon
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-
-                // const SizedBox(width: 5),
-                // Obx(() => MapCircleButton(
-                //   overlayImagePath: AppImages.filter,
-                //   badgeCount: addMemoriesController?.activeFilterCount ?? 0,
-                //   size: 44, // Standardized size
-                //   onTap: controller.openFilter,
-                // )),
-                // const SizedBox(width: 5),
-              ],
-            ),
-
-             GestureDetector(
-              onTap: () async {
-                   var result = await Get.to(() => AddMemoriesView());
-        
-                if (result == true) {
-                  // controller.refreshLocation();
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                // width: 42,
-                height: 44,
-                decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8), 
-  color: controller2.darkMode.value
-    ? (controller2.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (controller2.curentHomeIconColorDark ?? AppColors.blue))
-    :controller2.currentHomeIconColor,// ✔ correct
-                  
-                ),
-
-                child: Image.asset(AppImages.memory, fit: BoxFit.contain),
-              ),
-            ),
-          
-            // MapCircleButton(
-            //   overlayImagePath: AppImages.memory,
-            //   size: 44, // Standardized size
-            //   onTap: () async {
-            //     var result = await Get.to(() => AddMemoriesView());
-        
-            //     if (result == true) {
-            //       // controller.refreshLocation();
-            //     }
-            //   },
-            // ),
-          ],
+              //     if (result == true) {
+              //       // controller.refreshLocation();
+              //     }
+              //   },
+              // ),
+            ],
+          ),
         ),
-      )),
+      ),
     );
   }
 
+
+Future<void> closefilterAndReset(MapControllerNew? mapController) async {
+     mapController?.isFilterOpen.value = false;
+                        await mapController?.loadMemoriesFromDB(null);
+                                                mapController?.showLoadedDataOnMap();
+
+}
   // void _showBottomPanel(BuildContext context) {
   //   showModalBottomSheet(
   //     context: context,
