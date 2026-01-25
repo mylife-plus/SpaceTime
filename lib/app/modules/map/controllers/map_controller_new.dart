@@ -2314,30 +2314,7 @@ class MapControllerNew extends GetxController {
 
   /// Update layer visibility based on current zoom level
   Future<void> _updateLayerVisibilityForZoom(double zoomLevel) async {
-    // if (mapboxMap == null) return;
 
-    // try {
-    //   // Determine which layers should be visible at current zoom
-    //   // Clusters: visible when zoomed out (below half zoom ~9.0)
-    //   final showClusters = zoomLevel < _clusterVisibilityMaxZoom;
-    //   // Individual memories: visible when zoomed in (above half zoom ~9.0)
-    //   final showIndividual = zoomLevel >= _individualVisibilityMinZoom;
-    //   // Details: visible at high zoom levels
-    //   final showDetails = zoomLevel >= 0;
-
-    //   // Update cluster layers visibility (show when zoomed out)
-    //   await _setLayerVisibility(CLUSTER_LAYER_ID, showClusters);
-    //   await _setLayerVisibility(CLUSTER_COUNT_LAYER_ID, showClusters);
-
-    //   // Update individual memory layers visibility (show when zoomed in)
-    //   // await _setLayerVisibility(UNCLUSTERED_LAYER_ID, showIndividual);
-    //   await _setLayerVisibility(
-    //     INDIVIDUAL_COUNT_LAYER_ID,
-    //     showIndividual && showDetails,
-    //   );
-    // } catch (e) {
-    //   debugPrint('[MapControllerNew] ❌ Error updating layer visibility: $e');
-    // }
   }
 
   /// Set visibility for a specific layer
