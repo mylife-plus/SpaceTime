@@ -176,13 +176,9 @@ class MapTopButtons extends StatelessWidget {
                       var result = await Get.to(() => AddMemoriesView());
                       addMemoriesController.isOpenedFromMap = false;
 
-                      if(result != null && result) {
-                        controller.resetFilters();
-                        addMemoriesController?.resetFilters();
-                       Future.delayed(Duration(milliseconds: 500), () {
-                        closefilterAndReset(controller);
-                       });
-                      }
+                      // if(result != null && result) {
+                       
+                      // }
                       print('Getting back from Add Memories Search');
                         // addMemoriesController.isOpenedFromMap = false;
                     },
@@ -265,12 +261,7 @@ class MapTopButtons extends StatelessWidget {
   }
 
 
-Future<void> closefilterAndReset(MapControllerNew? mapController) async {
-     mapController?.isFilterOpen.value = false;
-                        await mapController?.loadMemoriesFromDB(null);
-                                                mapController?.showLoadedDataOnMap();
 
-}
   // void _showBottomPanel(BuildContext context) {
   //   showModalBottomSheet(
   //     context: context,

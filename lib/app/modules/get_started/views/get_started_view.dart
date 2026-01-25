@@ -23,7 +23,7 @@ class GetStartedView extends GetView<GetStartedController> {
         child: SafeArea(
           child: Obx(() {
             if (controller.showWelcomeAnimation.value) {
-              return _buildWelcomeSection(uiController);
+              return _buildDownloadSection(uiController);
           } else if (controller.isNoInternet.value) {
             return _buildNoInternetSection(uiController);
             } else {
@@ -130,17 +130,17 @@ class GetStartedView extends GetView<GetStartedController> {
             // "100% offline" text
             Text(
               '100% offline',
-              style: GoogleFonts.mako(
+              style: GoogleFonts.lilitaOne(
                 fontSize: 32,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
                 color: Colors.white,
-                // shadows: [
-                //   Shadow(
-                //     color: Colors.black.withValues(alpha: 0.8),
-                //     blurRadius: 8,
-                //     offset: const Offset(0, 1),
-                //   ),
-                // ],
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 8,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
               textAlign: TextAlign.center,
             ),
@@ -150,17 +150,17 @@ class GetStartedView extends GetView<GetStartedController> {
             // "100% open source" text
             Text(
               '100% open source',
-              style: GoogleFonts.mako(
+              style: GoogleFonts.lilitaOne(
                 fontSize: 32,
                 fontWeight: FontWeight.w400,
                 color: Colors.white,
-                // shadows: [
-                //   Shadow(
-                //     color: Colors.black.withValues(alpha: 0.8),
-                //     blurRadius: 8,
-                //     offset: const Offset(0, 1),
-                //   ),
-                // ],
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 8,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
               textAlign: TextAlign.center,
             ),
@@ -208,177 +208,174 @@ class GetStartedView extends GetView<GetStartedController> {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32.0),
-        child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(Get.context!).size.height - MediaQuery.of(Get.context!).padding.top,
-            ),
-            child: IntrinsicHeight(
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-
-                  // Welcome to text
-                  Text(
-                    'Welcome to',
-                    style: TextStyle(
-                      fontFamily: 'KumbhSans',
-                      fontSize: 32,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(Get.context!).size.height - MediaQuery.of(Get.context!).padding.top,
+          ),
+          child: IntrinsicHeight(
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+        
+                // Welcome to text
+                Text(
+                  'Welcome to',
+                  style: TextStyle(
+                    fontFamily: 'KumbhSans',
+                    fontSize: 32,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-
-                  const SizedBox(height: 8),
-
-                  // SpaceTime text
-                  Text(
-                    'SpaceTime',
-                    style: TextStyle(
-                      fontFamily: 'KumbhSans',
-                      fontSize: 48,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
+                  textAlign: TextAlign.center,
+                ),
+        
+                const SizedBox(height: 8),
+        
+                // SpaceTime text
+                Text(
+                  'SpaceTime',
+                  style: TextStyle(
+                    fontFamily: 'KumbhSans',
+                    fontSize: 48,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-
-                  const SizedBox(height: 32),
-
-                  // Book icon
-                  Image.asset(
-                    'assets/images/book.png',
-                    width: 100,
-                    height: 100,
+                  textAlign: TextAlign.center,
+                ),
+        
+                // const SizedBox(height: 32),
+        
+                // // Book icon
+                // Image.asset(
+                //   'assets/images/book.png',
+                //   width: 100,
+                //   height: 100,
+                // ),
+        
+                const SizedBox(height: 22),
+        
+                // "your" text
+                Text(
+                  'your',
+                  style: TextStyle(
+                    fontFamily: 'KumbhSans',
+                    fontSize: 28,
+                    fontWeight: FontWeight.w300,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 8,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
-
-                  const SizedBox(height: 32),
-
-                  // "your" text
-                  Text(
-                    'your',
-                    style: TextStyle(
-                      fontFamily: 'KumbhSans',
-                      fontSize: 28,
-                      fontWeight: FontWeight.w300,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 8,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
+                  textAlign: TextAlign.center,
+                ),
+        
+                // const SizedBox(height: 8),
+        
+                // "100% offline" text
+                Text(
+                  '100% offline',
+                  style: GoogleFonts.lilitaOne(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 8,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
+                  textAlign: TextAlign.center,
+                ),
 
-                  const SizedBox(height: 8),
+                // const SizedBox(height: 4),
 
-                  // "100% offline" text
-                  Text(
-                    '100% offline',
-                    style: GoogleFonts.mako(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 8,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
+                // "100% open source" text
+                Text(
+                  '100% open source',
+                  style: GoogleFonts.lilitaOne(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 8,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
-
-                  const SizedBox(height: 4),
-
-                  // "100% open source" text
-                  Text(
-                    '100% open source',
-                    style: GoogleFonts.mako(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 8,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
+                  textAlign: TextAlign.center,
+                ),
+        
+                // const SizedBox(height: 8),
+        
+                // "personal diary app" text
+                Text(
+                  'personal diary app',
+                  style: TextStyle(
+                    fontFamily: 'KumbhSans',
+                    fontSize: 28,
+                    fontWeight: FontWeight.w300,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 8,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
+                  textAlign: TextAlign.center,
+                ),
 
-                  const SizedBox(height: 8),
+                const SizedBox(height: 14),
 
-                  // "personal diary app" text
-                  Text(
-                    'personal diary app',
-                    style: TextStyle(
-                      fontFamily: 'KumbhSans',
-                      fontSize: 28,
-                      fontWeight: FontWeight.w300,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 8,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  const Spacer(),
-
-                  // Download text
-                  Text(
-                    'download 4.5GB of map tiles now',
-                    style: TextStyle(
-                      fontFamily: 'KumbhSans',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 8,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                // Progress section (only show when downloading)
+                // Show loading indicator while checking tiles
                 Obx(() {
-                  if (controller.isDownloading.value) {
+                  if (controller.isCheckingTiles.value) {
                     return Column(
                       children: [
-                        _buildProgressCard(uiController),
-                        const SizedBox(height: 24),
+                        const CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Checking tiles...',
+                          style: TextStyle(
+                            fontFamily: 'KumbhSans',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 8,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ],
                     );
                   } else {
@@ -386,15 +383,117 @@ class GetStartedView extends GetView<GetStartedController> {
                   }
                 }),
 
-                // Start button
-                _buildStartButton(uiController),
+                // Language dropdown (only show when download UI is visible)
+                Obx(() => controller.showDownloadUI.value
+                    ? _buildLanguageDropdown()
+                    : const SizedBox.shrink()),
 
-                const SizedBox(height: 40),
-              ],
-            ),
+                Obx(() => controller.showDownloadUI.value
+                    ? const SizedBox(height: 14)
+                    : const SizedBox.shrink()),
+
+                // Download text (only show when download UI is visible)
+                Obx(() => controller.showDownloadUI.value
+                    ? Text(
+                        'download 5GB of tiles',
+                        style: TextStyle(
+                          fontFamily: 'KumbhSans',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withValues(alpha: 0.8),
+                              blurRadius: 8,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      )
+                    : const SizedBox.shrink()),
+
+                Obx(() => controller.showDownloadUI.value
+                    ? const SizedBox(height: 16)
+                    : const SizedBox.shrink()),
+
+                // Start button (only show when download UI is visible)
+                Obx(() => controller.showDownloadUI.value
+                    ? _buildStartButton(uiController)
+                    : const SizedBox.shrink()),
+        
+                const Spacer(),
+        
+                // Download text
+               
+                // const SizedBox(height: 16),
+        
+                // Zoom level selection buttons
+                // Obx(() => Row(
+                //   mainAxisAlignment: MainAxisAlignment.center,
+                //   children: [
+                //     // Zoom 11 button
+                //     _buildZoomLevelButton(
+                //       zoomLevel: 11,
+                //       label: 'Zoom 11',
+                //       subtitle: 'Street Level',
+                //       isSelected: controller.selectedZoomLevel.value == 11,
+                //       onTap: () => controller.selectZoomLevel(11),
+                //     ),
+                //     const SizedBox(width: 16),
+                //     // Zoom 12 button
+                //     _buildZoomLevelButton(
+                //       zoomLevel: 12,
+                //       label: 'Zoom 12',
+                //       subtitle: 'Building Level',
+                //       isSelected: controller.selectedZoomLevel.value == 12,
+                //       onTap: () => controller.selectZoomLevel(12),
+                //     ),
+                //   ],
+                // )),
+        
+                // const SizedBox(height: 16),
+        
+              // Progress section (only show when downloading)
+              Obx(() {
+                if (controller.isDownloading.value) {
+                  return Column(
+                    children: [
+                      _buildProgressCard(uiController),
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                } else {
+                  return const SizedBox.shrink();
+                }
+              }),
+        
+              // Start button
+        
+              // const SizedBox(height: 40),
+        
+              // Tilted book icon at the bottom
+                Obx(() => Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Transform.rotate(
+                    angle: 4 * 3.14159 / 180, // Convert -71 degrees to radians
+                    child: Image.asset(
+                      'assets/images/book.png',
+                      // width: 90,
+                      height: controller.showDownloadUI.value ? 140: 150,
+                      // opacity: const AlwaysStoppedAnimation(0.3),
+                    ),
+                  ),
+                ],
+              )),              
+        
+              const SizedBox(height: 20),
+            ],
           ),
         ),
-      ),
+                ),
     ),
     );
   }
@@ -402,7 +501,7 @@ class GetStartedView extends GetView<GetStartedController> {
   /// Build the progress card
   Widget _buildProgressCard(UiController uiController) {
     return Container(
-      width: 250,
+      width: 260,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.3),
@@ -418,7 +517,7 @@ class GetStartedView extends GetView<GetStartedController> {
             controller.statusText.value,
             style: TextStyle(
               fontFamily: 'KumbhSans',
-              fontSize: 16,
+              fontSize: 14.5,
               fontWeight: FontWeight.w500,
               color: Colors.white,
               shadows: [
@@ -593,15 +692,15 @@ class GetStartedView extends GetView<GetStartedController> {
       if (controller.isCompleted.value) {
         // Show "Get Started" button when download is complete
         return Container(
-          width: 200,
-          height: 50,
+          width: 150,
+          height: 45,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(6),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF007AFF).withValues(alpha: 0.4),
@@ -613,11 +712,11 @@ class GetStartedView extends GetView<GetStartedController> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(25),
+              borderRadius: BorderRadius.circular(2),
               onTap: controller.navigateToMainApp,
               child: Center(
                 child: Text(
-                  'Get Started',
+                  'Start',
                   style: TextStyle(
                     fontFamily: 'KumbhSans',
                     fontSize: 18,
@@ -632,15 +731,15 @@ class GetStartedView extends GetView<GetStartedController> {
       } else if (controller.hasError.value) {
         // Show retry button on error
         return Container(
-          width: 200,
-          height: 50,
+          width: 150,
+          height: 45,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(6),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF007AFF).withValues(alpha: 0.4),
@@ -652,11 +751,11 @@ class GetStartedView extends GetView<GetStartedController> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(25),
+              borderRadius: BorderRadius.circular(2),
               onTap: controller.retryDownload,
               child: Center(
                 child: Text(
-                  'Retry',
+                  'Start',
                   style: TextStyle(
                     fontFamily: 'KumbhSans',
                     fontSize: 18,
@@ -668,21 +767,24 @@ class GetStartedView extends GetView<GetStartedController> {
             ),
           ),
         );
+      } else if (controller.isDownloading.value) {
+        // Hide button completely while downloading
+        return const SizedBox.shrink();
       } else {
-        // Show "Download Tiles" or "Continue" button based on download status
+        // Show "Download Tiles" button when not downloading
         return Column(
           children: [
             // Main action button
             Container(
-              width: 200,
-              height: 50,
+              width: 150,
+              height: 45,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
-                borderRadius: BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(6),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF007AFF).withValues(alpha: 0.4),
@@ -694,38 +796,154 @@ class GetStartedView extends GetView<GetStartedController> {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(25),
-                  onTap: controller.isDownloading.value ? null : controller.startDownload,
+                  borderRadius: BorderRadius.circular(2),
+                  onTap: controller.startDownload,
                   child: Center(
-                    child: controller.isDownloading.value
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Text(
-                            'Download Tiles',
-                            style: TextStyle(
-                              fontFamily: 'KumbhSans',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
+                    child: Text(
+                      'Start',
+                      style: TextStyle(
+                        fontFamily: 'KumbhSans',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
 
-            // Skip/Continue button removed - tiles must be downloaded to proceed
             const SizedBox(height: 16),
           ],
         );
       }
     });
+  }
+
+  /// Build zoom level selection button
+  Widget _buildZoomLevelButton({
+    required int zoomLevel,
+    required String label,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 140,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                )
+              : null,
+          color: isSelected ? null : Colors.black.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF007AFF)
+                : Colors.white.withValues(alpha: 0.3),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF007AFF).withValues(alpha: 0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: Colors.white,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: Colors.white.withValues(alpha: 0.9),
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build language dropdown
+  Widget _buildLanguageDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Obx(() => DropdownButton<String>(
+        value: controller.selectedLanguage.value,
+        underline: const SizedBox.shrink(),
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+        dropdownColor: Colors.white,
+        // borderRadius: BorderRadius.circular(4),
+        style: TextStyle(
+          fontFamily: 'KumbhSans',
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+        ),
+        items: const [
+          DropdownMenuItem(
+            value: 'English',
+            child: Text('choose your 🇺🇳 Language'),
+          ),
+        ],
+        onChanged: (String? newValue) {
+          if (newValue != null) {
+            controller.selectLanguage(newValue);
+          }
+        },
+      )),
+    );
   }
 
   /// Build no internet section
@@ -830,7 +1048,7 @@ class GetStartedView extends GetView<GetStartedController> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
-                borderRadius: BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(2),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF007AFF).withValues(alpha: 0.4),
@@ -842,7 +1060,7 @@ class GetStartedView extends GetView<GetStartedController> {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(25),
+                  borderRadius: BorderRadius.circular(2),
                   onTap: controller.closeApp,
                   child: Center(
                     child: Text(

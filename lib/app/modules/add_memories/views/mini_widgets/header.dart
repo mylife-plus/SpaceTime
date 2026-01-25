@@ -225,7 +225,7 @@ class Header extends StatelessWidget {
             GestureDetector(
               onTap: () {
                 controller.searchQuery.value = '';
-                controller.isOpenedFromMap =false;
+                controller.isOpenedFromMap = false;
                 controller.isSearchActive.value = true;
               },
               child: Container(

@@ -24,11 +24,34 @@ class MbtilesDownloadService extends GetxController {
 
   MbtilesDownloadService._();
 
-  // Direct download URL from server
-  static const String MBTILES_DOWNLOAD_URL = 'http://codetivelab.com/spacetime/11_included.mbtiles';
-  static const String MBTILES_FILENAME = '11_included.mbtiles';
+  // Cloudflare R2 storage configuration
+  // TODO: Replace with your public R2 URL (e.g., https://pub-xxxxx.r2.dev)
+  // or custom domain (e.g., https://tiles.yourdomain.com)
+  static const String CLOUDFLARE_BASE_URL = 'https://pub-5c6d5b96bc9b424080c7d9716062e560.r2.dev';
+
+  // Optional: Add authentication token if bucket is private
+  // Leave empty if using public R2 URL
+  static const String CLOUDFLARE_AUTH_TOKEN = ''; // Add your token here if needed
+
+  // Available zoom levels
+  static const List<int> AVAILABLE_ZOOM_LEVELS = [11, 12];
+
+  // File naming pattern: {zoom}_included.mbtiles
+  static String getMbtilesFilename(int zoomLevel) => '${zoomLevel}_included.mbtiles';
+
+  // Get download URL for specific zoom level
+  static String getDownloadUrl(int zoomLevel) => '$CLOUDFLARE_BASE_URL/${getMbtilesFilename(zoomLevel)}';
+
+  // SharedPreferences keys
   static const String PREFS_KEY_MBTILES_DOWNLOADED = 'mbtiles_downloaded';
   static const String PREFS_KEY_MBTILES_PATH = 'mbtiles_path';
+  static const String PREFS_KEY_SELECTED_ZOOM_LEVEL = 'selected_zoom_level';
+
+  // Default zoom level
+  static const int DEFAULT_ZOOM_LEVEL = 11;
+
+  // Local filename (always use same name for consistency)
+  static const String LOCAL_MBTILES_FILENAME = 'tiles.mbtiles';
 
   // Reactive state
   final RxBool isDownloading = false.obs;
@@ -42,6 +65,17 @@ class MbtilesDownloadService extends GetxController {
 
   String? _localMbtilesPath;
   CancelToken? _cancelToken;
+
+  /// Get selected zoom level from preferences
+  Future<int> getSelectedZoomLevel() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(PREFS_KEY_SELECTED_ZOOM_LEVEL) ?? DEFAULT_ZOOM_LEVEL;
+    } catch (e) {
+      debugPrint('[MbtilesDownload] Error getting zoom level: $e');
+      return DEFAULT_ZOOM_LEVEL;
+    }
+  }
 
   /// Check if mbtiles file is already downloaded
   Future<bool> isMbtilesDownloaded() async {
@@ -230,8 +264,9 @@ class MbtilesDownloadService extends GetxController {
     );
   }
 
-  /// Download mbtiles file from Google Drive
-  Future<String?> downloadMbtiles() async {
+  /// Download mbtiles file from Cloudflare R2 storage
+  /// [zoomLevel] - The zoom level to download (11 or 12)
+  Future<String?> downloadMbtiles({int? zoomLevel}) async {
     // if (isDownloading.value) {
     //   debugPrint('[MbtilesDownload] ⚠️ Download already in progress');
     //   return null;
@@ -248,13 +283,29 @@ class MbtilesDownloadService extends GetxController {
     }
 
     try {
-      debugPrint('[MbtilesDownload] 🗺️ Starting mbtiles download...');
+      // Get or use default zoom level
+      final selectedZoom = zoomLevel ?? DEFAULT_ZOOM_LEVEL;
+
+      // Validate zoom level
+      if (!AVAILABLE_ZOOM_LEVELS.contains(selectedZoom)) {
+        debugPrint('[MbtilesDownload] ❌ Invalid zoom level: $selectedZoom');
+        errorMessage.value = "Invalid zoom level selected";
+        hasError.value = true;
+        return null;
+      }
+
+      debugPrint('[MbtilesDownload] 🗺️ Starting mbtiles download for zoom level $selectedZoom...');
 
       isDownloading.value = true;
       hasError.value = false;
       isCompleted.value = false;
       downloadProgress.value = 0.0;
       statusText.value = "Preparing download...";
+
+      // Save selected zoom level to preferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(PREFS_KEY_SELECTED_ZOOM_LEVEL, selectedZoom);
+      debugPrint('[MbtilesDownload] 💾 Saved selected zoom level: $selectedZoom');
 
       // Note: We use getApplicationSupportDirectory() which doesn't require storage permissions
       debugPrint('[MbtilesDownload] ℹ️ Using app-specific storage - no permissions required');
@@ -264,28 +315,72 @@ class MbtilesDownloadService extends GetxController {
       // For truly persistent storage across uninstalls, we would need iCloud or external storage
       final appDir = await getApplicationSupportDirectory();
       final tilesDir = Directory('${appDir.path}/offline_tiles');
-              debugPrint('[MbtilesDownload] 📁 fetching tiles directory ${tilesDir.path}');
+      debugPrint('[MbtilesDownload] 📁 Tiles directory: ${tilesDir.path}');
 
       // Create tiles directory if it doesn't exist
       if (!await tilesDir.exists()) {
         await tilesDir.create(recursive: true);
         debugPrint('[MbtilesDownload] 📁 Created tiles directory: ${tilesDir.path}');
       } else {
-        debugPrint('[MbtilesDownload] 📁 Deleting Folder: ${tilesDir.path}');
+        debugPrint('[MbtilesDownload] 📁 Tiles directory exists, cleaning up: ${tilesDir.path}');
 
-        
-        await tilesDir.delete(); 
-           await tilesDir.create(recursive: true);
+        try {
+          // iOS/Android: Delete directory recursively (including all files inside)
+          // This requires recursive: true to delete non-empty directories
+          debugPrint('[MbtilesDownload] 🗑️ Attempting to delete directory recursively...');
+          await tilesDir.delete(recursive: true);
+          debugPrint('[MbtilesDownload] ✅ Successfully deleted tiles directory');
+
+          // Recreate the directory immediately after deletion
+          await tilesDir.create(recursive: true);
+          debugPrint('[MbtilesDownload] 📁 Recreated tiles directory');
+        } catch (e) {
+          debugPrint('[MbtilesDownload] ⚠️ Error deleting directory: $e');
+
+          // Fallback: Try to delete individual files if directory deletion fails
+          // This can happen on iOS if the directory is locked or in use
+          try {
+            debugPrint('[MbtilesDownload] 🔄 Attempting fallback: deleting individual files...');
+            final files = await tilesDir.list(recursive: true).toList();
+            debugPrint('[MbtilesDownload] 📋 Found ${files.length} items to delete');
+
+            for (var entity in files) {
+              try {
+                if (entity is File) {
+                  await entity.delete();
+                  debugPrint('[MbtilesDownload] 🗑️ Deleted file: ${entity.path}');
+                } else if (entity is Directory) {
+                  await entity.delete(recursive: true);
+                  debugPrint('[MbtilesDownload] 🗑️ Deleted subdirectory: ${entity.path}');
+                }
+              } catch (e3) {
+                debugPrint('[MbtilesDownload] ⚠️ Error deleting ${entity.path}: $e3');
+              }
+            }
+            debugPrint('[MbtilesDownload] ✅ Fallback deletion completed');
+          } catch (e2) {
+            debugPrint('[MbtilesDownload] ❌ Fallback deletion also failed: $e2');
+            // If all deletion attempts fail, we'll just overwrite the file later
+          }
+        }
       }
 
-      // Define local file path
-      final localFilePath = '${tilesDir.path}/$MBTILES_FILENAME';
+      // Define local file path (always use same filename for consistency)
+      final localFilePath = '${tilesDir.path}/$LOCAL_MBTILES_FILENAME';
       final localFile = File(localFilePath);
+
+      debugPrint('[MbtilesDownload] 📁 Local file path: $localFilePath');
 
       // If file already exists, delete it first
       if (await localFile.exists()) {
-        await localFile.delete();
-        debugPrint('[MbtilesDownload] 🗑️ Deleted existing mbtiles file');
+        try {
+          await localFile.delete();
+          debugPrint('[MbtilesDownload] 🗑️ Deleted existing mbtiles file: $localFilePath');
+        } catch (e) {
+          debugPrint('[MbtilesDownload] ⚠️ Error deleting existing file: $e');
+          // On iOS, if file is locked, try to overwrite it instead
+          debugPrint('[MbtilesDownload] 🔄 Will attempt to overwrite the file during download');
+        }
       }
 
       // Create Dio instance with custom configuration
@@ -300,15 +395,23 @@ class MbtilesDownloadService extends GetxController {
 
       _cancelToken = CancelToken();
 
-      // Download from direct HTTP server
-      debugPrint('[MbtilesDownload] � Preparing to download mbtiles from server...');
-      statusText.value = "Connecting to server...";
+      // Download from Cloudflare R2
+      debugPrint('[MbtilesDownload] 📡 Preparing to download mbtiles from Cloudflare R2...');
+      statusText.value = "Connecting to Cloudflare...";
 
-      // Use the direct download URL
-      final downloadUrl = MBTILES_DOWNLOAD_URL;
+      // Get download URL for selected zoom level
+      final downloadUrl = getDownloadUrl(selectedZoom);
+
+      // Prepare headers (add authentication if token is provided)
+      final headers = <String, dynamic>{};
+      if (CLOUDFLARE_AUTH_TOKEN.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $CLOUDFLARE_AUTH_TOKEN';
+        debugPrint('[MbtilesDownload] 🔐 Using authentication token');
+      }
 
       debugPrint('[MbtilesDownload] 📥 Download URL: $downloadUrl');
-      debugPrint('[MbtilesDownload] � Saving to: $localFilePath');
+      debugPrint('[MbtilesDownload] 🔢 Zoom level: $selectedZoom');
+      debugPrint('[MbtilesDownload] 💾 Saving to: $localFilePath');
       statusText.value = "Starting download...";
 
       // Download the file with progress tracking
@@ -316,6 +419,10 @@ class MbtilesDownloadService extends GetxController {
         downloadUrl,
         localFilePath,
         cancelToken: _cancelToken,
+        options: Options(
+          headers: headers.isNotEmpty ? headers : null,
+          responseType: ResponseType.bytes,
+        ),
         onReceiveProgress: (received, total) {
           if (total != -1) {
             downloadedBytes.value = received;
@@ -346,17 +453,7 @@ class MbtilesDownloadService extends GetxController {
             }
           }
         },
-        options: Options(
-          followRedirects: true,
-          maxRedirects: 10,
-          receiveTimeout: const Duration(hours: 2),
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': '*/*',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-          },
-        ),
+        
       );
 
       debugPrint('[MbtilesDownload] ✅ Download completed: $localFilePath');
@@ -388,11 +485,12 @@ Download Error
 The server returned an HTML error page instead of the mbtiles file.
 
 Possible reasons:
-1. File not found on server
+1. File not found on Cloudflare R2
 2. Server access denied
 3. Incorrect download URL
 
-Download URL: $MBTILES_DOWNLOAD_URL
+Download URL: $downloadUrl
+Zoom Level: $selectedZoom
 """;
           statusText.value = "Download failed - server error";
           return null;

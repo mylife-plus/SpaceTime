@@ -136,14 +136,11 @@ Future<void> main() async {
   // Initialize controllers as permanent singletons
   debugPrint('🎮 Initializing controllers...');
   Get.put(UiController(), permanent: true);
+  Get.put(GetStartedController(), permanent: true); // Initialize Get Started controller first
   Get.put(MemoryController(), permanent: true);
   Get.put(AddMemoriesController(), permanent: true);
-  // Get.put(MapMarkerService(), permanent: true);
-
   Get.put(MapControllerNew(), permanent: true);
-  Get.put(MemoryController(), permanent: true);
-
-  Get.put(MemoryController(), permanent: true);
+  Get.put(MemoryLocationPickerControllerWithRadius(), permanent: true);
   debugPrint('✅ Controllers initialized as permanent singletons');
 
   // Test the geocoding service

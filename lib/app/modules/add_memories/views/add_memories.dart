@@ -201,13 +201,6 @@ class AddMemoriesView extends GetView<AddMemoriesController>
         child: Scaffold(
           backgroundColor:
                          (!uiController.darkMode.value ? Colors.white : Colors.transparent),
-
-          // backgroundColor:
-          //     uiController.darkMode.value
-          //         ? Colors.black
-          //         : uiController.getLightModeBackgroundColor(
-          //           uiController.mainColor.value,
-          //         ),
           body: Stack(
             children: [
                 Column(
