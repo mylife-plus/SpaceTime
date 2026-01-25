@@ -1849,7 +1849,7 @@ class AddMemoriesController extends GetxController {
       hasActiveFilters.value = false;
       _filterController.clearFilters();
 
-      // _filterController.clearSearchedTextKeyword();
+      _filterController.clearSearchedTextKeyword();
       _filterController.resetFilters();
       closeFilter();
       return;

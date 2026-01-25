@@ -4,11 +4,9 @@
     "name": "Streets",
     "sources": {
         "maptiler_attribution": {
-            "attribution": "<a href=\"https://www.maptiler.com/copyright/\" target=\"_blank\">&copy; MapTiler</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>",
             "type": "vector"
         },
         "maptiler_planet_v4": {
-            "url": "https://api.maptiler.com/tiles/v4/tiles.json?key=rNg5Wcw4jDRJ3KW2ybhf",
             "type": "vector"
         }
     },
@@ -26591,7 +26589,6 @@
             ],
             "metadata": {
                 "maptiler": {
-                    "copyright": "You are licensed to use the style or its derivate for serving map tiles exclusively with MapTiler Server or MapTiler Cloud and in accordance with their licenses and terms. If you plan to use the style in a different way, contact us at sales@maptiler.com.",
                     "groups": [
                         {
                             "icon": "poi",
