@@ -1835,18 +1835,22 @@ class AddMemoriesController extends GetxController {
         selectedCategories.isNotEmpty ||
         selectedMemoryIds.isNotEmpty;
 
-    debugPrint('=== APPLYING FILTERS ===');
-    debugPrint('Filter values: ${filterValues.toString()}');
-    debugPrint('Selected location: "${selectedLocation.value}"');
-    debugPrint('Selected radius: "${selectedRadius.value}"');
-    debugPrint('Selected hashtags: ${selectedHashtags.toString()}');
-    debugPrint('Selected contacts: ${selectedContacts.toString()}');
-    debugPrint('Selected categories: ${selectedCategories.toString()}');
-    debugPrint('Has filters: $hasFilters');
+    debugPrint('ApplyFilterFromOverlay === APPLYING FILTERS ===');
+    debugPrint('ApplyFilterFromOverlay Filter values: ${filterValues.toString()}');
+    debugPrint('ApplyFilterFromOverlay Selected location: "${selectedLocation.value}"');
+    debugPrint('ApplyFilterFromOverlay Selected radius: "${selectedRadius.value}"');
+    debugPrint('ApplyFilterFromOverlay Selected hashtags: ${selectedHashtags.toString()}');
+    debugPrint('ApplyFilterFromOverlay Selected contacts: ${selectedContacts.toString()}');
+    debugPrint('ApplyFilterFromOverlay Selected categories: ${selectedCategories.toString()}');
+    debugPrint('ApplyFilterFromOverlay Has filters: $hasFilters');
 
     if (!hasFilters) {
       isSearching.value = false;
       hasActiveFilters.value = false;
+      _filterController.clearFilters();
+
+      // _filterController.clearSearchedTextKeyword();
+      _filterController.resetFilters();
       closeFilter();
       return;
     }
