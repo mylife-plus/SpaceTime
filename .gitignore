@@ -145,6 +145,10 @@ devtools_options.yaml
 # assets/*.csv
 # assets/data/
 
+# MBTiles files (offline map tiles - too large for git)
+assets/*.mbtiles
+**/*.mbtiles
+
 # FVM Version Cache
 .fvm/
 
