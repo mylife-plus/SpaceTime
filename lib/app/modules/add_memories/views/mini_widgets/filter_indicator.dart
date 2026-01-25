@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new%20copy.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart' show MapControllerNew;
 import '../../controllers/add_memories_controller.dart';
@@ -19,50 +20,8 @@ class FilterIndicator extends StatelessWidget {
         return const SizedBox.shrink();
       }
 
-      // Count active filters
-      int activeFilterCount = 0;
-      List<String> activeFilters = [];
-
-      if (controller.filterValues.isNotEmpty) {
-        for (final entry in controller.filterValues.entries) {
-          if (entry.value.isNotEmpty) {
-            activeFilterCount++;
-            if (entry.key.contains('date')) {
-              activeFilters.add('Date');
-            } else {
-              activeFilters.add(entry.key);
-            }
-          }
-        }
-      }
-
-      // Location and radius are treated as a single filter
-      if (controller.selectedLocation.value.isNotEmpty) {
-        activeFilterCount++;
-        // Show both location and radius info if radius is set
-        if (controller.selectedRadius.value.isNotEmpty) {
-          activeFilters.add('Location (${controller.selectedRadius.value})');
-        } else {
-          activeFilters.add('Location');
-        }
-      }
-
-      if (controller.selectedHashtags.isNotEmpty) {
-        activeFilterCount++;
-        activeFilters.add('Hashtags (${controller.selectedHashtags.length})');
-      }
-
-      if (controller.selectedContacts.isNotEmpty) {
-        activeFilterCount++;
-        activeFilters.add('Contacts (${controller.selectedContacts.length})');
-      }
-
-      if (controller.selectedCategories.isNotEmpty) {
-        activeFilterCount++;
-        activeFilters.add(
-          'Categories (${controller.selectedCategories.length})',
-        );
-      }
+      // Use activeFilterCount from controller (delegates to FilterController)
+      final activeFilterCount = controller.activeFilterCount;
 
       // Check if this is a map-based filter (no explicit filters but hasActiveFilters is true)
       bool isMapFilter =
@@ -70,13 +29,8 @@ class FilterIndicator extends StatelessWidget {
           controller.hasActiveFilters.value &&
           controller.isSearching.value;
 
-      if (isMapFilter) {
-        activeFilterCount = 1;
-        activeFilters.add('Map View');
-      }
-
-      if (activeFilterCount == 0) {
-        return Container();
+      if (isMapFilter || activeFilterCount == 0) {
+        return const SizedBox.shrink();
       }
 
       return Container(
@@ -137,13 +91,15 @@ class FilterIndicator extends StatelessWidget {
               onTap: () async {
                 final mapController = Get.find<MapControllerNew>();
                 debugPrint('[FilterIndicator] 🧹 Resetting all filters');
-                controller.resetFilters();
-                mapController.resetFilters();
-                mapController.isFilterOpen.value = false;
 
-                // Reload memories and update map
-                await mapController.loadMemoriesFromDB();
-                mapController.showLoadedDataOnMap();
+                // Use same logic as filter overlay reset button
+                // controller.resetFilters();
+                // mapController.resetFilters();
+
+                // Close filter overlay if open and reload with delay
+                Future.delayed(Duration(milliseconds: 500), () {
+                  _closefilterAndReset(mapController);
+                });
               },
               child: Container(
                 padding: const EdgeInsets.all(2),
@@ -168,5 +124,32 @@ class FilterIndicator extends StatelessWidget {
         ),
       );
     });
+  }
+
+  /// Helper method to close filter and reset map (same logic as filter overlay)
+  Future<void> _closefilterAndReset(MapControllerNew? mapController) async {
+    debugPrint('[FilterIndicator] 🔄 Clearing all filters EXCEPT search from FilterController...');
+
+    // Clear all filters EXCEPT search from FilterController (single source of truth)
+    final filterController = Get.find<FilterController>();
+    filterController.resetFiltersExceptSearch();
+
+    debugPrint('[FilterIndicator] ✅ Filters cleared (search preserved: "${filterController.searchedTextKeyword.value}")');
+
+    debugPrint('[FilterIndicator] 📊 Loaded ${filterController.filteredMemories.length} memories');
+
+    // Reload AddMemories view
+    if (Get.isRegistered<AddMemoriesController>()) {
+      final addMemoriesController = Get.find<AddMemoriesController>();
+      await addMemoriesController.loadMemoriesFromDatabase();
+      debugPrint('[FilterIndicator] ✅ AddMemories view reloaded');
+    }
+
+    // Close filter overlay and reload map
+    mapController?.isFilterOpen.value = false;
+    await mapController?.loadMemoriesFromDB(filterController.filteredMemories.toList());
+    mapController?.showLoadedDataOnMap();
+
+    debugPrint('[FilterIndicator] ✅ Map reloaded');
   }
 }

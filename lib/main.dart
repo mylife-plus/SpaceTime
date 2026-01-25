@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
+import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/map/controllers/memory_location_picker_with_radius_controller.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -138,6 +139,7 @@ Future<void> main() async {
   Get.put(UiController(), permanent: true);
   Get.put(GetStartedController(), permanent: true); // Initialize Get Started controller first
   Get.put(MemoryController(), permanent: true);
+  Get.put(FilterController(), permanent: true); // Initialize FilterController before AddMemoriesController and MapControllerNew
   Get.put(AddMemoriesController(), permanent: true);
   Get.put(MapControllerNew(), permanent: true);
   Get.put(MemoryLocationPickerControllerWithRadius(), permanent: true);

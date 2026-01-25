@@ -23,6 +23,7 @@ import 'package:spacetime/app/services/memory_db.dart';
 import '../controllers/memory_controller.dart';
 import 'mini_widgets/custom_dialogue_box.dart';
 import '../../add_memories/controllers/add_memories_controller.dart';
+import '../../filter/controllers/filter_controller.dart';
 
 class MemoryView extends StatefulWidget {
   final bool editMode;
@@ -1218,38 +1219,41 @@ class _MemoryViewState extends State<MemoryView> {
         _selectedImagePaths.refresh();
         debugPrint('MemoryView: handleSave - EDIT MODE - UI fields cleared');
 
-        // Refresh the memories list after update
-        debugPrint('MemoryView: handleSave - EDIT MODE - Refreshing AddMemoriesController');
-        final addMemoriesController = Get.find<AddMemoriesController>();
-        addMemoriesController.onAgainInit();
-        debugPrint('MemoryView: handleSave - EDIT MODE - AddMemoriesController refreshed');
+        // Reload data from FilterController (single source of truth)
+        debugPrint('MemoryView: handleSave - EDIT MODE - Reloading from FilterController');
+        if (Get.isRegistered<FilterController>()) {
+          final filterController = Get.find<FilterController>();
+          await filterController.loadAndApplyFilters();
+          debugPrint('MemoryView: handleSave - EDIT MODE - FilterController reloaded: ${filterController.filteredMemories.length} memories');
+        }
+
+        // Refresh AddMemories view
+        if (Get.isRegistered<AddMemoriesController>()) {
+          final addMemoriesController = Get.find<AddMemoriesController>();
+          await addMemoriesController.loadMemoriesFromDatabase();
+          debugPrint('MemoryView: handleSave - EDIT MODE - AddMemories view reloaded');
+        }
+
+        // Refresh Map view
+        if (Get.isRegistered<MapControllerNew>()) {
+          final mapController = Get.find<MapControllerNew>();
+          final filterController = Get.find<FilterController>();
+          await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
+          mapController.showLoadedDataOnMap();
+          debugPrint('MemoryView: handleSave - EDIT MODE - Map view reloaded');
+        }
 
         debugPrint('MemoryView: handleSave - EDIT MODE - Showing success snackbar');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Memory updated successfully!'),
             backgroundColor: Colors.blue.shade400,
-            margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
-
+            margin: const EdgeInsets.all(12),
+            duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
           ),
         );
         debugPrint('MemoryView: handleSave - EDIT MODE - Snackbar shown');
- if (Get.isRegistered<MapControllerNew>()) {
-          final c = Get.find<MapControllerNew>();
-          c.loadMemoriesFromDB();
-
-          c.showLoadedDataOnMap();();
-          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
-        }
-
-         if (Get.isRegistered<MapControllerNew>()) {
-          final c = Get.find<MapControllerNew>();
-          await c.loadMemoriesFromDB(null);
-  
-          c.showLoadedDataOnMap();
-          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
-        }
         // Pop the view after showing snackbar
         debugPrint('MemoryView: handleSave - EDIT MODE - Popping view with result: true');
         Get.back(result: true);
@@ -1299,20 +1303,28 @@ class _MemoryViewState extends State<MemoryView> {
         memoryController.clearAllData();
         debugPrint('MemoryView: handleSave - CREATE MODE - Controller data cleared');
 
-        // Refresh the memories list after creation
-        debugPrint('MemoryView: handleSave - CREATE MODE - Refreshing AddMemoriesController');
-        if (Get.isRegistered<AddMemoriesController>()) {
-          final addMemoriesController = Get.find<AddMemoriesController>();
-          addMemoriesController.onAgainInit();
-          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
+        // Reload data from FilterController (single source of truth)
+        debugPrint('MemoryView: handleSave - CREATE MODE - Reloading from FilterController');
+        if (Get.isRegistered<FilterController>()) {
+          final filterController = Get.find<FilterController>();
+          filterController.resetFiltersExceptSearch();
+          debugPrint('MemoryView: handleSave - CREATE MODE - FilterController reloaded: ${filterController.filteredMemories.length} memories');
         }
 
-         if (Get.isRegistered<MapControllerNew>()) {
-          final c = Get.find<MapControllerNew>();
-          await c.loadMemoriesFromDB(null);
-  
-          c.showLoadedDataOnMap();
-          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
+        // Refresh AddMemories view
+        if (Get.isRegistered<AddMemoriesController>()) {
+          final addMemoriesController = Get.find<AddMemoriesController>();
+          await addMemoriesController.loadMemoriesFromDatabase();
+          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemories view reloaded');
+        }
+
+        // Refresh Map view
+        if (Get.isRegistered<MapControllerNew>()) {
+          final mapController = Get.find<MapControllerNew>();
+          final filterController = Get.find<FilterController>();
+          await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
+          mapController.showLoadedDataOnMap();
+          debugPrint('MemoryView: handleSave - CREATE MODE - Map view reloaded');
         }
 
         // Show success snackbar before popping
@@ -1339,13 +1351,6 @@ class _MemoryViewState extends State<MemoryView> {
       debugPrint('MemoryView: handleSave - ERROR CAUGHT: $e');
       debugPrint('MemoryView: handleSave - ERROR - Stack trace: ${StackTrace.current}');
 
-       if (Get.isRegistered<MapControllerNew>()) {
-          final c = Get.find<MapControllerNew>();
-          c.loadMemoriesFromDB();
-
-          c.showLoadedDataOnMap();();
-          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
-        }
       Get.back(result: true);
       debugPrint('MemoryView: handleSave - ERROR - View popped after error');
       print('Error Log: $e');
@@ -1437,41 +1442,52 @@ class _MemoryViewState extends State<MemoryView> {
                 Navigator.of(context).pop();
 
                 try {
+                  debugPrint('[MemoryView] 🗑️ Deleting memory ID: $_editingMemoryId');
+
                   final memoryController = Get.find<MemoryController>();
                   await memoryController.deleteMemory(_editingMemoryId!);
+
+                  debugPrint('[MemoryView] ✅ Memory deleted from database');
+
+                  // Reload data from FilterController (single source of truth)
+                  if (Get.isRegistered<FilterController>()) {
+                    final filterController = Get.find<FilterController>();
+                    await filterController.loadAndApplyFilters();
+                    debugPrint('[MemoryView] 📊 FilterController reloaded: ${filterController.filteredMemories.length} memories');
+                  }
+
+                  // Refresh AddMemories view
+                  if (Get.isRegistered<AddMemoriesController>()) {
+                    final addMemoriesController = Get.find<AddMemoriesController>();
+                    await addMemoriesController.loadMemoriesFromDatabase();
+                    debugPrint('[MemoryView] ✅ AddMemories view reloaded');
+                  }
+
+                  // Refresh Map view
+                  if (Get.isRegistered<MapControllerNew>()) {
+                    final mapController = Get.find<MapControllerNew>();
+                    final filterController = Get.find<FilterController>();
+                    await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
+                    mapController.showLoadedDataOnMap();
+                    debugPrint('[MemoryView] ✅ Map view reloaded');
+                  }
 
                   // Show success message
                   Get.snackbar(
                     'Success',
                     'Memory deleted successfully',
                     backgroundColor: Colors.red.withValues(alpha: 0.8),
-                    colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+                    colorText: Colors.white,
+                    duration: const Duration(seconds: 2),
                   );
-
-                  // Navigate back to memories list and refresh
-
-                  // Refresh the memories list if controller exists
-                  if (Get.isRegistered<AddMemoriesController>()) {
-                    final addMemoriesController =
-                        Get.find<AddMemoriesController>();
-                    addMemoriesController.onAgainInit();
-                  }
-
-                   if (Get.isRegistered<MapControllerNew>()) {
-          final c = Get.find<MapControllerNew>();
-          await c.loadMemoriesFromDB(null);
-  
-          c.showLoadedDataOnMap();
-          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemoriesController refreshed');
-        }
                 } catch (e) {
+                  debugPrint('[MemoryView] ❌ Error deleting memory: $e');
                   Get.snackbar(
                     'Unable to Delete',
                     'Unable to delete memory. Please try again.',
                     backgroundColor: Colors.red,
-                    colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+                    colorText: Colors.white,
+                    duration: const Duration(seconds: 2),
                   );
                 }
 

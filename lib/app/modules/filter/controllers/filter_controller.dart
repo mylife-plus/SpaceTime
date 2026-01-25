@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:io';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../services/memory_db.dart';
 import '../../../models/hashtag_group_model.dart';
 import '../../../models/contact_group_model.dart';
@@ -79,6 +81,9 @@ class FilterController extends GetxController {
   /// Searched text keyword for text-based search filtering
   final RxString searchedTextKeyword = ''.obs;
 
+  /// Loading state for memories
+  final RxBool isLoadingMemories = false.obs;
+
   /// Cached hierarchical data for display logic
   List<HashtagGroup> _cachedHashtagGroups = [];
   List<ContactGroup> _cachedContactGroups = [];
@@ -127,68 +132,8 @@ class FilterController extends GetxController {
   /// This loads all memories from database, extracts unique tags/mentions/categories,
   /// and applies any selected filters
   Future<void> _loadFilterData() async {
-
-    try {
-
-      allMemories.clear();
-      filteredMemories.clear();
-      debugPrint('$tag 📊 Loading filter data from database...');
-
-      // Ensure database is initialized
-      final db = await _databaseHelper.database;
-      if (!db.isOpen) {
-        debugPrint('$tag ⚠️ Database is not open, reinitializing...');
-        await _databaseHelper.resetDatabaseConnection();
-      }
-
-      // Load all memories from database and store in global variable
-      debugPrint('$tag 📂 Loading all memories from database...');
-      final memories = await _databaseHelper.getAllMemoriesWithDetails();
-      allMemories.value = memories;
-      debugPrint('$tag ✅ Loaded ${allMemories.length} memories from database');
-
-      // Extract unique hashtags, contacts, and categories from memories
-      final Set<String> uniqueHashtags = {};
-      final Set<String> uniqueContacts = {};
-      final Set<String> uniqueCategories = {};
-
-      for (final memory in allMemories) {
-        // Extract hashtags from tags field (comma-separated)
-        final tags = memory[DatabaseHelper.columnTags] as String?;
-        if (tags != null && tags.isNotEmpty) {
-          final tagList = tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty);
-          uniqueHashtags.addAll(tagList);
-        }
-
-        // Extract contacts from mentions field (comma-separated)
-        final mentions = memory[DatabaseHelper.columnMentions] as String?;
-        if (mentions != null && mentions.isNotEmpty) {
-          final mentionList = mentions.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty);
-          uniqueContacts.addAll(mentionList);
-        }
-
-        // Extract category
-        final category = memory[DatabaseHelper.columnCategory] as String?;
-        if (category != null && category.isNotEmpty) {
-          uniqueCategories.add(category.trim());
-        }
-      }
-
-      // Update available filter options
-      availableHashtags.value = uniqueHashtags.toList()..sort();
-      availableContacts.value = uniqueContacts.toList()..sort();
-      availableCategories.value = uniqueCategories.toList()..sort();
-
-      debugPrint('$tag ✅ Extracted filter data from memories');
-      debugPrint('$tag   - Unique Hashtags: ${availableHashtags.length}');
-      debugPrint('$tag   - Unique Contacts: ${availableContacts.length}');
-      debugPrint('$tag   - Unique Categories: ${availableCategories.length}');
-
-      // Apply all filters to update filteredMemories and totalResults
-      applyAllFilters();
-    } catch (e) {
-      debugPrint('$tag ❌ Error loading filter data: $e');
-    }
+    // Use the new loadAndApplyFilters method which handles UI transformation
+    await loadAndApplyFilters();
   }
 
   // ============================================================================
@@ -458,6 +403,361 @@ class FilterController extends GetxController {
     return earthRadiusMiles * c;
   }
 
+  // ============================================================================
+  // UI TRANSFORMATION METHODS
+  // ============================================================================
+
+  /// Load memories from database and apply filters
+  /// This is the main orchestration method that should be called to load and filter memories
+  Future<void> loadAndApplyFilters() async {
+    try {
+      isLoadingMemories.value = true;
+      debugPrint('$tag Starting to load memories from database...');
+
+      // Ensure database is initialized
+      final db = await _databaseHelper.database;
+      if (!db.isOpen) {
+        await _databaseHelper.resetDatabaseConnection();
+      }
+
+      // Load all memories from database
+      final memories = await _databaseHelper.getAllMemoriesWithDetails();
+      debugPrint('$tag Loaded ${memories.length} raw memories from database');
+
+      // Transform database memories to UI format
+      final transformedMemories = <Map<String, dynamic>>[];
+      for (final memory in memories) {
+        try {
+          final transformed = await transformDatabaseMemoryToUI(memory);
+          transformedMemories.add(transformed);
+        } catch (e) {
+          debugPrint('$tag Error transforming memory ${memory['id']}: $e');
+        }
+      }
+
+      // Sort memories by date and time (newest first)
+      transformedMemories.sort((a, b) {
+        try {
+          final aDate = a['date'] as String? ?? '';
+          final bDate = b['date'] as String? ?? '';
+          final aYear = a['year'] as String? ?? '';
+          final bYear = b['year'] as String? ?? '';
+          final aTime = a['time'] as String? ?? '';
+          final bTime = b['time'] as String? ?? '';
+
+          DateTime? aDateTime;
+          DateTime? bDateTime;
+
+          String format = Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
+
+          if (aTime.toLowerCase().contains('am') || aTime.toLowerCase().contains('pm')) {
+            format = "d. MMMM yyyy hh:mm a";
+          } else {
+            format = "d. MMMM yyyy HH:mm";
+          }
+
+          // Try to parse memory A
+          try {
+            if (aDate.isNotEmpty) {
+              if (aDate.contains(' ') && aDate.split(' ').length >= 4) {
+                aDateTime = DateTime.tryParse(aDate);
+              } else if (aYear.isNotEmpty) {
+                String dateTimeStr = '$aDate $aYear';
+                if (aTime.isNotEmpty) {
+                  dateTimeStr += ' $aTime';
+                }
+                aDateTime = DateTime.tryParse(dateTimeStr);
+              }
+            }
+          } catch (e) {
+            debugPrint('$tag Error parsing date A: $e');
+          }
+
+          // Try to parse memory B
+          try {
+            if (bDate.isNotEmpty) {
+              if (bDate.contains(' ') && bDate.split(' ').length >= 4) {
+                bDateTime = DateTime.tryParse(bDate);
+              } else if (bYear.isNotEmpty) {
+                String dateTimeStr = '$bDate $bYear';
+                if (bTime.isNotEmpty) {
+                  dateTimeStr += ' $bTime';
+                }
+                bDateTime = DateTime.tryParse(dateTimeStr);
+              }
+            }
+          } catch (e) {
+            debugPrint('$tag Error parsing date B: $e');
+          }
+
+          // Compare dates
+          if (aDateTime != null && bDateTime != null) {
+            return bDateTime.compareTo(aDateTime); // Newest first
+          } else if (aDateTime != null) {
+            return -1;
+          } else if (bDateTime != null) {
+            return 1;
+          }
+          return 0;
+        } catch (e) {
+          debugPrint('$tag Error sorting memories: $e');
+          return 0;
+        }
+      });
+
+      // Store in global variable
+      allMemories.value = transformedMemories;
+      debugPrint('$tag Transformed and sorted ${transformedMemories.length} memories');
+
+      // Extract unique hashtags, contacts, and categories from all memories
+      final hashtagsSet = <String>{};
+      final contactsSet = <String>{};
+      final categoriesSet = <String>{};
+
+      for (final memory in allMemories) {
+        final tags = memory[DatabaseHelper.columnTags] as String?;
+        if (tags != null && tags.isNotEmpty) {
+          hashtagsSet.addAll(tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty));
+        }
+
+        final mentions = memory[DatabaseHelper.columnMentions] as String?;
+        if (mentions != null && mentions.isNotEmpty) {
+          contactsSet.addAll(mentions.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty));
+        }
+
+        final category = memory[DatabaseHelper.columnCategory] as String?;
+        if (category != null && category.isNotEmpty) {
+          categoriesSet.add(category);
+        }
+      }
+
+      availableHashtags.value = hashtagsSet.toList()..sort();
+      availableContacts.value = contactsSet.toList()..sort();
+      availableCategories.value = categoriesSet.toList()..sort();
+
+      debugPrint('$tag Extracted ${availableHashtags.length} hashtags, ${availableContacts.length} contacts, ${availableCategories.length} categories');
+
+      // Apply all filters
+      applyAllFilters();
+
+      isLoadingMemories.value = false;
+    } catch (e) {
+      debugPrint('$tag Error loading memories: $e');
+      isLoadingMemories.value = false;
+    }
+  }
+
+  /// Transform database memory to UI format
+  Future<Map<String, dynamic>> transformDatabaseMemoryToUI(
+    Map<String, dynamic> dbMemory,
+  ) async {
+    final date = _formatDate(dbMemory['date'], dbMemory['created_at']);
+    final year = _formatYear(dbMemory['date'], dbMemory['created_at']);
+
+    // Get images from the new 'images' field (loaded from separate table)
+    final imagesList = dbMemory['images'] as List<String>?;
+    List<String>? displayImages;
+    if (imagesList != null && imagesList.isNotEmpty) {
+      displayImages = await Future.wait(
+        imagesList.map((image) async {
+          if (_isFilePath(image)) {
+            return await _getAbsolutePath(image);
+          } else {
+            return image; // Legacy base64
+          }
+        }),
+      );
+    }
+
+    // Get audio data
+    final audiosList = dbMemory['audios'] as List<Map<String, dynamic>>?;
+    List<String>? audioDurations;
+    List<String>? audioPaths;
+    if (audiosList != null && audiosList.isNotEmpty) {
+      audioDurations = audiosList.map((audio) => audio['audio_duration'] as String).toList();
+      audioPaths = await Future.wait(
+        audiosList.map((audio) async {
+          final relativePath = audio['audio_file_path'] as String;
+          return await _getAbsolutePath(relativePath);
+        }),
+      );
+    } else {
+      audioPaths = _databaseHelper.getAudioPathsFromMemory(dbMemory);
+      if (audioPaths.isNotEmpty) {
+        audioDurations = audioPaths.map((path) => _extractDurationFromPath(path)).toList();
+      }
+    }
+
+    // Get video data
+    final videosRaw = dbMemory['videos'];
+    List<Map<String, dynamic>>? videosList;
+    if (videosRaw is List) {
+      videosList = videosRaw.cast<Map<String, dynamic>>();
+    }
+
+    List<String>? videoPaths;
+    List<String>? videoThumbnails;
+    List<String>? videoDurations;
+    if (videosList != null && videosList.isNotEmpty) {
+      videoPaths = await Future.wait(
+        videosList.map((video) async {
+          final relativePath = video['video_file_path'] as String;
+          return await _getAbsolutePath(relativePath);
+        }),
+      );
+      videoThumbnails = videosList.map((video) => (video['video_thumbnail_path'] as String?) ?? '').toList();
+      videoDurations = videosList.map((video) => (video['video_duration'] as String?) ?? '').toList();
+    }
+
+    // Format location
+    final formattedLocation = _formatLocation(dbMemory['location'] ?? '');
+    final locationCountry = dbMemory['location_country'] ?? '';
+    final locationCity = dbMemory['location_city'] ?? '';
+    final locationFlag = dbMemory['location_flag'] ?? '';
+    final locationName = dbMemory['location_name'] ?? '';
+    final locationAddress = dbMemory['location_address'] ?? '';
+
+    // Use enhanced location display if available
+    String displayLocation = formattedLocation;
+    if (locationFlag.isNotEmpty && locationCity.isNotEmpty && locationCountry.isNotEmpty) {
+      displayLocation = '$locationFlag $locationCity, $locationCountry';
+    } else if (locationName.isNotEmpty) {
+      displayLocation = locationName;
+    } else if (locationAddress.isNotEmpty) {
+      displayLocation = locationAddress;
+    }
+
+    return {
+      'id': dbMemory['id'],
+      'year': year,
+      'date': date,
+      'location': displayLocation,
+      'location_country': locationCountry,
+      'location_city': locationCity,
+      'location_flag': locationFlag,
+      'location_name': locationName,
+      'location_address': locationAddress,
+      'location_latitude': dbMemory['location_latitude'],
+      'location_longitude': dbMemory['location_longitude'],
+      'time': dbMemory['time'] ?? '',
+      'text': dbMemory['description'],
+      'category': dbMemory['category'],
+      'tags': dbMemory['tags'],
+      'mentions': dbMemory['mentions'],
+      'assetsImg': displayImages,
+      'audioDurations': audioDurations,
+      'base64Images': imagesList,
+      'audioPaths': audioPaths,
+      'videoPaths': videoPaths,
+      'videoThumbnails': videoThumbnails,
+      'videoDurations': videoDurations,
+      'created_at': dbMemory['created_at'],
+    };
+  }
+
+  /// Helper method to check if string is a file path
+  bool _isFilePath(String str) {
+    if (str.startsWith('memory_images/') ||
+        str.startsWith('memory_videos/') ||
+        str.startsWith('memory_audios/') ||
+        str.startsWith('audio_files/')) {
+      return true;
+    }
+
+    return str.startsWith('/') ||
+        str.contains('\\') ||
+        str.contains('.jpg') ||
+        str.contains('.jpeg') ||
+        str.contains('.png') ||
+        str.contains('.gif') ||
+        str.contains('.webp') ||
+        str.contains('.mov') ||
+        str.contains('.mp4') ||
+        str.contains('.m4a');
+  }
+
+  /// Format date for display
+  String _formatDate(String? dbDate, String? createdAt) {
+    if (dbDate != null && dbDate.isNotEmpty) {
+      try {
+        final date = DateTime.parse(dbDate);
+        final months = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+        return '${date.day}. ${months[date.month]}';
+      } catch (e) {
+        debugPrint('$tag Error parsing dbDate: $e');
+      }
+    }
+
+    if (createdAt != null) {
+      try {
+        final date = DateTime.parse(createdAt);
+        final months = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+        return '${date.day}. ${months[date.month]}';
+      } catch (e) {
+        debugPrint('$tag Error parsing createdAt: $e');
+        return 'Unknown Date';
+      }
+    }
+
+    return 'Unknown Date';
+  }
+
+  /// Convert relative path to absolute path
+  Future<String> _getAbsolutePath(String path) async {
+    if (path.startsWith('/')) {
+      return path;
+    }
+
+    final appDir = await getApplicationDocumentsDirectory();
+    return '${appDir.path}/$path';
+  }
+
+  /// Format year for display
+  String _formatYear(String? dbDate, String? createdAt) {
+    if (dbDate != null && dbDate.isNotEmpty) {
+      try {
+        final date = DateTime.parse(dbDate);
+        return '${date.year}';
+      } catch (e) {
+        debugPrint('$tag Error parsing dbDate: $e');
+      }
+    }
+
+    return 'Unknown Date';
+  }
+
+  /// Format location coordinates to truncate lat/lng to 4 decimal places
+  String _formatLocation(String location) {
+    if (location.isEmpty) return location;
+
+    final coordPattern = RegExp(r'^(-?\d+\.?\d*),(-?\d+\.?\d*)$');
+    final match = coordPattern.firstMatch(location.trim());
+
+    if (match != null) {
+      try {
+        final lat = double.parse(match.group(1)!);
+        final lng = double.parse(match.group(2)!);
+
+        final truncatedLat = (lat * 10000).truncate() / 10000;
+        final truncatedLng = (lng * 10000).truncate() / 10000;
+
+        return '$truncatedLat,$truncatedLng';
+      } catch (e) {
+        debugPrint('$tag Error parsing coordinates: $e');
+        return location;
+      }
+    }
+
+    return location;
+  }
+
+  /// Extract duration from audio file path (placeholder)
+  String _extractDurationFromPath(String path) {
+    return '1:30'; // Placeholder duration
+  }
+
   /// Load hierarchical data for display logic
 
   // ============================================================================
@@ -535,6 +835,52 @@ class FilterController extends GetxController {
     debugPrint('$tag Filter status updated: hasActiveFilters=${hasActiveFilters.value}');
   }
 
+  /// Get active filter count for badge display
+  int get activeFilterCount {
+    int count = 0;
+
+    // Count text-based filters (date, title, description, etc.)
+    if (filterValues.isNotEmpty) {
+      for (final entry in filterValues.entries) {
+        if (entry.value.isNotEmpty) {
+          count++;
+        }
+      }
+    }
+
+    // Count location filter
+    if (selectedLocation.value.isNotEmpty) {
+      count++;
+    }
+
+    // Count hashtags filter
+    if (selectedHashtags.isNotEmpty) {
+      count++;
+    }
+
+    // Count contacts filter
+    if (selectedContacts.isNotEmpty) {
+      count++;
+    }
+
+    // Count categories filter
+    if (selectedCategories.isNotEmpty) {
+      count++;
+    }
+
+    // Count memory ID filters (when individual memory is tapped)
+    if (selectedMemoryIds.isNotEmpty) {
+      count++;
+    }
+
+    return count;
+  }
+
+  /// Check if there's an active text search
+  bool get hasActiveSearch {
+    return searchedTextKeyword.value.isNotEmpty;
+  }
+
   /// Reset all filters to their default values
   void resetFilters() {
     debugPrint('$tag Resetting all filters');
@@ -570,7 +916,30 @@ class FilterController extends GetxController {
     applyAllFilters();
   }
 
-  /// Clear searched text keyword
+  /// Reset all filters EXCEPT search filter
+  void resetFiltersExceptSearch() {
+    debugPrint('$tag 🧹 Resetting all filters except search');
+
+    filterValues.clear();
+    selectedLocation.value = '';
+    selectedLocationDisplayName.value = '';
+    selectedLocationFlag.value = '';
+    selectedRadius.value = '';
+    selectedHashtags.clear();
+    selectedContacts.clear();
+    selectedCategories.clear();
+    selectedMemoryIds.clear();
+    searchedMemoryIds.clear();
+    // Keep searchedTextKeyword.value as is - don't clear it
+    isSearchedMemoryList.value = false;
+
+    updateFilterStatus();
+    debugPrint('$tag ✅ All filters reset except search (search keyword: "${searchedTextKeyword.value}")');
+
+    applyAllFilters();
+  }
+
+  /// Clear searched text keyword ONLY
   void clearSearchedTextKeyword() {
     searchedTextKeyword.value = '';
     debugPrint('$tag 🔍 Searched text keyword cleared');

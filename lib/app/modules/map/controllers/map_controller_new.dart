@@ -30,6 +30,7 @@ import '../../add_memories/views/add_memories.dart';
 import '../../../services/memory_db.dart';
 import '../../../routes/app_pages.dart';
 import '../views/mini_widgets/bottom_info.dart';
+import '../../filter/controllers/filter_controller.dart';
 
 class MapControllerNew extends GetxController {
   // Constructor with logging
@@ -118,6 +119,9 @@ class MapControllerNew extends GetxController {
   ClusterRepository? _clusterRepository;
   MapMarkerService? _mapMarkerService;
   OfflineMapCoordinatorService? _offlineCoordinator;
+
+  /// Get FilterController instance - this is the single source of truth for filters and memories
+  FilterController get _filterController => Get.find<FilterController>();
 
   // Offline map state getters (delegate to coordinator)
   RxBool get showOfflineDownloadOverlay =>
@@ -354,12 +358,25 @@ class MapControllerNew extends GetxController {
   }
 
   Future<void> showLoadedDataOnMap() async {
+    debugPrint('[MapControllerNew] 🗺️ showLoadedDataOnMap called with ${_currentMemories.length} memories');
+
     await clearAllLines();
+
+    if (_currentMemories.isEmpty) {
+      debugPrint('[MapControllerNew] ⚠️ No memories to display on map');
+      return;
+    }
+
+    debugPrint('[MapControllerNew] 🎨 Setting up clustering for ${_currentMemories.length} memories');
     await _setupMapboxClustering(_currentMemories);
+
+    debugPrint('[MapControllerNew] 🏹 Generating arrows for ${_currentMemories.length} memories');
     await generateAndDisplayArrowsAsSymbols(_currentMemories, mapboxMap!);
 
     handleMapTap();
-    if (_currentMemories.value.length > 0) {
+
+    if (_currentMemories.length > 0) {
+      debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
       await mapboxMap!.flyTo(
         mapbox.CameraOptions(
           center: mapbox.Point(
@@ -375,6 +392,8 @@ class MapControllerNew extends GetxController {
         mapbox.MapAnimationOptions(duration: 1500),
       );
     }
+
+    debugPrint('[MapControllerNew] ✅ Map display completed');
   }
 
   /// Retry getting location permissions
@@ -455,22 +474,27 @@ class MapControllerNew extends GetxController {
     }
   }
 
+  /// Load memories from FilterController (single source of truth)
+  /// Now delegates to FilterController which handles all memory loading and filtering
   Future<void> loadMemoriesFromDB([
     List<Map<String, dynamic>>? filteredMemoriesData,
   ]) async {
-    _memoryRepository ??= MemoryRepository();
+    debugPrint('[MapControllerNew] loadMemoriesFromDB called');
 
-    var memories =
-        filteredMemoriesData ?? await _memoryRepository!.loadAllMemories();
+    // Use FilterController's filtered memories instead of loading from repository
     _currentMemories.clear();
-    if (memories != null && memories.isNotEmpty) {
+
+    final memories = filteredMemoriesData ?? _filterController.filteredMemories;
+
+    if (memories.isNotEmpty) {
       // Store memories for tap handling
       _currentMemories.assignAll(memories);
+      debugPrint('[MapControllerNew] Loaded ${memories.length} memories from FilterController');
 
       // Calculate and set appropriate zoom level based on memory spread
       await _setOptimalZoomForMemories(memories);
     } else {
-      // Clear memories list
+      debugPrint('[MapControllerNew] No memories to display');
       _currentMemories.clear();
     }
   }
@@ -535,91 +559,30 @@ class MapControllerNew extends GetxController {
     }
   }
 
-  /// Load filtered memories from database based on current filter settings
-  /// Returns the filtered list without performing any other actions
+  /// Load filtered memories from FilterController (single source of truth)
+  /// Now delegates to FilterController which handles all filtering logic
   Future<List<Map<String, dynamic>>> loadFilteredMemoriesFromDB() async {
     try {
-      debugPrint('[MapControllerNew] 🔍 Loading filtered memories from DB...');
+      debugPrint('[MapControllerNew] 🔍 Loading filtered memories from FilterController...');
 
-      _memoryRepository ??= MemoryRepository();
+      // Sync filter state to FilterController
+      _filterController.filterValues.value = Map<String, String>.from(filterValues);
+      _filterController.selectedLocation.value = selectedLocation.value;
+      _filterController.selectedRadius.value = selectedRadius.value;
+      _filterController.selectedHashtags.value = List<String>.from(selectedHashtags);
+      _filterController.selectedContacts.value = List<String>.from(selectedContacts);
+      _filterController.selectedCategories.value = List<String>.from(selectedCategories);
+      _filterController.selectedMemoryIds.value = List<String>.from(selectedMemoryIds);
 
-      // If memory IDs filter is active, load only those specific memories
-      if (selectedMemoryIds.isNotEmpty) {
-        debugPrint(
-          '[MapControllerNew] 🎯 Memory IDs filter active: ${selectedMemoryIds.join(", ")}',
-        );
+      // Apply filters in FilterController
+      _filterController.applyAllFilters();
 
-        var allMemories = await _memoryRepository!.loadAllMemories();
-        if (allMemories == null || allMemories.isEmpty) {
-          return [];
-        }
-
-        // Filter to only include memories with IDs in selectedMemoryIds
-        final filteredMemories =
-            allMemories.where((m) {
-              final memoryId = m['id']?.toString();
-              return selectedMemoryIds.contains(memoryId);
-            }).toList();
-
-        debugPrint(
-          '[MapControllerNew] ✅ Found ${filteredMemories.length} memories with IDs: ${selectedMemoryIds.join(", ")}',
-        );
-        return filteredMemories;
-      }
-
-      // Load all memories from database
-      var allMemories = await _memoryRepository!.loadAllMemories();
-
-      if (allMemories == null || allMemories.isEmpty) {
-        debugPrint('[MapControllerNew] ⚠️ No memories found in database');
-        return [];
-      }
+      // Return filtered memories from FilterController
+      final filteredMemories = _filterController.filteredMemories.toList();
 
       debugPrint(
-        '[MapControllerNew] 📊 Total memories loaded: ${allMemories.length}',
+        '[MapControllerNew] ✅ Filtered memories from FilterController: ${filteredMemories.length}',
       );
-
-      // Check if any filters are active
-      final hasFilters =
-          filterValues.isNotEmpty ||
-          selectedLocation.value.isNotEmpty ||
-          selectedRadius.value.isNotEmpty ||
-          selectedHashtags.isNotEmpty ||
-          selectedContacts.isNotEmpty ||
-          selectedCategories.isNotEmpty;
-
-      if (!hasFilters) {
-        debugPrint(
-          '[MapControllerNew] ℹ️ No filters active, returning all memories ${allMemories.length}',
-        );
-        return allMemories;
-      }
-
-      // Apply filters
-      final filteredMemories = allMemories.where(_matchesFilters).toList();
-
-      debugPrint(
-        '[MapControllerNew] ✅ Filtered memories: ${filteredMemories.length}/${allMemories.length}',
-      );
-      debugPrint('[MapControllerNew] 📋 Active filters:');
-      if (filterValues.isNotEmpty) {
-        debugPrint('  - Text filters: ${filterValues.values.join(", ")}');
-      }
-      if (selectedHashtags.isNotEmpty) {
-        debugPrint('  - Hashtags: ${selectedHashtags.join(", ")}');
-      }
-      if (selectedContacts.isNotEmpty) {
-        debugPrint('  - Contacts: ${selectedContacts.join(", ")}');
-      }
-      if (selectedCategories.isNotEmpty) {
-        debugPrint('  - Categories: ${selectedCategories.join(", ")}');
-      }
-      if (selectedLocation.value.isNotEmpty &&
-          selectedRadius.value.isNotEmpty) {
-        debugPrint(
-          '  - Location: ${selectedLocation.value} (radius: ${selectedRadius.value}km)',
-        );
-      }
 
       return filteredMemories;
     } catch (e) {
@@ -1281,124 +1244,138 @@ class MapControllerNew extends GetxController {
     _updateFilterStatus();
   }
 
-  /// Apply filters and refresh the map view
-  Future<void> applyFilters() async {
-    // Validate location and radius dependency
-    final hasLocation = selectedLocation.value.isNotEmpty;
-    final hasRadius = selectedRadius.value.isNotEmpty;
+  // /// Apply filters and refresh the map view
+  // Future<void> applyFilters() async {
+  //   // Validate location and radius dependency
+  //   final hasLocation = selectedLocation.value.isNotEmpty;
+  //   final hasRadius = selectedRadius.value.isNotEmpty;
 
-    if (hasLocation && !hasRadius) {
-      Get.snackbar(
-        'Validation Error',
-        'Radius is required when location is selected',
-        backgroundColor: Colors.red.shade400,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
-      return;
-    }
+  //   if (hasLocation && !hasRadius) {
+  //     Get.snackbar(
+  //       'Validation Error',
+  //       'Radius is required when location is selected',
+  //       backgroundColor: Colors.red.shade400,
+  //       colorText: Colors.white,
+  //       margin: const EdgeInsets.all(12),
+  //       snackPosition: SnackPosition.TOP,
+  //       duration: const Duration(seconds: 2),
+  //     );
+  //     return;
+  //   }
 
-    if (hasRadius && !hasLocation) {
-      Get.snackbar(
-        'Validation Error',
-        'Location is required when radius is specified',
-        backgroundColor: Colors.red.shade400,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
-      return;
-    }
+  //   if (hasRadius && !hasLocation) {
+  //     Get.snackbar(
+  //       'Validation Error',
+  //       'Location is required when radius is specified',
+  //       backgroundColor: Colors.red.shade400,
+  //       colorText: Colors.white,
+  //       margin: const EdgeInsets.all(12),
+  //       snackPosition: SnackPosition.TOP,
+  //       duration: const Duration(seconds: 2),
+  //     );
+  //     return;
+  //   }
 
-    // Check if any filters are active
-    final hasFilters =
-        filterValues.isNotEmpty ||
-        selectedLocation.value.isNotEmpty ||
-        selectedRadius.value.isNotEmpty ||
-        selectedHashtags.isNotEmpty ||
-        selectedContacts.isNotEmpty ||
-        selectedCategories.isNotEmpty;
+  //   // Check if any filters are active
+  //   final hasFilters =
+  //       filterValues.isNotEmpty ||
+  //       selectedLocation.value.isNotEmpty ||
+  //       selectedRadius.value.isNotEmpty ||
+  //       selectedHashtags.isNotEmpty ||
+  //       selectedContacts.isNotEmpty ||
+  //       selectedCategories.isNotEmpty;
 
-    debugPrint('[MapControllerNew] === APPLYING FILTERS - REFRESHING MAP ===');
-    debugPrint('[MapControllerNew] Filter values: ${filterValues.toString()}');
-    debugPrint(
-      '[MapControllerNew] Selected location: "${selectedLocation.value}"',
-    );
-    debugPrint('[MapControllerNew] Selected radius: "${selectedRadius.value}"');
-    debugPrint(
-      '[MapControllerNew] Selected hashtags: ${selectedHashtags.toString()}',
-    );
-    debugPrint(
-      '[MapControllerNew] Selected contacts: ${selectedContacts.toString()}',
-    );
-    debugPrint(
-      '[MapControllerNew] Selected categories: ${selectedCategories.toString()}',
-    );
-    debugPrint('[MapControllerNew] Has filters: $hasFilters');
+  //   debugPrint('[MapControllerNew] === APPLYING FILTERS - REFRESHING MAP ===');
+  //   debugPrint('[MapControllerNew] Filter values: ${filterValues.toString()}');
+  //   debugPrint(
+  //     '[MapControllerNew] Selected location: "${selectedLocation.value}"',
+  //   );
+  //   debugPrint('[MapControllerNew] Selected radius: "${selectedRadius.value}"');
+  //   debugPrint(
+  //     '[MapControllerNew] Selected hashtags: ${selectedHashtags.toString()}',
+  //   );
+  //   debugPrint(
+  //     '[MapControllerNew] Selected contacts: ${selectedContacts.toString()}',
+  //   );
+  //   debugPrint(
+  //     '[MapControllerNew] Selected categories: ${selectedCategories.toString()}',
+  //   );
+  //   debugPrint('[MapControllerNew] Has filters: $hasFilters');
 
-    // Sync filter selections to AddMemoriesController so list view stays in sync
-    _syncFiltersToAddMemoriesController(applyFilters: true);
+  //   // Sync filter selections to AddMemoriesController so list view stays in sync
+  //   _syncFiltersToAddMemoriesController(applyFilters: true);
 
-    // Close filter overlay and refresh filter status
-    closeFilter();
-    _updateFilterStatus();
+  //   // Close filter overlay and refresh filter status
+  //   closeFilter();
+  //   _updateFilterStatus();
 
-    await _applyFiltersAndReloadMap();
-  }
+  //   await _applyFiltersAndReloadMap();
+  // }
 
-  /// Sync filter values from AddMemoriesController and apply them
-  Future<void> applyFiltersFromAddMemoriesController() async {
-    try {
-      final addMemoriesController = _getAddMemoriesControllerOrNull();
-      if (addMemoriesController == null) {
-        debugPrint(
-          '[MapControllerNew] AddMemoriesController not registered; cannot apply shared filters',
-        );
-        await _applyFiltersAndReloadMap();
-        return;
-      }
+  // /// Sync filter values from AddMemoriesController and apply them
+  // Future<void> applyFiltersFromAddMemoriesController() async {
+  //   try {
+  //     final addMemoriesController = _getAddMemoriesControllerOrNull();
+  //     if (addMemoriesController == null) {
+  //       debugPrint(
+  //         '[MapControllerNew] AddMemoriesController not registered; cannot apply shared filters',
+  //       );
+  //       await _applyFiltersAndReloadMap();
+  //       return;
+  //     }
 
-      _syncFiltersFromAddMemoriesController(addMemoriesController);
-      closeFilter();
+  //     _syncFiltersFromAddMemoriesController(addMemoriesController);
+  //     closeFilter();
 
-      await _applyFiltersAndReloadMap();
-    } catch (e) {
-      debugPrint(
-        '[MapControllerNew] Failed to apply filters from AddMemoriesController: $e',
-      );
-    }
-  }
+  //     await _applyFiltersAndReloadMap();
+  //   } catch (e) {
+  //     debugPrint(
+  //       '[MapControllerNew] Failed to apply filters from AddMemoriesController: $e',
+  //     );
+  //   }
+  // }
 
   /// Handle filter apply action when overlay is launched from the map
+  /// Now delegates to FilterController which handles all filtering logic
   Future<void> handleFilterApplyFromMap({List<int>? memoryIds}) async {
+    debugPrint('[MapControllerNew] handleFilterApplyFromMap called with memoryIds: $memoryIds');
+
     final addMemoriesController = Get.find<AddMemoriesController>();
 
     addMemoriesController.isOpenedFromMap = true;
-    if (memoryIds == null) {
-      addMemoriesController.applyFilters();
-    }
     addMemoriesController.applyFilters(memoryIds: memoryIds);
-    _syncFiltersFromAddMemoriesController(addMemoriesController);
+
+    // Sync filter state from AddMemoriesController to FilterController
+    _filterController.filterValues.value = Map<String, String>.from(addMemoriesController.filterValues);
+    _filterController.selectedLocation.value = addMemoriesController.selectedLocation.value;
+    _filterController.selectedLocationDisplayName.value = addMemoriesController.selectedLocationDisplayName.value;
+    _filterController.selectedRadius.value = addMemoriesController.selectedRadius.value;
+    _filterController.selectedHashtags.value = List<String>.from(addMemoriesController.selectedHashtags);
+    _filterController.selectedContacts.value = List<String>.from(addMemoriesController.selectedContacts);
+    _filterController.selectedCategories.value = List<String>.from(addMemoriesController.selectedCategories);
+    if (memoryIds != null) {
+      _filterController.selectedMemoryIds.value = memoryIds.map((id) => id.toString()).toList();
+    }
+
+    // Apply filters in FilterController
+    _filterController.applyAllFilters();
+
+    // Sync filter state from FilterController to MapController
+    filterValues.value = Map<String, String>.from(_filterController.filterValues);
+    selectedLocation.value = _filterController.selectedLocation.value;
+    selectedRadius.value = _filterController.selectedRadius.value;
+    selectedHashtags.value = List<String>.from(_filterController.selectedHashtags);
+    selectedContacts.value = List<String>.from(_filterController.selectedContacts);
+    selectedCategories.value = List<String>.from(_filterController.selectedCategories);
+    selectedMemoryIds.value = List<String>.from(_filterController.selectedMemoryIds);
 
     closeFilter();
-
     _updateFilterStatus();
 
-    await _applyFiltersAndReloadMap();
+    debugPrint('[MapControllerNew] Filtered memories: ${_filterController.filteredMemories.length}');
 
-    var memories = await addMemoriesController.syncFiltersAndLoadMemories();
-    print('Syncing Filtered Memories ${memories.length}');
-
-    if (!hasActiveFilters.value) {
-      await loadMemoriesFromDB(null);
-
-      return;
-    }
-
-    await loadMemoriesFromDB(memories);
+    // Load filtered memories from FilterController
+    await loadMemoriesFromDB(_filterController.filteredMemories.toList());
 
     showLoadedDataOnMap();
   }
@@ -1422,171 +1399,9 @@ class MapControllerNew extends GetxController {
     _updateFilterStatus();
     closeFilter();
     hasActiveFilters.value = false;
-    _applyFiltersAndReloadMap();
   }
 
-  /// Apply filters and reload map with filtered memories
-  Future<void> _applyFiltersAndReloadMap() async {
-    // try {
-    //   debugPrint('[MapControllerNew] Applying filters and reloading map...');
-
-    //   final addMemoriesController = _getAddMemoriesControllerOrNull();
-    //   final bool filtersActive = hasActiveFilters.value;
-    //   List<Map<String, dynamic>> memoriesToDisplay = [];
-
-    //   if (addMemoriesController != null) {
-    //     if (addMemoriesController.hasActiveFilters.value) {
-    //       memoriesToDisplay = List<Map<String, dynamic>>.from(
-    //         addMemoriesController.filteredMemories,
-    //       );
-    //     } else if (addMemoriesController.filteredMemories.isNotEmpty) {
-    //       memoriesToDisplay = List<Map<String, dynamic>>.from(
-    //         addMemoriesController.filteredMemories,
-    //       );
-    //     }
-    //   }
-
-    //   if (memoriesToDisplay.isEmpty) {
-    //     if (addMemoriesController != null &&
-    //         addMemoriesController.hasActiveFilters.value) {
-    //       debugPrint(
-    //         '[MapControllerNew] No memories matched active filters; clearing map markers',
-    //       );
-    //       await _setupMapboxClustering(memoriesToDisplay);
-    //       return;
-    //     }
-
-    //     final allMemories = await _memoryRepository?.loadAllMemories();
-    //     if (allMemories == null) {
-    //       debugPrint('[MapControllerNew] No memories available for filtering');
-    //       await _setupMapboxClustering([]);
-    //       return;
-    //     }
-
-    //     if (filtersActive) {
-    //       memoriesToDisplay = allMemories.where(_matchesFilters).toList();
-    //     } else {
-    //       memoriesToDisplay = List<Map<String, dynamic>>.from(allMemories);
-    //     }
-    //   }
-
-    //   debugPrint(
-    //     '[MapControllerNew] Preparing ${memoriesToDisplay.length} memories for clustering (filtersActive=$filtersActive)',
-    //   );
-
-    //   await _setupMapboxClustering(memoriesToDisplay);
-    // } catch (e) {
-    //   debugPrint('[MapControllerNew] Error applying filters: $e');
-    //   // Fallback to loading all memories
-    //   // loadMemoriesFromDB();
-    // }
-  }
-
-  bool _matchesFilters(Map<String, dynamic> memory) {
-    // Text filters
-    if (filterValues.isNotEmpty) {
-      final searchableText =
-          StringBuffer()
-            ..write((memory['text'] ?? '').toString().toLowerCase())
-            ..write(' ')
-            ..write((memory['description'] ?? '').toString().toLowerCase())
-            ..write(' ')
-            ..write((memory['title'] ?? '').toString().toLowerCase());
-
-      final combinedText = searchableText.toString();
-      for (final value in filterValues.values) {
-        final query = value.toLowerCase();
-        if (query.isEmpty) continue;
-        if (!combinedText.contains(query)) {
-          return false;
-        }
-      }
-    }
-
-    // Hashtag filters
-    if (selectedHashtags.isNotEmpty) {
-      final rawHashtags = (memory['hashtags'] ?? memory['tags']) ?? [];
-      final hashtagsList = _extractStringList(rawHashtags);
-      final normalizedHashtags =
-          hashtagsList
-              .map((tag) => tag.replaceFirst('#', '').toLowerCase().trim())
-              .toSet();
-
-      for (final tag in selectedHashtags) {
-        final cleaned = tag.replaceFirst('#', '').toLowerCase().trim();
-        if (!normalizedHashtags.contains(cleaned)) {
-          return false;
-        }
-      }
-    }
-
-    // Contact filters
-    if (selectedContacts.isNotEmpty) {
-      final rawContacts = memory['contacts'] ?? memory['tagged_contacts'] ?? [];
-      final contactsList = _extractStringList(rawContacts);
-      final normalizedContacts =
-          contactsList
-              .map(
-                (contact) => contact.replaceFirst('@', '').toLowerCase().trim(),
-              )
-              .toSet();
-
-      for (final contact in selectedContacts) {
-        final cleaned = contact.replaceFirst('@', '').toLowerCase().trim();
-        if (!normalizedContacts.contains(cleaned)) {
-          return false;
-        }
-      }
-    }
-
-    // Category filters
-    if (selectedCategories.isNotEmpty) {
-      final rawCategories = memory['categories'] ?? [];
-      final categoriesList = _extractStringList(rawCategories);
-      final normalizedCategories =
-          categoriesList
-              .map((category) => category.toLowerCase().trim())
-              .toSet();
-
-      for (final category in selectedCategories) {
-        if (!normalizedCategories.contains(category.toLowerCase().trim())) {
-          return false;
-        }
-      }
-    }
-
-    // Location + radius filter
-    if (selectedLocation.value.isNotEmpty && selectedRadius.value.isNotEmpty) {
-      final radius = double.tryParse(selectedRadius.value);
-      if (radius != null) {
-        final locationParts = selectedLocation.value.split(',');
-        if (locationParts.length == 2) {
-          final filterLat = double.tryParse(locationParts[0].trim());
-          final filterLng = double.tryParse(locationParts[1].trim());
-
-          if (filterLat != null && filterLng != null) {
-            final memoryLat = _toDouble(memory['location_latitude']);
-            final memoryLng = _toDouble(memory['location_longitude']);
-
-            if (memoryLat != null && memoryLng != null) {
-              final distance = _calculateDistance(
-                filterLat,
-                filterLng,
-                memoryLat,
-                memoryLng,
-              );
-              if (distance > radius) {
-                return false;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return true;
-  }
-
+  //
   double? _toDouble(dynamic value) {
     if (value is double) return value;
     if (value is int) return value.toDouble();
@@ -1934,8 +1749,9 @@ class MapControllerNew extends GetxController {
     // Clear existing lines/arrows first
     await clearAllLines();
 
+    // allMemories = _filterController.filteredMemories,v;
     // Reload memories from database
-    // await loadMemoriesFromDB();
+    await loadMemoriesFromDB();
 
     // Refresh AddMemoriesController if it exists
     try {
@@ -4422,14 +4238,25 @@ await mapboxMap.style.setStyleLayerProperty(
     List<Map<String, dynamic>> memories,
   ) async {
     try {
+      debugPrint('[MapControllerNew] 🎨 _setupMapboxClustering called with ${memories.length} memories');
+
+      if (memories.isEmpty) {
+        debugPrint('[MapControllerNew] ⚠️ No memories to cluster, skipping clustering setup');
+        return;
+      }
+
       // Add a small delay to ensure cleanup is complete
       await Future.delayed(const Duration(milliseconds: 100));
+
+      debugPrint('[MapControllerNew] 🔄 Converting ${memories.length} memories to GeoJSON...');
       // Convert memories to GeoJSON
       final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
         memories,
       );
+      debugPrint('[MapControllerNew] ✅ GeoJSON created successfully');
 
       try {
+        debugPrint('[MapControllerNew] 📍 Adding GeoJSON source to map...');
         await mapboxMap!.style.addSource(
           mapbox.GeoJsonSource(
             id: MEMORY_SOURCE_ID,
@@ -4464,9 +4291,12 @@ await mapboxMap.style.setStyleLayerProperty(
             },
           ),
         );
+        debugPrint('[MapControllerNew] ✅ GeoJSON source added successfully');
       } catch (e) {
+        debugPrint('[MapControllerNew] ⚠️ Error adding source: $e');
         if (e.toString().contains('already exists')) {
           try {
+            debugPrint('[MapControllerNew] 🔄 Source already exists, updating data...');
             // Try to update the existing source data instead of adding a new one
 
             await mapboxMap!.style.setStyleSourceProperty(
@@ -4474,7 +4304,9 @@ await mapboxMap.style.setStyleLayerProperty(
               'data',
               geoJsonString,
             );
+            debugPrint('[MapControllerNew] ✅ Source data updated successfully');
           } catch (updateError) {
+            debugPrint('[MapControllerNew] ❌ Update failed: $updateError, forcing remove and re-add...');
             // If update fails, force remove and re-add
             await _forceRemoveAndReaddSource(geoJsonString);
           }
@@ -4484,17 +4316,22 @@ await mapboxMap.style.setStyleLayerProperty(
       }
 
       // Add cluster layers
+      debugPrint('[MapControllerNew] 🎨 Adding cluster layers...');
       await _addClusterLayers(memories);
+      debugPrint('[MapControllerNew] ✅ Cluster layers added successfully');
 
       // Initialize MapMarkerService with MapBox map before arrow generation
 
       if (_mapMarkerService != null) {
         _mapMarkerService!.initialize(mapboxMap!);
+        debugPrint('[MapControllerNew] ✅ MapMarkerService initialized');
       }
 
+      debugPrint('[MapControllerNew] ✅ Clustering setup completed successfully');
       // Generate and display chronological arrows
     } catch (e) {
-      debugPrint('[MapControllerNew] Error setting up MapBox clustering: $e');
+      debugPrint('[MapControllerNew] ❌ Error setting up MapBox clustering: $e');
+      debugPrint('[MapControllerNew] Stack trace: ${StackTrace.current}');
     }
   }
 

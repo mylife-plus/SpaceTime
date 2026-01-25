@@ -1,97 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:get/get.dart';
-// import 'package:get/get_core/src/get_main.dart';
-// import 'package:spacetime/app/modules/settings/views/settings_view.dart';
-//
-// import '../../../../config/app_images.dart';
-// import '../../../map/views/map_view.dart';
-// import '../../../ui/controllers/ui_controller.dart';
-// import '../../controllers/add_memories_controller.dart';
-//
-// class Header extends StatelessWidget {
-//   const Header({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final controller2 = Get.find<UiController>();
-//     final controller = Get.find<AddMemoriesController>();
-//     return Obx(
-//       () => Container(
-//         color: controller2.currentMainColor,
-//         height: 60,
-//         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-//         child: Row(
-//           children: [
-//             GestureDetector(
-//               onTap: () {
-//                 Get.to(() => SettingsView());
-//               },
-//               child: Container(
-//                 padding: EdgeInsets.all(2),
-//                 width: 28,
-//                 height: 28,
-//                 decoration: BoxDecoration(
-//                   image: DecorationImage(
-//                     image: AssetImage(AppImages.rectangle),
-//                     fit: BoxFit.cover,
-//                   ),
-//                 ),
-//                 child: Image.asset(AppImages.settings2, fit: BoxFit.contain),
-//               ),
-//             ),
-//             SizedBox(width: 5),
-//
-//             GestureDetector(
-//               onTap: controller.openFilter,
-//               child: Container(
-//                 padding: EdgeInsets.all(6),
-//                 width: 44,
-//                 height: 44,
-//                 decoration: BoxDecoration(
-//                   image: DecorationImage(
-//                     image: AssetImage(AppImages.rectangle),
-//                     fit: BoxFit.cover,
-//                   ),
-//                 ),
-//                 child: Image.asset(AppImages.filter, fit: BoxFit.contain),
-//               ),
-//             ),
-//             SizedBox(width: 5),
-//
-//             GestureDetector(
-//               onTap: controller.openSearch,
-//               child: SizedBox(
-//                 width: 44,
-//                 height: 44,
-//                 child: Image.asset(AppImages.search, fit: BoxFit.cover),
-//               ),
-//             ),
-//
-//             Spacer(),
-//             GestureDetector(
-//               onTap: () {
-//                 Get.to(() => MapView());
-//               },
-//               child: Container(
-//                 padding: EdgeInsets.all(6),
-//                 width: 44,
-//                 height: 44,
-//                 decoration: BoxDecoration(
-//                   image: DecorationImage(
-//                     image: AssetImage(AppImages.rectangle),
-//                     fit: BoxFit.cover,
-//                   ),
-//                 ),
-//                 child: Image.asset(AppImages.earth, fit: BoxFit.contain),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_colors.dart';
@@ -102,6 +8,8 @@ import '../../../../config/app_images.dart';
 
 import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
+import '../../../filter/controllers/filter_controller.dart';
+import 'search_badge.dart';
 
 class Header extends StatelessWidget {
   const Header({super.key});
@@ -179,9 +87,12 @@ class Header extends StatelessWidget {
 
                   // Filter badge indicator with count
                   Obx(() {
+                    final filterController = Get.find<FilterController>();
                     final filterCount = controller.activeFilterCount;
-                    // Don't show badge when there are 0 filters
-                    return (filterCount > 0)
+                    final hasSearch = filterController.hasActiveSearch;
+
+                    // Show filter badge only if there are filters and no active search
+                    return (filterCount > 0 && !hasSearch)
                         ? Positioned(
                           right: 0,
                           top: 0,
@@ -217,6 +128,9 @@ class Header extends StatelessWidget {
                         )
                         : const SizedBox.shrink();
                   }),
+
+                  // Search badge - shows when there's an active search
+                  const SearchBadge(),
                 ],
               ),
             ),

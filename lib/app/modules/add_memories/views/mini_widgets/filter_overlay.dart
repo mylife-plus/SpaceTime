@@ -12,6 +12,7 @@ import '../../../../config/app_images.dart';
 import 'package:spacetime/app/widgets/filter_section.dart';
 
 import '../../controllers/add_memories_controller.dart';
+import '../../../filter/controllers/filter_controller.dart';
 
 class MemoriesFilterOverlay extends StatefulWidget {
   final bool isOpenedFromMap;
@@ -216,15 +217,20 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                         mapController?.isFilterOpen.value = false;
                       },
                       onReset: () async {
+                        debugPrint('[FilterOverlay] 🔄 Resetting all filters EXCEPT search...');
 
                         final mapController = Get.find<MapControllerNew>();
+                        final filterController = Get.find<FilterController>();
 
-                        // mapController?.refreshMapView();
-                        controller.resetFilters();
-                        mapController?.resetFilters();
-                       Future.delayed(Duration(milliseconds: 500), () {
-                        closefilterAndReset(mapController);
-                       });
+                        // Clear all filters EXCEPT search from FilterController
+                        filterController.resetFiltersExceptSearch();
+
+                        debugPrint('[FilterOverlay] ✅ Filters reset (search preserved: "${filterController.searchedTextKeyword.value}")');
+
+                        // Close filter overlay and reload with delay
+                        Future.delayed(Duration(milliseconds: 500), () {
+                          closefilterAndReset(mapController, filterController);
+                        });
                       },
                       onApply: () async {
                         final mapController = Get.find<MapControllerNew>();
@@ -645,10 +651,22 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
       ),
     );
   }
-  
-  Future<void> closefilterAndReset(MapControllerNew? mapController) async {
-     mapController?.isFilterOpen.value = false;
-                        await mapController?.loadMemoriesFromDB(null);
-                        mapController?.showLoadedDataOnMap();
+
+  Future<void> closefilterAndReset(MapControllerNew? mapController, FilterController filterController) async {
+    debugPrint('[FilterOverlay] 📊 Loaded ${filterController.filteredMemories.length} memories');
+
+    // Reload AddMemories view
+    if (Get.isRegistered<AddMemoriesController>()) {
+      final addMemoriesController = Get.find<AddMemoriesController>();
+      await addMemoriesController.loadMemoriesFromDatabase();
+      debugPrint('[FilterOverlay] ✅ AddMemories view reloaded');
+    }
+
+    // Close filter overlay and reload map
+    mapController?.isFilterOpen.value = false;
+    await mapController?.loadMemoriesFromDB(filterController.filteredMemories.toList());
+    mapController?.showLoadedDataOnMap();
+
+    debugPrint('[FilterOverlay] ✅ Map reloaded');
   }
 }

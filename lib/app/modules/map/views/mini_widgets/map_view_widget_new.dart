@@ -12,6 +12,8 @@ import '../../controllers/map_controller_new.dart';
 // Note: Internet required screen removed - offline tiles are downloaded during Get Started flow
 import '../../../add_memories/controllers/add_memories_controller.dart';
 import '../../../add_memories/views/mini_widgets/filter_indicator.dart';
+import '../../../add_memories/views/mini_widgets/search_indicator.dart';
+import '../../../filter/controllers/filter_controller.dart';
 import 'map_filter_overlay.dart';
 import '../../../../../services/mbtiles_download_service.dart';
 import '../../../../../services/mbtiles_server_service.dart';
@@ -265,6 +267,7 @@ Widget _buildOverlays(MapControllerNew controller) {
       }),
 
       // Filter indicator (shown when filters are active and filter overlay is closed)
+      // Search indicator - shows when there's an active keyword search
       Obx(() {
         if (controller.isFilterOpen.value) {
           return const SizedBox.shrink();
@@ -275,16 +278,44 @@ Widget _buildOverlays(MapControllerNew controller) {
         }
 
         final addMemoriesController = Get.find<AddMemoriesController>();
-        if (!addMemoriesController.hasActiveFilters.value) {
+
+        // Show search indicator when there's an active search
+        if (addMemoriesController.isSearching.value &&
+            Get.find<FilterController>().hasActiveSearch) {
+          return const Positioned(
+            top: 60,
+            left: 0,
+            right: 0,
+            child: SearchIndicator(),
+          );
+        }
+
+        return const SizedBox.shrink();
+      }),
+
+      // Filter indicator - shows when there are active filters (but not search)
+      Obx(() {
+        if (controller.isFilterOpen.value) {
           return const SizedBox.shrink();
         }
 
-        return const Positioned(
-          top: 60,
-          left: 0,
-          right: 0,
-          child: FilterIndicator(),
-        );
+        if (!Get.isRegistered<FilterController>()) {
+          return const SizedBox.shrink();
+        }
+
+        final filterController = Get.find<FilterController>();
+
+        // Show filter indicator only when there are filters and NO active search
+        if (filterController.hasActiveFilters.value && !filterController.hasActiveSearch) {
+          return const Positioned(
+            top: 60,
+            left: 0,
+            right: 0,
+            child: FilterIndicator(),
+          );
+        }
+
+        return const SizedBox.shrink();
       }),
 
       // Filter overlay

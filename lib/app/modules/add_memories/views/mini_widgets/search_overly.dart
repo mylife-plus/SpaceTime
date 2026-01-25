@@ -5,6 +5,7 @@ import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
+import '../../../filter/controllers/filter_controller.dart';
 
 class SearchOverlay extends StatelessWidget {
   const SearchOverlay({super.key});
@@ -94,18 +95,33 @@ class SearchOverlay extends StatelessWidget {
                                   ? Colors.white
                                   : Color(0xFF9A9A9A),
                         ),
-                        onPressed: () {
-                          if (controller.isOpenedFromMap) {
-      Navigator.of(Get.context!).pop(true);
-    }
-                          controller.closeSearch();
-                           controller.resetFilters();
-                        controller?.resetFilters();
-                       Future.delayed(Duration(milliseconds: 500), () {
-                        var c = Get.find<MapControllerNew>();
-                        closefilterAndReset(c);
-                       });
+                        onPressed: () async {
+                          // Unfocus keyboard first (before async operations)
                           FocusScope.of(context).unfocus();
+
+                          debugPrint('[SearchOverlay] 🔄 Clearing ONLY search filter...');
+
+                          // Clear ONLY the search filter from FilterController
+                          final filterController = Get.find<FilterController>();
+                          filterController.clearSearchedTextKeyword();
+
+                          debugPrint('[SearchOverlay] ✅ Search filter cleared (other filters preserved)');
+
+                          // Close search UI
+                          controller.closeSearch();
+
+                          // Reload memories with remaining filters (if any)
+                          await controller.loadMemoriesFromDatabase();
+
+                          // If opened from map, reload map with filtered memories
+                          if (controller.isOpenedFromMap) {
+                            final mapController = Get.find<MapControllerNew>();
+                            debugPrint('[SearchOverlay] 🗺️ Reloading map with ${filterController.filteredMemories.length} memories...');
+                            await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
+                            mapController.showLoadedDataOnMap();
+                            Navigator.of(Get.context!).pop(true);
+                            debugPrint('[SearchOverlay] ✅ Map reloaded successfully');
+                          }
                         },
                       ),
                     ],

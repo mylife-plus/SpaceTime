@@ -12,6 +12,8 @@ import 'package:spacetime/app/modules/globe_test/controllers/globe_test_controll
 import '../../../settings/views/settings_view.dart';
 import '../../controllers/map_controller_new.dart';
 import 'map_circle_button.dart';
+import '../../../filter/controllers/filter_controller.dart';
+import '../../../add_memories/views/mini_widgets/search_badge.dart';
 
 class MapTopButtons extends StatelessWidget {
   const MapTopButtons({super.key});
@@ -113,10 +115,13 @@ class MapTopButtons extends StatelessWidget {
 
                         // Filter badge indicator with count
                         Obx(() {
+                          final filterController = Get.find<FilterController>();
                           final filterCount =
                               addMemoriesController?.activeFilterCount ?? 0;
-                          // Don't show badge when there are 0 filters
-                          return (filterCount > 0)
+                          final hasSearch = filterController.hasActiveSearch;
+
+                          // Show filter badge only if there are filters and no active search
+                          return (filterCount > 0 && !hasSearch)
                               ? Positioned(
                                 right: 0,
                                 top: 0,
@@ -156,6 +161,9 @@ class MapTopButtons extends StatelessWidget {
                               )
                               : const SizedBox.shrink();
                         }),
+
+                        // Search badge - shows when there's an active search
+                        const SearchBadge(),
                       ],
                     ),
                   ),
@@ -242,17 +250,6 @@ class MapTopButtons extends StatelessWidget {
                 ),
               ),
 
-              // MapCircleButton(
-              //   overlayImagePath: AppImages.memory,
-              //   size: 44, // Standardized size
-              //   onTap: () async {
-              //     var result = await Get.to(() => AddMemoriesView());
-
-              //     if (result == true) {
-              //       // controller.refreshLocation();
-              //     }
-              //   },
-              // ),
             ],
           ),
         ),

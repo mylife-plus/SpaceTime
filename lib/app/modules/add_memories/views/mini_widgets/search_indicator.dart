@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
+import '../../../map/controllers/map_controller_new.dart';
+import '../../../filter/controllers/filter_controller.dart';
 
 class SearchIndicator extends StatelessWidget {
   const SearchIndicator({super.key});
@@ -77,8 +79,29 @@ class SearchIndicator extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () {
+              onTap: () async {
+                debugPrint('[SearchIndicator] 🔄 Clearing ONLY search filter...');
+
+                // Clear ONLY the search filter from FilterController
+                final filterController = Get.find<FilterController>();
+                filterController.clearSearchedTextKeyword();
+
+                debugPrint('[SearchIndicator] ✅ Search filter cleared (other filters preserved)');
+
+                // Close search UI
                 controller.closeSearch();
+
+                // Reload memories with remaining filters (if any)
+                await controller.loadMemoriesFromDatabase();
+
+                // Reload map with filtered memories
+                if (Get.isRegistered<MapControllerNew>()) {
+                  final mapController = Get.find<MapControllerNew>();
+                  debugPrint('[SearchIndicator] 🗺️ Reloading map with ${filterController.filteredMemories.length} memories...');
+                  await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
+                  mapController.showLoadedDataOnMap();
+                  debugPrint('[SearchIndicator] ✅ Map reloaded successfully');
+                }
               },
               child: Container(
                 padding: const EdgeInsets.all(2),

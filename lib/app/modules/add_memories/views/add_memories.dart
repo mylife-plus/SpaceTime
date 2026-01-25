@@ -10,6 +10,7 @@ import '../../../config/app_colors.dart';
 import '../controllers/add_memories_controller.dart';
 import '../../memories/controllers/memory_controller.dart';
 import '../../memories/views/memory_view.dart';
+import '../../filter/controllers/filter_controller.dart';
 import 'mini_widgets/header.dart';
 import 'mini_widgets/memory_card.dart';
 import 'mini_widgets/year_separator.dart';
@@ -48,7 +49,7 @@ class AddMemoriesView extends GetView<AddMemoriesController>
       },
       child: Obx(() {
         debugPrint(
-          'AddMemoriesView rebuild - isLoading: ${controller.isLoading.value}, isSearching: ${controller.isSearching.value}, allMemories: ${controller.allMemories.length}',
+          'AddMemoriesView rebuild - isLoading: ${controller.isLoading.value}, isSearching: ${controller.isSearching.value}, allMemories: ${controller.allMemories.length}, filteredMemories: ${controller.filteredMemories.length}',
         );
 
         // Show loading state
@@ -57,7 +58,14 @@ class AddMemoriesView extends GetView<AddMemoriesController>
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (controller.isSearching.value) {
+        // Show filtered memories when searching OR when filters are active
+        if (controller.isSearching.value || controller.hasActiveFilters.value) {
+          debugPrint('🔍 Showing filtered memories - isSearching: ${controller.isSearching.value}, hasActiveFilters: ${controller.hasActiveFilters.value}');
+          debugPrint('🔍 filteredMemories.length: ${controller.filteredMemories.length}');
+          debugPrint('🔍 FilterController.filteredMemories.length: ${Get.find<FilterController>().filteredMemories.length}');
+          debugPrint('🔍 FilterController.searchedTextKeyword: "${Get.find<FilterController>().searchedTextKeyword.value}"');
+          debugPrint('🔍 FilterController.hasActiveSearch: ${Get.find<FilterController>().hasActiveSearch}');
+
           // Handle empty search results
           if (controller.filteredMemories.isEmpty) {
             return Center(
@@ -93,7 +101,7 @@ class AddMemoriesView extends GetView<AddMemoriesController>
           final sortedYears =
               groupedMemories.keys.toList()..sort((a, b) => b.compareTo(a));
 
-          
+
           return Container(
                               color: (!uiController.darkMode.value ? Colors.white : Colors.transparent),
 

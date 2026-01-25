@@ -17,6 +17,7 @@ import '../../../../config/app_images.dart';
 import '../../../memories/controllers/memory_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
+import '../../../filter/controllers/filter_controller.dart';
 
 class MemoryCard extends StatefulWidget {
   final Map<String, dynamic> memoryData;
@@ -887,13 +888,37 @@ class _MemoryCardState extends State<MemoryCard> {
                 Get.back(); // Close dialog
 
                 try {
+                  debugPrint('[MemoryCard] 🗑️ Deleting memory ID: ${widget.id}');
+
                   final memoryController = Get.find<MemoryController>();
                   await memoryController.deleteMemory(widget.id!);
 
-                  // Refresh the memories list
-                  final addMemoriesController =
-                      Get.find<AddMemoriesController>();
-                  addMemoriesController.onAgainInit();
+                  debugPrint('[MemoryCard] ✅ Memory deleted from database');
+
+                  // Reload data from FilterController (single source of truth)
+                  if (Get.isRegistered<FilterController>()) {
+                    final filterController = Get.find<FilterController>();
+                    filterController.resetFilters();
+                    filterController.resetFiltersExceptSearch();
+                    // await filterController.loadAndApplyFilters();
+                    debugPrint('[MemoryCard] 📊 FilterController reloaded: ${filterController.filteredMemories.length} memories');
+                  }
+
+                  // Refresh AddMemories view
+                  if (Get.isRegistered<AddMemoriesController>()) {
+                    final addMemoriesController = Get.find<AddMemoriesController>();
+                    await addMemoriesController.loadMemoriesFromDatabase();
+                    debugPrint('[MemoryCard] ✅ AddMemories view reloaded');
+                  }
+
+                  // Refresh Map view
+                  if (Get.isRegistered<MapControllerNew>()) {
+                    final mapController = Get.find<MapControllerNew>();
+                    final filterController = Get.find<FilterController>();
+                    await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
+                    mapController.showLoadedDataOnMap();
+                    debugPrint('[MemoryCard] ✅ Map view reloaded');
+                  }
 
                   Get.snackbar(
                     'Success',
@@ -903,6 +928,7 @@ class _MemoryCardState extends State<MemoryCard> {
                     duration: const Duration(seconds: 2),
                   );
                 } catch (e) {
+                  debugPrint('[MemoryCard] ❌ Error deleting memory: $e');
                   Get.snackbar(
                     'Error',
                     'Failed to delete memory: $e',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/routes/app_pages.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
@@ -34,7 +35,7 @@ class _BottomPanelState extends State<BottomPanel> {
     try {
       debugPrint('[BottomPanel] Fetching ${widget.memoryIds.length} memories from database...');
 
-      final memoryRepository = Get.find<MemoryRepository>();
+      final memoryRepository = Get.find<FilterController>();
       final allMemories = memoryRepository.allMemories;
 
       // Filter memories by the provided IDs
