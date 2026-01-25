@@ -92,8 +92,8 @@ app.*.map.json
 # Windows
 **/windows/**/flutter/ephemeral/
 
-# Web
-/web/
+# Web (only ignore build output, not source)
+/web/build/
 
 # Coverage
 coverage/
@@ -133,7 +133,8 @@ coverage/
 *.temp
 
 # Lock files that should be ignored
-pubspec.lock
+# Note: pubspec.lock should be committed for Flutter apps
+# pubspec.lock
 **/Podfile.lock
 
 # Development tools
@@ -146,3 +147,32 @@ devtools_options.yaml
 
 # FVM Version Cache
 .fvm/
+
+# Environment variables and secrets
+.env
+.env.*
+*.env
+!.env.example
+
+# Firebase configuration (if using Firebase)
+# Uncomment these if you want to keep Firebase config private
+# **/google-services.json
+# **/GoogleService-Info.plist
+# firebase.json
+# .firebaserc
+
+# API keys and secrets
+**/secrets.dart
+**/api_keys.dart
+**/config/secrets.dart
+
+# Database files (if storing locally for development)
+*.db
+*.sqlite
+*.sqlite3
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
