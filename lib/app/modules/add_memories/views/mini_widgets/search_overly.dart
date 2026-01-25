@@ -229,8 +229,10 @@ class SearchOverlay extends StatelessWidget {
                                 ),
                                 onTap:
                                     () => controller.selectSuggestion(
+                                     
                                       text,
                                       suggestionData: suggestionData,
+                                      
                                     ),
                               );
                             } else {

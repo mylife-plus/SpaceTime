@@ -1223,7 +1223,9 @@ class _MemoryViewState extends State<MemoryView> {
         debugPrint('MemoryView: handleSave - EDIT MODE - Reloading from FilterController');
         if (Get.isRegistered<FilterController>()) {
           final filterController = Get.find<FilterController>();
-          await filterController.loadAndApplyFilters();
+          filterController.clearFilters();
+          filterController.resetFilters();
+          filterController.resetFiltersExceptSearch();
           debugPrint('MemoryView: handleSave - EDIT MODE - FilterController reloaded: ${filterController.filteredMemories.length} memories');
         }
 

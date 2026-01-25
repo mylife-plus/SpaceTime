@@ -67,7 +67,8 @@ class FilterController extends GetxController {
   final RxList<Map<String, dynamic>> allMemories = <Map<String, dynamic>>[].obs;
 
   /// Filtered memories after applying all filters
-  final RxList<Map<String, dynamic>> filteredMemories = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> filteredMemories =
+      <Map<String, dynamic>>[].obs;
 
   /// Total results count after applying filters
   final RxInt totalResults = 0.obs;
@@ -146,7 +147,7 @@ class FilterController extends GetxController {
 
     // Start with all memories
     List<Map<String, dynamic>> result = List.from(allMemories);
-
+    filteredMemories.clear();
     // Apply each filter type in sequence
     result = _applySearchedTextFilter(result);
     result = _applyTextFilters(result);
@@ -166,11 +167,49 @@ class FilterController extends GetxController {
       indicatorType.value = hasActiveFilters.value ? 'filter' : '';
     }
 
-    debugPrint('$tag ✅ Filters applied: ${totalResults.value} results from ${allMemories.length} total memories');
+    debugPrint(
+      '$tag ✅ Filters applied: ${totalResults.value} results from ${allMemories.length} total memories',
+    );
+  }
+
+  void applyAllFilters1() {
+    debugPrint('$tag 🔧 Applying all filters...');
+
+    // Start with all memories
+    List<Map<String, dynamic>> result = List.from(allMemories);
+    filteredMemories.clear();
+
+    // Apply search filters FIRST if active (search takes precedence)
+    // This ensures search results are filtered first, then other filters narrow them down
+    result = _applySearchFilters(result);
+
+    // Apply each filter type in sequence to narrow down results
+    result = _applySearchedTextFilter(result);
+    result = _applyTextFilters(result);
+    result = _applyHashtagFilters(result);
+    result = _applyContactFilters(result);
+    result = _applyCategoryFilters(result);
+    result = _applyLocationFilters(result);
+    result = _applyMemoryIdFilters(result);
+
+    // Update filtered memories and total results
+    filteredMemories.value = result;
+    totalResults.value = result.length;
+
+    // Update indicator type if not search
+    if (!isSearchedMemoryList.value) {
+      indicatorType.value = hasActiveFilters.value ? 'filter' : '';
+    }
+
+    debugPrint(
+      '$tag ✅ Filters applied: ${totalResults.value} results from ${allMemories.length} total memories',
+    );
   }
 
   /// Apply searched text keyword filter (text-based search)
-  List<Map<String, dynamic>> _applySearchedTextFilter(List<Map<String, dynamic>> memories) {
+  List<Map<String, dynamic>> _applySearchedTextFilter(
+    List<Map<String, dynamic>> memories,
+  ) {
     if (searchedTextKeyword.value.isEmpty) {
       debugPrint('$tag   ⏭️  No searched text keyword to apply');
       return memories;
@@ -180,36 +219,82 @@ class FilterController extends GetxController {
     debugPrint('$tag   🔍 Applying searched text filter: "$keyword"');
 
     return memories.where((memory) {
-      final description = (memory[DatabaseHelper.columnDescription] as String?)?.toLowerCase() ?? '';
-      final tags = (memory[DatabaseHelper.columnTags] as String?)?.toLowerCase() ?? '';
-      final mentions = (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ?? '';
-      final category = (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ?? '';
-      final locationName = (memory[DatabaseHelper.columnLocationName] as String?)?.toLowerCase() ?? '';
-      final locationAddress = (memory[DatabaseHelper.columnLocationAddress] as String?)?.toLowerCase() ?? '';
-      final locationCity = (memory[DatabaseHelper.columnLocationCity] as String?)?.toLowerCase() ?? '';
-      final locationCountry = (memory[DatabaseHelper.columnLocationCountry] as String?)?.toLowerCase() ?? '';
-
+      final description =
+          (memory[DatabaseHelper.columnDescription] as String?)
+              ?.toLowerCase() ??
+          '';
+      final tags =
+          (memory[DatabaseHelper.columnTags] as String?)?.toLowerCase() ?? '';
+      final mentions =
+          (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ??
+          '';
+      final category =
+          (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ??
+          '';
+      // final locationName =
+      //     (memory[DatabaseHelper.columnLocationName] as String?)
+      //         ?.toLowerCase() ??
+      //     '';
+      final locationAddress =
+          (memory[DatabaseHelper.columnLocationAddress] as String?)
+              ?.toLowerCase() ??
+          '';
+      final locationCity =
+          (memory[DatabaseHelper.columnLocationCity] as String?)
+              ?.toLowerCase() ??
+          '';
+      final locationCountry =
+          (memory[DatabaseHelper.columnLocationCountry] as String?)
+              ?.toLowerCase() ??
+          '';
       // Search in all text fields
-      final searchableText = '$description $tags $mentions $category $locationName $locationAddress $locationCity $locationCountry';
 
-      return searchableText.contains(keyword);
+      final searchableText =
+          '$description $tags @$tags #$mentions $mentions $category  $locationAddress $locationCity $locationCountry'.toLowerCase();
+      
+      if(keyword[0] == '@' || keyword[0] =='#') {
+
+      var contains = searchableText.contains(keyword.substring(1));
+      return contains;
+
+      }
+
+      var contains = searchableText.contains(keyword);
+
+      debugPrint(
+        '$tag   🔍 Description  contains $searchableText $contains: "$keyword"',
+      );
+
+      return contains;
     }).toList();
   }
 
   /// Apply text-based filters (title, description, etc.)
-  List<Map<String, dynamic>> _applyTextFilters(List<Map<String, dynamic>> memories) {
+  List<Map<String, dynamic>> _applyTextFilters(
+    List<Map<String, dynamic>> memories,
+  ) {
     if (filterValues.isEmpty) {
       debugPrint('$tag   ⏭️  No text filters to apply');
       return memories;
     }
 
-    debugPrint('$tag   📝 Applying text filters: ${filterValues.length} filters');
+    debugPrint(
+      '$tag   📝 Applying text filters: ${filterValues.length} filters',
+    );
 
     return memories.where((memory) {
-      final description = (memory[DatabaseHelper.columnDescription] as String?)?.toLowerCase() ?? '';
-      final tags = (memory[DatabaseHelper.columnTags] as String?)?.toLowerCase() ?? '';
-      final mentions = (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ?? '';
-      final category = (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ?? '';
+      final description =
+          (memory[DatabaseHelper.columnDescription] as String?)
+              ?.toLowerCase() ??
+          '';
+      final tags =
+          (memory[DatabaseHelper.columnTags] as String?)?.toLowerCase() ?? '';
+      final mentions =
+          (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ??
+          '';
+      final category =
+          (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ??
+          '';
 
       final searchableText = '$description $tags $mentions $category';
 
@@ -226,17 +311,25 @@ class FilterController extends GetxController {
   }
 
   /// Apply hashtag filters
-  List<Map<String, dynamic>> _applyHashtagFilters(List<Map<String, dynamic>> memories) {
+  List<Map<String, dynamic>> _applyHashtagFilters(
+    List<Map<String, dynamic>> memories,
+  ) {
     if (selectedHashtags.isEmpty) {
       debugPrint('$tag   ⏭️  No hashtag filters to apply');
       return memories;
     }
 
-    debugPrint('$tag   #️⃣ Applying hashtag filters: ${selectedHashtags.length} hashtags');
+    debugPrint(
+      '$tag   #️⃣ Applying hashtag filters: ${selectedHashtags.length} hashtags',
+    );
 
     return memories.where((memory) {
-      final tags = (memory[DatabaseHelper.columnTags] as String?)?.toLowerCase() ?? '';
-      final description = (memory[DatabaseHelper.columnDescription] as String?)?.toLowerCase() ?? '';
+      final tags =
+          (memory[DatabaseHelper.columnTags] as String?)?.toLowerCase() ?? '';
+      final description =
+          (memory[DatabaseHelper.columnDescription] as String?)
+              ?.toLowerCase() ??
+          '';
 
       // Check if any of the selected hashtags match
       for (final hashtag in selectedHashtags) {
@@ -251,22 +344,32 @@ class FilterController extends GetxController {
   }
 
   /// Apply contact/mention filters
-  List<Map<String, dynamic>> _applyContactFilters(List<Map<String, dynamic>> memories) {
+  List<Map<String, dynamic>> _applyContactFilters(
+    List<Map<String, dynamic>> memories,
+  ) {
     if (selectedContacts.isEmpty) {
       debugPrint('$tag   ⏭️  No contact filters to apply');
       return memories;
     }
 
-    debugPrint('$tag   👤 Applying contact filters: ${selectedContacts.length} contacts');
+    debugPrint(
+      '$tag   👤 Applying contact filters: ${selectedContacts.length} contacts',
+    );
 
     return memories.where((memory) {
-      final mentions = (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ?? '';
-      final description = (memory[DatabaseHelper.columnDescription] as String?)?.toLowerCase() ?? '';
+      final mentions =
+          (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ??
+          '';
+      final description =
+          (memory[DatabaseHelper.columnDescription] as String?)
+              ?.toLowerCase() ??
+          '';
 
       // Check if any of the selected contacts match
       for (final contact in selectedContacts) {
         final contactLower = contact.toLowerCase();
-        if (mentions.contains(contactLower) || description.contains('@$contactLower')) {
+        if (mentions.contains(contactLower) ||
+            description.contains('@$contactLower')) {
           return true;
         }
       }
@@ -276,16 +379,22 @@ class FilterController extends GetxController {
   }
 
   /// Apply category filters
-  List<Map<String, dynamic>> _applyCategoryFilters(List<Map<String, dynamic>> memories) {
+  List<Map<String, dynamic>> _applyCategoryFilters(
+    List<Map<String, dynamic>> memories,
+  ) {
     if (selectedCategories.isEmpty) {
       debugPrint('$tag   ⏭️  No category filters to apply');
       return memories;
     }
 
-    debugPrint('$tag   🏷️  Applying category filters: ${selectedCategories.length} categories');
+    debugPrint(
+      '$tag   🏷️  Applying category filters: ${selectedCategories.length} categories',
+    );
 
     return memories.where((memory) {
-      final category = (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ?? '';
+      final category =
+          (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ??
+          '';
 
       // Check if the memory's category matches any selected category
       for (final selectedCategory in selectedCategories) {
@@ -299,7 +408,9 @@ class FilterController extends GetxController {
   }
 
   /// Apply location and radius filters
-  List<Map<String, dynamic>> _applyLocationFilters(List<Map<String, dynamic>> memories) {
+  List<Map<String, dynamic>> _applyLocationFilters(
+    List<Map<String, dynamic>> memories,
+  ) {
     if (selectedLocation.value.isEmpty) {
       debugPrint('$tag   ⏭️  No location filters to apply');
       return memories;
@@ -309,7 +420,9 @@ class FilterController extends GetxController {
 
     // If no radius is specified, just return all memories (location filter without radius is not useful)
     if (selectedRadius.value.isEmpty) {
-      debugPrint('$tag   ⚠️  Location specified but no radius - skipping location filter');
+      debugPrint(
+        '$tag   ⚠️  Location specified but no radius - skipping location filter',
+      );
       return memories;
     }
 
@@ -322,7 +435,9 @@ class FilterController extends GetxController {
     // Parse filter location coordinates
     final locationParts = selectedLocation.value.split(',');
     if (locationParts.length != 2) {
-      debugPrint('$tag   ⚠️  Invalid location format: ${selectedLocation.value}');
+      debugPrint(
+        '$tag   ⚠️  Invalid location format: ${selectedLocation.value}',
+      );
       return memories;
     }
 
@@ -330,35 +445,54 @@ class FilterController extends GetxController {
     final filterLng = double.tryParse(locationParts[1].trim());
 
     if (filterLat == null || filterLng == null) {
-      debugPrint('$tag   ⚠️  Could not parse location coordinates: ${selectedLocation.value}');
+      debugPrint(
+        '$tag   ⚠️  Could not parse location coordinates: ${selectedLocation.value}',
+      );
       return memories;
     }
 
-    debugPrint('$tag   📍 Filtering by location: ($filterLat, $filterLng) with radius: $radius miles');
+    debugPrint(
+      '$tag   📍 Filtering by location: ($filterLat, $filterLng) with radius: $radius miles',
+    );
 
     return memories.where((memory) {
-      final memoryLat = memory[DatabaseHelper.columnLocationLatitude] as double?;
-      final memoryLng = memory[DatabaseHelper.columnLocationLongitude] as double?;
+      final memoryLat =
+          memory[DatabaseHelper.columnLocationLatitude] as double?;
+      final memoryLng =
+          memory[DatabaseHelper.columnLocationLongitude] as double?;
 
       if (memoryLat == null || memoryLng == null) {
         return false;
       }
 
-      final distance = _calculateDistanceInMiles(filterLat, filterLng, memoryLat, memoryLng);
+      final distance = _calculateDistanceInMiles(
+        filterLat,
+        filterLng,
+        memoryLat,
+        memoryLng,
+      );
       return distance <= radius;
     }).toList();
   }
 
   /// Apply memory ID filters (from map/filter)
-  List<Map<String, dynamic>> _applyMemoryIdFilters(List<Map<String, dynamic>> memories) {
+  List<Map<String, dynamic>> _applyMemoryIdFilters(
+    List<Map<String, dynamic>> memories,
+  ) {
     if (selectedMemoryIds.isEmpty) {
       debugPrint('$tag   ⏭️  No memory ID filters to apply');
       return memories;
     }
 
-    debugPrint('$tag   🎯 Applying memory ID filters: ${selectedMemoryIds.length} IDs');
+    debugPrint(
+      '$tag   🎯 Applying memory ID filters: ${selectedMemoryIds.length} IDs',
+    );
 
-    final idSet = selectedMemoryIds.map((id) => int.tryParse(id)).whereType<int>().toSet();
+    final idSet =
+        selectedMemoryIds
+            .map((id) => int.tryParse(id))
+            .whereType<int>()
+            .toSet();
 
     return memories.where((memory) {
       final memoryId = memory[DatabaseHelper.columnId] as int?;
@@ -367,16 +501,24 @@ class FilterController extends GetxController {
   }
 
   /// Apply search filters (from search - takes precedence)
-  List<Map<String, dynamic>> _applySearchFilters(List<Map<String, dynamic>> memories) {
+  List<Map<String, dynamic>> _applySearchFilters(
+    List<Map<String, dynamic>> memories,
+  ) {
     if (!isSearchedMemoryList.value || searchedMemoryIds.isEmpty) {
       debugPrint('$tag   ⏭️  No search filters to apply');
       return memories;
     }
 
-    debugPrint('$tag   🔍 Applying search filters: ${searchedMemoryIds.length} IDs');
+    debugPrint(
+      '$tag   🔍 Applying search filters: ${searchedMemoryIds.length} IDs',
+    );
     indicatorType.value = 'search';
 
-    final idSet = searchedMemoryIds.map((id) => int.tryParse(id)).whereType<int>().toSet();
+    final idSet =
+        searchedMemoryIds
+            .map((id) => int.tryParse(id))
+            .whereType<int>()
+            .toSet();
 
     return memories.where((memory) {
       final memoryId = memory[DatabaseHelper.columnId] as int?;
@@ -385,7 +527,12 @@ class FilterController extends GetxController {
   }
 
   /// Calculate distance between two coordinates in miles using Haversine formula
-  double _calculateDistanceInMiles(double lat1, double lng1, double lat2, double lng2) {
+  double _calculateDistanceInMiles(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
     const double earthRadiusMiles = 3959.0; // Earth's radius in miles
 
     final double dLat = (lat2 - lat1) * (math.pi / 180);
@@ -394,9 +541,9 @@ class FilterController extends GetxController {
     final double a =
         math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(lat1 * (math.pi / 180)) *
-        math.cos(lat2 * (math.pi / 180)) *
-        math.sin(dLng / 2) *
-        math.sin(dLng / 2);
+            math.cos(lat2 * (math.pi / 180)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
 
     final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
 
@@ -448,9 +595,11 @@ class FilterController extends GetxController {
           DateTime? aDateTime;
           DateTime? bDateTime;
 
-          String format = Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
+          String format =
+              Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
 
-          if (aTime.toLowerCase().contains('am') || aTime.toLowerCase().contains('pm')) {
+          if (aTime.toLowerCase().contains('am') ||
+              aTime.toLowerCase().contains('pm')) {
             format = "d. MMMM yyyy hh:mm a";
           } else {
             format = "d. MMMM yyyy HH:mm";
@@ -507,7 +656,9 @@ class FilterController extends GetxController {
 
       // Store in global variable
       allMemories.value = transformedMemories;
-      debugPrint('$tag Transformed and sorted ${transformedMemories.length} memories');
+      debugPrint(
+        '$tag Transformed and sorted ${transformedMemories.length} memories',
+      );
 
       // Extract unique hashtags, contacts, and categories from all memories
       final hashtagsSet = <String>{};
@@ -517,12 +668,16 @@ class FilterController extends GetxController {
       for (final memory in allMemories) {
         final tags = memory[DatabaseHelper.columnTags] as String?;
         if (tags != null && tags.isNotEmpty) {
-          hashtagsSet.addAll(tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty));
+          hashtagsSet.addAll(
+            tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty),
+          );
         }
 
         final mentions = memory[DatabaseHelper.columnMentions] as String?;
         if (mentions != null && mentions.isNotEmpty) {
-          contactsSet.addAll(mentions.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty));
+          contactsSet.addAll(
+            mentions.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty),
+          );
         }
 
         final category = memory[DatabaseHelper.columnCategory] as String?;
@@ -535,7 +690,9 @@ class FilterController extends GetxController {
       availableContacts.value = contactsSet.toList()..sort();
       availableCategories.value = categoriesSet.toList()..sort();
 
-      debugPrint('$tag Extracted ${availableHashtags.length} hashtags, ${availableContacts.length} contacts, ${availableCategories.length} categories');
+      debugPrint(
+        '$tag Extracted ${availableHashtags.length} hashtags, ${availableContacts.length} contacts, ${availableCategories.length} categories',
+      );
 
       // Apply all filters
       applyAllFilters();
@@ -574,7 +731,8 @@ class FilterController extends GetxController {
     List<String>? audioDurations;
     List<String>? audioPaths;
     if (audiosList != null && audiosList.isNotEmpty) {
-      audioDurations = audiosList.map((audio) => audio['audio_duration'] as String).toList();
+      audioDurations =
+          audiosList.map((audio) => audio['audio_duration'] as String).toList();
       audioPaths = await Future.wait(
         audiosList.map((audio) async {
           final relativePath = audio['audio_file_path'] as String;
@@ -584,7 +742,8 @@ class FilterController extends GetxController {
     } else {
       audioPaths = _databaseHelper.getAudioPathsFromMemory(dbMemory);
       if (audioPaths.isNotEmpty) {
-        audioDurations = audioPaths.map((path) => _extractDurationFromPath(path)).toList();
+        audioDurations =
+            audioPaths.map((path) => _extractDurationFromPath(path)).toList();
       }
     }
 
@@ -605,8 +764,14 @@ class FilterController extends GetxController {
           return await _getAbsolutePath(relativePath);
         }),
       );
-      videoThumbnails = videosList.map((video) => (video['video_thumbnail_path'] as String?) ?? '').toList();
-      videoDurations = videosList.map((video) => (video['video_duration'] as String?) ?? '').toList();
+      videoThumbnails =
+          videosList
+              .map((video) => (video['video_thumbnail_path'] as String?) ?? '')
+              .toList();
+      videoDurations =
+          videosList
+              .map((video) => (video['video_duration'] as String?) ?? '')
+              .toList();
     }
 
     // Format location
@@ -619,7 +784,9 @@ class FilterController extends GetxController {
 
     // Use enhanced location display if available
     String displayLocation = formattedLocation;
-    if (locationFlag.isNotEmpty && locationCity.isNotEmpty && locationCountry.isNotEmpty) {
+    if (locationFlag.isNotEmpty &&
+        locationCity.isNotEmpty &&
+        locationCountry.isNotEmpty) {
       displayLocation = '$locationFlag $locationCity, $locationCountry';
     } else if (locationName.isNotEmpty) {
       displayLocation = locationName;
@@ -681,8 +848,21 @@ class FilterController extends GetxController {
     if (dbDate != null && dbDate.isNotEmpty) {
       try {
         final date = DateTime.parse(dbDate);
-        final months = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                       'July', 'August', 'September', 'October', 'November', 'December'];
+        final months = [
+          '',
+          'January',
+          'February',
+          'March',
+          'April',
+          'May',
+          'June',
+          'July',
+          'August',
+          'September',
+          'October',
+          'November',
+          'December',
+        ];
         return '${date.day}. ${months[date.month]}';
       } catch (e) {
         debugPrint('$tag Error parsing dbDate: $e');
@@ -692,8 +872,21 @@ class FilterController extends GetxController {
     if (createdAt != null) {
       try {
         final date = DateTime.parse(createdAt);
-        final months = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                       'July', 'August', 'September', 'October', 'November', 'December'];
+        final months = [
+          '',
+          'January',
+          'February',
+          'March',
+          'April',
+          'May',
+          'June',
+          'July',
+          'August',
+          'September',
+          'October',
+          'November',
+          'December',
+        ];
         return '${date.day}. ${months[date.month]}';
       } catch (e) {
         debugPrint('$tag Error parsing createdAt: $e');
@@ -796,9 +989,11 @@ class FilterController extends GetxController {
       if (parentCategory != null &&
           !processedCategories.contains(parentCategory.name)) {
         // Check if all subcategories of this parent are selected
-        final allSubsSelected = parentCategory.subcategories?.every(
-          (sub) => selectedCategories.contains(sub.name),
-        ) ?? false;
+        final allSubsSelected =
+            parentCategory.subcategories?.every(
+              (sub) => selectedCategories.contains(sub.name),
+            ) ??
+            false;
 
         if (allSubsSelected) {
           // Show only the main category name
@@ -823,7 +1018,8 @@ class FilterController extends GetxController {
 
   /// Update filter status based on current filter values
   void updateFilterStatus() {
-    hasActiveFilters.value = filterValues.isNotEmpty ||
+    hasActiveFilters.value =
+        filterValues.isNotEmpty ||
         selectedLocation.value.isNotEmpty ||
         selectedRadius.value.isNotEmpty ||
         selectedHashtags.isNotEmpty ||
@@ -832,7 +1028,9 @@ class FilterController extends GetxController {
         selectedMemoryIds.isNotEmpty ||
         searchedMemoryIds.isNotEmpty;
 
-    debugPrint('$tag Filter status updated: hasActiveFilters=${hasActiveFilters.value}');
+    debugPrint(
+      '$tag Filter status updated: hasActiveFilters=${hasActiveFilters.value}',
+    );
   }
 
   /// Get active filter count for badge display
@@ -905,7 +1103,9 @@ class FilterController extends GetxController {
   /// Set searched text keyword and apply filters
   void setSearchedTextKeyword(String keyword) {
     searchedTextKeyword.value = keyword.trim();
-    debugPrint('$tag 🔍 Searched text keyword set to: "${searchedTextKeyword.value}"');
+    debugPrint(
+      '$tag 🔍 Searched text keyword set to: "${searchedTextKeyword.value}"',
+    );
 
     // Update indicator type to search if keyword is not empty
     if (searchedTextKeyword.value.isNotEmpty) {
@@ -913,7 +1113,7 @@ class FilterController extends GetxController {
       searchKeywords.value = searchedTextKeyword.value;
     }
 
-    applyAllFilters();
+    applyAllFilters1();
   }
 
   /// Reset all filters EXCEPT search filter
@@ -934,7 +1134,9 @@ class FilterController extends GetxController {
     isSearchedMemoryList.value = false;
 
     updateFilterStatus();
-    debugPrint('$tag ✅ All filters reset except search (search keyword: "${searchedTextKeyword.value}")');
+    debugPrint(
+      '$tag ✅ All filters reset except search (search keyword: "${searchedTextKeyword.value}")',
+    );
 
     applyAllFilters();
   }
@@ -988,5 +1190,3 @@ class FilterController extends GetxController {
     updateFilterStatus();
   }
 }
-
-

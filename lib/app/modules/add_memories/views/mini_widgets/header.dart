@@ -130,7 +130,7 @@ class Header extends StatelessWidget {
                   }),
 
                   // Search badge - shows when there's an active search
-                  const SearchBadge(),
+                  // const SearchBadge(),
                 ],
               ),
             ),

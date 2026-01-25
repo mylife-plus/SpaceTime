@@ -801,54 +801,7 @@ class AddMemoriesController extends GetxController {
 
       if ((type == 'description' || type == 'location' || type == 'category') &&
           memoryId != null) {
-        debugPrint('$tag 🎯 Memory-specific suggestion detected');
-
-        isSearching.value = true;
-
-        filteredMemories.value =
-            allMemories.where((memory) {
-              final match = memory['id'] == memoryId;
-              debugPrint(
-                '$tag 🔍 Checking memory ID ${memory['id']} == $memoryId → $match',
-              );
-              return match;
-            }).toList();
-
-        debugPrint(
-          '$tag ✅ Selected specific memory with ID: $memoryId | Result count: ${filteredMemories.length}',
-        );
-
-        final c1 = Get.find<MapControllerNew>();
-        List<int> memoryIdInt = [];
-
-        for (var memory in filteredMemories) {
-          final idStr = memory['id'];
-          final idInt = int.tryParse(idStr.toString());
-
-          if (idInt != null) {
-            memoryIdInt.add(idInt);
-            debugPrint('$tag ➕ Parsed memory ID: $idInt');
-          } else {
-            debugPrint('$tag ❌ Failed to parse memory ID: $idStr');
-          }
-        }
-
-        if (memoryIdInt.isNotEmpty) {
-          debugPrint('$tag 🎯 Applying memory ID filters to map: $memoryIdInt');
-
-          applyFilters(memoryIds: memoryIdInt);
-          await c1.loadFilteredMemoriesFromDB();
-          c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
-
-          debugPrint(
-            '$tag 🗺️ MapControllerNew updated with filtered memory IDs',
-          );
-        } else {
-          debugPrint('$tag ⚠️ No valid memory IDs found to apply to map');
-        }
-
-        isSearchActive.value = false;
-        debugPrint('$tag ⛔ Search deactivated and early return');
+          await selectASignleMamory(memoryId, tag);
         return;
       }
     }
@@ -868,7 +821,7 @@ class AddMemoriesController extends GetxController {
         _filterController.searchKeywords.value = '';
         _filterController.isSearchedMemoryList.value = false;
         _filterController.searchedMemoryIds.clear();
-var c1 = Get.find<MapControllerNew>();
+
         // Add to FilterController's selectedHashtags
         _filterController.selectedHashtags.clear();
         _filterController.selectedHashtags.add(hashtag);
@@ -880,43 +833,18 @@ var c1 = Get.find<MapControllerNew>();
         isSearching.value = false; // Set to false to prevent search indicator
         filteredMemories.value = _filterController.filteredMemories.toList();
 
-        // Reload AddMemories view
-       
-       List<int> memoryIdInt = [];
-
-        for (var memory in filteredMemories) {
-          final idStr = memory['id'];
-          final idInt = int.tryParse(idStr.toString());
-
-          if (idInt != null) {
-            memoryIdInt.add(idInt);
-            debugPrint('$tag ➕ Parsed memory ID: $idInt');
-          } else {
-            debugPrint('$tag ❌ Failed to parse memory ID: $idStr');
-          }
-        }
-
-        if (memoryIdInt.isNotEmpty) {
-          debugPrint('$tag 🎯 Applying memory ID filters to map: $memoryIdInt');
-
-          applyFilters(memoryIds: memoryIdInt);
-          await c1.loadFilteredMemoriesFromDB();
-          c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
-
-          debugPrint(
-            '$tag 🗺️ MapControllerNew updated with filtered memory IDs',
-          );
-        } else {
-          debugPrint('$tag ⚠️ No valid memory IDs found to apply to map');
-        }
+        // Sync to map
+        final mapController = Get.find<MapControllerNew>();
+        await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
+        mapController.showLoadedDataOnMap();
 
         debugPrint('$tag ✅ Hashtag filter applied: $hashtag | Results: ${filteredMemories.length}');
+        onAgainInit();
 
         isSearchActive.value = false;
         return;
       } else if (type == 'mention') {
         debugPrint('$tag 👤 Mention selected - using ID-based filter (orange indicator)');
-var c1 = Get.find<MapControllerNew>();
 
         // Extract mention without @ prefix
         final mention = suggestion.startsWith('@') ? suggestion.substring(1) : suggestion;
@@ -938,34 +866,12 @@ var c1 = Get.find<MapControllerNew>();
         isSearching.value = false; // Set to false to prevent search indicator
         filteredMemories.value = _filterController.filteredMemories.toList();
 
-        // Reload AddMemories view
-       List<int> memoryIdInt = [];
+        // Sync to map
+        final mapController = Get.find<MapControllerNew>();
+        await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
+        mapController.showLoadedDataOnMap();
 
-        for (var memory in filteredMemories) {
-          final idStr = memory['id'];
-          final idInt = int.tryParse(idStr.toString());
-
-          if (idInt != null) {
-            memoryIdInt.add(idInt);
-            debugPrint('$tag ➕ Parsed memory ID: $idInt');
-          } else {
-            debugPrint('$tag ❌ Failed to parse memory ID: $idStr');
-          }
-        }
-
-        if (memoryIdInt.isNotEmpty) {
-          debugPrint('$tag 🎯 Applying memory ID filters to map: $memoryIdInt');
-
-          applyFilters(memoryIds: memoryIdInt);
-          await c1.loadFilteredMemoriesFromDB();
-          c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
-
-          debugPrint(
-            '$tag 🗺️ MapControllerNew updated with filtered memory IDs',
-          );
-        } else {
-          debugPrint('$tag ⚠️ No valid memory IDs found to apply to map');
-        }
+        onAgainInit();
 
         debugPrint('$tag ✅ Mention filter applied: $mention | Results: ${filteredMemories.length}');
 
@@ -2381,6 +2287,57 @@ var c1 = Get.find<MapControllerNew>();
     }
 
     return displayList;
+  }
+  
+  Future<void> selectASignleMamory(memoryId, tag) async {
+      debugPrint('$tag 🎯 Memory-specific suggestion detected');
+
+        isSearching.value = true;
+
+        filteredMemories.value =
+            allMemories.where((memory) {
+              final match = memory['id'] == memoryId;
+              debugPrint(
+                '$tag 🔍 Checking memory ID ${memory['id']} == $memoryId → $match',
+              );
+              return match;
+            }).toList();
+
+        debugPrint(
+          '$tag ✅ Selected specific memory with ID: $memoryId | Result count: ${filteredMemories.length}',
+        );
+
+        final c1 = Get.find<MapControllerNew>();
+        List<int> memoryIdInt = [];
+
+        for (var memory in filteredMemories) {
+          final idStr = memory['id'];
+          final idInt = int.tryParse(idStr.toString());
+
+          if (idInt != null) {
+            memoryIdInt.add(idInt);
+            debugPrint('$tag ➕ Parsed memory ID: $idInt');
+          } else {
+            debugPrint('$tag ❌ Failed to parse memory ID: $idStr');
+          }
+        }
+
+        if (memoryIdInt.isNotEmpty) {
+          debugPrint('$tag 🎯 Applying memory ID filters to map: $memoryIdInt');
+
+          applyFilters(memoryIds: memoryIdInt);
+          await c1.loadFilteredMemoriesFromDB();
+          c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
+
+          debugPrint(
+            '$tag 🗺️ MapControllerNew updated with filtered memory IDs',
+          );
+        } else {
+          debugPrint('$tag ⚠️ No valid memory IDs found to apply to map');
+        }
+
+        isSearchActive.value = false;
+        debugPrint('$tag ⛔ Search deactivated and early return');
   }
 }
 
