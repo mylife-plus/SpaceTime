@@ -219,13 +219,41 @@ class AddMemoriesController extends GetxController {
     }
 
   }
+/// Now delegates to FilterController which handles loading and UI transformation
+  Future<void> loadMemoriesFromDatabase1() async {
+    debugPrint('[AddMemoriesController] Loading memories via FilterController...');
+    await _filterController.loadAndApplyFilters();
 
+    // Sync filter values from FilterController (single source of truth)
+    _syncFilterValuesFromFilterController();
+
+    debugPrint('[AddMemoriesController] Loaded ${allMemories.length} memories from FilterController');
+  }
   // Load memories from database
   /// Now delegates to FilterController which handles loading and UI transformation
   Future<void> loadMemoriesFromDatabase() async {
     debugPrint('[AddMemoriesController] Loading memories via FilterController...');
     await _filterController.loadAndApplyFilters();
+
+    // Sync filter values from FilterController (single source of truth)
+    _syncFilterValuesFromFilterController();
+
     debugPrint('[AddMemoriesController] Loaded ${allMemories.length} memories from FilterController');
+  }
+
+  /// Sync filter values from FilterController to local state
+  void _syncFilterValuesFromFilterController() {
+    filterValues.value = Map<String, String>.from(_filterController.filterValues);
+    selectedLocation.value = _filterController.selectedLocation.value;
+    selectedLocationDisplayName.value = _filterController.selectedLocationDisplayName.value;
+    selectedRadius.value = _filterController.selectedRadius.value;
+    selectedHashtags.value = List<String>.from(_filterController.selectedHashtags);
+    selectedContacts.value = List<String>.from(_filterController.selectedContacts);
+    selectedCategories.value = List<String>.from(_filterController.selectedCategories);
+    selectedMemoryIds.value = List<String>.from(_filterController.selectedMemoryIds);
+    hasActiveFilters.value = _filterController.hasActiveFilters.value;
+
+    debugPrint('[AddMemoriesController] 🔄 Synced filter values from FilterController');
   }
 
   // Transform database memory to UI format
@@ -2070,10 +2098,6 @@ class AddMemoriesController extends GetxController {
     isUIVisible.value = true;
   }
 
-  // Manual refresh method
-  Future<void> refreshMemories() async {
-    await loadMemoriesFromDatabase();
-  }
 
   // Debug method to check current state
   void debugCurrentState() {
@@ -2384,9 +2408,15 @@ class AddMemoriesController extends GetxController {
         // Apply filters using FilterController
         await _filterController.loadAndApplyFilters();
 
-        // Update local state
+        // Update local state from FilterController (single source of truth)
         isSearching.value = false; // Set to false to prevent search indicator
+        hasActiveFilters.value = true; // ✅ Sync from FilterController
         filteredMemories.value = _filterController.filteredMemories.toList();
+        allMemories.value = _filterController.allMemories.toList();
+
+        debugPrint('$tag 🔍 hasActiveFilters synced: ${hasActiveFilters.value}');
+        debugPrint('$tag 🔍 activeFilterCount: ${activeFilterCount}');
+        debugPrint('$tag 🔍 filteredMemories count: ${filteredMemories.length}');
 
         // Sync to map
         final mapController = Get.find<MapControllerNew>();
@@ -2394,8 +2424,7 @@ class AddMemoriesController extends GetxController {
         mapController.showLoadedDataOnMap();
 
         debugPrint('$tag ✅ Hashtag filter applied: $hashtag | Results: ${filteredMemories.length}');
-        onAgainInit();
-        hasActiveFilters.value = true;
+
         isSearchActive.value = false;
         return;
       } else if (type == 'mention') {
@@ -2417,17 +2446,20 @@ class AddMemoriesController extends GetxController {
         // Apply filters using FilterController
         await _filterController.loadAndApplyFilters();
 
-        // Update local state
+        // Update local state from FilterController (single source of truth)
         isSearching.value = false; // Set to false to prevent search indicator
+        hasActiveFilters.value = true; // ✅ Sync from FilterController
         filteredMemories.value = _filterController.filteredMemories.toList();
+        allMemories.value = _filterController.allMemories.toList();
+
+        debugPrint('$tag 🔍 hasActiveFilters synced: ${hasActiveFilters.value}');
+        debugPrint('$tag 🔍 activeFilterCount: ${activeFilterCount}');
+        debugPrint('$tag 🔍 filteredMemories count: ${filteredMemories.length}');
 
         // Sync to map
         final mapController = Get.find<MapControllerNew>();
         await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
         mapController.showLoadedDataOnMap();
-        hasActiveFilters.value = true;
-
-        // onAgainInit();
 
         debugPrint('$tag ✅ Mention filter applied: $mention | Results: ${filteredMemories.length}');
 

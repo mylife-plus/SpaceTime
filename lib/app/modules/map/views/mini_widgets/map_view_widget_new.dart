@@ -266,49 +266,50 @@ Widget _buildOverlays(MapControllerNew controller) {
         );
       }),
 
-      // Filter indicator (shown when filters are active and filter overlay is closed)
-      // Search indicator - shows when there's an active keyword search
-      Obx(() {
-        
-
-        if (!Get.isRegistered<AddMemoriesController>()) {
-          return const SizedBox.shrink();
-        }
-
-        // Show search indicator when there's an active search
-        if (Get.find<FilterController>().hasActiveSearch) {
-          return const Positioned(
+Positioned(
             top: 60,
             left: 0,
             right: 0,
             child: SearchIndicator(),
-          );
-        }
+          ),
+      // Filter indicator (shown when filters are active and filter overlay is closed)
+      // Search indicator - shows when there's an active keyword search
+      // Obx(() {
+        
 
-        return const SizedBox.shrink();
-      }),
+      //   if (!Get.isRegistered<AddMemoriesController>()) {
+      //     return const SizedBox.shrink();
+      //   }
 
-      // Filter indicator - shows when there are active filters (but not search)
-      Obx(() {
-      
-        if (!Get.isRegistered<FilterController>()) {
-          return const SizedBox.shrink();
-        }
+      //   // Show search indicator when there's an active search
+      //   // if (Get.find<FilterController>().hasActiveSearch) {
+      //     return const 
+      //   // }
 
-        final filterController = Get.find<FilterController>();
-
-        // Show filter indicator only when there are filters and NO active search
-        if (filterController.hasActiveFilters.value) {
-          return const Positioned(
+      //   // return const SizedBox.shrink();
+      // }),
+const Positioned(
             top: 60,
             left: 0,
             right: 0,
             child: FilterIndicator(),
-          );
-        }
+          ),
+      // Filter indicator - shows when there are active filters (but not search)
+      // Obx(() {
+      
+      //   if (!Get.isRegistered<FilterController>()) {
+      //     return const SizedBox.shrink();
+      //   }
 
-        return const SizedBox.shrink();
-      }),
+        
+
+      //   return const Positioned(
+      //       top: 60,
+      //       left: 0,
+      //       right: 0,
+      //       child: FilterIndicator(),
+      //     );
+      // }),
 
       // Filter overlay
      Visibility(
