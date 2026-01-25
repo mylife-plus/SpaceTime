@@ -269,19 +269,14 @@ Widget _buildOverlays(MapControllerNew controller) {
       // Filter indicator (shown when filters are active and filter overlay is closed)
       // Search indicator - shows when there's an active keyword search
       Obx(() {
-        if (controller.isFilterOpen.value) {
-          return const SizedBox.shrink();
-        }
+        
 
         if (!Get.isRegistered<AddMemoriesController>()) {
           return const SizedBox.shrink();
         }
 
-        final addMemoriesController = Get.find<AddMemoriesController>();
-
         // Show search indicator when there's an active search
-        if (addMemoriesController.isSearching.value &&
-            Get.find<FilterController>().hasActiveSearch) {
+        if (Get.find<FilterController>().hasActiveSearch) {
           return const Positioned(
             top: 60,
             left: 0,
@@ -295,10 +290,7 @@ Widget _buildOverlays(MapControllerNew controller) {
 
       // Filter indicator - shows when there are active filters (but not search)
       Obx(() {
-        if (controller.isFilterOpen.value) {
-          return const SizedBox.shrink();
-        }
-
+      
         if (!Get.isRegistered<FilterController>()) {
           return const SizedBox.shrink();
         }
@@ -306,7 +298,7 @@ Widget _buildOverlays(MapControllerNew controller) {
         final filterController = Get.find<FilterController>();
 
         // Show filter indicator only when there are filters and NO active search
-        if (filterController.hasActiveFilters.value && !filterController.hasActiveSearch) {
+        if (filterController.hasActiveFilters.value) {
           return const Positioned(
             top: 60,
             left: 0,
