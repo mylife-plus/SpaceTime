@@ -76,6 +76,9 @@ class FilterController extends GetxController {
   /// Search keywords (preserved when in search mode)
   final RxString searchKeywords = ''.obs;
 
+  /// Searched text keyword for text-based search filtering
+  final RxString searchedTextKeyword = ''.obs;
+
   /// Cached hierarchical data for display logic
   List<HashtagGroup> _cachedHashtagGroups = [];
   List<ContactGroup> _cachedContactGroups = [];
@@ -124,7 +127,11 @@ class FilterController extends GetxController {
   /// This loads all memories from database, extracts unique tags/mentions/categories,
   /// and applies any selected filters
   Future<void> _loadFilterData() async {
+
     try {
+
+      allMemories.clear();
+      filteredMemories.clear();
       debugPrint('$tag 📊 Loading filter data from database...');
 
       // Ensure database is initialized
@@ -196,6 +203,7 @@ class FilterController extends GetxController {
     List<Map<String, dynamic>> result = List.from(allMemories);
 
     // Apply each filter type in sequence
+    result = _applySearchedTextFilter(result);
     result = _applyTextFilters(result);
     result = _applyHashtagFilters(result);
     result = _applyContactFilters(result);
@@ -214,6 +222,33 @@ class FilterController extends GetxController {
     }
 
     debugPrint('$tag ✅ Filters applied: ${totalResults.value} results from ${allMemories.length} total memories');
+  }
+
+  /// Apply searched text keyword filter (text-based search)
+  List<Map<String, dynamic>> _applySearchedTextFilter(List<Map<String, dynamic>> memories) {
+    if (searchedTextKeyword.value.isEmpty) {
+      debugPrint('$tag   ⏭️  No searched text keyword to apply');
+      return memories;
+    }
+
+    final keyword = searchedTextKeyword.value.toLowerCase().trim();
+    debugPrint('$tag   🔍 Applying searched text filter: "$keyword"');
+
+    return memories.where((memory) {
+      final description = (memory[DatabaseHelper.columnDescription] as String?)?.toLowerCase() ?? '';
+      final tags = (memory[DatabaseHelper.columnTags] as String?)?.toLowerCase() ?? '';
+      final mentions = (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ?? '';
+      final category = (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ?? '';
+      final locationName = (memory[DatabaseHelper.columnLocationName] as String?)?.toLowerCase() ?? '';
+      final locationAddress = (memory[DatabaseHelper.columnLocationAddress] as String?)?.toLowerCase() ?? '';
+      final locationCity = (memory[DatabaseHelper.columnLocationCity] as String?)?.toLowerCase() ?? '';
+      final locationCountry = (memory[DatabaseHelper.columnLocationCountry] as String?)?.toLowerCase() ?? '';
+
+      // Search in all text fields
+      final searchableText = '$description $tags $mentions $category $locationName $locationAddress $locationCity $locationCountry';
+
+      return searchableText.contains(keyword);
+    }).toList();
   }
 
   /// Apply text-based filters (title, description, etc.)
@@ -514,10 +549,39 @@ class FilterController extends GetxController {
     selectedCategories.clear();
     selectedMemoryIds.clear();
     searchedMemoryIds.clear();
+    searchedTextKeyword.value = '';
     isSearchedMemoryList.value = false;
 
     updateFilterStatus();
     debugPrint('$tag All filters reset');
+  }
+
+  /// Set searched text keyword and apply filters
+  void setSearchedTextKeyword(String keyword) {
+    searchedTextKeyword.value = keyword.trim();
+    debugPrint('$tag 🔍 Searched text keyword set to: "${searchedTextKeyword.value}"');
+
+    // Update indicator type to search if keyword is not empty
+    if (searchedTextKeyword.value.isNotEmpty) {
+      indicatorType.value = 'search';
+      searchKeywords.value = searchedTextKeyword.value;
+    }
+
+    applyAllFilters();
+  }
+
+  /// Clear searched text keyword
+  void clearSearchedTextKeyword() {
+    searchedTextKeyword.value = '';
+    debugPrint('$tag 🔍 Searched text keyword cleared');
+
+    // Reset indicator type if no other search is active
+    if (!isSearchedMemoryList.value) {
+      indicatorType.value = hasActiveFilters.value ? 'filter' : '';
+      searchKeywords.value = '';
+    }
+
+    applyAllFilters();
   }
 
   /// Clear specific filter types
@@ -529,6 +593,7 @@ class FilterController extends GetxController {
     bool clearCategories = false,
     bool clearMemoryIds = false,
     bool clearSearchedIds = false,
+    bool clearSearchedText = false,
   }) {
     debugPrint('$tag Clearing specific filters');
 
@@ -547,74 +612,11 @@ class FilterController extends GetxController {
       searchedMemoryIds.clear();
       isSearchedMemoryList.value = false;
     }
+    if (clearSearchedText) {
+      searchedTextKeyword.value = '';
+    }
 
     updateFilterStatus();
-  }
-
-  // ============================================================================
-  // CONTROLLER SYNCHRONIZATION
-  // ============================================================================
-
-  /// Sync filter state to MapControllerNew
-  void syncToMapController() {
-    try {
-      if (!Get.isRegistered<MapControllerNew>()) {
-        debugPrint('$tag MapControllerNew not registered');
-        return;
-      }
-
-      final mapController = Get.find<MapControllerNew>();
-      debugPrint('$tag Syncing filters to MapControllerNew');
-
-      mapController.filterValues.clear();
-      mapController.filterValues.addAll(filterValues);
-      mapController.selectedRadius.value = selectedRadius.value;
-      mapController.selectedHashtags.clear();
-      mapController.selectedHashtags.addAll(selectedHashtags);
-      mapController.selectedContacts.clear();
-      mapController.selectedContacts.addAll(selectedContacts);
-      mapController.selectedCategories.clear();
-      mapController.selectedCategories.addAll(selectedCategories);
-      mapController.selectedMemoryIds.clear();
-      mapController.selectedMemoryIds.addAll(selectedMemoryIds);
-      mapController.searchedMemoryIds.clear();
-      mapController.searchedMemoryIds.addAll(searchedMemoryIds);
-
-      debugPrint('$tag ✅ Synced to MapControllerNew');
-    } catch (e) {
-      debugPrint('$tag ❌ Error syncing to MapControllerNew: $e');
-    }
-  }
-
-  /// Sync filter state to AddMemoriesController
-  void syncToAddMemoriesController() {
-    try {
-      if (!Get.isRegistered<AddMemoriesController>()) {
-        debugPrint('$tag AddMemoriesController not registered');
-        return;
-      }
-
-      final addMemoriesController = Get.find<AddMemoriesController>();
-      debugPrint('$tag Syncing filters to AddMemoriesController');
-
-      addMemoriesController.filterValues.clear();
-      addMemoriesController.filterValues.addAll(filterValues);
-      addMemoriesController.selectedLocation.value = selectedLocation.value;
-      addMemoriesController.selectedLocationDisplayName.value = selectedLocationDisplayName.value;
-      addMemoriesController.selectedRadius.value = selectedRadius.value;
-      addMemoriesController.selectedHashtags.clear();
-      addMemoriesController.selectedHashtags.addAll(selectedHashtags);
-      addMemoriesController.selectedContacts.clear();
-      addMemoriesController.selectedContacts.addAll(selectedContacts);
-      addMemoriesController.selectedCategories.clear();
-      addMemoriesController.selectedCategories.addAll(selectedCategories);
-      addMemoriesController.selectedMemoryIds.clear();
-      addMemoriesController.selectedMemoryIds.addAll(selectedMemoryIds);
-
-      debugPrint('$tag ✅ Synced to AddMemoriesController');
-    } catch (e) {
-      debugPrint('$tag ❌ Error syncing to AddMemoriesController: $e');
-    }
   }
 }
 
