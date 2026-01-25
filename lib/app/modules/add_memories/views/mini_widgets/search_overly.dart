@@ -228,7 +228,7 @@ class SearchOverlay extends StatelessWidget {
                                   ),
                                 ),
                                 onTap:
-                                    () => controller.selectSuggestion(
+                                    () => controller.selectHashtagOrMentionSuggestion(
                                      
                                       text,
                                       suggestionData: suggestionData,

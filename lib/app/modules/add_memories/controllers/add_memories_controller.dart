@@ -2339,6 +2339,103 @@ class AddMemoriesController extends GetxController {
         isSearchActive.value = false;
         debugPrint('$tag ⛔ Search deactivated and early return');
   }
+
+
+    
+  Future<void> selectHashtagOrMentionSuggestion(suggestion, {required Map<String, dynamic> suggestionData}) async {
+     if (isOpenedFromMap) {
+      Navigator.of(Get.context!).pop();
+    }
+    const String tag = '[SearchController][selectHashtagOrMentionSuggestion]';
+
+    debugPrint('$tag ▶ Called with suggestion="$suggestion"');
+    debugPrint('$tag ▶ suggestionData: $suggestionData');
+
+    // Check if this is a hashtag or mention FIRST (before setting searchQuery)
+    final type = suggestionData?['type'] ?? '';
+    final isHashtagOrMention = type == 'hashtag' || type == 'mention';
+
+    // Only set searchQuery for non-hashtag/mention suggestions
+    if (!isHashtagOrMention) {
+      searchQuery.value = suggestion;
+      debugPrint('$tag ▶ Updated searchQuery to: "$suggestion"');
+    } else {
+      debugPrint('$tag ▶ Skipping searchQuery update for hashtag/mention');
+    }
+
+    // var tag = ' [SearchController][selectSuggestion] ';
+      if (suggestion != null) {
+      if (type == 'hashtag') {
+        debugPrint('$tag 🏷️ Hashtag selected - using ID-based filter (orange indicator)');
+
+        // Extract hashtag without # prefix
+        final hashtag = suggestion.startsWith('#') ? suggestion.substring(1) : suggestion;
+
+        // Clear any existing search keyword to prevent blue search indicator
+        _filterController.searchedTextKeyword.value = '';
+        _filterController.searchKeywords.value = '';
+        _filterController.isSearchedMemoryList.value = false;
+        _filterController.searchedMemoryIds.clear();
+
+        // Add to FilterController's selectedHashtags
+        _filterController.selectedHashtags.clear();
+        _filterController.selectedHashtags.add(hashtag);
+
+        // Apply filters using FilterController
+        await _filterController.loadAndApplyFilters();
+
+        // Update local state
+        isSearching.value = false; // Set to false to prevent search indicator
+        filteredMemories.value = _filterController.filteredMemories.toList();
+
+        // Sync to map
+        final mapController = Get.find<MapControllerNew>();
+        await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
+        mapController.showLoadedDataOnMap();
+
+        debugPrint('$tag ✅ Hashtag filter applied: $hashtag | Results: ${filteredMemories.length}');
+        onAgainInit();
+        hasActiveFilters.value = true;
+        isSearchActive.value = false;
+        return;
+      } else if (type == 'mention') {
+        debugPrint('$tag 👤 Mention selected - using ID-based filter (orange indicator)');
+
+        // Extract mention without @ prefix
+        final mention = suggestion.startsWith('@') ? suggestion.substring(1) : suggestion;
+
+        // Clear any existing search keyword to prevent blue search indicator
+        _filterController.searchedTextKeyword.value = '';
+        _filterController.searchKeywords.value = '';
+        _filterController.isSearchedMemoryList.value = false;
+        _filterController.searchedMemoryIds.clear();
+
+        // Add to FilterController's selectedContacts
+        _filterController.selectedContacts.clear();
+        _filterController.selectedContacts.add(mention);
+
+        // Apply filters using FilterController
+        await _filterController.loadAndApplyFilters();
+
+        // Update local state
+        isSearching.value = false; // Set to false to prevent search indicator
+        filteredMemories.value = _filterController.filteredMemories.toList();
+
+        // Sync to map
+        final mapController = Get.find<MapControllerNew>();
+        await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
+        mapController.showLoadedDataOnMap();
+        hasActiveFilters.value = true;
+
+        // onAgainInit();
+
+        debugPrint('$tag ✅ Mention filter applied: $mention | Results: ${filteredMemories.length}');
+
+        isSearchActive.value = false;
+        return;
+      }
+    }
+  }
 }
 
 // Helper class for memory filtering without creating widget instances
