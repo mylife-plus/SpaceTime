@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/routes/app_pages.dart';
@@ -68,74 +69,119 @@ class _BottomPanelState extends State<BottomPanel> {
   @override
   Widget build(BuildContext context) {
     final controller2 = Get.find<UiController>();
+    final screenHeight = MediaQuery.of(context).size.height;
 
-    return Container(
-      height: 500,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: controller2.darkMode.value ? Colors.black : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: controller2.darkMode.value ? Colors.white30 : Colors.black26,
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+    return GestureDetector(
+      onVerticalDragEnd: (details) {
+        // Swipe down to dismiss
+        if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+          Navigator.of(context).pop();
+        }
+      },
+      onTap: () {}, // Prevent taps from passing through to background
+      child: Container(
+        height: screenHeight * 0.3, // 40% of screen height (reduced from fixed 500)
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: controller2.darkMode.value ? Colors.black : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(0),
+            topRight: Radius.circular(0),
           ),
-        ],
-      ),
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _memories.isEmpty
-              ? Center(
-                  child: Text(
-                    'No memories found',
-                    style: TextStyle(
-                      color: controller2.darkMode.value ? Colors.white : Colors.black,
+          boxShadow: [
+            BoxShadow(
+              color: controller2.darkMode.value ? Colors.white30 : Colors.black26,
+              blurRadius: 0,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Container(
+            height: screenHeight * 0.3,
+            child: Column(
+              children: [
+                // Drag handle indicator
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: controller2.darkMode.value
+                          ? Colors.white30
+                          : Colors.black26,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // View All Button
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8.0, right: 8.0),
-                        child: GestureDetector(
-                          onTap: () => _viewAllMemories(context),
-                          child: Text(
-                            'View',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: controller2.darkMode.value
-                                  ? Colors.white
-                                  : Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Divider(),
-
-                    // Total Memories Count
-                    GestureDetector(
-                      onTap: () => _viewAllMemories(context),
-                      child: Text(
-                        'all ${_memories.length} Memories',
-                        style: const TextStyle(
-                          color: Color(0xFF0071FF),
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    const Divider(),
-
-                    // Display memories grouped intelligently
-                    ..._buildMemoryGroups(controller2, context),
-                  ],
                 ),
+                // Content
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _memories.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No memories found',
+                                style: GoogleFonts.kumbhSans(
+                                  color: controller2.darkMode.value ? Colors.white : Colors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // View All Button
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(top: 2.0, right: 8.0),
+                                    child: GestureDetector(
+                                      onTap: () => _viewAllMemories(context),
+                                      child: Text(
+                                        'View',
+                                        style: GoogleFonts.kumbhSans(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: controller2.darkMode.value
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+            
+                                // Total Memories Count
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12.0, bottom: 8.0),
+                                  child: GestureDetector(
+                                    onTap: () => _viewAllMemories(context),
+                                    child: Text(
+                                      'all ${_memories.length} Memories',
+                                      style: GoogleFonts.kumbhSans(
+                                        color: const Color(0xFF0071FF),
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Divider(),
+            
+                                // Display memories grouped intelligently
+                                ..._buildMemoryGroups(controller2, context),
+                              ],
+                            ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -203,31 +249,27 @@ class _BottomPanelState extends State<BottomPanel> {
     UiController controller2,
     BuildContext context,
   ) {
-    // Get all unique years from memories
+    // Get all unique years from memories using the 'year' field
     final years = _memories
         .map((m) {
-          final dateStr = m['date'] as String?;
-          if (dateStr == null) return null;
+          final yearStr = m['year'] as String?;
+          if (yearStr == null || yearStr.isEmpty) return null;
           try {
-            return DateTime.parse(dateStr).year;
+            return int.parse(yearStr);
           } catch (e) {
+            debugPrint('[BottomPanel] Error parsing year: $yearStr');
             return null;
           }
         })
         .whereType<int>()
         .toSet()
         .toList();
-    years.sort();
+    years.sort((a, b) => b.compareTo(a)); // Sort descending (newest first)
 
-    // If memories span multiple years, group by year
-    if (years.length > 1) {
-      return _buildYearGroups(controller2, years, context);
-    } else if (years.isNotEmpty) {
-      // If all memories are from the same year, group by month
-      return _buildMonthGroups(controller2, years.first, context);
-    }
+    debugPrint('[BottomPanel] Found ${years.length} unique years: $years');
 
-    return [];
+    // Always group by year first
+    return _buildYearGroups(controller2, years, context);
   }
 
   /// Build year groups
@@ -240,21 +282,23 @@ class _BottomPanelState extends State<BottomPanel> {
 
     for (final year in years) {
       final memoriesInYear = _memories.where((m) {
-        final dateStr = m['date'] as String?;
-        if (dateStr == null) return false;
+        final yearStr = m['year'] as String?;
+        if (yearStr == null || yearStr.isEmpty) return false;
         try {
-          return DateTime.parse(dateStr).year == year;
+          return int.parse(yearStr) == year;
         } catch (e) {
           return false;
         }
       }).toList();
 
+      debugPrint('[BottomPanel] Year $year has ${memoriesInYear.length} memories');
+
       widgets.add(
         GestureDetector(
           onTap: () => _viewMemoriesSubset(context, memoriesInYear),
           child: Text(
-            '${memoriesInYear.length} memories from $year',
-            style: TextStyle(
+            '${memoriesInYear.length} from $year',
+            style: GoogleFonts.kumbhSans(
               fontWeight: FontWeight.w500,
               fontSize: 16,
               color: controller2.darkMode.value ? Colors.white : Colors.black,
@@ -262,7 +306,8 @@ class _BottomPanelState extends State<BottomPanel> {
           ),
         ),
       );
-      widgets.add(const SizedBox(height: 4));
+      widgets.add(                            Divider());
+      // widgets.add(const SizedBox(height: 4));
     }
 
     return widgets;
@@ -307,7 +352,7 @@ class _BottomPanelState extends State<BottomPanel> {
           onTap: () => _viewMemoriesSubset(context, memoriesInMonth),
           child: Text(
             '${memoriesInMonth.length} memories from $monthName $year',
-            style: TextStyle(
+            style: GoogleFonts.kumbhSans(
               fontWeight: FontWeight.w500,
               fontSize: 16,
               color: controller2.darkMode.value ? Colors.white : Colors.black,
@@ -315,7 +360,8 @@ class _BottomPanelState extends State<BottomPanel> {
           ),
         ),
       );
-      widgets.add(const SizedBox(height: 4));
+      widgets.add(Divider());
+      // widgets.add(const SizedBox(height: 4));
     }
 
     return widgets;
@@ -345,29 +391,23 @@ class _BottomPanelState extends State<BottomPanel> {
 
     debugPrint('[BottomPanel] Converted ${memoryLocations.length} memories to MemoryLocation objects for subset');
 
-    // Use showSpecificMemories which properly handles the data
+    // Apply filter logic to show subset of memories
     final c1 = Get.find<MapControllerNew>();
-      List<int> memoryIdInt = [];
+    List<int> memoryIdInt = [];
 
-      for(var memory in memoryLocations){
+    for (var memory in memoryLocations) {
+      memoryIdInt.add(int.parse(memory.id));
+    }
 
-        memoryIdInt.add(int.parse(memory.id));
-      }
-      // Show the specific memory in AddMemories view
-      // controller.showSpecificMemories([memoryLocation]);
-
-      // Apply filter with the memory ID
-      // final memoryIdInt = int.tryParse(memoryId);
-      if (memoryIdInt.isNotEmpty) {
+    // Apply filter with the memory IDs
+    if (memoryIdInt.isNotEmpty) {
       controller.applyFilters(memoryIds: memoryIdInt);
-        await c1.loadFilteredMemoriesFromDB();
-        c1.handleFilterApplyFromMap();
-        debugPrint('[MapControllerNew] 🎯 Applied memory IDs filter: [$memoryIdInt]');
-      }
+      await c1.loadFilteredMemoriesFromDB();
+      c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
+      debugPrint('[BottomPanel] 🎯 Applied memory IDs filter for subset: $memoryIdInt');
+    }
 
-      // debugPrint('[MapControllerNew] 🎯 Navigating to AddMemories view with memory: ${foundMemory['category'] ?? foundMemory['description']}');
-
-      final result = await Get.toNamed(Routes.ADD_MEMORIES);
+    await Get.toNamed(Routes.ADD_MEMORIES);
   }
 
 

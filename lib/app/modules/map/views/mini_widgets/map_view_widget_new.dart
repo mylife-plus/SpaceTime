@@ -17,6 +17,7 @@ import '../../../filter/controllers/filter_controller.dart';
 import 'map_filter_overlay.dart';
 import '../../../../../services/mbtiles_download_service.dart';
 import '../../../../../services/mbtiles_server_service.dart';
+import '../../../../../services/style_json_download_service.dart';
 
 class MapViewWidgetNew extends StatefulWidget {
   const MapViewWidgetNew({super.key});
@@ -491,10 +492,20 @@ const Positioned(
 
   Future<String> _loadStyleJsonFromAssets(String tileUrl, String serverUrl) async {
     try {
-      debugPrint('[MapViewWidgetNew] 📂 Loading style.json from assets...');
+      debugPrint('[MapViewWidgetNew] 📂 Loading style.json from local storage...');
 
-      final styleJsonString = await rootBundle.loadString('assets/custom-style.json');
-      debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from assets');
+      // Try to load from local storage first
+      final styleJsonService = Get.find<StyleJsonDownloadService>();
+      String? styleJsonString = await styleJsonService.readStyleJsonContent();
+
+      // Fallback to assets if local file not found
+      if (styleJsonString == null) {
+        debugPrint('[MapViewWidgetNew] ⚠️ Local style.json not found, loading from assets...');
+        styleJsonString = await rootBundle.loadString('assets/custom-style.json');
+        debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from assets');
+      } else {
+        debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from local storage');
+      }
 
       var modifiedStyleJson = styleJsonString
           .replaceAll('{LOCAL_SERVER_URL}', serverUrl)

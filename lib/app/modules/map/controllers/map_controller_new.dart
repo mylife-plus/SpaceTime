@@ -958,7 +958,7 @@ class MapControllerNew extends GetxController {
     }
   }
 
-  /// Show location bottom panel with memory IDs
+  /// Show location bottom panel with memory IDs as custom popup
   void showLocationBottomPanel(BuildContext context, List<String> memoryIds) {
     if (_isBottomPanelOpen) {
       debugPrint('[MapControllerNew] ⚠️ Bottom panel already open');
@@ -967,11 +967,30 @@ class MapControllerNew extends GetxController {
 
     _isBottomPanelOpen = true;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => BottomPanel(memoryIds: memoryIds),
+    // Show custom popup with slide-up animation
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false, // Makes background visible
+        barrierDismissible: true,
+        barrierColor: Colors.black54,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1), // Start from bottom
+              end: Offset.zero, // End at normal position
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: BottomPanel(memoryIds: memoryIds),
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 400),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+      ),
     ).whenComplete(() {
       _isBottomPanelOpen = false;
       debugPrint('[MapControllerNew] Bottom panel closed');
@@ -2621,7 +2640,7 @@ class MapControllerNew extends GetxController {
           '[MapControllerNew] 💾 Using pre-aggregated memory IDs (${memoryIds.length}): ${memoryIds.join(', ')}',
         );
 
-        // Show BottomPanel with memory IDs
+        // Show BottomPanel with memory IDs as custom popup
         if (_isBottomPanelOpen) {
           debugPrint('[MapControllerNew] ⚠️ Bottom panel already open');
           return;
@@ -2629,11 +2648,30 @@ class MapControllerNew extends GetxController {
 
         _isBottomPanelOpen = true;
 
-        await showModalBottomSheet(
-          context: Get.context!,
-          backgroundColor: Colors.transparent,
-          isScrollControlled: true,
-          builder: (_) => BottomPanel(memoryIds: memoryIds),
+        // Show custom popup with slide-up animation
+        await Navigator.of(Get.context!).push(
+          PageRouteBuilder(
+            opaque: false, // Makes background visible
+            barrierDismissible: true,
+            barrierColor: Colors.black54,
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1), // Start from bottom
+                  end: Offset.zero, // End at normal position
+                ).animate(CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                )),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: BottomPanel(memoryIds: memoryIds),
+                ),
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 400),
+            reverseTransitionDuration: const Duration(milliseconds: 300),
+          ),
         ).whenComplete(() {
           _isBottomPanelOpen = false;
           debugPrint('[MapControllerNew] Bottom panel closed');

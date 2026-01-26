@@ -468,10 +468,10 @@ class MemoryController extends GetxController {
       throw Exception('Memory date and time cannot be in the future');
     }
 
-    // Validate that category is provided (mandatory)
-    if (selectedCategory.value.isEmpty) {
-      throw Exception('Place is required');
-    }
+    // Place category is optional - no validation needed
+    // if (selectedCategory.value.isEmpty) {
+    //   throw Exception('Place is required');
+    // }
 
     // Validate audio files before saving
     await validateAudioFiles();
