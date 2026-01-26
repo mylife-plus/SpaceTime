@@ -92,10 +92,27 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
   /// Build map widget
   Widget _buildMap() {
     return Obx(() {
-     
+      // Check if server URL is available
+      if (controller.serverUrl.value == null) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                controller.serverErrorMessage.value ?? 'Initializing map server...',
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }
+
       final tileUrl = '${controller.serverUrl.value}/{z}/{x}/{y}.pbf';
 
-            print('loadded URL tileUrl');
+      debugPrint('Loaded URL tileUrl: $tileUrl');
 
       final serverUrl = controller.serverUrl.value!; // Base server URL without tile pattern
 

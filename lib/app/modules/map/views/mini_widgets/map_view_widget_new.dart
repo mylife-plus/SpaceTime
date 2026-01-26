@@ -494,11 +494,14 @@ const Positioned(
     try {
       debugPrint('[MapViewWidgetNew] 📂 Loading style.json from local storage...');
 
-      // Try to load from local storage first
-      final styleJsonService = Get.find<StyleJsonDownloadService>();
-      String? styleJsonString = await styleJsonService.readStyleJsonContent();
+      // Try to load from local storage first if service is available
+      String? styleJsonString;
+      if (Get.isRegistered<StyleJsonDownloadService>()) {
+        final styleJsonService = Get.find<StyleJsonDownloadService>();
+        styleJsonString = await styleJsonService.readStyleJsonContent();
+      }
 
-      // Fallback to assets if local file not found
+      // Fallback to assets if local file not found or service not available
       if (styleJsonString == null) {
         debugPrint('[MapViewWidgetNew] ⚠️ Local style.json not found, loading from assets...');
         styleJsonString = await rootBundle.loadString('assets/custom-style.json');

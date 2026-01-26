@@ -34,6 +34,7 @@ import 'app/modules/get_started/controllers/get_started_controller.dart';
 import 'services/asset_tile_loader_service.dart';
 import 'services/mbtiles_download_service.dart';
 import 'services/mbtiles_server_service.dart';
+import 'services/style_json_download_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -123,6 +124,7 @@ Future<void> main() async {
   Get.put(MapMarkerCreationService(), permanent: true);
 
   Get.put(MapMarkerService(), permanent: true);
+  Get.put(StyleJsonDownloadService(), permanent: true);
   // MemoryLocationPickerController
 
   // Mapbox tile downloading services removed - using URL-based mbtiles download instead
