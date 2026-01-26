@@ -1112,34 +1112,35 @@ class _MemoryCardState extends State<MemoryCard> {
                     ),
 
                     // Category - only show if category exists
-                    Row(
-                      children: [
-                        Text(
-                          widget.category.toString().split(' ').first,
-                          style: TextStyle(
-                            color:
-                                controller.darkMode.value
-                                    ? Colors.white.withValues(alpha: 0.8)
-                                    : Colors.grey[700],
-                            fontSize: 22,
+                    if (widget.category != null && widget.category!.isNotEmpty)
+                      Row(
+                        children: [
+                          Text(
+                            widget.category!.split(' ').first,
+                            style: TextStyle(
+                              color:
+                                  controller.darkMode.value
+                                      ? Colors.white.withValues(alpha: 0.8)
+                                      : Colors.grey[700],
+                              fontSize: 22,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          widget.category!.replaceAll(
-                            widget.category.toString().split(' ').first,
-                            '',
+                          const SizedBox(width: 3),
+                          Text(
+                            widget.category!.replaceAll(
+                              widget.category!.split(' ').first,
+                              '',
+                            ),
+                            style: TextStyle(
+                              color:
+                                  controller.darkMode.value
+                                      ? Colors.white.withValues(alpha: 0.8)
+                                      : Colors.grey[700],
+                              fontSize: 16,
+                            ),
                           ),
-                          style: TextStyle(
-                            color:
-                                controller.darkMode.value
-                                    ? Colors.white.withValues(alpha: 0.8)
-                                    : Colors.grey[700],
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ],
                 ),
               ),

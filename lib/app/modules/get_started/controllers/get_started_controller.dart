@@ -11,12 +11,14 @@ import '../../../services/offline_map_service.dart';
 import '../../../routes/app_pages.dart';
 import '../../../../services/mbtiles_download_service.dart';
 import '../../../../services/mbtiles_server_service.dart';
+import '../../../../services/style_json_download_service.dart';
 
 class GetStartedController extends GetxController {
   // Dependencies
   OfflineMapCoordinatorService? _offlineCoordinator;
   OfflineMapService? _offlineMapService;
   MbtilesDownloadService? _mbtilesDownloadService;
+  StyleJsonDownloadService? _styleJsonDownloadService;
 
   // UI State
   final RxBool isDownloading = false.obs;
@@ -224,6 +226,13 @@ class GetStartedController extends GetxController {
       // Get MbtilesDownloadService instance (singleton)
       _mbtilesDownloadService = MbtilesDownloadService.instance;
 
+      // Initialize StyleJsonDownloadService if not already initialized
+      if (!Get.isRegistered<StyleJsonDownloadService>()) {
+        debugPrint('[GetStartedController] 🔧 Putting StyleJsonDownloadService...');
+        Get.put(StyleJsonDownloadService(), permanent: true);
+      }
+      _styleJsonDownloadService = StyleJsonDownloadService.instance;
+
       debugPrint('[GetStartedController] ✅ Services initialized successfully');
     } catch (e) {
       debugPrint('[GetStartedController] ❌ Error initializing services: $e');
@@ -350,6 +359,22 @@ class GetStartedController extends GetxController {
   void _onMbtilesDownloadCompleted(String downloadedPath) async {
     debugPrint('[GetStartedController] 🎉 MBTiles download completed!');
     debugPrint('[GetStartedController] 📁 Saved to: $downloadedPath');
+
+    // Download style.json file
+    statusText.value = "Downloading map style...";
+    debugPrint('[GetStartedController] 📥 Starting style.json download...');
+
+    try {
+      final styleJsonPath = await _styleJsonDownloadService?.downloadStyleJson();
+      if (styleJsonPath != null) {
+        debugPrint('[GetStartedController] ✅ Style.json downloaded successfully to: $styleJsonPath');
+      } else {
+        debugPrint('[GetStartedController] ⚠️ Style.json download failed, will use fallback');
+      }
+    } catch (e) {
+      debugPrint('[GetStartedController] ❌ Error downloading style.json: $e');
+      // Continue anyway - the app can use a fallback style
+    }
 
     isCompleted.value = true;
     isDownloading.value = false;
@@ -678,12 +703,31 @@ class GetStartedController extends GetxController {
       debugPrint('[GetStartedController] Checking location permissions...');
       isCheckingPermissions.value = true;
 
+      // Add timeout to prevent hanging on Android
+      await Future.any([
+        _performLocationPermissionCheck(),
+        Future.delayed(const Duration(seconds: 10), () {
+          debugPrint('[GetStartedController] ⚠️ Location permission check timed out after 10 seconds');
+          throw TimeoutException('Location permission check timed out');
+        }),
+      ]);
+
+      isCheckingPermissions.value = false;
+    } catch (e) {
+      debugPrint('[GetStartedController] Error checking location permissions: $e');
+      hasLocationPermission.value = false;
+      isCheckingPermissions.value = false;
+    }
+  }
+
+  /// Perform the actual location permission check
+  Future<void> _performLocationPermissionCheck() async {
+    try {
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         debugPrint('[GetStartedController] Location services are disabled');
         hasLocationPermission.value = false;
-        isCheckingPermissions.value = false;
         return;
       }
 
@@ -708,11 +752,10 @@ class GetStartedController extends GetxController {
       }
 
       debugPrint('[GetStartedController] Final location permission status: ${hasLocationPermission.value}');
-      isCheckingPermissions.value = false;
     } catch (e) {
-      debugPrint('[GetStartedController] Error checking location permissions: $e');
+      debugPrint('[GetStartedController] Error in permission check: $e');
       hasLocationPermission.value = false;
-      isCheckingPermissions.value = false;
+      rethrow;
     }
   }
 }

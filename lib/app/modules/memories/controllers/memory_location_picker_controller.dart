@@ -12,6 +12,7 @@ import 'package:spacetime/services/geocoding_isolate_service.dart';
 import 'package:spacetime/app/modules/location_picker/services/location_picker_service.dart';
 import 'package:spacetime/services/mbtiles_download_service.dart';
 import 'package:spacetime/services/mbtiles_server_service.dart';
+import 'package:spacetime/services/style_json_download_service.dart';
 
 enum MemoryLocationPickerState {
   loading,
@@ -166,14 +167,23 @@ class MemoryLocationPickerController extends GetxController {
     }
   }
 
-  /// Load style.json from assets and replace placeholders with actual server URLs
+  /// Load style.json from local storage or assets and replace placeholders with actual server URLs
   Future<String> loadStyleJsonFromAssets(String tileUrl, String serverUrlValue) async {
     try {
-      debugPrint('[MemoryLocationPicker] 📂 Loading style.json from assets...');
+      debugPrint('[MemoryLocationPicker] 📂 Loading style.json from local storage...');
 
-      // Load style.json from assets folder
-      final styleJsonString = await rootBundle.loadString('assets/custom-style.json');
-      debugPrint('[MemoryLocationPicker] ✅ Loaded style.json from assets');
+      // Try to load from local storage first
+      final styleJsonService = Get.find<StyleJsonDownloadService>();
+      String? styleJsonString = await styleJsonService.readStyleJsonContent();
+
+      // Fallback to assets if local file not found
+      if (styleJsonString == null) {
+        debugPrint('[MemoryLocationPicker] ⚠️ Local style.json not found, loading from assets...');
+        styleJsonString = await rootBundle.loadString('assets/custom-style.json');
+        debugPrint('[MemoryLocationPicker] ✅ Loaded style.json from assets');
+      } else {
+        debugPrint('[MemoryLocationPicker] ✅ Loaded style.json from local storage');
+      }
 
       // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
       var modifiedStyleJson = styleJsonString
@@ -186,7 +196,7 @@ class MemoryLocationPickerController extends GetxController {
 
       return modifiedStyleJson;
     } catch (e) {
-      debugPrint('[MemoryLocationPicker] ❌ Error loading style.json from assets: $e');
+      debugPrint('[MemoryLocationPicker] ❌ Error loading style.json: $e');
       debugPrint('[MemoryLocationPicker] ⚠️ Falling back to simplified style');
 
       // Fallback to a simplified style
