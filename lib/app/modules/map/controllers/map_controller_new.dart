@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
@@ -3967,16 +3968,76 @@ class MapControllerNew extends GetxController {
     try {
       // 1️⃣ Sort memories by date
       final sorted = List<Map<String, dynamic>>.from(memories)..sort((a, b) {
+        try {
+          final aDate = a['date'] as String? ?? '';
+          final bDate = b['date'] as String? ?? '';
+          final aYear = a['year'] as String? ?? '';
+          final bYear = b['year'] as String? ?? '';
+          final aTime = a['time'] as String? ?? '';
+          final bTime = b['time'] as String? ?? '';
 
-              var d1String = '${a['date']} ${a['year']}';
-      var d2String = '${b['date']} ${b['year']}';
-        print('Date String 1 ${d1String}');
-        print('Date String 2 ${d1String}');
+          var d1String = '$aDate $aYear';
+          var d2String = '$bDate $bYear';
+          print('Date String 1: $d1String');
+          print('Date String 2: $d2String');
 
-        final ad = DateTime.tryParse(d1String);
+          DateTime? ad;
+          DateTime? bd;
 
-        final bd = DateTime.tryParse(d2String) ?? DateTime.now();
-        return ad!.compareTo(bd);
+          // Try to parse with DateFormat for "28. January 2026" format
+          try {
+            if (aDate.isNotEmpty && aYear.isNotEmpty) {
+              if (aTime.isNotEmpty) {
+                // Include time if available
+                String format = io.Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
+                if (aTime.toLowerCase().contains('am') || aTime.toLowerCase().contains('pm')) {
+                  format = "d. MMMM yyyy hh:mm a";
+                } else {
+                  format = "d. MMMM yyyy HH:mm";
+                }
+                ad = DateFormat(format).parse('$aDate $aYear $aTime');
+              } else {
+                // Date only
+                ad = DateFormat("d. MMMM yyyy").parse(d1String);
+              }
+            }
+          } catch (e) {
+            debugPrint('Error parsing date A: $d1String - $e');
+          }
+
+          try {
+            if (bDate.isNotEmpty && bYear.isNotEmpty) {
+              if (bTime.isNotEmpty) {
+                // Include time if available
+                String format = io.Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
+                if (bTime.toLowerCase().contains('am') || bTime.toLowerCase().contains('pm')) {
+                  format = "d. MMMM yyyy hh:mm a";
+                } else {
+                  format = "d. MMMM yyyy HH:mm";
+                }
+                bd = DateFormat(format).parse('$bDate $bYear $bTime');
+              } else {
+                // Date only
+                bd = DateFormat("d. MMMM yyyy").parse(d2String);
+              }
+            }
+          } catch (e) {
+            debugPrint('Error parsing date B: $d2String - $e');
+          }
+
+          // Compare dates (oldest first for timeline)
+          if (ad != null && bd != null) {
+            return ad.compareTo(bd);
+          } else if (ad != null) {
+            return -1;
+          } else if (bd != null) {
+            return 1;
+          }
+          return 0;
+        } catch (e) {
+          debugPrint('Error sorting memories: $e');
+          return 0;
+        }
       });
 
       final List<mapbox.Feature> lineFeatures = [];
@@ -3988,10 +4049,12 @@ class MapControllerNew extends GetxController {
 
  final memoryDate =
           DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
-      final year = memoryDate.year;
+      // final year = memoryDate.year;
+       final aYear = b['year'] as String? ?? '';
+
         // var color = MemoryGeoJsonService.createYearColorExpression();
 
-        var index = MemoryGeoJsonService.getColorIndexForYear(year);
+        var index = MemoryGeoJsonService.getColorIndexForYear(int.parse(aYear));
         final double? startLat = a['location_latitude'];
         final double? startLng = a['location_longitude'];
         final double? endLat = b['location_latitude'];
