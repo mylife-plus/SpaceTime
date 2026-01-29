@@ -3967,9 +3967,16 @@ class MapControllerNew extends GetxController {
     try {
       // 1️⃣ Sort memories by date
       final sorted = List<Map<String, dynamic>>.from(memories)..sort((a, b) {
-        final ad = DateTime.tryParse(a['date'] ?? '') ?? DateTime.now();
-        final bd = DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
-        return ad.compareTo(bd);
+
+              var d1String = '${a['date']} ${a['year']}';
+      var d2String = '${b['date']} ${b['year']}';
+        print('Date String 1 ${d1String}');
+        print('Date String 2 ${d1String}');
+
+        final ad = DateTime.tryParse(d1String);
+
+        final bd = DateTime.tryParse(d2String) ?? DateTime.now();
+        return ad!.compareTo(bd);
       });
 
       final List<mapbox.Feature> lineFeatures = [];

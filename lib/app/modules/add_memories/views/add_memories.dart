@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
@@ -98,6 +100,66 @@ class AddMemoriesView extends GetView<AddMemoriesController>
             groupedMemories[year]!.add(memory);
           }
 
+          // Sort memories within each year by date and time (newest first)
+          groupedMemories.forEach((year, memories) {
+            memories.sort((a, b) {
+              try {
+                final aDate = a['date'] as String? ?? '';
+                final bDate = b['date'] as String? ?? '';
+                final aYear = a['year'] as String? ?? '';
+                final bYear = b['year'] as String? ?? '';
+                final aTime = a['time'] as String? ?? '';
+                final bTime = b['time'] as String? ?? '';
+
+                DateTime? aDateTime;
+                DateTime? bDateTime;
+
+                String format = Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
+
+                if (aTime.toLowerCase().contains('am') || aTime.toLowerCase().contains('pm')) {
+                  format = "d. MMMM yyyy hh:mm a";
+                } else {
+                  format = "d. MMMM yyyy HH:mm";
+                }
+
+                try {
+                  aDateTime = DateFormat(format).parse('$aDate $aYear $aTime');
+                } catch (e) {
+                  // Try alternative format
+                  try {
+                    aDateTime = DateFormat("d. MMMM yyyy HH:mm").parse('$aDate $aYear $aTime');
+                  } catch (e2) {
+                    debugPrint('Error parsing date A: $aDate $aYear $aTime - $e2');
+                  }
+                }
+
+                try {
+                  bDateTime = DateFormat(format).parse('$bDate $bYear $bTime');
+                } catch (e) {
+                  // Try alternative format
+                  try {
+                    bDateTime = DateFormat("d. MMMM yyyy HH:mm").parse('$bDate $bYear $bTime');
+                  } catch (e2) {
+                    debugPrint('Error parsing date B: $bDate $bYear $bTime - $e2');
+                  }
+                }
+
+                // Compare dates (newest first)
+                if (aDateTime != null && bDateTime != null) {
+                  return bDateTime.compareTo(aDateTime);
+                } else if (aDateTime != null) {
+                  return -1;
+                } else if (bDateTime != null) {
+                  return 1;
+                }
+                return 0;
+              } catch (e) {
+                debugPrint('Error sorting memories: $e');
+                return 0;
+              }
+            });
+          });
+
           final sortedYears =
               groupedMemories.keys.toList()..sort((a, b) => b.compareTo(a));
 
@@ -165,6 +227,66 @@ class AddMemoriesView extends GetView<AddMemoriesController>
           groupedMemories[year]!.add(memory);
           debugPrint('Added memory to yearrrrrrrr $year: ${memory['date']}');
         }
+
+        // Sort memories within each year by date and time (newest first)
+        groupedMemories.forEach((year, memories) {
+          memories.sort((a, b) {
+            try {
+              final aDate = a['date'] as String? ?? '';
+              final bDate = b['date'] as String? ?? '';
+              final aYear = a['year'] as String? ?? '';
+              final bYear = b['year'] as String? ?? '';
+              final aTime = a['time'] as String? ?? '';
+              final bTime = b['time'] as String? ?? '';
+
+              DateTime? aDateTime;
+              DateTime? bDateTime;
+
+              String format = Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
+
+              if (aTime.toLowerCase().contains('am') || aTime.toLowerCase().contains('pm')) {
+                format = "d. MMMM yyyy hh:mm a";
+              } else {
+                format = "d. MMMM yyyy HH:mm";
+              }
+
+              try {
+                aDateTime = DateFormat(format).parse('$aDate $aYear $aTime');
+              } catch (e) {
+                // Try alternative format
+                try {
+                  aDateTime = DateFormat("d. MMMM yyyy HH:mm").parse('$aDate $aYear $aTime');
+                } catch (e2) {
+                  debugPrint('Error parsing date A: $aDate $aYear $aTime - $e2');
+                }
+              }
+
+              try {
+                bDateTime = DateFormat(format).parse('$bDate $bYear $bTime');
+              } catch (e) {
+                // Try alternative format
+                try {
+                  bDateTime = DateFormat("d. MMMM yyyy HH:mm").parse('$bDate $bYear $bTime');
+                } catch (e2) {
+                  debugPrint('Error parsing date B: $bDate $bYear $bTime - $e2');
+                }
+              }
+
+              // Compare dates (newest first)
+              if (aDateTime != null && bDateTime != null) {
+                return bDateTime.compareTo(aDateTime);
+              } else if (aDateTime != null) {
+                return -1;
+              } else if (bDateTime != null) {
+                return 1;
+              }
+              return 0;
+            } catch (e) {
+              debugPrint('Error sorting memories: $e');
+              return 0;
+            }
+          });
+        });
 
         final sortedYears =
             groupedMemories.keys.toList()..sort((a, b) => b.compareTo(a));

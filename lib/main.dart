@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/map/controllers/memory_location_picker_with_radius_controller.dart';
@@ -38,6 +39,8 @@ import 'services/style_json_download_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  await NearestRegionService().loadFromAssets();
 
   // Restrict orientation to portrait only
   await SystemChrome.setPreferredOrientations([

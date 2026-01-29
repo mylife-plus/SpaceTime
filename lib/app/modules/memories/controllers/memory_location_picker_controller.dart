@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
+import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
@@ -356,6 +357,8 @@ final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
       memoryController.locationLatitude.value = selectedLocationMarker!.geometry.coordinates.lat.toDouble();
       memoryController.locationLongitude.value = selectedLocationMarker!.geometry.coordinates.lat.toDouble();
     // Return the complete location data including flag
+  //  print('Region Data $city'); // Andorra la Vella
+
     final locationData = {
       'latitude': selectedLocationMarker!.geometry.coordinates.lat,
       'longitude': selectedLocationMarker!.geometry.coordinates.lng,

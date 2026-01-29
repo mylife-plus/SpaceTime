@@ -182,54 +182,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                   // MapBox Map
                   _buildMapWidget(controller),
 
- Obx(() => _buildOverlays(controller)),                  // Filter overlay backdrop
-//                   if (controller.isFilterOpen.value)
-//                     Positioned.fill(
-//                       child: Container(
-//                         color: Colors.black.withValues(alpha: 0.8),
-//                       ),
-//                     ),
-
-//                   // Top buttons and FAB (hidden when filter is open)
-//                   if (!controller.isFilterOpen.value)
-//                     const MapTopButtons(),
-//                   if (!controller.isFilterOpen.value)
-//                     const MapFab(),
-
-//                   // Filter indicator (shown when filters are active and filter is not open)
-//                   if (!controller.isFilterOpen.value)
-//                     Positioned(
-//                       top: 60,
-//                       left: 0,
-//                       right: 0,
-//                       child: Obx(() {
-//                         // Only show if AddMemoriesController is registered and has active filters
-//                         if (!Get.isRegistered<AddMemoriesController>()) {
-//                           return const SizedBox.shrink();
-//                         }
-
-//                         final addMemoriesController = Get.find<AddMemoriesController>();
-//                         if (!addMemoriesController.hasActiveFilters.value) {
-//                           return const SizedBox.shrink();
-//                         }
-
-//                         return const FilterIndicator();
-//                       }),
-//                     ),
-
-//                   // Filter overlay
-//                  Visibility(
-//   visible: controller.isFilterOpen.value,
-//   maintainState: true,
-//   maintainAnimation: true,
-//   maintainSize: true,
-//   child: const MapFilterOverlay(),
-// ),
-
-
-
-                  // Permission and Internet screens overlay
-                  // _buildPermissionAndInternetScreens(context, controller),
+ Obx(() => _buildOverlays(controller)),                
                 ],
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:geocoder_offline_json/geocoder_offline.dart';
+import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
 
 class OfflineGeocoder {
@@ -29,7 +30,7 @@ class OfflineGeocoder {
 
   /// Find the single nearest city for given lat/lng
   /// Returns data structure compatible with existing reverse geocoding implementation
-  Map<String, dynamic>? reverseGeocode(double lat, double lng) {
+  Future<Map<String, dynamic>?> reverseGeocode(double lat, double lng) async {
     final results = geocoder.search(lat, lng);
 
     if (results.isEmpty) return null;
@@ -38,6 +39,12 @@ class OfflineGeocoder {
     final city = nearest.location.featureName ?? '';
     final country = nearest.location.state ?? '';
     final flag = countryFlags[country.toLowerCase()] ?? '';
+
+ final region = await NearestRegionService()
+    .findNearest(lat, lng);
+// var city = region.name
+region?.printAll();
+   var city1 = (city.contains(region!.name) ? '${city}' :'${city}, ${region?.name}');
 
     // Build address string similar to original implementation
     final addressComponents = <String>[];
@@ -48,7 +55,7 @@ class OfflineGeocoder {
     // Return data structure compatible with existing geocoding implementation
     final locationDetails = {
       'country': country,
-      'city': city,
+      'city': city1,
       'name': city.isNotEmpty ? '$city, $country' : country,
       'address': address,
       'flag': flag,

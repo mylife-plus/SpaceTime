@@ -10,13 +10,13 @@ class MemoryGeoJsonService {
     for (final memory in memories) {
       final lat = memory['location_latitude'] as double?;
       final lng = memory['location_longitude'] as double?;
-
+      
       if (lat == null || lng == null) continue;
-
+      print('Memory Year ${memory['year']}');
       // Extract memory properties for styling and interaction
       final memoryDate =
-          DateTime.tryParse(memory['date'] ?? '') ?? DateTime.now();
-      final year = memoryDate.year;
+          DateTime.tryParse('${memory['memory_date']} ${ memory['year']}' ?? '') ?? DateTime.now();
+      final year = memory['year'].toString();
       final category = memory['category'] as String? ?? 'general';
       final description =
           memory['text'] as String? ?? memory['description'] as String? ?? '';
@@ -24,11 +24,12 @@ class MemoryGeoJsonService {
       final audios = memory['audios'] as List<dynamic>? ?? [];
 
   var endDate = DateTime.tryParse(memory['date'] ?? '') ?? DateTime.now();
-      final toMemoryYear = endDate.year; // e.g., 2023
+      // final toMemoryYear = endDate.year; // e.g., 2023
+
 
       print('🛑🛑🛑🛑🛑 checcking geo js');
 
-      print('🛑🛑🛑🛑🛑ColorsExpressionData Results for year $year ${colors[getColorIndexForYear(year)]}');
+      print('🛑🛑🛑🛑🛑ColorsExpressionData Results for year ${int.parse(year)} ${colors[getColorIndexForYear(int.parse(year))]}');
       // Create GeoJSON feature
       final feature = {
         'type': 'Feature',
@@ -44,10 +45,10 @@ class MemoryGeoJsonService {
           'memory_date': memory['date'],
           'has_images': images.isNotEmpty,
           'timestamp': memoryDate.millisecondsSinceEpoch, // 👈 ADD
-          'color_index': getColorIndexForYear(year),
+          'color_index': getColorIndexForYear(int.parse(year)),
           'memory_timestamp': memoryDate.millisecondsSinceEpoch,
           'has_audios': audios.isNotEmpty,
-          'color': colors[getColorIndexForYear(year)],
+          'color': colors[getColorIndexForYear(int.parse(year))],
           'image_count': images.length,
           'audio_count': audios.length,
           'location_name': memory['location_name'] ?? '',
@@ -56,7 +57,7 @@ class MemoryGeoJsonService {
           'location_country': memory['location_country'] ?? '',
           // 'color_index': getColorIndexForYear(year),
           'memory_data': memory,
-          'toMemoryYear': toMemoryYear,
+          'toMemoryYear': int.parse(year),
         },
       };
 

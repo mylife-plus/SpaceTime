@@ -67,7 +67,7 @@ class GeocodingIsolateService extends GetxService {
       await Future.delayed(const Duration(milliseconds: 1));
 
       final geocoder = OfflineGeocoder.instance;
-      final result = geocoder.reverseGeocode(latitude, longitude);
+      final result = await geocoder.reverseGeocode(latitude, longitude);
 
       return result;
     } catch (e) {
