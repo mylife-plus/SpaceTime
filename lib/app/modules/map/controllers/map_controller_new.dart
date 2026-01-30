@@ -487,13 +487,16 @@ class MapControllerNew extends GetxController {
 
     final memories = filteredMemoriesData ?? _filterController.filteredMemories;
 
-    if (memories.isNotEmpty) {
-      // Store memories for tap handling
-      _currentMemories.assignAll(memories);
-      debugPrint('[MapControllerNew] Loaded ${memories.length} memories from FilterController');
+    // Spread out memories with same coordinates (~20 meters apart)
+    final spreadMemories = _spreadOverlappingMemories(memories);
+
+    if (spreadMemories.isNotEmpty) {
+      // Store memories for tap handling (use spread memories)
+      _currentMemories.assignAll(spreadMemories);
+      debugPrint('[MapControllerNew] Loaded ${spreadMemories.length} memories from FilterController');
 
       // Calculate and set appropriate zoom level based on memory spread
-      await _setOptimalZoomForMemories(memories);
+      await _setOptimalZoomForMemories(spreadMemories);
     } else {
       debugPrint('[MapControllerNew] No memories to display');
       _currentMemories.clear();
@@ -4043,6 +4046,43 @@ class MapControllerNew extends GetxController {
       final List<mapbox.Feature> lineFeatures = [];
       final List<mapbox.Feature> arrowPointFeatures = [];
 
+      // 🔄 Detect bidirectional arrows: Track location pairs
+      final Map<String, int> locationPairs = {};
+      final Set<int> bidirectionalIndices = {};
+
+      // First pass: Detect bidirectional connections
+      for (int i = 0; i < sorted.length - 1; i++) {
+        final a = sorted[i];
+        final b = sorted[i + 1];
+
+        final double? startLat = a['location_latitude'];
+        final double? startLng = a['location_longitude'];
+        final double? endLat = b['location_latitude'];
+        final double? endLng = b['location_longitude'];
+
+        if ([startLat, startLng, endLat, endLng].contains(null)) continue;
+
+        // Create a unique key for this location pair (order-independent)
+        final loc1 = '${startLat!.toStringAsFixed(6)},${startLng!.toStringAsFixed(6)}';
+        final loc2 = '${endLat!.toStringAsFixed(6)},${endLng!.toStringAsFixed(6)}';
+
+        // Skip if same location
+        if (loc1 == loc2) continue;
+
+        // Create sorted pair key to detect bidirectional connections
+        final pairKey = loc1.compareTo(loc2) < 0 ? '$loc1->$loc2' : '$loc2->$loc1';
+
+        if (locationPairs.containsKey(pairKey)) {
+          // Found bidirectional connection!
+          bidirectionalIndices.add(i);
+          bidirectionalIndices.add(locationPairs[pairKey]!);
+          debugPrint('🔄 Bidirectional arrow detected between $loc1 and $loc2');
+        } else {
+          locationPairs[pairKey] = i;
+        }
+      }
+
+      // Second pass: Create lines and arrows (skip arrows for bidirectional connections)
       for (int i = 0; i < sorted.length - 1; i++) {
         final a = sorted[i];
         final b = sorted[i + 1];
@@ -4083,24 +4123,29 @@ class MapControllerNew extends GetxController {
         );
 
         // 4️⃣ Arrow placement (~65% toward end)
-        final int arrowIndex = (coords.length * ARROW_POSITION_FACTOR)
-            .round()
-            .clamp(1, coords.length - 1);
+        // Skip arrow if this is a bidirectional connection
+        if (!bidirectionalIndices.contains(i)) {
+          final int arrowIndex = (coords.length * ARROW_POSITION_FACTOR)
+              .round()
+              .clamp(1, coords.length - 1);
 
-        final base = coords[arrowIndex - 1];
-        final tip = coords[arrowIndex];
+          final base = coords[arrowIndex - 1];
+          final tip = coords[arrowIndex];
 
-        final rotation = _bearingBetween(base, tip);
+          final rotation = _bearingBetween(base, tip);
 
-        arrowPointFeatures.add(
-          mapbox.Feature(
-            id: 'arrow_$i',
-            geometry: mapbox.Point(
-              coordinates: mapbox.Position(tip[0], tip[1]),
+          arrowPointFeatures.add(
+            mapbox.Feature(
+              id: 'arrow_$i',
+              geometry: mapbox.Point(
+                coordinates: mapbox.Position(tip[0], tip[1]),
+              ),
+              properties: {'rotation': rotation,'color': MemoryGeoJsonService.colors[index]}, // 🔥 assign same color as line},
             ),
-            properties: {'rotation': rotation,'color': MemoryGeoJsonService.colors[index]}, // 🔥 assign same color as line},
-          ),
-        );
+          );
+        } else {
+          debugPrint('⏭️ Skipping arrow for bidirectional connection at index $i');
+        }
       }
 
       // 5️⃣ Cleanup old layers/sources
@@ -4248,6 +4293,88 @@ await mapboxMap.style.setStyleLayerProperty(
     return brng;
   }
 
+  /// Spread out memories with identical coordinates by adding small random offsets
+  /// Offset is approximately 20 meters in random directions
+  List<Map<String, dynamic>> _spreadOverlappingMemories(
+    List<Map<String, dynamic>> memories,
+  ) {
+    if (memories.isEmpty) return memories;
+
+    // Group memories by their coordinates (rounded to 6 decimal places)
+    final Map<String, List<Map<String, dynamic>>> locationGroups = {};
+    final List<Map<String, dynamic>> memoriesWithoutLocation = [];
+
+    for (final memory in memories) {
+      final lat = memory['location_latitude'] as double?;
+      final lng = memory['location_longitude'] as double?;
+
+      // Keep memories without location data separate
+      if (lat == null || lng == null) {
+        memoriesWithoutLocation.add(memory);
+        continue;
+      }
+
+      // Create location key (rounded to 6 decimal places ~0.11 meters precision)
+      final locationKey = '${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}';
+
+      if (!locationGroups.containsKey(locationKey)) {
+        locationGroups[locationKey] = [];
+      }
+      locationGroups[locationKey]!.add(memory);
+    }
+
+    // Create new list with spread coordinates
+    final List<Map<String, dynamic>> spreadMemories = [];
+    final random = Random();
+
+    for (final group in locationGroups.values) {
+      if (group.length == 1) {
+        // Single memory at this location - no spreading needed
+        spreadMemories.add(group.first);
+      } else {
+        // Multiple memories at same location - spread them out
+        debugPrint('📍 Spreading ${group.length} memories at same location');
+
+        for (int i = 0; i < group.length; i++) {
+          final memory = Map<String, dynamic>.from(group[i]);
+          final originalLat = memory['location_latitude'] as double;
+          final originalLng = memory['location_longitude'] as double;
+
+          // Calculate offset in meters (approximately 20 meters)
+          // 1 degree latitude ≈ 111,320 meters
+          // 1 degree longitude ≈ 111,320 * cos(latitude) meters
+          const double offsetMeters = 20.0;
+          const double metersPerDegreeLat = 111320.0;
+
+          // Random angle (0-360 degrees)
+          final angle = random.nextDouble() * 2 * pi;
+
+          // Random distance (0-20 meters)
+          final distance = random.nextDouble() * offsetMeters;
+
+          // Calculate offset in degrees
+          final latOffset = (distance * cos(angle)) / metersPerDegreeLat;
+          final lngOffset = (distance * sin(angle)) /
+              (metersPerDegreeLat * cos(originalLat * pi / 180));
+
+          // Apply offset
+          memory['location_latitude'] = originalLat + latOffset;
+          memory['location_longitude'] = originalLng + lngOffset;
+
+          debugPrint('  Memory ${i + 1}: Offset by ${distance.toStringAsFixed(1)}m at ${(angle * 180 / pi).toStringAsFixed(0)}°');
+
+          spreadMemories.add(memory);
+        }
+      }
+    }
+
+    // Add back memories without location data
+    spreadMemories.addAll(memoriesWithoutLocation);
+
+    debugPrint('✅ Spread ${spreadMemories.length} memories (${locationGroups.length} unique locations, ${memoriesWithoutLocation.length} without location)');
+    return spreadMemories;
+  }
+
   // Densify line
   List<List<double>> _densifyLine({
     required List<double> start,
@@ -4302,17 +4429,10 @@ await mapboxMap.style.setStyleLayerProperty(
 
   final String ARROW_DEBUG = 'ARROW_DEBUG';
 
-  // const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
-  // const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
+
   final ARROW_BACK_DISTANCE =
       10000; // ~150m in degrees (adjust for your map scale)
   final ARROW_SIZE = 100.00; // arrowhead size
-
-  // const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
-  // const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
-  // const String ARROW_POINTS_SOURCE_ID = 'arrow_points_source';
-  // const String ARROW_SYMBOLS_LAYER_ID = 'arrow_symbols_layer';
-  // const double ARROW_ICON_SIZE = 2.0; // adjust for bigger arrows
 
   /// Arrowhead V geometry (tip + wings)
   List<List<double>> _createArrowHeadGeometry({
@@ -4378,9 +4498,6 @@ await mapboxMap.style.setStyleLayerProperty(
                 13.5, // Max zoom to cluster points - stops clustering at zoom 15+
             clusterMinPoints: 2, // Minimum points to form a cluster
             clusterProperties: {
-              // Aggregate memory IDs into a comma-separated string
-              // Format: [operator, mapExpression, reduceExpression]
-              // The operator is applied in the reduce step
               'memory_ids': [
                 'concat',
                 [

@@ -7,10 +7,14 @@ class MemoryGeoJsonService {
   static String createGeoJsonFromMemories(List<Map<String, dynamic>> memories) {
     final features = <Map<String, dynamic>>[];
 
+    // Calculate the latest memory year to use as base for color mapping
+    final baseYear = getLatestMemoryYear(memories);
+    print('🎨 Using latest memory year as base: $baseYear');
+
     for (final memory in memories) {
       final lat = memory['location_latitude'] as double?;
       final lng = memory['location_longitude'] as double?;
-      
+
       if (lat == null || lng == null) continue;
       print('Memory Year ${memory['year']}');
       // Extract memory properties for styling and interaction
@@ -29,7 +33,7 @@ class MemoryGeoJsonService {
 
       print('🛑🛑🛑🛑🛑 checcking geo js');
 
-      print('🛑🛑🛑🛑🛑ColorsExpressionData Results for year ${int.parse(year)} ${colors[getColorIndexForYear(int.parse(year))]}');
+      print('🛑🛑🛑🛑🛑ColorsExpressionData Results for year ${int.parse(year)} ${colors[getColorIndexForYear(int.parse(year), baseYear: baseYear)]}');
       // Create GeoJSON feature
       final feature = {
         'type': 'Feature',
@@ -45,10 +49,10 @@ class MemoryGeoJsonService {
           'memory_date': memory['date'],
           'has_images': images.isNotEmpty,
           'timestamp': memoryDate.millisecondsSinceEpoch, // 👈 ADD
-          'color_index': getColorIndexForYear(int.parse(year)),
+          'color_index': getColorIndexForYear(int.parse(year), baseYear: baseYear),
           'memory_timestamp': memoryDate.millisecondsSinceEpoch,
           'has_audios': audios.isNotEmpty,
-          'color': colors[getColorIndexForYear(int.parse(year))],
+          'color': colors[getColorIndexForYear(int.parse(year), baseYear: baseYear)],
           'image_count': images.length,
           'audio_count': audios.length,
           'location_name': memory['location_name'] ?? '',
@@ -70,12 +74,36 @@ class MemoryGeoJsonService {
   }
 
   /// Get color index for year-based styling (matches map controller exactly)
-  static int getColorIndexForYear(int year) {
-    // Use current year as base year (matches map controller)
-    final baseYear = DateTime.now().year;
+  /// [year] - The year to get the color index for
+  /// [baseYear] - Optional base year to use for color mapping. If null, uses current year.
+  static int getColorIndexForYear(int year, {int? baseYear}) {
+    // Use provided base year, or fall back to current year
+    final base = baseYear ?? DateTime.now().year;
     const colorCount = 20; // Match existing 20-color system
-    final yearDifference = year - baseYear;
+    final yearDifference = year - base;
     return (yearDifference % colorCount).abs();
+  }
+
+  /// Get the latest (most recent) year from a list of memories
+  /// Returns null if no valid years found
+  static int? getLatestMemoryYear(List<Map<String, dynamic>> memories) {
+    int? latestYear;
+
+    for (final memory in memories) {
+      final yearStr = memory['year'] as String?;
+      if (yearStr != null && yearStr.isNotEmpty) {
+        try {
+          final year = int.parse(yearStr);
+          if (latestYear == null || year > latestYear) {
+            latestYear = year;
+          }
+        } catch (e) {
+          // Skip invalid year values
+        }
+      }
+    }
+
+    return latestYear;
   }
 
   static const colors = [
