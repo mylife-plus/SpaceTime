@@ -247,7 +247,7 @@ class LocationPickerService {
       if (_offlineSearchService.isInitialized) {
         final offlineResults = await _offlineSearchService.searchLocations(
           query,
-          limit: 50,
+          limit: 10,
           forceOffline: isOfflineMode,
         );
 

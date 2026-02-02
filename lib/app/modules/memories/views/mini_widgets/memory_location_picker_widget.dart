@@ -274,30 +274,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   /// Build search results content - matching new location picker design
   Widget _buildSearchResultsContent() {
     return Obx(() {
-      if (controller.isSearching.value) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Center(
-            child: CircularProgressIndicator(
-              color: controller.uiController.primaryColor,
-            ),
-          ),
-        );
-      }
-
-      if (controller.searchResults.isEmpty) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            'No locations found',
-            style: AppFonts.medium(
-              14,
-              color: controller.uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
-            ),
-          ),
-        );
-      }
-
+     
       final isDark = controller.uiController.darkMode.value;
 
       return ListView.separated(
