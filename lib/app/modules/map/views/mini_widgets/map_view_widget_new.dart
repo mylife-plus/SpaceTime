@@ -455,6 +455,7 @@ const Positioned(
       }
 
       // Fallback to assets if local file not found or service not available
+
       if (styleJsonString == null) {
         debugPrint('[MapViewWidgetNew] ⚠️ Local style.json not found, loading from assets...');
         styleJsonString = await rootBundle.loadString('assets/custom-style.json');
