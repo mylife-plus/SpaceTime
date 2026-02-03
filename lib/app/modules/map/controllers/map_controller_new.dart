@@ -3829,85 +3829,6 @@ class MapControllerNew extends GetxController {
     ];
   }
 
-  Future<void> _addHardcodedArrow(mapbox.MapboxMap mapboxMap) async {
-    const String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
-    const String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
-
-    try {
-      // 1️⃣ Remove old layer if exists
-      try {
-        await mapboxMap.style.removeStyleLayer(ARROW_LINES_LAYER_ID);
-        debugPrint('[Arrow] Removed existing layer');
-      } catch (_) {
-        debugPrint('[Arrow] No existing layer to remove');
-      }
-
-      // 2️⃣ Remove old source if exists
-      try {
-        await mapboxMap.style.removeStyleSource(ARROW_LINES_SOURCE_ID);
-        debugPrint('[Arrow] Removed existing source');
-      } catch (_) {
-        debugPrint('[Arrow] No existing source to remove');
-      }
-
-      // 3️⃣ Add GeoJSON source with hardcoded coordinates (Islamabad → Karachi)
-      await mapboxMap.style.addSource(
-        mapbox.GeoJsonSource(
-          id: ARROW_LINES_SOURCE_ID, // e.g. "arrow_lines"
-          data: '''
-{
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [73.0479, 33.6844],
-          [67.0011, 24.8607]
-        ]
-      },
-      "properties": {
-        "from": "Islamabad",
-        "to": "Karachi"
-      }
-    }
-  ]
-}
-''',
-        ),
-      );
-
-      debugPrint('[Arrow] Source added');
-
-      // 4️⃣ Add LineLayer on top of all layers to ensure visibility
-      await mapboxMap.style.addLayer(
-        mapbox.LineLayer(
-          minZoom: 0,
-          id: 'arrow_line_layer',
-          sourceId: ARROW_LINES_SOURCE_ID,
-          lineJoin: mapbox.LineJoin.ROUND,
-          lineCap: mapbox.LineCap.ROUND,
-          lineColor: Colors.red.value,
-          lineWidth: 4.0,
-        ),
-      );
-
-      var layers = await mapboxMap.style.getStyleLayers();
-      var layerID = getLayerID(layers);
-      // 5️⃣ Move layer to top to ensure it’s visible over custom tiles
-      await mapboxMap.style.moveStyleLayer(
-        ARROW_LINES_LAYER_ID,
-        mapbox.LayerPosition(below: layerID),
-      );
-
-      debugPrint('[Arrow] Layer positioned at top ✅');
-    } catch (e, s) {
-      debugPrint('[Arrow] ERROR: $e');
-      debugPrintStack(stackTrace: s);
-    }
-  }
-
   final String ARROW_LINES_SOURCE_ID = 'arrow_lines_source';
   final String ARROW_LINES_LAYER_ID = 'arrow_lines_layer';
   final String ARROW_POINTS_SOURCE_ID = 'arrow_points_source';
@@ -4246,6 +4167,13 @@ await mapboxMap.style.setStyleLayerProperty(
 
       }
 
+    
+      debugPrint('✅ Arrows positioned at 65% and oriented correctly');
+    } catch (e, st) {
+      // debugPrint('❌ ERROR: $e');
+      debugPrint(st.toString());
+    }
+
       var layers = await mapboxMap.style.getStyleLayers();
       var layerID = getLayerID(layers);
       // 5️⃣ Move layer to top to ensure it’s visible over custom tiles
@@ -4268,11 +4196,6 @@ await mapboxMap.style.setStyleLayerProperty(
         );
       } catch (_) {}
 
-      debugPrint('✅ Arrows positioned at 65% and oriented correctly');
-    } catch (e, st) {
-      // debugPrint('❌ ERROR: $e');
-      debugPrint(st.toString());
-    }
   }
 
   // Helper: calculate bearing from base → tip in degrees
@@ -4343,7 +4266,7 @@ await mapboxMap.style.setStyleLayerProperty(
           // Calculate offset in meters (approximately 20 meters)
           // 1 degree latitude ≈ 111,320 meters
           // 1 degree longitude ≈ 111,320 * cos(latitude) meters
-          const double offsetMeters = 20.0;
+          const double offsetMeters = 10.0;
           const double metersPerDegreeLat = 111320.0;
 
           // Random angle (0-360 degrees)
