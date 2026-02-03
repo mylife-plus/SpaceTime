@@ -11,16 +11,16 @@ class GetStartedView extends GetView<GetStartedController> {
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
 
-    return Scaffold(
-      body: Container(
-        width: MediaQuery.sizeOf(context).width,
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/Start.jpg'),
-            fit: BoxFit.fitWidth,
+    return SafeArea(
+      child: Scaffold(
+        body: Container(
+          width: MediaQuery.sizeOf(context).width,
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/images/Start.jpg'),
+              fit: BoxFit.fitWidth,
+            ),
           ),
-        ),
-        child: SafeArea(
           child: Obx(() {
             if (controller.showWelcomeAnimation.value) {
               return _buildDownloadSection(uiController);
