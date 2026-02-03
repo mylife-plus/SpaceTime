@@ -215,14 +215,14 @@ class GetStartedView extends GetView<GetStartedController> {
           child: IntrinsicHeight(
             child: Column(
               children: [
-                const SizedBox(height: 40),
+                const SizedBox(height: 4),
         
                 // Welcome to text
                 Text(
                   'Welcome to',
                   style: TextStyle(
                     fontFamily: 'KumbhSans',
-                    fontSize: 32,
+                    fontSize: 24,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
                     shadows: [
@@ -236,14 +236,14 @@ class GetStartedView extends GetView<GetStartedController> {
                   textAlign: TextAlign.center,
                 ),
         
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
         
                 // SpaceTime text
                 Text(
                   'SpaceTime',
                   style: TextStyle(
                     fontFamily: 'KumbhSans',
-                    fontSize: 48,
+                    fontSize: 40,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                     shadows: [
@@ -266,14 +266,13 @@ class GetStartedView extends GetView<GetStartedController> {
                 //   height: 100,
                 // ),
         
-                const SizedBox(height: 22),
         
                 // "your" text
                 Text(
                   'your',
                   style: TextStyle(
                     fontFamily: 'KumbhSans',
-                    fontSize: 28,
+                    fontSize: 20,
                     fontWeight: FontWeight.w300,
                     color: Colors.white,
                     shadows: [
@@ -293,7 +292,7 @@ class GetStartedView extends GetView<GetStartedController> {
                 Text(
                   '100% offline',
                   style: GoogleFonts.lilitaOne(
-                    fontSize: 32,
+                    fontSize: 24,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
                     shadows: [
@@ -313,7 +312,7 @@ class GetStartedView extends GetView<GetStartedController> {
                 Text(
                   '100% open source',
                   style: GoogleFonts.lilitaOne(
-                    fontSize: 32,
+                    fontSize: 24,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
                     shadows: [
@@ -334,7 +333,7 @@ class GetStartedView extends GetView<GetStartedController> {
                   'personal diary app',
                   style: TextStyle(
                     fontFamily: 'KumbhSans',
-                    fontSize: 28,
+                    fontSize: 20,
                     fontWeight: FontWeight.w300,
                     color: Colors.white,
                     shadows: [
@@ -348,7 +347,7 @@ class GetStartedView extends GetView<GetStartedController> {
                   textAlign: TextAlign.center,
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
 
                 // Show loading indicator while checking tiles
                 Obx(() {
@@ -358,12 +357,12 @@ class GetStartedView extends GetView<GetStartedController> {
                         const CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 8),
                         Text(
                           'Checking tiles...',
                           style: TextStyle(
                             fontFamily: 'KumbhSans',
-                            fontSize: 16,
+                            fontSize: 12,
                             fontWeight: FontWeight.w400,
                             color: Colors.white,
                             shadows: [
@@ -389,7 +388,7 @@ class GetStartedView extends GetView<GetStartedController> {
                     : const SizedBox.shrink()),
 
                 Obx(() => controller.showDownloadUI.value
-                    ? const SizedBox(height: 14)
+                    ? const SizedBox(height: 8)
                     : const SizedBox.shrink()),
 
                 // Download text (only show when download UI is visible)
@@ -398,7 +397,7 @@ class GetStartedView extends GetView<GetStartedController> {
                         'download 5GB of tiles',
                         style: TextStyle(
                           fontFamily: 'KumbhSans',
-                          fontSize: 18,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           shadows: [
@@ -414,7 +413,7 @@ class GetStartedView extends GetView<GetStartedController> {
                     : const SizedBox.shrink()),
 
                 Obx(() => controller.showDownloadUI.value
-                    ? const SizedBox(height: 16)
+                    ? const SizedBox(height: 8)
                     : const SizedBox.shrink()),
 
                 // Start button (only show when download UI is visible)
@@ -422,7 +421,7 @@ class GetStartedView extends GetView<GetStartedController> {
                     ? _buildStartButton(uiController)
                     : const SizedBox.shrink()),
         
-                const Spacer(),
+                // const Spacer(),
         
                 // Download text
                
@@ -460,7 +459,7 @@ class GetStartedView extends GetView<GetStartedController> {
                   return Column(
                     children: [
                       _buildProgressCard(uiController),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 10),
                     ],
                   );
                 } else {
@@ -473,23 +472,29 @@ class GetStartedView extends GetView<GetStartedController> {
               // const SizedBox(height: 40),
         
               // Tilted book icon at the bottom
-                Obx(() => Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Transform.rotate(
-                    angle: 4 * 3.14159 / 180, // Convert -71 degrees to radians
-                    child: Image.asset(
-                      'assets/images/book.png',
-                      // width: 90,
-                      height: controller.showDownloadUI.value ? 140: 150,
-                      // opacity: const AlwaysStoppedAnimation(0.3),
-                    ),
-                  ),
-                ],
-              )),              
+          
+               Expanded(
+                 child: Padding(
+                   padding: const EdgeInsets.all(12.0),
+                   child: Container(
+                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                       children: [
+                         Transform.rotate(
+                           angle: 4 * 3.14159 / 180, // Convert 4 degrees to radians
+                           child: Image.asset(
+                             'assets/images/book.png',
+                             fit: BoxFit.contain, // or BoxFit.cover depending on your needs
+                             // Remove the fixed height to allow expansion
+                           ),
+                         ),
+                       ],
+                     ),
+                   ),
+                 ),
+               ),
+            
         
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -517,7 +522,7 @@ class GetStartedView extends GetView<GetStartedController> {
             controller.statusText.value,
             style: TextStyle(
               fontFamily: 'KumbhSans',
-              fontSize: 14.5,
+              fontSize: 12.5,
               fontWeight: FontWeight.w500,
               color: Colors.white,
               shadows: [
@@ -585,7 +590,7 @@ class GetStartedView extends GetView<GetStartedController> {
           '${(controller.downloadProgress.value * 100).toStringAsFixed(1)}%',
           style: TextStyle(
             fontFamily: 'KumbhSans',
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             color: const Color(0xFF007AFF),
             shadows: [
@@ -693,7 +698,7 @@ class GetStartedView extends GetView<GetStartedController> {
         // Show "Get Started" button when download is complete
         return Container(
           width: 150,
-          height: 45,
+          height: 40,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
@@ -927,7 +932,7 @@ class GetStartedView extends GetView<GetStartedController> {
         // borderRadius: BorderRadius.circular(4),
         style: TextStyle(
           fontFamily: 'KumbhSans',
-          fontSize: 18,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: Colors.black,
         ),
