@@ -4266,7 +4266,7 @@ await mapboxMap.style.setStyleLayerProperty(
           // Calculate offset in meters (approximately 20 meters)
           // 1 degree latitude ≈ 111,320 meters
           // 1 degree longitude ≈ 111,320 * cos(latitude) meters
-          const double offsetMeters = 10.0;
+          const double offsetMeters = 5.0;
           const double metersPerDegreeLat = 111320.0;
 
           // Random angle (0-360 degrees)

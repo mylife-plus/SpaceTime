@@ -127,7 +127,7 @@ class GetStartedController extends GetxController {
         isCompleted.value = false;
         hasError.value = false;
         isDownloading.value = false;
-        statusText.value = "Download 4.5GB of map tiles to use offline";
+        statusText.value = "Download 5GB of map tiles to use offline";
 
         // Check internet and show appropriate screen
         debugPrint('[GetStartedController] Showing Get Started screen for tile download');

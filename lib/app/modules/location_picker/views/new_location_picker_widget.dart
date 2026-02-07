@@ -663,11 +663,6 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
       ),
       child: Obx(() {
  
-
-        if (controller.searchResults.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
         return ListView.separated(
           shrinkWrap: true,
           itemCount: controller.searchResults.length,
