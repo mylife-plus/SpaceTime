@@ -103,9 +103,18 @@ class GetStartedController extends GetxController {
         // Start the tile server
         await _startTileServer(tilesPath);
 
-        // Navigate directly to map
-        debugPrint('[GetStartedController] Navigating to MapViewWidgetNew...');
+        // Show Get Started screen for at least 3 seconds before navigating
+        debugPrint('[GetStartedController] Showing Get Started screen for 3 seconds...');
         isCheckingTiles.value = false;
+
+        // Show the welcome animation/screen
+        showWelcomeAnimation.value = true;
+
+        // Wait for 3 seconds
+        await Future.delayed(const Duration(seconds: 4 ));
+
+        // Navigate to map after 3 seconds
+        debugPrint('[GetStartedController] 3 seconds elapsed, navigating to MapViewWidgetNew...');
         Get.offAllNamed(Routes.MAP_NEW);
         return;
       } else {

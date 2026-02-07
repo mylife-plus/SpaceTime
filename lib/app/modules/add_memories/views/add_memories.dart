@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart';
@@ -327,6 +328,7 @@ class AddMemoriesView extends GetView<AddMemoriesController>
     return Obx(() {
       final mainColor = uiController.mainColor.value;
       final useOriginalImage = mainColor == 'blue';
+
       return SafeArea(
         child: Scaffold(
           backgroundColor:

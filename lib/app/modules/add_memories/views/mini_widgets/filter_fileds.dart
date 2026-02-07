@@ -206,7 +206,18 @@ class _MemoriesFilterTextFieldRowState
   Future<void> _pickLocation(BuildContext context, dynamic controller) async {
     debugPrint('🎯 [FilterFields] Opening MemoryLocationPickerWithRadius');
 
-    Get.put(MemoryLocationPickerControllerWithRadius(), permanent:  true);
+    // Initialize controller if not already registered
+    // if (!Get.isRegistered<MemoryLocationPickerControllerWithRadius>()) {
+      // debugPrint('🎯 [FilterFields] Creating new MemoryLocationPickerControllerWithRadius');
+      Get.put(MemoryLocationPickerControllerWithRadius());
+    // } else {
+    //   debugPrint('🎯 [FilterFields] Using existing MemoryLocationPickerControllerWithRadius');
+    // }
+
+    // Small delay to ensure controller initialization completes
+    // await Future.delayed(const Duration(milliseconds: 100));
+
+    debugPrint('🎯 [FilterFields] Navigating to MemoryLocationPickerWidgetWithRadius');
     final result = await Get.to(() => const MemoryLocationPickerWidgetWithRadius());
 
     debugPrint('🎯 [FilterFields] Location picker returned: $result');
@@ -219,9 +230,10 @@ class _MemoriesFilterTextFieldRowState
       debugPrint('🎯 [FilterFields] Extracted locationData: $locationData');
       debugPrint('🎯 [FilterFields] Extracted radius: $radius');
 
+      var locationName = '${locationData['location_flag']} ${locationData['city']}';
       // Convert to format expected by controller
       final enhancedLocationData = {
-        'name':locationData['city'] ??  'Selected Location',
+        'name':locationName ??  'Selected Location',
         'address': locationData['address'] ?? '',
         'latitude': locationData['latitude'],
         'longitude': locationData['longitude'],
@@ -237,8 +249,8 @@ class _MemoriesFilterTextFieldRowState
       debugPrint('🎯 [FilterFields] Calling setEnhancedLocationData with: $enhancedLocationData');
       controller.setEnhancedLocationData(enhancedLocationData);
 
-      debugPrint('🎯 [FilterFields] Calling setRadius with: ${radius.toInt()}');
-      controller.setRadius(radius.toInt().toString());
+      debugPrint('🎯 [FilterFields] Calling setRadius with: ${radius.toDouble()}');
+controller.setRadius(radius.toDouble().toStringAsFixed(1));
 
       debugPrint('🎯 [FilterFields] After setting - selectedLocation: ${controller.selectedLocation.value}');
       debugPrint('🎯 [FilterFields] After setting - selectedLocationDisplayName: ${controller.selectedLocationDisplayName.value}');

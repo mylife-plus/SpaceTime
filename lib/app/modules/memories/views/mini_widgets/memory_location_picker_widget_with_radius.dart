@@ -16,16 +16,26 @@ class MemoryLocationPickerWidgetWithRadius extends StatefulWidget {
 class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetWithRadius> {
  
   final MemoryLocationPickerControllerWithRadius controller =
-    Get.find<MemoryLocationPickerControllerWithRadius>();
+          Get.put(MemoryLocationPickerControllerWithRadius());
 
+
+  @override
+  void initState() {
+        controller.onInit();
+    super.initState();
+        controller.onInit();
+    
+  }
   /// Initialize location picker
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SafeArea(
+      child: 
+      Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: _buildMapView(),
+      body:
+        _buildMapView(),
       ),
     );
   }
@@ -68,30 +78,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
     return Stack(
       children: [
         // Map
-        _buildMap(),
-        // Top search bar
-        Positioned(
-        top: 50,
-        left: 4,
-        right: controller.hasLocationPermission.value ? 60 : 4,
-        child: buildSearchContainer(controller.uiController.darkMode.value),),
-
-        // Radius seekbar below search
-        _buildRadiusSeekbar(),
-
-        // Search results dropdown
-        _buildSearchResultsOverlay(),
-        // Current location button
-        _buildCurrentLocationButton(),
-        // Bottom action buttons
-        _buildBottomActionButtons(),
-      ],
-    );
-  }
-
-  /// Build map widget
-  Widget _buildMap() {
-    return Obx(() {
+        Obx(() {
       // Check if server URL is available
       if (controller.serverUrl.value == null) {
         return Center(
@@ -120,7 +107,112 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
       future: controller.loadStyleJsonFromAssets(tileUrl, serverUrl),
       builder: (context, snapshot) {
         // Show loading indicator while style.json is being loaded
+      
+
+        // Style loaded successfully - build the map
+        final styleJson = snapshot.data ?? controller.getBlankStyleJson();
+
+        return SizedBox.expand(
+          child: mapbox.MapWidget(
+            key: const ValueKey('memory_location_picker_map'),
+            cameraOptions: controller.getCameraOptions(),
+            textureView: true,
+            onMapCreated: (mapboxMap) async {
+              controller.mapController = mapboxMap;
+              debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
+
+              // CRITICAL: Enable online mode to allow localhost tile server access
+              await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+              debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+
+              // Load the custom style JSON with local tile server URLs
+              debugPrint('[MemoryLocationPicker] 📥 Loading custom style JSON into Mapbox...');
+              debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
+
+              // Verify the JSON contains our localhost URLs before loading
+              // if (styleJson.contains('localhost:8080')) {
+              //   debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
+              // } else {
+              //   debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+              // }
+
+              // await mapboxMap.loadStyleJson(styleJson);
+              // debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
+
+              controller.onMapCreated(mapboxMap);
+              controller.getCurrentLocation();
+            },
+            onStyleLoadedListener: (styleLoadedEventData) async {
+              debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
+              debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
+            },
+            onTapListener: controller.onMapTap,
+          ),
+        );
+      },
+      );
+    }),
+        // Top search bar
+        Positioned(
+        top: 50,
+        left: 4,
+        right: controller.hasLocationPermission.value ? 60 : 4,
+        child: buildSearchContainer(controller.uiController.darkMode.value),),
+
+        // Radius seekbar below search
+        _buildRadiusSeekbar(),
+
+        // Search results dropdown
+        _buildSearchResultsOverlay(),
+        // Current location button
+        _buildCurrentLocationButton(),
+        // Bottom action buttons
+        _buildBottomActionButtons(),
+      ],
+    );
+  }
+
+  /// Build map widget
+  Widget _buildMap() {
+    debugPrint('[MemoryLocationPicker] 🏗️ _buildMap() called');
+    return Obx(() {
+      debugPrint('[MemoryLocationPicker] 🔄 Obx rebuilding - serverUrl: ${controller.serverUrl.value}');
+
+      // Check if server URL is available
+      if (controller.serverUrl.value == null) {
+        debugPrint('[MemoryLocationPicker] ⏳ Server URL is null, showing loading indicator');
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                controller.serverErrorMessage.value ?? 'Initializing map server...',
+                style: TextStyle(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }
+
+      final tileUrl = '${controller.serverUrl.value}/{z}/{x}/{y}.pbf';
+
+      debugPrint('[MemoryLocationPicker] 🗺️ Server URL available: $tileUrl');
+
+      final serverUrl = controller.serverUrl.value!; // Base server URL without tile pattern
+
+      debugPrint('[MemoryLocationPicker] 🔄 Creating FutureBuilder for style.json...');
+
+      return FutureBuilder<String>(
+      future: controller.loadStyleJsonFromAssets(tileUrl, serverUrl),
+      builder: (context, snapshot) {
+        debugPrint('[MemoryLocationPicker] 📊 FutureBuilder state: ${snapshot.connectionState}, hasData: ${snapshot.hasData}, hasError: ${snapshot.hasError}');
+
+        // Show loading indicator while style.json is being loaded
         if (snapshot.connectionState == ConnectionState.waiting) {
+          debugPrint('[MemoryLocationPicker] ⏳ Waiting for style.json to load...');
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -148,41 +240,45 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
         }
 
         // Style loaded successfully - build the map
+        debugPrint('[MemoryLocationPicker] ✅ Style.json loaded, creating MapWidget...');
         final styleJson = snapshot.data ?? controller.getBlankStyleJson();
+        debugPrint('[MemoryLocationPicker] 📏 Style JSON length: ${styleJson.length} characters');
 
-        return mapbox.MapWidget(
-          key: const ValueKey('memory_location_picker_map'),
-          cameraOptions: controller.getCameraOptions(),
-          textureView: true,
-          onMapCreated: (mapboxMap) async {
-            controller.mapController = mapboxMap;
-            debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
+        return SizedBox.expand(
+          child: mapbox.MapWidget(
+            key: const ValueKey('memory_location_picker_map'),
+            cameraOptions: controller.getCameraOptions(),
+            textureView: true,
+            onMapCreated: (mapboxMap) async {
+              controller.mapController = mapboxMap;
+              debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
 
-            // CRITICAL: Enable online mode to allow localhost tile server access
-            await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-            debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+              // CRITICAL: Enable online mode to allow localhost tile server access
+              await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+              debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
 
-            // Load the custom style JSON with local tile server URLs
-            debugPrint('[MemoryLocationPicker] 📥 Loading custom style JSON into Mapbox...');
-            debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
+              // Load the custom style JSON with local tile server URLs
+              debugPrint('[MemoryLocationPicker] 📥 Loading custom style JSON into Mapbox...');
+              debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
 
-            // Verify the JSON contains our localhost URLs before loading
-            if (styleJson.contains('localhost:8080')) {
-              debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
-            } else {
-              debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
-            }
+              // Verify the JSON contains our localhost URLs before loading
+              if (styleJson.contains('localhost:8080')) {
+                debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
+              } else {
+                debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+              }
 
-            await mapboxMap.loadStyleJson(styleJson);
-            debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
+              await mapboxMap.loadStyleJson(styleJson);
+              debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
 
-            controller.onMapCreated(mapboxMap);
-          },
-          onStyleLoadedListener: (styleLoadedEventData) async {
-            debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
-            debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
-          },
-          onTapListener: controller.onMapTap,
+              controller.onMapCreated(mapboxMap);
+            },
+            onStyleLoadedListener: (styleLoadedEventData) async {
+              debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
+              debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
+            },
+            onTapListener: controller.onMapTap,
+          ),
         );
       },
       );

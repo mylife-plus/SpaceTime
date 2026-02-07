@@ -1692,6 +1692,7 @@ class _MemoryViewState extends State<MemoryView> {
     final memoryController = Get.find<MemoryController>();
 
     final controller = Get.find<UiController>();
+
     return PopScope(
       canPop: !_isPopupOpen,
       onPopInvokedWithResult: (didPop, result) {
@@ -1716,6 +1717,9 @@ class _MemoryViewState extends State<MemoryView> {
           // Detect keyboard visibility
           final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
           _isKeyboardVisible.value = keyboardHeight > 0;
+
+          // Set status bar color to match current main color
+          // Icons will be white in dark mode, black in light mode
 
           return Scaffold(
             resizeToAvoidBottomInset: true,

@@ -48,7 +48,6 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       MemoryLocationPickerState.loading.obs;
   final RxString errorMessage = ''.obs;
   final RxBool hasLocationPermission = false.obs;
-  final RxBool isOfflineMode = false.obs;
   final Rxn<Position> currentPosition = Rxn<Position>();
   final RxBool isSearching = false.obs;
   final RxList<Map<String, dynamic>> searchResults =
@@ -77,13 +76,26 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   @override
   void onInit() {
     super.onInit();
+       lat = 0.0;
+ lng = 0.0;
+   city = '';
+
+   country = '';
+   address = '';
+   flag = '';
+   name = '';
+   address_state = '';
+    debugPrint('[MemoryLocationPicker] 🎬 Controller onInit() called');
     radiusInKm.value = 4;
     radiusSliderValue.value = 0;
     MapboxZoomHelper().currentLocationZoom.value = 1;
     searchFocusNode.addListener(onSearchFocusChanged);
     searchController.addListener(onSearchChanged);
     radiusSliderValue.listen(_onRadiusSliderChanged);
-    initializeLocationPicker();
+    debugPrint('[MemoryLocationPicker] 🚀 About to call initializeLocationPicker()');
+
+   initializeLocationPicker();
+    debugPrint('[MemoryLocationPicker] ✅ onInit() completed');
   }
 
   /// Convert slider value (0-100) to radius in kilometers
@@ -154,24 +166,21 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   /// Initialize location picker
   Future<void> initializeLocationPicker() async {
     try {
+      debugPrint('[MemoryLocationPicker] 🎯 initializeLocationPicker() started');
+
       state.value = MemoryLocationPickerState.loading;
+      debugPrint('[MemoryLocationPicker] 📊 State set to: loading');
 
       // Initialize local tile server first
       await initializeLocalTileServer();
 
       // Check location permission
-      await checkLocationPermission();
-
-      // Get current location if permission is available
-      if (hasLocationPermission.value) {
-        await getCurrentLocation();
-      }
-
+    
       state.value = MemoryLocationPickerState.ready;
     } catch (e) {
-      debugPrint('Error initializing location picker: $e');
-      errorMessage.value = 'Failed to initialize location picker: $e';
-      state.value = MemoryLocationPickerState.error;
+      debugPrint('🟢🟢🟢🟢🟢 Error initializing location picker: $e');
+      errorMessage.value = ' 🟢🟢🟢🟢🟢Failed to initialize location picker: $e';
+      // state.value = MemoryLocationPickerState.error;
     }
   }
 
@@ -184,22 +193,12 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
 
       final serverService = MbtilesServerService.instance;
 
-      // Check if server is already running (started in main.dart)
-      if (serverService.isRunning && serverService.serverUrl != null) {
-        serverUrl.value = serverService.serverUrl;
-        isInitializingServer.value = false;
-        debugPrint(
-          '[MemoryLocationPicker] ✅ Using existing tile server at: ${serverUrl.value}',
-        );
-        debugPrint(
-          '[MemoryLocationPicker] 📡 Tiles will be served from: ${serverUrl.value}/{z}/{x}/{y}.pbf',
-        );
-        return;
-      }
+// serverService.
+      print('[MemoryLocationPicker] 🟢🟢🟢🟢🟢Server Service started');
 
       // If server is not running, try to start it (fallback)
       debugPrint(
-        '[MemoryLocationPicker] ⚠️ Server not running, attempting to start...',
+        '[MemoryLocationPicker] 🟢🟢🟢🟢🟢⚠️ Server not running, attempting to start...',
       );
 
       final mbtilesService = MbtilesDownloadService.instance;
@@ -207,14 +206,14 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       final tilesPath = mbtilesService.getLocalMbtilesPath();
 
       // Debug logging to understand the issue
-      debugPrint('[MemoryLocationPicker] 🔍 Tile check: isDownloaded=$isDownloaded, tilesPath=$tilesPath');
+      debugPrint('[MemoryLocationPicker] 🟢🟢🟢🟢🟢🔍 Tile check: isDownloaded=$isDownloaded, tilesPath=$tilesPath');
 
-      if (!isDownloaded || tilesPath == null) {
+      if (tilesPath == null) {
         serverErrorMessage.value =
             'MBTiles file not downloaded. Please download from Get Started screen first.';
         isInitializingServer.value = false;
-        debugPrint('[MemoryLocationPicker] ❌ ${serverErrorMessage.value}');
-        debugPrint('[MemoryLocationPicker] 🔍 Debug: isDownloaded=$isDownloaded, tilesPath=$tilesPath');
+        debugPrint('[MemoryLocationPicker] 🟢🟢🟢🟢🟢❌ ${serverErrorMessage.value}');
+        debugPrint('[MemoryLocationPicker] 🟢🟢🟢🟢🟢🔍 Debug: isDownloaded=$isDownloaded, tilesPath=$tilesPath');
         return;
       }
 
@@ -224,17 +223,17 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
         serverUrl.value = url;
         isInitializingServer.value = false;
         debugPrint(
-          '[MemoryLocationPicker] ✅ Local tile server started at: $url',
+          '[MemoryLocationPicker] 🟢🟢🟢🟢🟢✅ Local tile server started at: $url',
         );
       } else {
         serverErrorMessage.value = 'Failed to start local tile server';
         isInitializingServer.value = false;
-        debugPrint('[MemoryLocationPicker] ❌ ${serverErrorMessage.value}');
+        debugPrint('[MemoryLocationPicker] ❌ 🟢🟢🟢🟢🟢 ${serverErrorMessage.value}');
       }
     } catch (e) {
       serverErrorMessage.value = 'Error initializing tile server: $e';
       isInitializingServer.value = false;
-      debugPrint('[MemoryLocationPicker] ❌ ${serverErrorMessage.value}');
+      debugPrint('[MemoryLocationPicker] ❌ 🟢🟢🟢🟢🟢 ${serverErrorMessage.value}');
     }
   }
 
@@ -261,6 +260,8 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
         ),
       );
       currentPosition.value = position;
+
+
     } catch (e) {
       debugPrint('Error getting current location: $e');
     }
@@ -271,69 +272,77 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     String tileUrl,
     String serverUrlValue,
   ) async {
-    try {
-      debugPrint('[MemoryLocationPicker] 📂 Loading style.json from local storage...');
+       try {
+      debugPrint('[loadStyleJsonFromAssets] 📂 Loading style.json from local storage...');
 
-      // Try to load from local storage first
-      final styleJsonService = Get.find<StyleJsonDownloadService>();
-      String? styleJsonString = await styleJsonService.readStyleJsonContent();
-
-      // Fallback to assets if local file not found
-      if (styleJsonString == null) {
-        debugPrint('[MemoryLocationPicker] ⚠️ Local style.json not found, loading from assets...');
-        styleJsonString = await rootBundle.loadString('assets/custom-style.json');
-        debugPrint('[MemoryLocationPicker] ✅ Loaded style.json from assets');
-      } else {
-        debugPrint('[MemoryLocationPicker] ✅ Loaded style.json from local storage');
+      // Try to load from local storage first if service is available
+      String? styleJsonString;
+      if (Get.isRegistered<StyleJsonDownloadService>()) {
+        final styleJsonService = Get.find<StyleJsonDownloadService>();
+        styleJsonString = await styleJsonService.readStyleJsonContent();
       }
 
-      // IMPORTANT: Replace {LOCAL_SERVER_URL} FIRST, then {LOCAL_TILE_URL}
+      // Fallback to assets if local file not found or service not available
+
+      if (styleJsonString == null) {
+        debugPrint('[loadStyleJsonFromAssets] ⚠️ Local style.json not found, loading from assets...');
+        styleJsonString = await rootBundle.loadString('assets/custom-style.json');
+        debugPrint('[loadStyleJsonFromAssets] ✅ Loaded style.json from assets');
+      } else {
+        debugPrint('[loadStyleJsonFromAssets] ✅ Loaded style.json from local storage');
+      }
+
       var modifiedStyleJson = styleJsonString
           .replaceAll('{LOCAL_SERVER_URL}', serverUrlValue)
           .replaceAll('{LOCAL_TILE_URL}', tileUrl);
 
-      debugPrint(
-        '[MemoryLocationPicker] 📡 Replaced {LOCAL_SERVER_URL} with: $serverUrlValue',
-      );
-      debugPrint(
-        '[MemoryLocationPicker] 📡 Replaced {LOCAL_TILE_URL} with: $tileUrl',
-      );
-      debugPrint(
-        '[MemoryLocationPicker] ✅ Style JSON configured with local MBTiles server',
-      );
-
       return modifiedStyleJson;
     } catch (e) {
-      debugPrint(
-        '[MemoryLocationPicker] ❌ Error loading style.json: $e',
-      );
-      debugPrint('[MemoryLocationPicker] ⚠️ Falling back to simplified style');
-
-      // Fallback to a simplified style
+      // Fallback to a simplified style if assets/style.json is not found
       return '''
 {
   "version": 8,
   "name": "Local Tiles Fallback",
-  "metadata": {"mapbox:autocomposite": false},
+  "metadata": {
+    "mapbox:autocomposite": false
+  },
   "sources": {
     "openmaptiles": {
       "type": "vector",
       "tiles": ["$tileUrl"],
       "minzoom": 0,
-      "maxzoom": 14
+      "maxzoom": 10
     }
   },
   "projection": { "type": "globe" },
   "sprite": "",
   "glyphs": "",
   "layers": [
-    {"id": "background", "type": "background", "paint": {"background-color": "hsl(47, 26%, 88%)"}},
-    {"id": "water", "type": "fill", "source": "openmaptiles", "source-layer": "water", "filter": ["==", "\$type", "Polygon"], "paint": {"fill-color": "hsl(205, 56%, 73%)"}},
-    {"id": "road", "type": "line", "source": "openmaptiles", "source-layer": "transportation", "paint": {"line-color": "#fff", "line-width": 1.5}}
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {"background-color": "hsl(47, 26%, 88%)"}
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "filter": ["==", "\$type", "Polygon"],
+      "paint": {"fill-color": "hsl(205, 56%, 73%)"}
+    },
+    {
+      "id": "road",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "paint": {"line-color": "#fff", "line-width": 1.5}
+    }
   ]
 }
 ''';
     }
+  
   }
 
   /// Get camera options
@@ -398,7 +407,7 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       // Use LocationPickerService for searching
       final results = await locationPickerService.searchLocations(
         query,
-        isOfflineMode: isOfflineMode.value,
+        isOfflineMode: true,
       );
 
       // Results are already in the correct format from LocationPickerService
@@ -480,14 +489,27 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   /// Handle map creation
   Future<void> onMapCreated(mapbox.MapboxMap controller) async {
     try {
-      await controller.setBounds(
-        CameraBoundsOptions(
-          // optional geographic bounds:
-          // bounds: LatLngBounds(...),
-          minZoom: 0,
-          maxZoom: 20,
-        ),
-      );
+
+        await checkLocationPermission();
+      // await Future.delayed(Duration(seconds: 2));
+      // Get current location if permission is available
+      // if (hasLocationPermission.value) {
+        await getCurrentLocation();
+      // }
+
+      // await controller.setBounds(
+      //   CameraBoundsOptions(
+      //     // optional geographic bounds:
+      //     // bounds: LatLngBounds(...),
+      //     minZoom: 0,
+      //     maxZoom: 20,
+      //   ),
+      // );
+
+      lat = currentPosition.value!.latitude.toDouble();
+      lng = currentPosition.value!.longitude.toDouble();
+
+      // await getCurrentLocation();
       mapController = controller;
 
       // ENABLE online mode to allow localhost tile server access
@@ -1088,24 +1110,14 @@ Future<void> _getLocationDetails(double lat, double lng) async {
 
     Get.back(result: result1);
     } catch (e) {
-      debugPrint('Error getting location details: $e');
-      // Fallback to basic location data
-      // memoryController.setEnhancedLocationData({
-      //   'latitude': lat,
-      //   'longitude': lng,
-      //   'city': 'Selected Location',
-      //   'country': 'Unknown',
-      //   'flag': '📍',
-      // });
+     
     }
   }
 
 
   Future<void> onDonePressed1() async {
 
-    await _getLocationDetails(lat,lng);
-    // Build location data in the same format as new location picker
-   
+    await _getLocationDetails(lat,lng);   
     
   }
 }

@@ -91,7 +91,6 @@ flutter:
   assets:
     - assets/
     - assets/images/
-    - assets/data/
     - .env
     - assets/cities_names_1.csv
     - assets/geonames_cities.csv
