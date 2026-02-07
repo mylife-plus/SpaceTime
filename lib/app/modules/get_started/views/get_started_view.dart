@@ -521,7 +521,7 @@ const SizedBox(height: 8),
                         final isDownloaded = controller.tilesAlreadyDownloaded.value ||
                                              controller.isCompleted.value ||
                                              controller.tilesDownloadCompleted.value;
-                        final scale = isDownloaded ? 0.8 : 1.0; // 20% smaller = 0.8 scale
+                        final scale = isDownloaded ? 0.7 : 1.0; // 20% smaller = 0.8 scale
 
                         debugPrint('[GetStartedView] 📚 Book scale: $scale (tilesAlreadyDownloaded: ${controller.tilesAlreadyDownloaded.value})');
 
