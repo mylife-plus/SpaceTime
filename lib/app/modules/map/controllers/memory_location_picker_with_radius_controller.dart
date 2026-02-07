@@ -206,11 +206,15 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       final isDownloaded = await mbtilesService.isMbtilesDownloaded();
       final tilesPath = mbtilesService.getLocalMbtilesPath();
 
+      // Debug logging to understand the issue
+      debugPrint('[MemoryLocationPicker] 🔍 Tile check: isDownloaded=$isDownloaded, tilesPath=$tilesPath');
+
       if (!isDownloaded || tilesPath == null) {
         serverErrorMessage.value =
             'MBTiles file not downloaded. Please download from Get Started screen first.';
         isInitializingServer.value = false;
         debugPrint('[MemoryLocationPicker] ❌ ${serverErrorMessage.value}');
+        debugPrint('[MemoryLocationPicker] 🔍 Debug: isDownloaded=$isDownloaded, tilesPath=$tilesPath');
         return;
       }
 

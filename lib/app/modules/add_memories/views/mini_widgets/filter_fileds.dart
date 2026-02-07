@@ -221,7 +221,7 @@ class _MemoriesFilterTextFieldRowState
 
       // Convert to format expected by controller
       final enhancedLocationData = {
-        'name': locationData['address'] ?? 'Selected Location',
+        'name':locationData['city'] ??  'Selected Location',
         'address': locationData['address'] ?? '',
         'latitude': locationData['latitude'],
         'longitude': locationData['longitude'],
