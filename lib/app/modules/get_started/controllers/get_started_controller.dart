@@ -52,6 +52,7 @@ class GetStartedController extends GetxController {
   // State for UI visibility
   final RxBool showDownloadUI = false.obs; // Controls visibility of download button and language dropdown
   final RxBool isCheckingTiles = true.obs; // Shows loading state while checking tiles
+  final RxBool tilesAlreadyDownloaded = false.obs; // Tracks if tiles were already downloaded when app started
 
   @override
   void onInit() {
@@ -99,6 +100,10 @@ class GetStartedController extends GetxController {
 
       if (isAlreadyDownloaded && tilesPath != null && downloadCompleted) {
         debugPrint('[GetStartedController] ✅ MBTiles already downloaded and completed at: $tilesPath');
+
+        // Mark that tiles were already downloaded
+        tilesAlreadyDownloaded.value = true;
+        debugPrint('[GetStartedController] 📚 Set tilesAlreadyDownloaded = true (book will be 20% smaller)');
 
         // Start the tile server
         await _startTileServer(tilesPath);

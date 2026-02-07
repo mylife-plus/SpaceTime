@@ -516,19 +516,30 @@ const SizedBox(height: 8),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(20.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Transform.rotate(
-                            angle: 4 * 3.14159 / 180, // Convert 4 degrees to radians
-                            child: Image.asset(
-                              'assets/images/book.png',
-                              fit: BoxFit.contain, // or BoxFit.cover depending on your needs
-                              // Remove the fixed height to allow expansion
+                      child: Obx(() {
+                        // Make book 20% smaller when tiles are already downloaded
+                        final isDownloaded = controller.tilesAlreadyDownloaded.value ||
+                                             controller.isCompleted.value ||
+                                             controller.tilesDownloadCompleted.value;
+                        final scale = isDownloaded ? 0.8 : 1.0; // 20% smaller = 0.8 scale
+
+                        debugPrint('[GetStartedView] 📚 Book scale: $scale (tilesAlreadyDownloaded: ${controller.tilesAlreadyDownloaded.value})');
+
+                        return Align(
+                          alignment: Alignment.bottomRight,
+                          child: FractionallySizedBox(
+                            widthFactor: scale,
+                            heightFactor: scale,
+                            child: Transform.rotate(
+                              angle: 4 * 3.14159 / 180, // Convert 4 degrees to radians
+                              child: Image.asset(
+                                'assets/images/book.png',
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                        );
+                      }),
                     ),
                   ),
             
