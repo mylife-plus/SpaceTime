@@ -102,7 +102,7 @@ class FilterIndicator extends StatelessWidget {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.all(2),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color:
                       uiController.darkMode.value
@@ -112,7 +112,7 @@ class FilterIndicator extends StatelessWidget {
                 ),
                 child: Icon(
                   Icons.close,
-                  size: 14,
+                  size: 16,
                   color:
                       uiController.darkMode.value
                           ? Colors.orange[300]

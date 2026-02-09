@@ -233,6 +233,10 @@ class LocationPickerController extends GetxController {
 
   void onMapCreated(mapbox.MapboxMap controller) async {
     mapController = controller;
+    controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+
 
     // Configure offline map support
     await _configureOfflineMap(controller);

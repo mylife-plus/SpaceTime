@@ -59,6 +59,11 @@ class GlobeTestController extends GetxController {
   
   /// Called when map is created
   Future<void> onMapCreated(mapbox.MapboxMap map) async {
+    map.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               map.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               map.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               map?.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
     try {
       debugPrint('[GlobeTestController] 🗺️ Map created');
       mapboxMap = map;

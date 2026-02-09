@@ -1083,32 +1083,36 @@ class _MemoryCardState extends State<MemoryCard> {
                   // crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          widget.locationFlag,
-                          style: TextStyle(
-                            color:
-                                controller.darkMode.value
-                                    ? Colors.white
-                                    : Colors.black,
-                            fontSize: 22,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            widget.locationFlag,
+                            style: TextStyle(
+                              color:
+                                  controller.darkMode.value
+                                      ? Colors.white
+                                      : Colors.black,
+                              fontSize: 22,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          widget.locationString,
-                          style: TextStyle(
-                            color:
-                                controller.darkMode.value
-                                    ? Colors.white
-                                    : Colors.black,
-                            fontSize: 16,
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              widget.locationString,
+                              style: TextStyle(
+                                color:
+                                    controller.darkMode.value
+                                        ? Colors.white
+                                        : Colors.black,
+                                fontSize: 16,
+                              ),
+                              maxLines: null,
+                              softWrap: true,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
 
                     // Category - only show if category exists

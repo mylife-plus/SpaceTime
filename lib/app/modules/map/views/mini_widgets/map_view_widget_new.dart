@@ -1,4 +1,5 @@
 import 'dart:io' as io;
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -292,10 +293,18 @@ const Positioned(
         onMapCreated: (mapboxMap) async {
 
           mapboxMap = mapboxMap;
+          mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+
           controller.mapboxMap = mapboxMap;
          
           await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
           controller.onMapCreated(mapboxMap);
+mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
 
 
           

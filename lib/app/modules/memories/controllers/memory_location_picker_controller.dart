@@ -395,7 +395,11 @@ final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
 
   /// Handle map creation
   Future<void> onMapCreated(mapbox.MapboxMap controller) async {
-    
+    controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
     try {
       mapController = controller;
 

@@ -163,6 +163,12 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           textureView: true,
           onMapCreated: (mapboxMap) async {
             controller.mapController = mapboxMap;
+                 mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+
+                         mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
             debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
 
             // CRITICAL: Enable online mode to allow localhost tile server access

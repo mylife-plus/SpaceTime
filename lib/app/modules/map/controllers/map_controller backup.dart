@@ -4346,6 +4346,11 @@ class MapController extends GetxController with WidgetsBindingObserver {
   }
 
   void onMapCreated(mapbox.MapboxMap controller) async {
+    controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
     try {
       debugPrint('🗺 MAP CREATED - Starting initialization');
       debugPrint('🗺 MAP CREATED - currentZoom.value: ${currentZoom.value}');

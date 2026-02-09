@@ -40,6 +40,7 @@ class OfflineGeocoder {
     final country = nearest.location.state ?? '';
     final flag = countryFlags[country.toLowerCase()] ?? '';
 
+    print('Nearest Geocode ${nearest.location.featureName}');
  final region = await NearestRegionService()
     .findNearest(lat, lng);
 // var city = region.name

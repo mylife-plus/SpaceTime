@@ -58,6 +58,9 @@ class MapControllerNew extends GetxController {
     (index) => index + 1,
   );
 
+  var latestMemoryLat = 0.0;
+
+  var latestMemoryLng = 0.0;
   // Zoom level constants - now loaded from MapboxZoomHelper
   // These getters provide access to the centralized zoom configuration
   double get _minZoom => MapboxZoomHelper().minZoom.value;
@@ -324,6 +327,11 @@ class MapControllerNew extends GetxController {
 
   /// Handle map creation callback
   void onMapCreated(mapbox.MapboxMap mapboxMapInstance) {
+    mapboxMapInstance.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               mapboxMapInstance.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               mapboxMapInstance.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               mapboxMapInstance.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
     mapboxMap = mapboxMapInstance;
     isMapReady.value = true;
   }
@@ -376,23 +384,7 @@ class MapControllerNew extends GetxController {
 
     handleMapTap();
 
-    if (_currentMemories.length > 0) {
-      debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
-      await mapboxMap!.flyTo(
-        mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(
-              _currentMemories.last['location_longitude'],
-              _currentMemories.last['location_latitude'],
-            ),
-          ),
-          zoom: 1,
-          bearing: 0,
-          pitch: 0,
-        ),
-        mapbox.MapAnimationOptions(duration: 1500),
-      );
-    }
+   
 
     debugPrint('[MapControllerNew] ✅ Map display completed');
   }
@@ -497,6 +489,8 @@ class MapControllerNew extends GetxController {
 
       // Calculate and set appropriate zoom level based on memory spread
       await _setOptimalZoomForMemories(spreadMemories);
+      await _moveToLatestMemory();
+     
     } else {
       debugPrint('[MapControllerNew] No memories to display');
       _currentMemories.clear();
@@ -603,6 +597,9 @@ class MapControllerNew extends GetxController {
       return;
     }
 
+          // _currentMemories.last['location_longitude'],
+              // _currentMemories.last['location_latitude'],
+
     try {
       double minLat = double.infinity;
       double maxLat = double.negativeInfinity;
@@ -611,8 +608,8 @@ class MapControllerNew extends GetxController {
       int validLocationCount = 0;
 
       for (final memory in memories) {
-        final lat = memory['latitude'] as double?;
-        final lng = memory['longitude'] as double?;
+        final lat = memory['location_latitude'] as double?;
+        final lng = memory['location_longitude'] as double?;
 
         if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
           minLat = lat < minLat ? lat : minLat;
@@ -1049,6 +1046,8 @@ class MapControllerNew extends GetxController {
         await clearAllLines();
         // Clear all markers and re-initialize memory clustering (matching old controller pattern)
         await refreshMapView();
+
+
       }
     } catch (e) {
       debugPrint('[MapControllerNew] Error navigating to ADD_MEMORIES: $e');
@@ -1775,7 +1774,7 @@ class MapControllerNew extends GetxController {
     // allMemories = _filterController.filteredMemories,v;
     // Reload memories from database
     await loadMemoriesFromDB();
-
+    // await _
     // Refresh AddMemoriesController if it exists
     try {
       final addMemoriesController = Get.find<AddMemoriesController>();
@@ -4195,7 +4194,23 @@ await mapboxMap.style.setStyleLayerProperty(
           mapbox.LayerPosition(above: ARROW_LINES_LAYER_ID),
         );
       } catch (_) {}
-
+    //   if (_currentMemories.length > 0) {
+    //   debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
+    //   await mapboxMap!.flyTo(
+    //     mapbox.CameraOptions(
+    //       center: mapbox.Point(
+    //         coordinates: mapbox.Position(
+    //           _currentMemories.last['location_longitude'],
+    //           _currentMemories.last['location_latitude'],
+    //         ),
+    //       ),
+    //       zoom: 3,
+    //       bearing: 0,
+    //       pitch: 0,
+    //     ),
+    //     mapbox.MapAnimationOptions(duration: 1500),
+    //   );
+    // }
   }
 
   // Helper: calculate bearing from base → tip in degrees
@@ -4610,6 +4625,26 @@ await mapboxMap.style.setStyleLayerProperty(
 
   void initializeMapAfterCreation() {
     _initializeMapAfterCreation();
+  }
+  
+  Future<void> _moveToLatestMemory() async {
+      if (_currentMemories.length > 0) {
+      debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
+      await mapboxMap!.flyTo(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(
+              _currentMemories.last['location_longitude'],
+              _currentMemories.last['location_latitude'],
+            ),
+          ),
+          zoom: 3,
+          bearing: 0,
+          pitch: 0,
+        ),
+        mapbox.MapAnimationOptions(duration: 1500),
+      );
+    }
   }
 }
 

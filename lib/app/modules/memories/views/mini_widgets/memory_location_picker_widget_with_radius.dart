@@ -117,7 +117,14 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             key: const ValueKey('memory_location_picker_map'),
             cameraOptions: controller.getCameraOptions(),
             textureView: true,
+            
             onMapCreated: (mapboxMap) async {
+               
+               mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
               controller.mapController = mapboxMap;
               debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
 

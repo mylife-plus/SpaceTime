@@ -490,6 +490,11 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   Future<void> onMapCreated(mapbox.MapboxMap controller) async {
     try {
 
+controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
         await checkLocationPermission();
       // await Future.delayed(Duration(seconds: 2));
       // Get current location if permission is available

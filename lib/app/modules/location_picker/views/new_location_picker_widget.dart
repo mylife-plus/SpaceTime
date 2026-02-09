@@ -413,6 +413,11 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
 
   /// Handle map creation
   Future<void> _onMapCreated(mapbox.MapboxMap mapController) async {
+    mapController.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               mapController.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               mapController.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               mapController.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
     try {
       controller.setMapController(mapController);
 
