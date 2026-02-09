@@ -1,17 +1,29 @@
-Push Commit Message
-#<issue-number> <⏳h of work> <pr title> <- pr description bullet points> 
-For example: "#42 ⏳2h commit Title
-- I fixed sy and ty "
+### Push Commit Message
+```
+#<issue-number> <⏳h of total work> <summarize the change> 
+< - ⏳h of work description of changes via bullet points> 
+For example: 
+#42 ⏳2h commit Title
+- ⏳2h I fixed this and that "
 
-Branch Naming
+```
+
+### Branch Naming
+```
 issue-<issue-number> 
 example: issue-42
+```
 
-Pull Request Title
-#<issue-number> automatically links the PR to the issue 
-<action> #<issue-number>
-example: “fix login bug #43”
+### Pull Request Title
+```
+#<issue-number> <summarize the change> 
+example: 
+#43 fix login bug 
+```
 
-Pull Request Description
-#<issue-number> <⏳h of work> <pr description> 
-For example: "#42 ⏳2h I fixed sy and ty "
+### Pull Request Description
+```
+< - ⏳h of work description of changes via bullet points> 
+For example: 
+- ⏳2h I fixed this and that
+```
