@@ -616,54 +616,137 @@ class MapControllerNew extends GetxController {
       return;
     }
 
-    // _currentMemories.last['location_longitude'],
-    // _currentMemories.last['location_latitude'],
+      try {
+      // 1️⃣ Sort memories by date
+      final sorted = List<Map<String, dynamic>>.from(memories)..sort((a, b) {
+        try {
+          final aDate = a['date'] as String? ?? '';
+          final bDate = b['date'] as String? ?? '';
+          final aYear = a['year'] as String? ?? '';
+          final bYear = b['year'] as String? ?? '';
+          final aTime = a['time'] as String? ?? '';
+          final bTime = b['time'] as String? ?? '';
 
-    try {
-      double minLat = double.infinity;
-      double maxLat = double.negativeInfinity;
-      double minLng = double.infinity;
-      double maxLng = double.negativeInfinity;
-      int validLocationCount = 0;
+          var d1String = '$aDate $aYear';
+          var d2String = '$bDate $bYear';
+          print('Date String 1: $d1String');
+          print('Date String 2: $d2String');
 
-      for (final memory in memories) {
-        final lat = memory['location_latitude'] as double?;
-        final lng = memory['location_longitude'] as double?;
+          DateTime? ad;
+          DateTime? bd;
 
-        if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
-          minLat = lat < minLat ? lat : minLat;
-          maxLat = lat > maxLat ? lat : maxLat;
-          minLng = lng < minLng ? lng : minLng;
-          maxLng = lng > maxLng ? lng : maxLng;
-          validLocationCount++;
+          // Try to parse with DateFormat for "28. January 2026" format
+          try {
+            if (aDate.isNotEmpty && aYear.isNotEmpty) {
+              if (aTime.isNotEmpty) {
+                // Include time if available
+                String format =
+                    io.Platform.isIOS
+                        ? "d. MMMM yyyy hh:mm a"
+                        : "d. MMMM yyyy HH:mm";
+                if (aTime.toLowerCase().contains('am') ||
+                    aTime.toLowerCase().contains('pm')) {
+                  format = "d. MMMM yyyy hh:mm a";
+                } else {
+                  format = "d. MMMM yyyy HH:mm";
+                }
+                ad = DateFormat(format).parse('$aDate $aYear $aTime');
+              } else {
+                // Date only
+                ad = DateFormat("d. MMMM yyyy").parse(d1String);
+              }
+            }
+          } catch (e) {
+            debugPrint('Error parsing date A: $d1String - $e');
+          }
+
+          try {
+            if (bDate.isNotEmpty && bYear.isNotEmpty) {
+              if (bTime.isNotEmpty) {
+                // Include time if available
+                String format =
+                    io.Platform.isIOS
+                        ? "d. MMMM yyyy hh:mm a"
+                        : "d. MMMM yyyy HH:mm";
+                if (bTime.toLowerCase().contains('am') ||
+                    bTime.toLowerCase().contains('pm')) {
+                  format = "d. MMMM yyyy hh:mm a";
+                } else {
+                  format = "d. MMMM yyyy HH:mm";
+                }
+                bd = DateFormat(format).parse('$bDate $bYear $bTime');
+              } else {
+                // Date only
+                bd = DateFormat("d. MMMM yyyy").parse(d2String);
+              }
+            }
+          } catch (e) {
+            debugPrint('Error parsing date B: $d2String - $e');
+          }
+
+          // Compare dates (oldest first for timeline)
+          if (ad != null && bd != null) {
+            return ad.compareTo(bd);
+          } else if (ad != null) {
+            return -1;
+          } else if (bd != null) {
+            return 1;
+          }
+          return 0;
+        } catch (e) {
+          debugPrint('Error sorting memories: $e');
+          return 0;
         }
-      }
+      });
 
-      // Check if we have any valid locations
-      if (validLocationCount == 0) {
-        final defaultZoom = MapboxZoomHelper().defaultZoom.value;
-        currentZoom.value = defaultZoom;
-        return;
-      }
+     
+    // try {
+    //   double minLat = double.infinity;
+    //   double maxLat = double.negativeInfinity;
+    //   double minLng = double.infinity;
+    //   double maxLng = double.negativeInfinity;
+    //   int validLocationCount = 0;
+
+    //   for (final memory in memories) {
+    //     final lat = memory['location_latitude'] as double?;
+    //     final lng = memory['location_longitude'] as double?;
+
+    //     if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
+    //       minLat = lat < minLat ? lat : minLat;
+    //       maxLat = lat > maxLat ? lat : maxLat;
+    //       minLng = lng < minLng ? lng : minLng;
+    //       maxLng = lng > maxLng ? lng : maxLng;
+    //       validLocationCount++;
+    //     }
+    //   }
+
+    //   // Check if we have any valid locations
+    //   if (validLocationCount == 0) {
+    //     final defaultZoom = MapboxZoomHelper().defaultZoom.value;
+    //     currentZoom.value = defaultZoom;
+    //     return;
+    //   }
 
       // Calculate the spread (matching old controller logic)
-      final double latDiff = maxLat - minLat;
-      final double lngDiff = maxLng - minLng;
-      final double maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
+      // final double latDiff = maxLat - minLat;
+      // final double lngDiff = maxLng - minLng;
+      // final double maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
 
       // Get zoom level based on geographical spread from MapboxZoomHelper
-      double zoom = MapboxZoomHelper().getZoomForSpread(maxDiff);
+      double zoom = 2;
 
       // Update current zoom variable
       currentZoom.value = zoom;
 
+  final lat = sorted.last['location_latitude'] as double?;
+        final lng = sorted.last['location_longitude'] as double?;
       // Set camera to fit bounds with calculated zoom
       await mapboxMap!.flyTo(
         mapbox.CameraOptions(
           center: mapbox.Point(
             coordinates: mapbox.Position(
-              (minLng + maxLng) / 2,
-              (minLat + maxLat) / 2,
+             lng!,
+             lat!,
             ),
           ),
           zoom: zoom,
