@@ -39,7 +39,7 @@ class FilterIndicator extends StatelessWidget {
         decoration: BoxDecoration(
           color:
               uiController.darkMode.value
-                  ? Colors.orange[900]?.withValues(alpha: 0.3)
+                  ? Colors.black87
                   : Colors.orange.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -51,7 +51,8 @@ class FilterIndicator extends StatelessWidget {
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          // mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.filter_alt,
@@ -91,11 +92,11 @@ class FilterIndicator extends StatelessWidget {
               onTap: () async {
                 final mapController = Get.find<MapControllerNew>();
                 debugPrint('[FilterIndicator] 🧹 Resetting all filters');
-
+      
                 // Use same logic as filter overlay reset button
                 // controller.resetFilters();
                 // mapController.resetFilters();
-
+      
                 // Close filter overlay if open and reload with delay
                 Future.delayed(Duration(milliseconds: 500), () {
                   _closefilterAndReset(mapController);

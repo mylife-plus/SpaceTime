@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
 /// Service for converting memories to GeoJSON format for MapBox native clustering
 class MemoryGeoJsonService {
@@ -49,10 +50,10 @@ class MemoryGeoJsonService {
           'memory_date': memory['date'],
           'has_images': images.isNotEmpty,
           'timestamp': memoryDate.millisecondsSinceEpoch, // 👈 ADD
-          'color_index': getColorIndexForYear(int.parse(year), baseYear: baseYear),
+          'color_index': getColorIndexForYear(int.parse(year), baseYear: DateTime.now().year),
           'memory_timestamp': memoryDate.millisecondsSinceEpoch,
           'has_audios': audios.isNotEmpty,
-          'color': colors[getColorIndexForYear(int.parse(year), baseYear: baseYear)],
+          'color': colors[getColorIndexForYear(int.parse(year), baseYear: DateTime.now().year)],
           'image_count': images.length,
           'audio_count': audios.length,
           'location_name': memory['location_name'] ?? '',
@@ -73,15 +74,76 @@ class MemoryGeoJsonService {
     return jsonEncode(geoJson);
   }
 
+  /// Static cache for year-to-color-index mappings (initialized once per app launch)
+  static Map<int, int>? _yearColorIndexCache;
+  static int? _cacheBaseYear;
+  static bool _isInitialized = false;
+
+  /// Initialize the year-to-color-index cache for at least 100 previous years
+  /// This should be called ONCE at app launch in main.dart
+  static void initializeYearColorIndexCache({int? baseYear}) {
+    final base = baseYear ?? DateTime.now().year;
+
+    // If already initialized with the same base year, skip
+    if (_isInitialized && _cacheBaseYear == base) {
+      debugPrint('🎨 Year color index cache already initialized with base year $base, skipping...');
+      return;
+    }
+
+    // If base year changed, re-initialize
+    if (_isInitialized && _cacheBaseYear != base) {
+      debugPrint('🎨 Base year changed from $_cacheBaseYear to $base, re-initializing cache...');
+    }
+
+    debugPrint('🎨 Initializing year color index cache with base year: $base');
+
+    _yearColorIndexCache = {};
+    _cacheBaseYear = base;
+    const colorCount = 20; // Match existing 20-color system
+
+    // Pre-calculate for 100 years before and 20 years after base year
+    for (int year = base - 100; year <= base + 20; year++) {
+      final yearDifference = year - base;
+      final colorIndex = (yearDifference % colorCount).abs();
+      _yearColorIndexCache![year] = colorIndex;
+    }
+
+    _isInitialized = true;
+    debugPrint('🎨 Year color index cache initialized with ${_yearColorIndexCache!.length} entries (${base - 100} to ${base + 20})');
+  }
+
   /// Get color index for year-based styling (matches map controller exactly)
   /// [year] - The year to get the color index for
-  /// [baseYear] - Optional base year to use for color mapping. If null, uses current year.
+  /// [baseYear] - Optional base year to use for color mapping. If null, uses cached base year.
   static int getColorIndexForYear(int year, {int? baseYear}) {
-    // Use provided base year, or fall back to current year
-    final base = baseYear ?? DateTime.now().year;
-    const colorCount = 20; // Match existing 20-color system
+    // If baseYear is provided and different from cached base year, re-initialize
+    if (baseYear != null && baseYear != _cacheBaseYear) {
+      debugPrint('🎨 Base year mismatch: cached=$_cacheBaseYear, requested=$baseYear. Re-initializing...');
+      initializeYearColorIndexCache(baseYear: baseYear);
+    }
+
+    // Ensure cache is initialized (fallback in case it wasn't called at app launch)
+    if (!_isInitialized) {
+      debugPrint('⚠️ Year color index cache not initialized! Initializing now...');
+      initializeYearColorIndexCache(baseYear: baseYear);
+    }
+
+    // Try to get from cache first
+    if (_yearColorIndexCache!.containsKey(year)) {
+      return _yearColorIndexCache![year]!;
+    }
+
+    // If year is not in cache (outside the pre-calculated range), calculate on-the-fly
+    final base = _cacheBaseYear ?? DateTime.now().year;
+    const colorCount = 20;
     final yearDifference = year - base;
-    return (yearDifference % colorCount).abs();
+    final colorIndex = (yearDifference % colorCount).abs();
+
+    // Add to cache for future use
+    _yearColorIndexCache![year] = colorIndex;
+    debugPrint('🎨 Added year $year to cache (color index: $colorIndex)');
+
+    return colorIndex;
   }
 
   /// Get the latest (most recent) year from a list of memories

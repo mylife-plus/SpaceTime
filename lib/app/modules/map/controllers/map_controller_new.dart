@@ -327,10 +327,16 @@ class MapControllerNew extends GetxController {
 
   /// Handle map creation callback
   void onMapCreated(mapbox.MapboxMap mapboxMapInstance) {
-    mapboxMapInstance.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-               mapboxMapInstance.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-               mapboxMapInstance.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
-               mapboxMapInstance.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+    mapboxMapInstance.compass.updateSettings(
+      mapbox.CompassSettings(enabled: false),
+    );
+    mapboxMapInstance.scaleBar.updateSettings(
+      mapbox.ScaleBarSettings(enabled: false),
+    );
+    mapboxMapInstance.attribution.updateSettings(
+      mapbox.AttributionSettings(enabled: false),
+    );
+    mapboxMapInstance.logo.updateSettings(mapbox.LogoSettings(enabled: false));
 
     mapboxMap = mapboxMapInstance;
     isMapReady.value = true;
@@ -367,7 +373,9 @@ class MapControllerNew extends GetxController {
   }
 
   Future<void> showLoadedDataOnMap() async {
-    debugPrint('[MapControllerNew] 🗺️ showLoadedDataOnMap called with ${_currentMemories.length} memories');
+    debugPrint(
+      '[MapControllerNew] 🗺️ showLoadedDataOnMap called with ${_currentMemories.length} memories',
+    );
 
     await clearAllLines();
 
@@ -376,15 +384,17 @@ class MapControllerNew extends GetxController {
       return;
     }
 
-    debugPrint('[MapControllerNew] 🎨 Setting up clustering for ${_currentMemories.length} memories');
+    debugPrint(
+      '[MapControllerNew] 🎨 Setting up clustering for ${_currentMemories.length} memories',
+    );
     await _setupMapboxClustering(_currentMemories);
 
-    debugPrint('[MapControllerNew] 🏹 Generating arrows for ${_currentMemories.length} memories');
+    debugPrint(
+      '[MapControllerNew] 🏹 Generating arrows for ${_currentMemories.length} memories',
+    );
     await generateAndDisplayArrowsAsSymbols(_currentMemories, mapboxMap!);
 
     handleMapTap();
-
-   
 
     debugPrint('[MapControllerNew] ✅ Map display completed');
   }
@@ -485,12 +495,13 @@ class MapControllerNew extends GetxController {
     if (spreadMemories.isNotEmpty) {
       // Store memories for tap handling (use spread memories)
       _currentMemories.assignAll(spreadMemories);
-      debugPrint('[MapControllerNew] Loaded ${spreadMemories.length} memories from FilterController');
+      debugPrint(
+        '[MapControllerNew] Loaded ${spreadMemories.length} memories from FilterController',
+      );
 
       // Calculate and set appropriate zoom level based on memory spread
       await _setOptimalZoomForMemories(spreadMemories);
-      await _moveToLatestMemory();
-     
+      // await _moveToLatestMemory();
     } else {
       debugPrint('[MapControllerNew] No memories to display');
       _currentMemories.clear();
@@ -561,16 +572,28 @@ class MapControllerNew extends GetxController {
   /// Now delegates to FilterController which handles all filtering logic
   Future<List<Map<String, dynamic>>> loadFilteredMemoriesFromDB() async {
     try {
-      debugPrint('[MapControllerNew] 🔍 Loading filtered memories from FilterController...');
+      debugPrint(
+        '[MapControllerNew] 🔍 Loading filtered memories from FilterController...',
+      );
 
       // Sync filter state to FilterController
-      _filterController.filterValues.value = Map<String, String>.from(filterValues);
+      _filterController.filterValues.value = Map<String, String>.from(
+        filterValues,
+      );
       _filterController.selectedLocation.value = selectedLocation.value;
       _filterController.selectedRadius.value = selectedRadius.value;
-      _filterController.selectedHashtags.value = List<String>.from(selectedHashtags);
-      _filterController.selectedContacts.value = List<String>.from(selectedContacts);
-      _filterController.selectedCategories.value = List<String>.from(selectedCategories);
-      _filterController.selectedMemoryIds.value = List<String>.from(selectedMemoryIds);
+      _filterController.selectedHashtags.value = List<String>.from(
+        selectedHashtags,
+      );
+      _filterController.selectedContacts.value = List<String>.from(
+        selectedContacts,
+      );
+      _filterController.selectedCategories.value = List<String>.from(
+        selectedCategories,
+      );
+      _filterController.selectedMemoryIds.value = List<String>.from(
+        selectedMemoryIds,
+      );
 
       // Apply filters in FilterController
       _filterController.applyAllFilters();
@@ -597,8 +620,8 @@ class MapControllerNew extends GetxController {
       return;
     }
 
-          // _currentMemories.last['location_longitude'],
-              // _currentMemories.last['location_latitude'],
+    // _currentMemories.last['location_longitude'],
+    // _currentMemories.last['location_latitude'],
 
     try {
       double minLat = double.infinity;
@@ -969,33 +992,37 @@ class MapControllerNew extends GetxController {
     _isBottomPanelOpen = true;
 
     // Show custom popup with slide-up animation
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: false, // Makes background visible
-        barrierDismissible: true,
-        barrierColor: Colors.black54,
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1), // Start from bottom
-              end: Offset.zero, // End at normal position
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            )),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: BottomPanel(memoryIds: memoryIds),
-            ),
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 400),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-      ),
-    ).whenComplete(() {
-      _isBottomPanelOpen = false;
-      debugPrint('[MapControllerNew] Bottom panel closed');
-    });
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder(
+            opaque: false, // Makes background visible
+            barrierDismissible: true,
+            barrierColor: Colors.black54,
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1), // Start from bottom
+                  end: Offset.zero, // End at normal position
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: BottomPanel(memoryIds: memoryIds),
+                ),
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 400),
+            reverseTransitionDuration: const Duration(milliseconds: 300),
+          ),
+        )
+        .whenComplete(() {
+          _isBottomPanelOpen = false;
+          debugPrint('[MapControllerNew] Bottom panel closed');
+        });
   }
 
   /// Handle memory tap - similar to _onDrillDownMarkerTapped in old controller
@@ -1046,8 +1073,6 @@ class MapControllerNew extends GetxController {
         await clearAllLines();
         // Clear all markers and re-initialize memory clustering (matching old controller pattern)
         await refreshMapView();
-
-
       }
     } catch (e) {
       debugPrint('[MapControllerNew] Error navigating to ADD_MEMORIES: $e');
@@ -1360,7 +1385,9 @@ class MapControllerNew extends GetxController {
   /// Handle filter apply action when overlay is launched from the map
   /// Now delegates to FilterController which handles all filtering logic
   Future<void> handleFilterApplyFromMap({List<int>? memoryIds}) async {
-    debugPrint('[MapControllerNew] handleFilterApplyFromMap called with memoryIds: $memoryIds');
+    debugPrint(
+      '[MapControllerNew] handleFilterApplyFromMap called with memoryIds: $memoryIds',
+    );
 
     final addMemoriesController = Get.find<AddMemoriesController>();
 
@@ -1368,33 +1395,57 @@ class MapControllerNew extends GetxController {
     addMemoriesController.applyFilters(memoryIds: memoryIds);
 
     // Sync filter state from AddMemoriesController to FilterController
-    _filterController.filterValues.value = Map<String, String>.from(addMemoriesController.filterValues);
-    _filterController.selectedLocation.value = addMemoriesController.selectedLocation.value;
-    _filterController.selectedLocationDisplayName.value = addMemoriesController.selectedLocationDisplayName.value;
-    _filterController.selectedRadius.value = addMemoriesController.selectedRadius.value;
-    _filterController.selectedHashtags.value = List<String>.from(addMemoriesController.selectedHashtags);
-    _filterController.selectedContacts.value = List<String>.from(addMemoriesController.selectedContacts);
-    _filterController.selectedCategories.value = List<String>.from(addMemoriesController.selectedCategories);
+    _filterController.filterValues.value = Map<String, String>.from(
+      addMemoriesController.filterValues,
+    );
+    _filterController.selectedLocation.value =
+        addMemoriesController.selectedLocation.value;
+    _filterController.selectedLocationDisplayName.value =
+        addMemoriesController.selectedLocationDisplayName.value;
+    _filterController.selectedRadius.value =
+        addMemoriesController.selectedRadius.value;
+    _filterController.selectedHashtags.value = List<String>.from(
+      addMemoriesController.selectedHashtags,
+    );
+    _filterController.selectedContacts.value = List<String>.from(
+      addMemoriesController.selectedContacts,
+    );
+    _filterController.selectedCategories.value = List<String>.from(
+      addMemoriesController.selectedCategories,
+    );
     if (memoryIds != null) {
-      _filterController.selectedMemoryIds.value = memoryIds.map((id) => id.toString()).toList();
+      _filterController.selectedMemoryIds.value =
+          memoryIds.map((id) => id.toString()).toList();
     }
 
     // Apply filters in FilterController
     _filterController.applyAllFilters();
 
     // Sync filter state from FilterController to MapController
-    filterValues.value = Map<String, String>.from(_filterController.filterValues);
+    filterValues.value = Map<String, String>.from(
+      _filterController.filterValues,
+    );
     selectedLocation.value = _filterController.selectedLocation.value;
     selectedRadius.value = _filterController.selectedRadius.value;
-    selectedHashtags.value = List<String>.from(_filterController.selectedHashtags);
-    selectedContacts.value = List<String>.from(_filterController.selectedContacts);
-    selectedCategories.value = List<String>.from(_filterController.selectedCategories);
-    selectedMemoryIds.value = List<String>.from(_filterController.selectedMemoryIds);
+    selectedHashtags.value = List<String>.from(
+      _filterController.selectedHashtags,
+    );
+    selectedContacts.value = List<String>.from(
+      _filterController.selectedContacts,
+    );
+    selectedCategories.value = List<String>.from(
+      _filterController.selectedCategories,
+    );
+    selectedMemoryIds.value = List<String>.from(
+      _filterController.selectedMemoryIds,
+    );
 
     closeFilter();
     _updateFilterStatus();
 
-    debugPrint('[MapControllerNew] Filtered memories: ${_filterController.filteredMemories.length}');
+    debugPrint(
+      '[MapControllerNew] Filtered memories: ${_filterController.filteredMemories.length}',
+    );
 
     // Load filtered memories from FilterController
     await loadMemoriesFromDB(_filterController.filteredMemories.toList());
@@ -2151,9 +2202,7 @@ class MapControllerNew extends GetxController {
   }
 
   /// Update layer visibility based on current zoom level
-  Future<void> _updateLayerVisibilityForZoom(double zoomLevel) async {
-
-  }
+  Future<void> _updateLayerVisibilityForZoom(double zoomLevel) async {}
 
   /// Set visibility for a specific layer
   Future<void> _setLayerVisibility(String layerId, bool visible) async {
@@ -2652,33 +2701,37 @@ class MapControllerNew extends GetxController {
         _isBottomPanelOpen = true;
 
         // Show custom popup with slide-up animation
-        await Navigator.of(Get.context!).push(
-          PageRouteBuilder(
-            opaque: false, // Makes background visible
-            barrierDismissible: true,
-            barrierColor: Colors.black54,
-            pageBuilder: (context, animation, secondaryAnimation) {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 1), // Start from bottom
-                  end: Offset.zero, // End at normal position
-                ).animate(CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                )),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: BottomPanel(memoryIds: memoryIds),
-                ),
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 400),
-            reverseTransitionDuration: const Duration(milliseconds: 300),
-          ),
-        ).whenComplete(() {
-          _isBottomPanelOpen = false;
-          debugPrint('[MapControllerNew] Bottom panel closed');
-        });
+        await Navigator.of(Get.context!)
+            .push(
+              PageRouteBuilder(
+                opaque: false, // Makes background visible
+                barrierDismissible: true,
+                barrierColor: Colors.black54,
+                pageBuilder: (context, animation, secondaryAnimation) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 1), // Start from bottom
+                      end: Offset.zero, // End at normal position
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: BottomPanel(memoryIds: memoryIds),
+                    ),
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 400),
+                reverseTransitionDuration: const Duration(milliseconds: 300),
+              ),
+            )
+            .whenComplete(() {
+              _isBottomPanelOpen = false;
+              debugPrint('[MapControllerNew] Bottom panel closed');
+            });
 
         return;
       }
@@ -3160,32 +3213,51 @@ class MapControllerNew extends GetxController {
         await mapboxMap!.style.setStyleLayerProperty(
           CLUSTERS_CIRCLE_LAYER_ID,
           'circle-color',
-  [
-    'match',
-    ['get', 'latest_color_index'],
-    0, '#2196F3',
-    1, '#4CAF50',
-    2, '#FF9800',
-    3, '#9C27B0',
-    4, '#F44336',
-    5, '#00BCD4',
-    6, '#FFEB3B',
-    7, '#795548',
-    8, '#607D8B',
-    9, '#E91E63',
-    10, '#3F51B5',
-    11, '#009688',
-    12, '#FF5722',
-    13, '#8BC34A',
-    14, '#CDDC39',
-    15, '#FFC107',
-    16, '#673AB7',
-    17, '#00E676',
-    18, '#FF1744',
-    19, '#2979FF',
-    '#4A90E2',
-  ],
-
+          [
+            'match',
+            ['get', 'latest_color_index'],
+            0,
+            '#2196F3',
+            1,
+            '#4CAF50',
+            2,
+            '#FF9800',
+            3,
+            '#9C27B0',
+            4,
+            '#F44336',
+            5,
+            '#00BCD4',
+            6,
+            '#FFEB3B',
+            7,
+            '#795548',
+            8,
+            '#607D8B',
+            9,
+            '#E91E63',
+            10,
+            '#3F51B5',
+            11,
+            '#009688',
+            12,
+            '#FF5722',
+            13,
+            '#8BC34A',
+            14,
+            '#CDDC39',
+            15,
+            '#FFC107',
+            16,
+            '#673AB7',
+            17,
+            '#00E676',
+            18,
+            '#FF1744',
+            19,
+            '#2979FF',
+            '#4A90E2',
+          ],
         );
       } catch (_) {}
 
@@ -3239,9 +3311,7 @@ class MapControllerNew extends GetxController {
 
       try {
         await mapboxMap!.style.removeStyleLayer(UNCLUSTERED_LAYER_ID);
-      }catch(_) {
-
-      }
+      } catch (_) {}
       try {
         await mapboxMap!.style.addLayer(
           mapbox.CircleLayer(
@@ -3259,7 +3329,6 @@ class MapControllerNew extends GetxController {
           ),
         );
 
-       
         debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
 
         debugPrint('[MapControllerNew] ✅ Individual point icon layer added');
@@ -3291,19 +3360,18 @@ class MapControllerNew extends GetxController {
           );
         } catch (_) {}
 
-        
         debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
       }
 
       try {
-          await mapboxMap!.style.setStyleLayerProperty(
-            UNCLUSTERED_LAYER_ID,
-            'circle-color',
-            ['get', 'color'],
-          );
-        } catch (e) {
-          print('MapControllerNew toMemoryYear circle-color erro $e');
-        }
+        await mapboxMap!.style.setStyleLayerProperty(
+          UNCLUSTERED_LAYER_ID,
+          'circle-color',
+          ['get', 'color'],
+        );
+      } catch (e) {
+        print('MapControllerNew toMemoryYear circle-color erro $e');
+      }
 
       // Note: Individual points now use icon with embedded "1" text
       // No separate text layer needed since the icon includes the number
@@ -3864,7 +3932,9 @@ class MapControllerNew extends GetxController {
 
     final strokePaint =
         Paint()
-          ..color = Colors.white // always white
+          ..color =
+              Colors
+                  .white // always white
           ..style = PaintingStyle.stroke
           ..strokeWidth = size * 0.12
           ..strokeCap = StrokeCap.round
@@ -3912,8 +3982,12 @@ class MapControllerNew extends GetxController {
             if (aDate.isNotEmpty && aYear.isNotEmpty) {
               if (aTime.isNotEmpty) {
                 // Include time if available
-                String format = io.Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
-                if (aTime.toLowerCase().contains('am') || aTime.toLowerCase().contains('pm')) {
+                String format =
+                    io.Platform.isIOS
+                        ? "d. MMMM yyyy hh:mm a"
+                        : "d. MMMM yyyy HH:mm";
+                if (aTime.toLowerCase().contains('am') ||
+                    aTime.toLowerCase().contains('pm')) {
                   format = "d. MMMM yyyy hh:mm a";
                 } else {
                   format = "d. MMMM yyyy HH:mm";
@@ -3932,8 +4006,12 @@ class MapControllerNew extends GetxController {
             if (bDate.isNotEmpty && bYear.isNotEmpty) {
               if (bTime.isNotEmpty) {
                 // Include time if available
-                String format = io.Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
-                if (bTime.toLowerCase().contains('am') || bTime.toLowerCase().contains('pm')) {
+                String format =
+                    io.Platform.isIOS
+                        ? "d. MMMM yyyy hh:mm a"
+                        : "d. MMMM yyyy HH:mm";
+                if (bTime.toLowerCase().contains('am') ||
+                    bTime.toLowerCase().contains('pm')) {
                   format = "d. MMMM yyyy hh:mm a";
                 } else {
                   format = "d. MMMM yyyy HH:mm";
@@ -3983,14 +4061,17 @@ class MapControllerNew extends GetxController {
         if ([startLat, startLng, endLat, endLng].contains(null)) continue;
 
         // Create a unique key for this location pair (order-independent)
-        final loc1 = '${startLat!.toStringAsFixed(6)},${startLng!.toStringAsFixed(6)}';
-        final loc2 = '${endLat!.toStringAsFixed(6)},${endLng!.toStringAsFixed(6)}';
+        final loc1 =
+            '${startLat!.toStringAsFixed(6)},${startLng!.toStringAsFixed(6)}';
+        final loc2 =
+            '${endLat!.toStringAsFixed(6)},${endLng!.toStringAsFixed(6)}';
 
         // Skip if same location
         if (loc1 == loc2) continue;
 
         // Create sorted pair key to detect bidirectional connections
-        final pairKey = loc1.compareTo(loc2) < 0 ? '$loc1->$loc2' : '$loc2->$loc1';
+        final pairKey =
+            loc1.compareTo(loc2) < 0 ? '$loc1->$loc2' : '$loc2->$loc1';
 
         if (locationPairs.containsKey(pairKey)) {
           // Found bidirectional connection!
@@ -4007,14 +4088,13 @@ class MapControllerNew extends GetxController {
         final a = sorted[i];
         final b = sorted[i + 1];
 
- final memoryDate =
-          DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
-      // final year = memoryDate.year;
-       final aYear = b['year'] as String? ?? '';
+        final memoryDate = DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
+        // final year = memoryDate.year;
+        final aYear = b['year'] as String? ?? '';
 
         // var color = MemoryGeoJsonService.createYearColorExpression();
 
-        var index = MemoryGeoJsonService.getColorIndexForYear(int.parse(aYear));
+        var index = MemoryGeoJsonService.getColorIndexForYear(int.parse(aYear),baseYear: DateTime.now().year);
         final double? startLat = a['location_latitude'];
         final double? startLng = a['location_longitude'];
         final double? endLat = b['location_latitude'];
@@ -4038,7 +4118,10 @@ class MapControllerNew extends GetxController {
               coordinates:
                   coords.map((c) => mapbox.Position(c[0], c[1])).toList(),
             ),
-            properties: {'type': 'line', 'color': MemoryGeoJsonService.colors[index]},
+            properties: {
+              'type': 'line',
+              'color': MemoryGeoJsonService.colors[index],
+            },
           ),
         );
 
@@ -4060,11 +4143,16 @@ class MapControllerNew extends GetxController {
               geometry: mapbox.Point(
                 coordinates: mapbox.Position(tip[0], tip[1]),
               ),
-              properties: {'rotation': rotation,'color': MemoryGeoJsonService.colors[index]}, // 🔥 assign same color as line},
+              properties: {
+                'rotation': rotation,
+                'color': MemoryGeoJsonService.colors[index],
+              }, // 🔥 assign same color as line},
             ),
           );
         } else {
-          debugPrint('⏭️ Skipping arrow for bidirectional connection at index $i');
+          debugPrint(
+            '⏭️ Skipping arrow for bidirectional connection at index $i',
+          );
         }
       }
 
@@ -4103,19 +4191,14 @@ class MapControllerNew extends GetxController {
       );
 
       try {
-
         await mapboxMap!.style.setStyleLayerProperty(
-  ARROW_LINES_LAYER_ID, // your line layer ID
-  'line-color',
-  ['get', 'color'], // Pulls color from each feature's 'color' property
-);
+          ARROW_LINES_LAYER_ID, // your line layer ID
+          'line-color',
+          ['get', 'color'], // Pulls color from each feature's 'color' property
+        );
 
-
-// lineColor: ['get', 'color']
-
-      }catch(_) {
-
-      }
+        // lineColor: ['get', 'color']
+      } catch (_) {}
 
       // 7️⃣ Arrow point source
       await mapboxMap.style.addSource(
@@ -4133,7 +4216,7 @@ class MapControllerNew extends GetxController {
         await mapboxMap.style.addStyleImage(
           'arrow-icon',
           8,
-          
+
           mapbox.MbxImage(width: 64, height: 64, data: arrowBytes),
           true,
           const [],
@@ -4157,43 +4240,40 @@ class MapControllerNew extends GetxController {
       );
 
       try {
-await mapboxMap.style.setStyleLayerProperty(
-  ARROW_SYMBOLS_LAYER_ID,
-  'icon-color',
-  ['get', 'color'], // dynamic color per feature
-);
-      } catch (_){
+        await mapboxMap.style.setStyleLayerProperty(
+          ARROW_SYMBOLS_LAYER_ID,
+          'icon-color',
+          ['get', 'color'], // dynamic color per feature
+        );
+      } catch (_) {}
 
-      }
-
-    
       debugPrint('✅ Arrows positioned at 65% and oriented correctly');
     } catch (e, st) {
       // debugPrint('❌ ERROR: $e');
       debugPrint(st.toString());
     }
 
-      var layers = await mapboxMap.style.getStyleLayers();
-      var layerID = getLayerID(layers);
-      // 5️⃣ Move layer to top to ensure it’s visible over custom tiles
+    var layers = await mapboxMap.style.getStyleLayers();
+    var layerID = getLayerID(layers);
+    // 5️⃣ Move layer to top to ensure it’s visible over custom tiles
+    await mapboxMap.style.moveStyleLayer(
+      ARROW_LINES_LAYER_ID,
+      mapbox.LayerPosition(below: layerID),
+    );
+
+    try {
       await mapboxMap.style.moveStyleLayer(
         ARROW_LINES_LAYER_ID,
         mapbox.LayerPosition(below: layerID),
       );
-
-      try {
-        await mapboxMap.style.moveStyleLayer(
-          ARROW_LINES_LAYER_ID,
-          mapbox.LayerPosition(below: layerID),
-        );
-      } catch (_) {}
-      // 🔝 Keep arrows above lines
-      try {
-        await mapboxMap.style.moveStyleLayer(
-          ARROW_SYMBOLS_LAYER_ID,
-          mapbox.LayerPosition(above: ARROW_LINES_LAYER_ID),
-        );
-      } catch (_) {}
+    } catch (_) {}
+    // 🔝 Keep arrows above lines
+    try {
+      await mapboxMap.style.moveStyleLayer(
+        ARROW_SYMBOLS_LAYER_ID,
+        mapbox.LayerPosition(above: ARROW_LINES_LAYER_ID),
+      );
+    } catch (_) {}
     //   if (_currentMemories.length > 0) {
     //   debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
     //   await mapboxMap!.flyTo(
@@ -4292,14 +4372,17 @@ await mapboxMap.style.setStyleLayerProperty(
 
           // Calculate offset in degrees
           final latOffset = (distance * cos(angle)) / metersPerDegreeLat;
-          final lngOffset = (distance * sin(angle)) /
+          final lngOffset =
+              (distance * sin(angle)) /
               (metersPerDegreeLat * cos(originalLat * pi / 180));
 
           // Apply offset
           memory['location_latitude'] = originalLat + latOffset;
           memory['location_longitude'] = originalLng + lngOffset;
 
-          debugPrint('  Memory ${i + 1}: Offset by ${distance.toStringAsFixed(1)}m at ${(angle * 180 / pi).toStringAsFixed(0)}°');
+          debugPrint(
+            '  Memory ${i + 1}: Offset by ${distance.toStringAsFixed(1)}m at ${(angle * 180 / pi).toStringAsFixed(0)}°',
+          );
 
           spreadMemories.add(memory);
         }
@@ -4309,7 +4392,9 @@ await mapboxMap.style.setStyleLayerProperty(
     // Add back memories without location data
     spreadMemories.addAll(memoriesWithoutLocation);
 
-    debugPrint('✅ Spread ${spreadMemories.length} memories (${locationGroups.length} unique locations, ${memoriesWithoutLocation.length} without location)');
+    debugPrint(
+      '✅ Spread ${spreadMemories.length} memories (${locationGroups.length} unique locations, ${memoriesWithoutLocation.length} without location)',
+    );
     return spreadMemories;
   }
 
@@ -4367,7 +4452,6 @@ await mapboxMap.style.setStyleLayerProperty(
 
   final String ARROW_DEBUG = 'ARROW_DEBUG';
 
-
   final ARROW_BACK_DISTANCE =
       10000; // ~150m in degrees (adjust for your map scale)
   final ARROW_SIZE = 100.00; // arrowhead size
@@ -4404,17 +4488,23 @@ await mapboxMap.style.setStyleLayerProperty(
     List<Map<String, dynamic>> memories,
   ) async {
     try {
-      debugPrint('[MapControllerNew] 🎨 _setupMapboxClustering called with ${memories.length} memories');
+      debugPrint(
+        '[MapControllerNew] 🎨 _setupMapboxClustering called with ${memories.length} memories',
+      );
 
       if (memories.isEmpty) {
-        debugPrint('[MapControllerNew] ⚠️ No memories to cluster, skipping clustering setup');
+        debugPrint(
+          '[MapControllerNew] ⚠️ No memories to cluster, skipping clustering setup',
+        );
         return;
       }
 
       // Add a small delay to ensure cleanup is complete
       await Future.delayed(const Duration(milliseconds: 100));
 
-      debugPrint('[MapControllerNew] 🔄 Converting ${memories.length} memories to GeoJSON...');
+      debugPrint(
+        '[MapControllerNew] 🔄 Converting ${memories.length} memories to GeoJSON...',
+      );
       // Convert memories to GeoJSON
       final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
         memories,
@@ -4443,14 +4533,22 @@ await mapboxMap.style.setStyleLayerProperty(
                   ['get', 'id'],
                 ],
               ],
- 'latest_color_index': [
-    'max',
-    ['coalesce', ['get', 'color_index'], 0],
-  ],
-  'latest_timestamp': [
-    'max',
-    ['coalesce', ['get', 'memory_timestamp'], 0],
-  ],
+              'latest_color_index': [
+                'max',
+                [
+                  'coalesce',
+                  ['get', 'color_index'],
+                  0,
+                ],
+              ],
+              'latest_timestamp': [
+                'max',
+                [
+                  'coalesce',
+                  ['get', 'memory_timestamp'],
+                  0,
+                ],
+              ],
             },
           ),
         );
@@ -4459,7 +4557,9 @@ await mapboxMap.style.setStyleLayerProperty(
         debugPrint('[MapControllerNew] ⚠️ Error adding source: $e');
         if (e.toString().contains('already exists')) {
           try {
-            debugPrint('[MapControllerNew] 🔄 Source already exists, updating data...');
+            debugPrint(
+              '[MapControllerNew] 🔄 Source already exists, updating data...',
+            );
             // Try to update the existing source data instead of adding a new one
 
             await mapboxMap!.style.setStyleSourceProperty(
@@ -4469,7 +4569,9 @@ await mapboxMap.style.setStyleLayerProperty(
             );
             debugPrint('[MapControllerNew] ✅ Source data updated successfully');
           } catch (updateError) {
-            debugPrint('[MapControllerNew] ❌ Update failed: $updateError, forcing remove and re-add...');
+            debugPrint(
+              '[MapControllerNew] ❌ Update failed: $updateError, forcing remove and re-add...',
+            );
             // If update fails, force remove and re-add
             await _forceRemoveAndReaddSource(geoJsonString);
           }
@@ -4490,7 +4592,9 @@ await mapboxMap.style.setStyleLayerProperty(
         debugPrint('[MapControllerNew] ✅ MapMarkerService initialized');
       }
 
-      debugPrint('[MapControllerNew] ✅ Clustering setup completed successfully');
+      debugPrint(
+        '[MapControllerNew] ✅ Clustering setup completed successfully',
+      );
       // Generate and display chronological arrows
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error setting up MapBox clustering: $e');
@@ -4626,9 +4730,9 @@ await mapboxMap.style.setStyleLayerProperty(
   void initializeMapAfterCreation() {
     _initializeMapAfterCreation();
   }
-  
+
   Future<void> _moveToLatestMemory() async {
-      if (_currentMemories.length > 0) {
+    if (_currentMemories.length > 0) {
       debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
       await mapboxMap!.flyTo(
         mapbox.CameraOptions(

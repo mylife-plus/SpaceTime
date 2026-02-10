@@ -36,6 +36,7 @@ import 'services/asset_tile_loader_service.dart';
 import 'services/mbtiles_download_service.dart';
 import 'services/mbtiles_server_service.dart';
 import 'services/style_json_download_service.dart';
+import 'services/memory_geojson_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -97,6 +98,15 @@ Future<void> main() async {
     debugPrint('🔍 [MAIN] Mapbox Zoom Helper initialized successfully');
   } catch (e) {
     debugPrint('🔍 [MAIN] Mapbox Zoom Helper initialization failed: $e');
+  }
+
+  // Initialize year color index cache (once per app launch)
+  debugPrint('🎨 [MAIN] Initializing year color index cache...');
+  try {
+    MemoryGeoJsonService.initializeYearColorIndexCache();
+    debugPrint('🎨 [MAIN] Year color index cache initialized successfully');
+  } catch (e) {
+    debugPrint('🎨 [MAIN] Year color index cache initialization failed: $e');
   }
 
   // Start local tile server in background if tiles are downloaded
