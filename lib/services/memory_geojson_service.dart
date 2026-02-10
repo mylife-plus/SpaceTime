@@ -34,7 +34,7 @@ class MemoryGeoJsonService {
 
       print('🛑🛑🛑🛑🛑 checcking geo js');
 
-      print('🛑🛑🛑🛑🛑ColorsExpressionData Results for year ${int.parse(year)} ${colors[getColorIndexForYear(int.parse(year), baseYear: baseYear)]}');
+      print('🛑🛑🛑🛑🛑ColorsExpressionData Results for year ${int.parse(year)} ${colors[getColorIndexForYear(int.parse(year), DateTime.now().year)]}');
       // Create GeoJSON feature
       final feature = {
         'type': 'Feature',
@@ -50,10 +50,10 @@ class MemoryGeoJsonService {
           'memory_date': memory['date'],
           'has_images': images.isNotEmpty,
           'timestamp': memoryDate.millisecondsSinceEpoch, // 👈 ADD
-          'color_index': getColorIndexForYear(int.parse(year), baseYear: DateTime.now().year),
+          'color_index': getColorIndexForYear(int.parse(year),  DateTime.now().year),
           'memory_timestamp': memoryDate.millisecondsSinceEpoch,
           'has_audios': audios.isNotEmpty,
-          'color': colors[getColorIndexForYear(int.parse(year), baseYear: DateTime.now().year)],
+          'color': colors[getColorIndexForYear(int.parse(year), DateTime.now().year)],
           'image_count': images.length,
           'audio_count': audios.length,
           'location_name': memory['location_name'] ?? '',
@@ -115,7 +115,7 @@ class MemoryGeoJsonService {
   /// Get color index for year-based styling (matches map controller exactly)
   /// [year] - The year to get the color index for
   /// [baseYear] - Optional base year to use for color mapping. If null, uses cached base year.
-  static int getColorIndexForYear(int year, {int? baseYear}) {
+  static int getColorIndexForYear(int year, int? baseYear) {
     // If baseYear is provided and different from cached base year, re-initialize
     if (baseYear != null && baseYear != _cacheBaseYear) {
       debugPrint('🎨 Base year mismatch: cached=$_cacheBaseYear, requested=$baseYear. Re-initializing...');
@@ -344,7 +344,7 @@ class MemoryGeoJsonService {
           'to_date': (arrow['toDate'] as DateTime).toIso8601String(),
           'year': (arrow['toDate'] as DateTime).year,
           'color_index': getColorIndexForYear(
-            (arrow['toDate'] as DateTime).year,
+            (arrow['toDate'] as DateTime).year, DateTime.now().year
           ),
         },
       };
@@ -389,7 +389,7 @@ class MemoryGeoJsonService {
           'bearing': bearing,
           'year': (arrow['toDate'] as DateTime).year,
           'color_index': getColorIndexForYear(
-            (arrow['toDate'] as DateTime).year,
+            (arrow['toDate'] as DateTime).year, DateTime.now().year,
           ),
           'from_memory_id': arrow['fromMemoryId'],
           'to_memory_id': arrow['toMemoryId'],

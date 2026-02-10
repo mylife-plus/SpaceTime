@@ -45,10 +45,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     WidgetsBinding.instance.addObserver(this);
 
     controller = Get.find<MapControllerNew>();
-    // addMemoriesController = Get.find<AddMemoriesController>();
-    // addMemoriesController ??= Get.put(AddMemoriesController());
-    // if(addMemoriesController == null) 
-    // Initialize local tile server BEFORE map creation (like GlobeTestView)
+  
     _initializeLocalTileServer();
   }
 
@@ -72,7 +69,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   /// Server is started in main.dart, so we just check if it's running
   Future<void> _initializeLocalTileServer() async {
     try {
-
       final serverService = MbtilesServerService.instance;
 
       // Check if server is already running (started in main.dart)
@@ -90,7 +86,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 
       if (!isDownloaded || tilesPath == null) {
         setState(() {
-          _errorMessage = 'MBTiles file not downloaded. Please download from Get Started screen first.';
+          _errorMessage =
+              'MBTiles file not downloaded. Please download from Get Started screen first.';
           _isInitializing = false;
         });
         return;
@@ -130,11 +127,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red,
-                  ),
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 20),
                   Text(
                     _errorMessage!,
@@ -175,108 +168,89 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       // Remove init parameter to prevent creating new instance
       builder: (controller) {
         // return Obx(() {
-          return Scaffold(
-            backgroundColor: Colors.black,
-            body: SafeArea(
-              child: Stack(
-                children: [
-                  // MapBox Map
-                  _buildMapWidget(controller),
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: SafeArea(
+            child: Stack(
+              children: [
+                // MapBox Map
+                _buildMapWidget(controller),
 
- Obx(() => _buildOverlays(controller)),                
-                ],
-              ),
+                Obx(() => _buildOverlays(controller)),
+              ],
             ),
-          );
-        });
-      // },
+          ),
+        );
+      },
+    );
+    // },
     // );
   }
 
-Widget _buildOverlays(MapControllerNew controller) {
-  return Stack(
-    children: [
-      // Dark overlay when filter is open
-      Obx(() {
-        if (!controller.isFilterOpen.value) {
-          return const SizedBox.shrink();
-        }
-        return Positioned.fill(
-          child: Container(
-            color: Colors.black.withOpacity(0.8),
-          ),
-        );
-      }),
+  Widget _buildOverlays(MapControllerNew controller) {
+    return Stack(
+      children: [
+        // Dark overlay when filter is open
+        Obx(() {
+          if (!controller.isFilterOpen.value) {
+            return const SizedBox.shrink();
+          }
+          return Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.8)),
+          );
+        }),
 
-      // Top buttons and FAB (hidden when filter is open)
-      Obx(() {
-        if (controller.isFilterOpen.value) {
-          return const SizedBox.shrink();
-        }
-        return const Stack(
-          children: [
-            MapTopButtons(),
-            MapFab(),
-          ],
-        );
-      }),
+        // Top buttons and FAB (hidden when filter is open)
+        Obx(() {
+          if (controller.isFilterOpen.value) {
+            return const SizedBox.shrink();
+          }
+          return const Stack(children: [MapTopButtons(), MapFab()]);
+        }),
 
-Positioned(
-            top: 60,
-            left: 0,
-            right: 0,
-            child: SearchIndicator(),
-          ),
-      // Filter indicator (shown when filters are active and filter overlay is closed)
-      // Search indicator - shows when there's an active keyword search
-      // Obx(() {
-        
+        Positioned(top: 60, left: 0, right: 0, child: SearchIndicator()),
+        // Filter indicator (shown when filters are active and filter overlay is closed)
+        // Search indicator - shows when there's an active keyword search
+        // Obx(() {
 
-      //   if (!Get.isRegistered<AddMemoriesController>()) {
-      //     return const SizedBox.shrink();
-      //   }
+        //   if (!Get.isRegistered<AddMemoriesController>()) {
+        //     return const SizedBox.shrink();
+        //   }
 
-      //   // Show search indicator when there's an active search
-      //   // if (Get.find<FilterController>().hasActiveSearch) {
-      //     return const 
-      //   // }
+        //   // Show search indicator when there's an active search
+        //   // if (Get.find<FilterController>().hasActiveSearch) {
+        //     return const
+        //   // }
 
-      //   // return const SizedBox.shrink();
-      // }),
-const Positioned(
-            top: 60,
-            left: 0,
-            right: 0,
-            child: FilterIndicator(),
-          ),
-      // Filter indicator - shows when there are active filters (but not search)
-      // Obx(() {
-      
-      //   if (!Get.isRegistered<FilterController>()) {
-      //     return const SizedBox.shrink();
-      //   }
+        //   // return const SizedBox.shrink();
+        // }),
+        const Positioned(top: 60, left: 0, right: 0, child: FilterIndicator()),
+        // Filter indicator - shows when there are active filters (but not search)
+        // Obx(() {
 
-        
+        //   if (!Get.isRegistered<FilterController>()) {
+        //     return const SizedBox.shrink();
+        //   }
 
-      //   return const Positioned(
-      //       top: 60,
-      //       left: 0,
-      //       right: 0,
-      //       child: FilterIndicator(),
-      //     );
-      // }),
+        //   return const Positioned(
+        //       top: 60,
+        //       left: 0,
+        //       right: 0,
+        //       child: FilterIndicator(),
+        //     );
+        // }),
 
-      // Filter overlay
-     Visibility(
-        visible: controller.isFilterOpen.value,
-        maintainState: true,
-        maintainAnimation: true,
-        maintainSize: true,
-        child: const MapFilterOverlay(),
-      ),
-    ],
-  );
-}
+        // Filter overlay
+        Visibility(
+          visible: controller.isFilterOpen.value,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
+          child: const MapFilterOverlay(),
+        ),
+      ],
+    );
+  }
 
   /// Build the MapBox map widget
   Widget _buildMapWidget(MapControllerNew controller) {
@@ -291,29 +265,36 @@ const Positioned(
         styleUri: _getCustomStyleUri(), // Returns blank style
         textureView: io.Platform.isAndroid,
         onMapCreated: (mapboxMap) async {
-
           mapboxMap = mapboxMap;
-          mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-               mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-               mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+          mapboxMap.compass.updateSettings(
+            mapbox.CompassSettings(enabled: false),
+          );
+          mapboxMap.scaleBar.updateSettings(
+            mapbox.ScaleBarSettings(enabled: false),
+          );
+          mapboxMap.attribution.updateSettings(
+            mapbox.AttributionSettings(enabled: false),
+          );
 
           controller.mapboxMap = mapboxMap;
-         
+
           await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
           controller.onMapCreated(mapboxMap);
-mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-               mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-               mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
-               mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
-
-
-          
+          mapboxMap.compass.updateSettings(
+            mapbox.CompassSettings(enabled: false),
+          );
+          mapboxMap.scaleBar.updateSettings(
+            mapbox.ScaleBarSettings(enabled: false),
+          );
+          mapboxMap.attribution.updateSettings(
+            mapbox.AttributionSettings(enabled: false),
+          );
+          mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
         },
-       onTapListener: (c) {
-
-        controller.handleMapTap1(c);
-  //    
-       },
+        onTapListener: (c) {
+          controller.handleMapTap1(c);
+          //
+        },
       );
     }
 
@@ -343,7 +324,9 @@ mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
 
         // Handle error
         if (snapshot.hasError) {
-          debugPrint('[MapViewWidgetNew] ❌ Error in FutureBuilder: ${snapshot.error}');
+          debugPrint(
+            '[MapViewWidgetNew] ❌ Error in FutureBuilder: ${snapshot.error}',
+          );
           return Center(
             child: Text(
               'Error loading map style',
@@ -358,66 +341,88 @@ mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
         return mapbox.MapWidget(
           key: ValueKey("mapbox_map_new"),
           cameraOptions: mapbox.CameraOptions(
-
             zoom: MapboxZoomHelper().initialCameraZoom.value,
           ),
           // Don't set styleUri - we'll load the JSON style after map creation
           // iOS FIX: Use surface view instead of texture view for better iOS compatibility
-          textureView: io.Platform.isAndroid, // Only use texture view on Android
+          textureView:
+              io.Platform.isAndroid, // Only use texture view on Android
           onMapCreated: (mapboxMap) async {
             controller.mapboxMap = mapboxMap;
 
-            debugPrint('[MapViewWidgetNew] 🗺️ onMapCreated callback triggered');
+            debugPrint(
+              '[MapViewWidgetNew] 🗺️ onMapCreated callback triggered',
+            );
 
             // CRITICAL: Enable online mode to allow localhost tile server access
             // Mapbox's offline mode blocks ALL network requests, including localhost
             // We MUST enable connectivity for the local tile server to work
             await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-            debugPrint('[MapViewWidgetNew] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+            debugPrint(
+              '[MapViewWidgetNew] 🌐 Online mode ENABLED - localhost tile server can now be accessed',
+            );
 
             // Load the custom style JSON with local tile server URLs
-            debugPrint('[MapViewWidgetNew] 📥 Loading custom style JSON into Mapbox...');
-            debugPrint('[MapViewWidgetNew] 📊 Style JSON length: ${styleJson.length} characters');
+            debugPrint(
+              '[MapViewWidgetNew] 📥 Loading custom style JSON into Mapbox...',
+            );
+            debugPrint(
+              '[MapViewWidgetNew] 📊 Style JSON length: ${styleJson.length} characters',
+            );
 
             // Verify the JSON contains our localhost URLs before loading
             if (styleJson.contains('localhost:8080')) {
-              debugPrint('[MapViewWidgetNew] ✅ Verified: Style JSON contains localhost URLs');
+              debugPrint(
+                '[MapViewWidgetNew] ✅ Verified: Style JSON contains localhost URLs',
+              );
             } else {
-              debugPrint('[MapViewWidgetNew] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+              debugPrint(
+                '[MapViewWidgetNew] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!',
+              );
             }
 
             await mapboxMap.loadStyleJson(styleJson);
 
-            debugPrint('[MapViewWidgetNew] ✅ Custom style JSON loaded into Mapbox successfully');
+            debugPrint(
+              '[MapViewWidgetNew] ✅ Custom style JSON loaded into Mapbox successfully',
+            );
 
             controller.onMapCreated(mapboxMap);
           },
           onStyleLoadedListener: (styleLoadedEventData) async {
-            debugPrint('[MapViewWidgetNew] 🎨 onStyleLoaded callback triggered');
-            debugPrint('[MapViewWidgetNew] ✅ Style.json from assets loaded successfully with local tiles');
+            debugPrint(
+              '[MapViewWidgetNew] 🎨 onStyleLoaded callback triggered',
+            );
+            debugPrint(
+              '[MapViewWidgetNew] ✅ Style.json from assets loaded successfully with local tiles',
+            );
 
             controller.onStyleLoaded(styleLoadedEventData);
           },
           onMapLoadErrorListener: (mapLoadError) {
-            debugPrint('[MapViewWidgetNew] ❌ Map Load Error: ${mapLoadError.type}');
-            debugPrint('[MapViewWidgetNew] ❌ Error Message: ${mapLoadError.message}');
-            debugPrint('[MapViewWidgetNew] ❌ Error Timestamp: ${mapLoadError.timestamp}');
+            debugPrint(
+              '[MapViewWidgetNew] ❌ Map Load Error: ${mapLoadError.type}',
+            );
+            debugPrint(
+              '[MapViewWidgetNew] ❌ Error Message: ${mapLoadError.message}',
+            );
+            debugPrint(
+              '[MapViewWidgetNew] ❌ Error Timestamp: ${mapLoadError.timestamp}',
+            );
           },
         );
       },
     );
   }
 
-   Future<void> _addLocalTileSource() async {
+  Future<void> _addLocalTileSource() async {
     try {
       if (_serverUrl == null) {
         return;
       }
 
       if (mapController == null) {
-
         return;
-
       }
 
       final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
@@ -432,7 +437,6 @@ mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
           maxzoom: zoomHelper.maxZoom.value,
         ),
       );
-
     } catch (e) {
       // Continue anyway - map will use default Mapbox tiles
     }
@@ -442,7 +446,6 @@ mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
 
   /// Get custom style URI with local tile server URL
   String _getCustomStyleUri() {
-
     final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
 
     return _getStyleJsonWithLocalTiles(tileUrl);
@@ -452,9 +455,14 @@ mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
     return 'LOADING_FROM_ASSETS';
   }
 
-  Future<String> _loadStyleJsonFromAssets(String tileUrl, String serverUrl) async {
+  Future<String> _loadStyleJsonFromAssets(
+    String tileUrl,
+    String serverUrl,
+  ) async {
     try {
-      debugPrint('[MapViewWidgetNew] 📂 Loading style.json from local storage...');
+      debugPrint(
+        '[MapViewWidgetNew] 📂 Loading style.json from local storage...',
+      );
 
       // Try to load from local storage first if service is available
       String? styleJsonString;
@@ -466,8 +474,12 @@ mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
       // Fallback to assets if local file not found or service not available
 
       if (styleJsonString == null) {
-        debugPrint('[MapViewWidgetNew] ⚠️ Local style.json not found, loading from assets...');
-        styleJsonString = await rootBundle.loadString('assets/custom-style.json');
+        debugPrint(
+          '[MapViewWidgetNew] ⚠️ Local style.json not found, loading from assets...',
+        );
+        styleJsonString = await rootBundle.loadString(
+          'assets/custom-style.json',
+        );
         debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from assets');
       } else {
         debugPrint('[MapViewWidgetNew] ✅ Loaded style.json from local storage');
@@ -568,7 +580,10 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
       body: mapbox.MapWidget(
         cameraOptions: mapbox.CameraOptions(
           center: mapbox.Point(
-            coordinates: mapbox.Position(-103.59179687498357, 40.66995747013945),
+            coordinates: mapbox.Position(
+              -103.59179687498357,
+              40.66995747013945,
+            ),
           ),
           zoom: _currentZoom,
         ),
@@ -607,11 +622,14 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
     final style = _mapboxMap!.style;
 
     try {
-      debugPrint('[CircleLayerClustering] 🎨 Loading style and setting up clustering...');
+      debugPrint(
+        '[CircleLayerClustering] 🎨 Loading style and setting up clustering...',
+      );
 
       // 1) Load your GeoJSON (equivalent to earthquakes.geojson in Android example)
-      final geojsonString =
-          await rootBundle.loadString('assets/earthquakes.geojson');
+      final geojsonString = await rootBundle.loadString(
+        'assets/earthquakes.geojson',
+      );
 
       debugPrint('[CircleLayerClustering] 📦 GeoJSON loaded, adding source...');
 
@@ -621,8 +639,10 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
           id: _sourceId,
           data: geojsonString,
           cluster: true,
-          clusterRadius: 50, // Radius of each cluster (pixels) - adjust for tighter/looser clustering
-          clusterMaxZoom: 14, // Max zoom to cluster points - stops clustering at zoom 15+
+          clusterRadius:
+              50, // Radius of each cluster (pixels) - adjust for tighter/looser clustering
+          clusterMaxZoom:
+              14, // Max zoom to cluster points - stops clustering at zoom 15+
           clusterMinPoints: 2, // Minimum points to form a cluster
           // Performance optimization: enable clustering properties
           clusterProperties: {
@@ -678,7 +698,10 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
         mapbox.CircleLayer(
           id: _unclusteredLayerId,
           sourceId: _sourceId,
-          filter: ['!', ['has', 'point_count']],
+          filter: [
+            '!',
+            ['has', 'point_count'],
+          ],
           circleColor: 0xFF11B4DA, // Lighter blue for individual points
           circleRadius: 8.0, // Slightly larger for better visibility
           circleStrokeWidth: 2.0,
@@ -689,11 +712,12 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
       );
 
       debugPrint('[CircleLayerClustering] ✅ Unclustered layer added');
-      debugPrint('[CircleLayerClustering] 🎉 All clustering layers added successfully!');
+      debugPrint(
+        '[CircleLayerClustering] 🎉 All clustering layers added successfully!',
+      );
 
       // Setup camera change listener for smooth zoom transitions
       _setupCameraChangeListener();
-
     } catch (e) {
       debugPrint('[CircleLayerClustering] ❌ Error setting up clustering: $e');
     }
@@ -703,7 +727,9 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
   void _setupCameraChangeListener() {
     if (_mapboxMap == null) return;
 
-    debugPrint('[CircleLayerClustering] 📹 Setting up camera change listener for smooth transitions');
+    debugPrint(
+      '[CircleLayerClustering] 📹 Setting up camera change listener for smooth transitions',
+    );
 
     // Note: Camera change listeners help track zoom changes for dynamic updates
     // The clustering itself is handled automatically by Mapbox
@@ -718,10 +744,7 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
       final newZoom = (cameraState.zoom + 1.0).clamp(0.0, 22.0);
 
       await _mapboxMap!.flyTo(
-        mapbox.CameraOptions(
-          center: cameraState.center,
-          zoom: newZoom,
-        ),
+        mapbox.CameraOptions(center: cameraState.center, zoom: newZoom),
         mapbox.MapAnimationOptions(
           duration: 500, // Smooth 500ms animation
           startDelay: 0,
@@ -747,10 +770,7 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
       final newZoom = (cameraState.zoom - 1.0).clamp(0.0, 22.0);
 
       await _mapboxMap!.flyTo(
-        mapbox.CameraOptions(
-          center: cameraState.center,
-          zoom: newZoom,
-        ),
+        mapbox.CameraOptions(center: cameraState.center, zoom: newZoom),
         mapbox.MapAnimationOptions(
           duration: 500, // Smooth 500ms animation
           startDelay: 0,
@@ -775,7 +795,10 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
       await _mapboxMap!.flyTo(
         mapbox.CameraOptions(
           center: mapbox.Point(
-            coordinates: mapbox.Position(-103.59179687498357, 40.66995747013945),
+            coordinates: mapbox.Position(
+              -103.59179687498357,
+              40.66995747013945,
+            ),
           ),
           zoom: 3.0,
           bearing: 0,
@@ -812,7 +835,9 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
 
       debugPrint('[CircleLayerClustering] 👆 Map tapped at: ($lat, $lng)');
       debugPrint('[CircleLayerClustering] 📊 Current zoom: $_currentZoom');
-      debugPrint('[CircleLayerClustering] 📊 Context type: ${context.runtimeType}');
+      debugPrint(
+        '[CircleLayerClustering] 📊 Context type: ${context.runtimeType}',
+      );
       debugPrint('[CircleLayerClustering] 📊 Context point: ${context.point}');
 
       final tapPoint = context.point;
@@ -825,13 +850,17 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
       );
 
       // First, try querying ALL features at this point to see what's there
-      debugPrint('[CircleLayerClustering] 🔍 Querying ALL features at tap point');
+      debugPrint(
+        '[CircleLayerClustering] 🔍 Querying ALL features at tap point',
+      );
       final allFeatures = await _mapboxMap!.queryRenderedFeatures(
         mapbox.RenderedQueryGeometry.fromScreenCoordinate(screenCoord),
         mapbox.RenderedQueryOptions(),
       );
 
-      debugPrint('[CircleLayerClustering] 📊 Total features found: ${allFeatures.length}');
+      debugPrint(
+        '[CircleLayerClustering] 📊 Total features found: ${allFeatures.length}',
+      );
 
       // Log first few features to see what we're getting
       for (int i = 0; i < allFeatures.length && i < 5; i++) {
@@ -840,26 +869,36 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
           try {
             final queriedFeature = feature.queriedFeature;
             final featureData = queriedFeature.feature;
-            debugPrint('[CircleLayerClustering] 📊 Feature $i: ${featureData.toString()}');
-            debugPrint('[CircleLayerClustering] 📊 Feature $i source: ${queriedFeature.source}');
-            debugPrint('[CircleLayerClustering] 📊 Feature $i sourceLayer: ${queriedFeature.sourceLayer}');
+            debugPrint(
+              '[CircleLayerClustering] 📊 Feature $i: ${featureData.toString()}',
+            );
+            debugPrint(
+              '[CircleLayerClustering] 📊 Feature $i source: ${queriedFeature.source}',
+            );
+            debugPrint(
+              '[CircleLayerClustering] 📊 Feature $i sourceLayer: ${queriedFeature.sourceLayer}',
+            );
           } catch (e) {
-            debugPrint('[CircleLayerClustering] 📊 Feature $i: Error accessing - $e');
+            debugPrint(
+              '[CircleLayerClustering] 📊 Feature $i: Error accessing - $e',
+            );
           }
         }
       }
 
-      debugPrint('[CircleLayerClustering] 🔍 Querying cluster layer: $_clusterLayerId');
+      debugPrint(
+        '[CircleLayerClustering] 🔍 Querying cluster layer: $_clusterLayerId',
+      );
 
       // Check if we tapped on a cluster
       final clusterFeatures = await _mapboxMap!.queryRenderedFeatures(
         mapbox.RenderedQueryGeometry.fromScreenCoordinate(screenCoord),
-        mapbox.RenderedQueryOptions(
-          layerIds: [_clusterLayerId],
-        ),
+        mapbox.RenderedQueryOptions(layerIds: [_clusterLayerId]),
       );
 
-      debugPrint('[CircleLayerClustering] 📊 Cluster features found: ${clusterFeatures.length}');
+      debugPrint(
+        '[CircleLayerClustering] 📊 Cluster features found: ${clusterFeatures.length}',
+      );
 
       if (clusterFeatures.isNotEmpty && clusterFeatures.first != null) {
         // Tapped on a cluster - zoom in smoothly
@@ -869,28 +908,28 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
         final currentZoom = cameraState.zoom;
         final newZoom = (currentZoom + 2.0).clamp(0.0, 22.0);
 
-        debugPrint('[CircleLayerClustering] 📊 Current zoom: $currentZoom, New zoom: $newZoom');
+        debugPrint(
+          '[CircleLayerClustering] 📊 Current zoom: $currentZoom, New zoom: $newZoom',
+        );
 
         await _mapboxMap!.flyTo(
-          mapbox.CameraOptions(
-            center: tapPoint,
-            zoom: newZoom,
-          ),
-          mapbox.MapAnimationOptions(
-            duration: 800,
-            startDelay: 0,
-          ),
+          mapbox.CameraOptions(center: tapPoint, zoom: newZoom),
+          mapbox.MapAnimationOptions(duration: 800, startDelay: 0),
         );
 
         setState(() {
           _currentZoom = newZoom;
         });
 
-        debugPrint('[CircleLayerClustering] ✅ Zoomed into cluster (zoom: $newZoom)');
+        debugPrint(
+          '[CircleLayerClustering] ✅ Zoomed into cluster (zoom: $newZoom)',
+        );
         return;
       }
 
-      debugPrint('[CircleLayerClustering] 🔍 No cluster found, querying individual points layer: $_unclusteredLayerId');
+      debugPrint(
+        '[CircleLayerClustering] 🔍 No cluster found, querying individual points layer: $_unclusteredLayerId',
+      );
 
       // Check if we tapped on an individual point
       final pointFeatures = await _mapboxMap!.queryRenderedFeatures(
@@ -900,39 +939,51 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
             max: mapbox.ScreenCoordinate(x: lng + 0.001, y: lat + 0.001),
           ),
         ),
-        mapbox.RenderedQueryOptions(
-          layerIds: [_unclusteredLayerId],
-        ),
+        mapbox.RenderedQueryOptions(layerIds: [_unclusteredLayerId]),
       );
 
-      debugPrint('[CircleLayerClustering] 📊 Individual point features found: ${pointFeatures.length}');
+      debugPrint(
+        '[CircleLayerClustering] 📊 Individual point features found: ${pointFeatures.length}',
+      );
 
       if (pointFeatures.isNotEmpty && pointFeatures.first != null) {
         debugPrint('[CircleLayerClustering] 📍 Individual point tapped');
         debugPrint('[CircleLayerClustering] 📊 mounted: $mounted');
-        debugPrint('[CircleLayerClustering] 📊 Get.context != null: ${Get.context != null}');
+        debugPrint(
+          '[CircleLayerClustering] 📊 Get.context != null: ${Get.context != null}',
+        );
 
         // Show a snackbar with point info
         if (mounted && Get.context != null) {
-          debugPrint('[CircleLayerClustering] 🎯 Attempting to show snackbar...');
+          debugPrint(
+            '[CircleLayerClustering] 🎯 Attempting to show snackbar...',
+          );
 
           try {
             ScaffoldMessenger.of(Get.context!).showSnackBar(
               const SnackBar(
-                content: Text('Earthquake point tapped - zoom in to see details'),
+                content: Text(
+                  'Earthquake point tapped - zoom in to see details',
+                ),
                 duration: Duration(seconds: 2),
                 backgroundColor: Colors.blue,
               ),
             );
             debugPrint('[CircleLayerClustering] ✅ Snackbar shown successfully');
           } catch (snackbarError) {
-            debugPrint('[CircleLayerClustering] ❌ Error showing snackbar: $snackbarError');
+            debugPrint(
+              '[CircleLayerClustering] ❌ Error showing snackbar: $snackbarError',
+            );
           }
         } else {
-          debugPrint('[CircleLayerClustering] ⚠️ Cannot show snackbar - mounted: $mounted, Get.context: ${Get.context != null}');
+          debugPrint(
+            '[CircleLayerClustering] ⚠️ Cannot show snackbar - mounted: $mounted, Get.context: ${Get.context != null}',
+          );
         }
       } else {
-        debugPrint('[CircleLayerClustering] 📍 Empty area tapped (no features found)');
+        debugPrint(
+          '[CircleLayerClustering] 📍 Empty area tapped (no features found)',
+        );
       }
 
       debugPrint('[CircleLayerClustering] 🔍 === TAP HANDLER COMPLETE ===');
@@ -941,5 +992,4 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
       debugPrint('[CircleLayerClustering] 📊 Stack trace: $stackTrace');
     }
   }
-
 }

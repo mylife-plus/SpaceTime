@@ -280,6 +280,7 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       if (Get.isRegistered<StyleJsonDownloadService>()) {
         final styleJsonService = Get.find<StyleJsonDownloadService>();
         styleJsonString = await styleJsonService.readStyleJsonContent();
+      // debugPrint('[loadStyleJsonFromAssets] Style Json $styleJsonString');
       }
 
       // Fallback to assets if local file not found or service not available
@@ -295,6 +296,7 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       var modifiedStyleJson = styleJsonString
           .replaceAll('{LOCAL_SERVER_URL}', serverUrlValue)
           .replaceAll('{LOCAL_TILE_URL}', tileUrl);
+        debugPrint('[loadStyleJsonFromAssets] Returning Tiles Json...');
 
       return modifiedStyleJson;
     } catch (e) {

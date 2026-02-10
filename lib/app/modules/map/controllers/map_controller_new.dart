@@ -4094,7 +4094,7 @@ class MapControllerNew extends GetxController {
 
         // var color = MemoryGeoJsonService.createYearColorExpression();
 
-        var index = MemoryGeoJsonService.getColorIndexForYear(int.parse(aYear),baseYear: DateTime.now().year);
+        var index = MemoryGeoJsonService.getColorIndexForYear(int.parse(aYear), DateTime.now().year);
         final double? startLat = a['location_latitude'];
         final double? startLng = a['location_longitude'];
         final double? endLat = b['location_latitude'];
