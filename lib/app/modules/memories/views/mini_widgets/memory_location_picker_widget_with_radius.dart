@@ -147,46 +147,39 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             textureView: true,
             
             onMapCreated: (mapboxMap) async {
-               
-               mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-               mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-               mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
-               mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
-
- if (styleJson.contains('localhost:8080')) {
-              debugPrint(
-                '[MapViewWidgetNew] ✅ Verified: Style JSON contains localhost URLs',
-              );
-            } else {
-              debugPrint(
-                '[MapViewWidgetNew] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!',
-              );
-            }
-
-            await mapboxMap.loadStyleJson(styleJson);
-              controller.mapController = mapboxMap;
               debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
 
-              // CRITICAL: Enable online mode to allow localhost tile server access
+              // Disable Mapbox UI elements
+              mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+              mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+              mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+              mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+
+              // STEP 1: Enable online mode FIRST to allow localhost tile server access
+              debugPrint('[MemoryLocationPicker] 🌐 STEP 1: Enabling online mode...');
               await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-              debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+              debugPrint('[MemoryLocationPicker] ✅ Online mode ENABLED - localhost tile server can now be accessed');
 
-              // Load the custom style JSON with local tile server URLs
-              debugPrint('[MemoryLocationPicker] 📥 Loading custom style JSON into Mapbox...');
+              // STEP 2: Verify style JSON contains localhost URLs
+              debugPrint('[MemoryLocationPicker] 📊 STEP 2: Verifying style JSON...');
               debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
+              if (styleJson.contains('localhost:8080')) {
+                debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
+              } else {
+                debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+              }
 
-              // Verify the JSON contains our localhost URLs before loading
-              // if (styleJson.contains('localhost:8080')) {
-              //   debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
-              // } else {
-              //   debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
-              // }
+              // STEP 3: Load the custom style JSON with local tile server URLs
+              debugPrint('[MemoryLocationPicker] 📥 STEP 3: Loading custom style JSON into Mapbox...');
+              await mapboxMap.loadStyleJson(styleJson);
+              debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
 
-              // await mapboxMap.loadStyleJson(styleJson);
-              // debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
-
+              // STEP 4: Initialize controller
+              debugPrint('[MemoryLocationPicker] 🎮 STEP 4: Initializing controller...');
+              controller.mapController = mapboxMap;
               controller.onMapCreated(mapboxMap);
               controller.getCurrentLocation();
+              debugPrint('[MemoryLocationPicker] ✅ Controller initialized successfully');
             },
             onStyleLoadedListener: (styleLoadedEventData) async {
               debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');

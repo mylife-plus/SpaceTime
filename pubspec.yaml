@@ -61,7 +61,11 @@ dependencies:
   diacritic: ^0.1.6
   dio: ^5.9.0
   http: ^1.6.0
+  # GeoJSON parsing (Natural Earth files)
+  geojson_vi: ^2.2.5
 
+  # Lat/Lng model + geodesic distance helpers
+  latlong2: ^0.9.1
 dependency_overrides:
   csv: ^6.0.0
 
@@ -92,6 +96,8 @@ flutter:
     - assets/
     - assets/images/
     - .env
+    - assets/geo/ne_110m_geography_marine_polys.json
+    - assets/geo/ne_110m_lakes.json
     - assets/cities_names_1.csv
     - assets/geonames_cities.csv
     # Note: 11_included.mbtiles is too large (4.5GB) to include in app bundle

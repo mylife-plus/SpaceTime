@@ -433,12 +433,8 @@ class MapControllerNew extends GetxController {
   /// Refresh current location
   Future<void> refreshLocation() async {
     try {
-      debugPrint('[MapControllerNew] 🔄 Refresh location called');
-      if (hasLocationPermission.value) {
-        await animateToUserLocation();
-      } else {
-        await retryLocationPermission();
-      }
+     _setOptimalZoomForMemories(_currentMemories);
+    //  ..
     } catch (e) {
       debugPrint('[MapControllerNew] Error refreshing location: $e');
     }

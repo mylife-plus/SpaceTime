@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:geocoder_offline_json/geocoder_offline.dart';
+import 'package:get/get.dart';
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
+import 'package:spacetime/app/helpers/offline_water_service.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
 
 class OfflineGeocoder {
@@ -33,7 +35,27 @@ class OfflineGeocoder {
   Future<Map<String, dynamic>?> reverseGeocode(double lat, double lng) async {
     final results = geocoder.search(lat, lng);
 
-    if (results.isEmpty) return null;
+final hit =  OfflineWaterService.instance.detect(lat, lng);
+
+if (hit != null) {
+ print(' OfflineGeocoder 💧 ${hit.type.name.toUpperCase()} - ${hit.name}');
+
+  final locationDetails = {
+      'country': '',
+      'city': hit.name!.toLowerCase().capitalize ?? '',
+      'name': hit.name!.toLowerCase().capitalize ?? '',
+      'address': '',
+      'flag': '🇺🇳',
+    };
+
+    debugPrint('🔍 OfflineGeocoder reverse geocoding coordinates: $lat, $lng');
+    debugPrint('✅ OfflineGeocoder result: $locationDetails');
+
+    return locationDetails;
+
+}   
+
+if (results.isEmpty) return null;
 
     final nearest = results.first; // Get the closest result
     final city = nearest.location.featureName ?? '';

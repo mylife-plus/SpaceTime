@@ -168,6 +168,8 @@ class MemoryGeoJsonService {
     return latestYear;
   }
 
+// - [ ] memory colors are not in the correct order they are random but they should have always the same rainbow 🌈 order
+
   static const colors = [
       '#2196F3', // Blue
       '#4CAF50', // Green

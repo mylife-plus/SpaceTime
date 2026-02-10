@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
+import 'package:spacetime/app/helpers/offline_water_service.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/map/controllers/memory_location_picker_with_radius_controller.dart';
@@ -42,7 +43,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await NearestRegionService().loadFromAssets();
-
+  await OfflineWaterService.instance.init(
+    oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',
+    lakeGeoJson: 'assets/geo/ne_110m_lakes.json',
+  );
   // Restrict orientation to portrait only
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
