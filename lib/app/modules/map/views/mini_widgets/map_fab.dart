@@ -18,11 +18,6 @@ class MapFab extends StatelessWidget {
     final controller = Get.find<UiController>();
 
     return Obx(() {
-
-      
-    
-
-
       return Positioned(
         bottom: 20,
         left: MediaQuery.of(context).size.width / 2 - 28,
@@ -41,17 +36,17 @@ class MapFab extends StatelessWidget {
 
             // If memory was saved successfully, refresh the map
             if (result == true) {
+              
               try {
 
-                  final addMemoriesController = Get.find<AddMemoriesController>();
-              addMemoriesController.onAgainInit();
-              
-   await Get.to(() => AddMemoriesView());
-  
+                final addMemoriesController = Get.find<AddMemoriesController>();
+                addMemoriesController.onAgainInit();
+
+                await Get.to(() => AddMemoriesView());
+
                 final mapController = Get.find<MapControllerNew>();
-                await mapController.refreshLocation();();
-               
-        
+                await mapController.refreshLocation();
+                ();
 
                 debugPrint('Map refreshed after memory creation');
               } catch (e) {
@@ -71,25 +66,21 @@ class MapFab extends StatelessWidget {
             // }
           },
           child: Container(
-                        width: 49,
-                        height: 51,
-                        padding: EdgeInsets.all(7),
-                         decoration: BoxDecoration(
-                     // image: DecorationImage(
-                    borderRadius: BorderRadius.circular(8), 
-  color: controller.darkMode.value
-    ? (controller.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-              : (controller.curentHomeIconColorDark))
-    : controller.currentHomeIconColor,// ✔ correct
-                
-                  
-                ),
-                        child: Image.asset(
-                          AppImages.addIcon,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
+            width: 49,
+            height: 51,
+            padding: EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              // image: DecorationImage(
+              borderRadius: BorderRadius.circular(8),
+              color:
+                  controller.darkMode.value
+                      ? (controller.mainColor.value == 'blue'
+                          ? const Color(0xFF002B62)
+                          : (controller.curentHomeIconColorDark))
+                      : controller.currentHomeIconColor, // ✔ correct
+            ),
+            child: Image.asset(AppImages.addIcon, fit: BoxFit.contain),
+          ),
         ),
       );
     });

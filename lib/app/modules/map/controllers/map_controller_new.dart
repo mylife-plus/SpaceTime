@@ -116,6 +116,9 @@ class MapControllerNew extends GetxController {
   final RxList<Map<String, dynamic>> _currentMemories =
       <Map<String, dynamic>>[].obs;
 
+  final RxList<Map<String, dynamic>> allMemoriesWithoutFilter =
+      <Map<String, dynamic>>[].obs;
+  // allMemoriesWithoutFilter
   bool _isBottomPanelOpen = false;
 
   // Services
@@ -433,8 +436,8 @@ class MapControllerNew extends GetxController {
   /// Refresh current location
   Future<void> refreshLocation() async {
     try {
-     _setOptimalZoomForMemories(_currentMemories);
-    //  ..
+      _setOptimalZoomForMemories(_currentMemories);
+      //  ..
     } catch (e) {
       debugPrint('[MapControllerNew] Error refreshing location: $e');
     }
@@ -473,13 +476,109 @@ class MapControllerNew extends GetxController {
     }
   }
 
+  final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
+
   /// Load memories from FilterController (single source of truth)
   /// Now delegates to FilterController which handles all memory loading and filtering
   Future<void> loadMemoriesFromDB([
     List<Map<String, dynamic>>? filteredMemoriesData,
   ]) async {
-    debugPrint('[MapControllerNew] loadMemoriesFromDB called');
+    final db = await _databaseHelper.database;
+    if (!db.isOpen) {
+      await _databaseHelper.resetDatabaseConnection();
+    }
 
+    // Load all memories from database
+    final mem1 = await _databaseHelper.getAllMemoriesWithDetails();
+    // debugPrint('$tag Loaded ${memories.length} raw memories from database');
+
+    // Transform database memories to UI format
+    final transformedMemories = <Map<String, dynamic>>[];
+    for (final memory in mem1) {
+      try {
+        final transformed = await _filterController.transformDatabaseMemoryToUI(
+          memory,
+        );
+        transformedMemories.add(transformed);
+      } catch (e) {
+        // debugPrint('$tag Error transforming memory ${memory['id']}: $e');
+      }
+    }
+
+    transformedMemories.sort((a, b) {
+      try {
+        final aDate = a['date'] as String? ?? '';
+        final bDate = b['date'] as String? ?? '';
+        final aYear = a['year'] as String? ?? '';
+        final bYear = b['year'] as String? ?? '';
+        final aTime = a['time'] as String? ?? '';
+        final bTime = b['time'] as String? ?? '';
+
+        DateTime? aDateTime;
+        DateTime? bDateTime;
+
+        String format =
+            io.Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
+
+        if (aTime.toLowerCase().contains('am') ||
+            aTime.toLowerCase().contains('pm')) {
+          format = "d. MMMM yyyy hh:mm a";
+        } else {
+          format = "d. MMMM yyyy HH:mm";
+        }
+
+        // Try to parse memory A
+        try {
+          if (aDate.isNotEmpty) {
+            if (aDate.contains(' ') && aDate.split(' ').length >= 4) {
+              aDateTime = DateTime.tryParse(aDate);
+            } else if (aYear.isNotEmpty) {
+              String dateTimeStr = '$aDate $aYear';
+              if (aTime.isNotEmpty) {
+                dateTimeStr += ' $aTime';
+              }
+              aDateTime = DateTime.tryParse(dateTimeStr);
+            }
+          }
+        } catch (e) {
+          // debugPrint('$tag Error parsing date A: $e');
+        }
+
+        // Try to parse memory B
+        try {
+          if (bDate.isNotEmpty) {
+            if (bDate.contains(' ') && bDate.split(' ').length >= 4) {
+              bDateTime = DateTime.tryParse(bDate);
+            } else if (bYear.isNotEmpty) {
+              String dateTimeStr = '$bDate $bYear';
+              if (bTime.isNotEmpty) {
+                dateTimeStr += ' $bTime';
+              }
+              bDateTime = DateTime.tryParse(dateTimeStr);
+            }
+          }
+        } catch (e) {
+          // debugPrint('$tag Error parsing date B: $e');
+        }
+
+        // Compare dates
+        if (aDateTime != null && bDateTime != null) {
+          return bDateTime.compareTo(aDateTime); // Newest first
+        } else if (aDateTime != null) {
+          return -1;
+        } else if (bDateTime != null) {
+          return 1;
+        }
+        return 0;
+      } catch (e) {
+        // debugPrint('$tag Error sorting memories: $e');
+        return 0;
+      }
+    });
+
+    debugPrint('[MapControllerNew] loadMemoriesFromDB called');
+    allMemoriesWithoutFilter.clear();
+    allMemoriesWithoutFilter.addAll(transformedMemories);
     // Use FilterController's filtered memories instead of loading from repository
     _currentMemories.clear();
 
@@ -616,7 +715,7 @@ class MapControllerNew extends GetxController {
       return;
     }
 
-      try {
+    try {
       // 1️⃣ Sort memories by date
       final sorted = List<Map<String, dynamic>>.from(memories)..sort((a, b) {
         try {
@@ -699,33 +798,32 @@ class MapControllerNew extends GetxController {
         }
       });
 
-     
-    // try {
-    //   double minLat = double.infinity;
-    //   double maxLat = double.negativeInfinity;
-    //   double minLng = double.infinity;
-    //   double maxLng = double.negativeInfinity;
-    //   int validLocationCount = 0;
+      // try {
+      //   double minLat = double.infinity;
+      //   double maxLat = double.negativeInfinity;
+      //   double minLng = double.infinity;
+      //   double maxLng = double.negativeInfinity;
+      //   int validLocationCount = 0;
 
-    //   for (final memory in memories) {
-    //     final lat = memory['location_latitude'] as double?;
-    //     final lng = memory['location_longitude'] as double?;
+      //   for (final memory in memories) {
+      //     final lat = memory['location_latitude'] as double?;
+      //     final lng = memory['location_longitude'] as double?;
 
-    //     if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
-    //       minLat = lat < minLat ? lat : minLat;
-    //       maxLat = lat > maxLat ? lat : maxLat;
-    //       minLng = lng < minLng ? lng : minLng;
-    //       maxLng = lng > maxLng ? lng : maxLng;
-    //       validLocationCount++;
-    //     }
-    //   }
+      //     if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
+      //       minLat = lat < minLat ? lat : minLat;
+      //       maxLat = lat > maxLat ? lat : maxLat;
+      //       minLng = lng < minLng ? lng : minLng;
+      //       maxLng = lng > maxLng ? lng : maxLng;
+      //       validLocationCount++;
+      //     }
+      //   }
 
-    //   // Check if we have any valid locations
-    //   if (validLocationCount == 0) {
-    //     final defaultZoom = MapboxZoomHelper().defaultZoom.value;
-    //     currentZoom.value = defaultZoom;
-    //     return;
-    //   }
+      //   // Check if we have any valid locations
+      //   if (validLocationCount == 0) {
+      //     final defaultZoom = MapboxZoomHelper().defaultZoom.value;
+      //     currentZoom.value = defaultZoom;
+      //     return;
+      //   }
 
       // Calculate the spread (matching old controller logic)
       // final double latDiff = maxLat - minLat;
@@ -738,17 +836,12 @@ class MapControllerNew extends GetxController {
       // Update current zoom variable
       currentZoom.value = zoom;
 
-  final lat = sorted.last['location_latitude'] as double?;
-        final lng = sorted.last['location_longitude'] as double?;
+      final lat = sorted.last['location_latitude'] as double?;
+      final lng = sorted.last['location_longitude'] as double?;
       // Set camera to fit bounds with calculated zoom
       await mapboxMap!.flyTo(
         mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(
-             lng!,
-             lat!,
-            ),
-          ),
+          center: mapbox.Point(coordinates: mapbox.Position(lng!, lat!)),
           zoom: zoom,
           bearing: 0,
           pitch: 0,
@@ -3296,46 +3389,46 @@ class MapControllerNew extends GetxController {
             'match',
             ['get', 'latest_color_index'],
             0,
-            '#2196F3',
+            '#0080FF',
             1,
-            '#4CAF50',
+            '#0051FF',
             2,
-            '#FF9800',
+            '#2200FF',
             3,
-            '#9C27B0',
+            '#5E00FF',
             4,
-            '#F44336',
+            '#7700FF',
             5,
-            '#00BCD4',
+            '#A100FF',
             6,
-            '#FFEB3B',
+            '#E500FF',
             7,
-            '#795548',
+            '#FF00AE',
             8,
-            '#607D8B',
+            '#FF0073',
             9,
-            '#E91E63',
+            '#FF001E',
             10,
-            '#3F51B5',
+            '#FF5100',
             11,
-            '#009688',
+            '#FFA100',
             12,
-            '#FF5722',
+            '#FFD900',
             13,
-            '#8BC34A',
+            '#BBFF00',
             14,
-            '#CDDC39',
+            '#66FF00',
             15,
-            '#FFC107',
+            '#00FF73',
             16,
-            '#673AB7',
+            '#00EEFF',
             17,
-            '#00E676',
+            '#00A6FF',
             18,
-            '#FF1744',
+            '#0080FF',
             19,
-            '#2979FF',
-            '#4A90E2',
+            '#0051FF',
+            '#2200FF',
           ],
         );
       } catch (_) {}
@@ -4173,7 +4266,10 @@ class MapControllerNew extends GetxController {
 
         // var color = MemoryGeoJsonService.createYearColorExpression();
 
-        var index = MemoryGeoJsonService.getColorIndexForYear(int.parse(aYear), DateTime.now().year);
+        var index = MemoryGeoJsonService.getColorIndexForYear(
+          int.parse(aYear),
+         allMemoriesWithoutFilter,
+        );
         final double? startLat = a['location_latitude'];
         final double? startLng = a['location_longitude'];
         final double? endLat = b['location_latitude'];
@@ -4586,7 +4682,7 @@ class MapControllerNew extends GetxController {
       );
       // Convert memories to GeoJSON
       final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
-        memories,
+        memories, allMemoriesWithoutFilter
       );
       debugPrint('[MapControllerNew] ✅ GeoJSON created successfully');
 

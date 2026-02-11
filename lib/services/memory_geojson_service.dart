@@ -1,11 +1,13 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:get/get_rx/src/rx_types/rx_types.dart';
 
 /// Service for converting memories to GeoJSON format for MapBox native clustering
 class MemoryGeoJsonService {
   /// Convert memories to GeoJSON FeatureCollection for MapBox clustering
-  static String createGeoJsonFromMemories(List<Map<String, dynamic>> memories) {
+  static String createGeoJsonFromMemories(List<Map<String, dynamic>> memories, RxList<Map<String, dynamic>> allMemoriesWithoutFilter) {
     final features = <Map<String, dynamic>>[];
 
     // Calculate the latest memory year to use as base for color mapping
@@ -32,10 +34,7 @@ class MemoryGeoJsonService {
       // final toMemoryYear = endDate.year; // e.g., 2023
 
 
-      print('🛑🛑🛑🛑🛑 checcking geo js');
-
-      print('🛑🛑🛑🛑🛑ColorsExpressionData Results for year ${int.parse(year)} ${colors[getColorIndexForYear(int.parse(year), DateTime.now().year)]}');
-      // Create GeoJSON feature
+        // Create GeoJSON feature
       final feature = {
         'type': 'Feature',
         'geometry': {
@@ -50,10 +49,10 @@ class MemoryGeoJsonService {
           'memory_date': memory['date'],
           'has_images': images.isNotEmpty,
           'timestamp': memoryDate.millisecondsSinceEpoch, // 👈 ADD
-          'color_index': getColorIndexForYear(int.parse(year),  DateTime.now().year),
+          'color_index': getColorIndexForYear(int.parse(year), allMemoriesWithoutFilter),
           'memory_timestamp': memoryDate.millisecondsSinceEpoch,
           'has_audios': audios.isNotEmpty,
-          'color': colors[getColorIndexForYear(int.parse(year), DateTime.now().year)],
+          'color': colors[getColorIndexForYear(int.parse(year), allMemoriesWithoutFilter)],
           'image_count': images.length,
           'audio_count': audios.length,
           'location_name': memory['location_name'] ?? '',
@@ -112,37 +111,29 @@ class MemoryGeoJsonService {
     debugPrint('🎨 Year color index cache initialized with ${_yearColorIndexCache!.length} entries (${base - 100} to ${base + 20})');
   }
 
-  /// Get color index for year-based styling (matches map controller exactly)
-  /// [year] - The year to get the color index for
-  /// [baseYear] - Optional base year to use for color mapping. If null, uses cached base year.
-  static int getColorIndexForYear(int year, int? baseYear) {
-    // If baseYear is provided and different from cached base year, re-initialize
-    if (baseYear != null && baseYear != _cacheBaseYear) {
-      debugPrint('🎨 Base year mismatch: cached=$_cacheBaseYear, requested=$baseYear. Re-initializing...');
-      initializeYearColorIndexCache(baseYear: baseYear);
-    }
+  static int getColorIndexForYear(int year, RxList<Map<String, dynamic>> allMemoriesWithoutFilter) {
+   
+   Set<int> uniqueYears = {};
+for (final memory in allMemoriesWithoutFilter) {
+  if (memory['year'] != null) {
+    uniqueYears.add(int.parse(memory['year'].toString()));
+  }
+}
 
-    // Ensure cache is initialized (fallback in case it wasn't called at app launch)
-    if (!_isInitialized) {
-      debugPrint('⚠️ Year color index cache not initialized! Initializing now...');
-      initializeYearColorIndexCache(baseYear: baseYear);
-    }
+// if (uniqueYears.isNotEmpty) {
+int minYear = uniqueYears.reduce((a, b) => a < b ? a : b);
+int maxYear = uniqueYears.reduce((a, b) => a > b ? a : b);
+int range = (maxYear - minYear) + 1;
 
-    // Try to get from cache first
-    if (_yearColorIndexCache!.containsKey(year)) {
-      return _yearColorIndexCache![year]!;
-    }
+// Assuming 'targetYear' is the year you are currently processing
+int targetYear = year; 
 
-    // If year is not in cache (outside the pre-calculated range), calculate on-the-fly
-    final base = _cacheBaseYear ?? DateTime.now().year;
-    const colorCount = 20;
-    final yearDifference = year - base;
-    final colorIndex = (yearDifference % colorCount).abs();
+// 3. Calculate index based on range (0 to range-1)
+int yearDifference = targetYear - minYear;
+int colorIndex = (yearDifference % range).abs();
 
-    // Add to cache for future use
-    _yearColorIndexCache![year] = colorIndex;
-    debugPrint('🎨 Added year $year to cache (color index: $colorIndex)');
-
+// 4. Cache it
+_yearColorIndexCache![targetYear] = colorIndex;
     return colorIndex;
   }
 
@@ -170,28 +161,31 @@ class MemoryGeoJsonService {
 
 // - [ ] memory colors are not in the correct order they are random but they should have always the same rainbow 🌈 order
 
-  static const colors = [
-      '#2196F3', // Blue
-      '#4CAF50', // Green
-      '#FF9800', // Orange
-      '#9C27B0', // Purple
-      '#F44336', // Red
-      '#00BCD4', // Cyan
-      '#FFEB3B', // Yellow
-      '#795548', // Brown
-      '#607D8B', // Blue Grey
-      '#E91E63', // Pink
-      '#3F51B5', // Indigo
-      '#009688', // Teal
-      '#FF5722', // Deep Orange
-      '#8BC34A', // Light Green
-      '#CDDC39', // Lime
-      '#FFC107', // Amber
-      '#673AB7', // Deep Purple
-      '#00E676', // Green Accent
-      '#FF1744', // Red Accent
-      '#2979FF', // Blue Accent
-    ];
+
+
+ static const colors = [
+  '#0080FF', // 1
+  '#0051FF', // 2
+  '#2200FF', // 3
+  '#5E00FF', // 4
+  '#7700FF', // 5
+  '#A100FF', // 6
+  '#E500FF', // 7
+  '#FF00AE', // 8
+  '#FF0073', // 9
+  '#FF001E', // 10
+  '#FF5100', // 11
+  '#FFA100', // 12
+  '#FFD900', // 13
+  '#BBFF00', // 14
+  '#66FF00', // 15
+  '#00FF73', // 16
+  '#00EEFF', // 17
+  '#00A6FF', // 18
+  '#0080FF', // 1
+  '#0051FF', // 2
+  '#2200FF', // 3
+];
 
   /// Create year-based color expression for MapBox styling
   static List<dynamic> createYearColorExpression() {
@@ -320,90 +314,6 @@ class MemoryGeoJsonService {
     }
 
     return arrows;
-  }
-
-  /// Create GeoJSON for chronological arrows (for line layers)
-  static String createArrowLinesGeoJson(List<Map<String, dynamic>> arrows) {
-    final features = <Map<String, dynamic>>[];
-
-    for (int i = 0; i < arrows.length; i++) {
-      final arrow = arrows[i];
-
-      final feature = {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'LineString',
-          'coordinates': [
-            [arrow['fromLongitude'], arrow['fromLatitude']],
-            [arrow['toLongitude'], arrow['toLatitude']],
-          ],
-        },
-        'properties': {
-          'arrow_id': 'arrow_$i',
-          'from_memory_id': arrow['fromMemoryId'],
-          'to_memory_id': arrow['toMemoryId'],
-          'from_date': (arrow['fromDate'] as DateTime).toIso8601String(),
-          'to_date': (arrow['toDate'] as DateTime).toIso8601String(),
-          'year': (arrow['toDate'] as DateTime).year,
-          'color_index': getColorIndexForYear(
-            (arrow['toDate'] as DateTime).year, DateTime.now().year
-          ),
-        },
-      };
-
-      features.add(feature);
-    }
-
-    final geoJson = {'type': 'FeatureCollection', 'features': features};
-
-    return jsonEncode(geoJson);
-  }
-
-  /// Create GeoJSON for arrow heads (point markers at arrow tips)
-  static String createArrowHeadsGeoJson(List<Map<String, dynamic>> arrows) {
-    final features = <Map<String, dynamic>>[];
-
-    for (int i = 0; i < arrows.length; i++) {
-      final arrow = arrows[i];
-
-      // Calculate arrow head position (80% along the line, like in map controller)
-      const t = 0.8;
-      final fromLat = arrow['fromLatitude'] as double;
-      final fromLng = arrow['fromLongitude'] as double;
-      final toLat = arrow['toLatitude'] as double;
-      final toLng = arrow['toLongitude'] as double;
-
-      final arrowHeadLat = fromLat + (toLat - fromLat) * t;
-      final arrowHeadLng = fromLng + (toLng - fromLng) * t;
-
-      // Calculate bearing for arrow rotation
-      final bearing = _calculateBearing(fromLat, fromLng, toLat, toLng);
-
-      final feature = {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [arrowHeadLng, arrowHeadLat],
-        },
-        'properties': {
-          'arrow_head_id': 'arrow_head_$i',
-          'arrow_id': 'arrow_$i',
-          'bearing': bearing,
-          'year': (arrow['toDate'] as DateTime).year,
-          'color_index': getColorIndexForYear(
-            (arrow['toDate'] as DateTime).year, DateTime.now().year,
-          ),
-          'from_memory_id': arrow['fromMemoryId'],
-          'to_memory_id': arrow['toMemoryId'],
-        },
-      };
-
-      features.add(feature);
-    }
-
-    final geoJson = {'type': 'FeatureCollection', 'features': features};
-
-    return jsonEncode(geoJson);
   }
 
   /// Calculate bearing between two points (for arrow rotation)

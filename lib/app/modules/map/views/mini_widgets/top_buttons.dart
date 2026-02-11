@@ -184,10 +184,8 @@ class MapTopButtons extends StatelessWidget {
                       var result = await Get.to(() => AddMemoriesView());
                       addMemoriesController.isOpenedFromMap = false;
 
-                      // if(result != null && result) {
-                       
-                      // }
                       print('Getting back from Add Memories Search');
+
                         // addMemoriesController.isOpenedFromMap = false;
                     },
                     child: Container(

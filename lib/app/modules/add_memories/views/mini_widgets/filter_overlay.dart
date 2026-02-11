@@ -209,442 +209,440 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: SafeArea(
-                  child: Obx(
-                    () => FilterPanel(
-                      onBack: () {
-                        controller.closeFilter();
-                        mapController?.isFilterOpen.value = false;
-                      },
-                      onReset: () async {
-                        debugPrint('[FilterOverlay] 🔄 Resetting all filters EXCEPT search...');
-
-                        final mapController = Get.find<MapControllerNew>();
-                        final filterController = Get.find<FilterController>();
-
-                        // Clear all filters EXCEPT search from FilterController
-                        filterController.resetFiltersExceptSearch();
-
-                        debugPrint('[FilterOverlay] ✅ Filters reset (search preserved: "${filterController.searchedTextKeyword.value}")');
-
-                        // Close filter overlay and reload with delay
-                        Future.delayed(Duration(milliseconds: 500), () {
-                          closefilterAndReset(mapController, filterController);
-                        });
-                      },
-                      onApply: () async {
-                        final mapController = Get.find<MapControllerNew>();
-
-                        // Apply filters (this will clear memory ID filters automatically)
-                        debugPrint('[FilterOverlay] 🎯 Applying filters from overlay');
-                        controller.applyFilters();
-
-                        mapController.closeFilter();
-                        await mapController.loadFilteredMemoriesFromDB();
-                        mapController.handleFilterApplyFromMap();
-                      },
-                      hideButtons:
-                          _focusedSearchField
-                              .value
-                              .isNotEmpty, // Hide buttons when any search field is focused
-                      children: [
-                        // Date range filters - Hidden when any search field is focused
-                        Obx(
-                          () =>
-                              _focusedSearchField.value.isNotEmpty
-                                  ? const SizedBox.shrink()
-                                  : const Row(
-                                    children: [
-                                      Expanded(
-                                        child: MemoriesFilterTextFieldRow(
-                                          imagePath: AppImages.calendar,
-                                          hint: 'From Date',
-                                          borderRadius: 5,
-                                        ),
-                                      ),
-                                      SizedBox(width: 5),
-                                      Expanded(
-                                        child: MemoriesFilterTextFieldRow(
-                                          imagePath: AppImages.calendar,
-                                          hint: 'To Date',
-                                          borderRadius: 5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                        ),
-
-                        // Location filter (includes radius) - Hidden when any search field is focused
-                        Obx(
-                          () =>
-                              _focusedSearchField.value.isNotEmpty
-                                  ? const SizedBox.shrink()
-                                  : const MemoriesFilterTextFieldRow(
-                                    imagePath: AppImages.location,
-                                    hint: 'Location',
-                                    borderRadius: 5,
-                                  ),
-                        ),
-
-                        Obx(
-                          () =>
-                              _focusedSearchField.value.isNotEmpty
-                                  ? const SizedBox.shrink()
-                                  : const SizedBox(height: 2),
-                        ),
-
-                        // Search Places Categories - Hidden when hashtags or contacts are focused
-                        Obx(
-                          () =>
-                              (_focusedSearchField.value == 'hashtags' ||
-                                      _focusedSearchField.value == 'contacts')
-                                  ? const SizedBox.shrink()
-                                  : Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      SearchableCategoryWidget(
-                                        title: 'Search Places Categories',
-                                        onCategorySelected: (category) {
-                                          // Use addCategoryGroup to handle both main categories and subcategories properly
-                                          controller.addCategoryGroup(category);
-                                          final categoryWithEmoji =
-                                              category.emoji.isNotEmpty
-                                                  ? '${category.emoji} ${category.name}'
-                                                  : category.name;
-                                          debugPrint(
-                                            '[FilterOverlay] Added category: $categoryWithEmoji',
-                                          );
-                                        },
-                                        onMultipleCategoriesSelectedFromPicker: (
-                                          categories,
-                                        ) {
-                                          // Replace entire selection when coming back from picker
-                                          controller.replaceSelectedCategories(
-                                            categories,
-                                          );
-                                          debugPrint(
-                                            '[FilterOverlay] Replaced categories with ${categories.length} new categories',
-                                          );
-                                        },
-                                        onFocusChanged:
-                                            _onCategorySearchFocusChanged, // Hide top views when focused
-                                        saveToRecent:
-                                            true, // Show recent categories in filter context
-                                        showActionButtons:
-                                            true, // Show "See List" button in filter context
-                                        showAddNewButton:
-                                            false, // Hide "Add new" button in filter context
-                                        previouslySelectedCategories:
-                                            controller.selectedCategories
-                                                .toList(), // Pass previously selected categories
-                                        isInFilterMode:
-                                            true, // Remove bottom padding in filter mode
-                                        backgroundColor:
-                                            uiController.darkMode.value
-                                                ? Colors.white.withValues(
-                                                  alpha: 0.2,
-                                                )
-                                                : Colors.white,
+                child: FilterPanel(
+                    onBack: () {
+                      controller.closeFilter();
+                      mapController?.isFilterOpen.value = false;
+                    },
+                    onReset: () async {
+                      debugPrint('[FilterOverlay] 🔄 Resetting all filters EXCEPT search...');
+                
+                      final mapController = Get.find<MapControllerNew>();
+                      final filterController = Get.find<FilterController>();
+                
+                      // Clear all filters EXCEPT search from FilterController
+                      filterController.resetFiltersExceptSearch();
+                
+                      debugPrint('[FilterOverlay] ✅ Filters reset (search preserved: "${filterController.searchedTextKeyword.value}")');
+                
+                      // Close filter overlay and reload with delay
+                      Future.delayed(Duration(milliseconds: 500), () {
+                        closefilterAndReset(mapController, filterController);
+                      });
+                    },
+                    onApply: () async {
+                      final mapController = Get.find<MapControllerNew>();
+                
+                      // Apply filters (this will clear memory ID filters automatically)
+                      debugPrint('[FilterOverlay] 🎯 Applying filters from overlay');
+                      controller.applyFilters();
+                
+                      mapController.closeFilter();
+                      await mapController.loadFilteredMemoriesFromDB();
+                      mapController.handleFilterApplyFromMap();
+                    },
+                    hideButtons:
+                        _focusedSearchField
+                            .value
+                            .isNotEmpty, // Hide buttons when any search field is focused
+                    children: [
+                      // Date range filters - Hidden when any search field is focused
+                      Obx(
+                        () =>
+                            _focusedSearchField.value.isNotEmpty
+                                ? const SizedBox.shrink()
+                                : const Row(
+                                  children: [
+                                    Expanded(
+                                      child: MemoriesFilterTextFieldRow(
+                                        imagePath: AppImages.calendar,
+                                        hint: 'From Date',
                                         borderRadius: 5,
                                       ),
-
-                                      // Selected categories chips
-                                      Obx(() {
-                                        if (controller
-                                            .selectedCategories
-                                            .isEmpty) {
-                                          return const SizedBox.shrink();
-                                        }
-
-                                        return Container(
-                                          padding: const EdgeInsets.all(8),
-                                          child: Wrap(
-                                            spacing: 8,
-                                            runSpacing: 4,
-                                            children:
-                                                controller.displayCategories.map((
-                                                  categoryName,
-                                                ) {
-                                                  // Extract emoji and name from categoryName using helper method
-                                                  String emoji = '';
-                                                  String displayName =
-                                                      _extractNamePart(
-                                                        categoryName,
-                                                      );
-
-                                                  // Get emoji if present
-                                                  if (categoryName.contains(
-                                                        ' ',
-                                                      ) &&
-                                                      categoryName.length > 2) {
-                                                    final parts = categoryName
-                                                        .split(' ');
-                                                    if (parts.isNotEmpty &&
-                                                        _isEmoji(parts[0])) {
-                                                      emoji = parts[0];
-                                                    }
-                                                  }
-
-                                                  // If no name part extracted, use full category name
-                                                  if (displayName.isEmpty) {
-                                                    displayName = categoryName;
-                                                  }
-
-                                                  return Chip(
-                                                    label: Text(
-                                                      displayName.isNotEmpty
-                                                          ? '$emoji $displayName'
-                                                          : '$categoryName',
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                    deleteIcon: const Icon(
-                                                      Icons.close,
-                                                      size: 16,
-                                                    ),
-                                                    onDeleted: () {
-                                                      debugPrint(
-                                                        'Removing category: $categoryName',
-                                                      );
-                                                      controller.removeCategory(
-                                                        categoryName,
-                                                      );
-                                                    },
-                                                    backgroundColor:
-                                                        uiController
-                                                                .darkMode
-                                                                .value
-                                                            ? Colors.white
-                                                                .withValues(
-                                                                  alpha: 0.2,
-                                                                )
-                                                            : Colors.blue
-                                                                .withValues(
-                                                                  alpha: 0.1,
-                                                                ),
-                                                  );
-                                                }).toList(),
-                                          ),
-                                        );
-                                      }),
-                                    ],
-                                  ),
-                        ),
-
-                        // Spacing between Search Place Categories and Search Hashtags - Hidden when contacts are focused
-                        Obx(
-                          () =>
-                              _focusedSearchField.value == 'contacts'
-                                  ? const SizedBox.shrink()
-                                  : const SizedBox(height: 4),
-                        ),
-
-                        // Search Hashtags - Hidden when contacts are focused
-                        Obx(
-                          () =>
-                              _focusedSearchField.value == 'contacts'
-                                  ? const SizedBox.shrink()
-                                  : Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      SearchableHashtagWidget(
-                                        title: 'Search Hashtags',
-                                        onHashtagSelected: (hashtag) {
-                                          controller.addHashtag(hashtag);
-                                          debugPrint(
-                                            '[FilterOverlay] Added hashtag: $hashtag',
-                                          );
-                                        },
-                                        onGroupSelected: (group) {
-                                          controller.addHashtagGroup(group);
-                                          debugPrint(
-                                            '[FilterOverlay] Added hashtag group: ${group.name}',
-                                          );
-                                        },
-                                        onMultipleGroupsSelectedFromPicker: (
-                                          groups,
-                                        ) {
-                                          // Replace entire selection when coming back from picker
-                                          controller.replaceSelectedHashtags(
-                                            groups,
-                                          );
-                                          debugPrint(
-                                            '[FilterOverlay] Replaced hashtags with ${groups.length} new groups',
-                                          );
-                                        },
-                                        onFocusChanged:
-                                            _onHashtagSearchFocusChanged, // Hide top views when focused
-                                        previouslySelectedHashtags:
-                                            controller.selectedHashtags
-                                                .toList(), // Pass previously selected hashtags
-                                        isInFilterMode:
-                                            true, // Remove bottom padding in filter mode
-                                        backgroundColor:
-                                            uiController.darkMode.value
-                                                ? Colors.white.withValues(
-                                                  alpha: 0.2,
-                                                )
-                                                : Colors.white,
+                                    ),
+                                    SizedBox(width: 5),
+                                    Expanded(
+                                      child: MemoriesFilterTextFieldRow(
+                                        imagePath: AppImages.calendar,
+                                        hint: 'To Date',
                                         borderRadius: 5,
                                       ),
-
-                                      // Selected hashtags chips
-                                      Obx(() {
-                                        if (controller
-                                            .selectedHashtags
-                                            .isEmpty) {
-                                          return const SizedBox.shrink();
-                                        }
-
-                                        return Container(
-                                          padding: const EdgeInsets.all(8),
-                                          child: Wrap(
-                                            spacing: 8,
-                                            runSpacing: 4,
-                                            children:
-                                                controller.displayHashtags.map((
-                                                  hashtag,
-                                                ) {
-                                                  return Chip(
-                                                    label: Text(
-                                                      '#$hashtag',
-                                                      style:
-                                                          GoogleFonts.kumbhSans(
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight.w400,
-                                                          ),
-                                                    ),
-                                                    deleteIcon: const Icon(
-                                                      Icons.close,
-                                                      size: 16,
-                                                    ),
-                                                    onDeleted: () {
-                                                      debugPrint(
-                                                        'Removing hashtag: $hashtag',
-                                                      );
-                                                      controller.removeHashtag(
-                                                        hashtag,
-                                                      );
-                                                    },
-                                                    backgroundColor:
-                                                        uiController
-                                                                .darkMode
-                                                                .value
-                                                            ? Colors.white
-                                                                .withValues(
-                                                                  alpha: 0.2,
-                                                                )
-                                                            : Colors.blue
-                                                                .withValues(
-                                                                  alpha: 0.1,
-                                                                ),
-                                                  );
-                                                }).toList(),
-                                          ),
-                                        );
-                                      }),
-                                    ],
-                                  ),
-                        ),
-
-                        // Spacing between Search Hashtags and Search Contacts
-                        const SizedBox(height: 4),
-
-                        // Search Contacts - Using SearchableContactWidget
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Obx(
-                              () => SearchableContactWidget(
-                                title: 'Search Contacts',
-                                onContactSelected: (contact) {
-                                  controller.addContact(contact);
-                                  debugPrint(
-                                    '[FilterOverlay] Added contact: $contact',
-                                  );
-                                },
-                                onGroupSelected: (group) {
-                                  controller.addContactGroup(group);
-                                  debugPrint(
-                                    '[FilterOverlay] Added contact group: ${group.name}',
-                                  );
-                                },
-                                onMultipleGroupsSelectedFromPicker: (groups) {
-                                  // Replace entire selection when coming back from picker
-                                  controller.replaceSelectedContacts(groups);
-                                  debugPrint(
-                                    '[FilterOverlay] Replaced contacts with ${groups.length} new groups',
-                                  );
-                                },
-                                onFocusChanged:
-                                    _onContactSearchFocusChanged, // Hide top views when focused
-                                previouslySelectedContacts:
-                                    controller.selectedContacts
-                                        .toList(), // Pass previously selected contacts
-                                isInFilterMode:
-                                    true, // Remove bottom padding in filter mode
-                                backgroundColor:
-                                    uiController.darkMode.value
-                                        ? Colors.white.withValues(alpha: 0.2)
-                                        : Colors.white,
-                                borderRadius: 5,
-                              ),
-                            ),
-
-                            // Selected contacts chips
-                            Obx(() {
-                              if (controller.selectedContacts.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
-
-                              return Container(
-                                padding: const EdgeInsets.all(8),
-                                child: Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children:
-                                      controller.displayContacts.map((contact) {
-                                        return Chip(
-                                          label: Text(
-                                            '@$contact',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          deleteIcon: const Icon(
-                                            Icons.close,
-                                            size: 16,
-                                          ),
-                                          onDeleted: () {
-                                            debugPrint(
-                                              'Removing contact: $contact',
-                                            );
-                                            controller.removeContact(contact);
-                                          },
-                                          backgroundColor:
-                                              uiController.darkMode.value
-                                                  ? Colors.white.withValues(
-                                                    alpha: 0.2,
-                                                  )
-                                                  : Colors.blue.withValues(
-                                                    alpha: 0.1,
-                                                  ),
-                                        );
-                                      }).toList(),
+                                    ),
+                                  ],
                                 ),
-                              );
-                            }),
-                          ],
-                        ),
-                      ],
-                    ),
+                      ),
+                
+                      // Location filter (includes radius) - Hidden when any search field is focused
+                      Obx(
+                        () =>
+                            _focusedSearchField.value.isNotEmpty
+                                ? const SizedBox.shrink()
+                                : const MemoriesFilterTextFieldRow(
+                                  imagePath: AppImages.location,
+                                  hint: 'Location',
+                                  borderRadius: 5,
+                                ),
+                      ),
+                
+                      Obx(
+                        () =>
+                            _focusedSearchField.value.isNotEmpty
+                                ? const SizedBox.shrink()
+                                : const SizedBox(height: 2),
+                      ),
+                
+                      // Search Places Categories - Hidden when hashtags or contacts are focused
+                      Obx(
+                        () =>
+                            (_focusedSearchField.value == 'hashtags' ||
+                                    _focusedSearchField.value == 'contacts')
+                                ? const SizedBox.shrink()
+                                : Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    SearchableCategoryWidget(
+                                      title: 'Search Places Categories',
+                                      onCategorySelected: (category) {
+                                        // Use addCategoryGroup to handle both main categories and subcategories properly
+                                        controller.addCategoryGroup(category);
+                                        final categoryWithEmoji =
+                                            category.emoji.isNotEmpty
+                                                ? '${category.emoji} ${category.name}'
+                                                : category.name;
+                                        debugPrint(
+                                          '[FilterOverlay] Added category: $categoryWithEmoji',
+                                        );
+                                      },
+                                      onMultipleCategoriesSelectedFromPicker: (
+                                        categories,
+                                      ) {
+                                        // Replace entire selection when coming back from picker
+                                        controller.replaceSelectedCategories(
+                                          categories,
+                                        );
+                                        debugPrint(
+                                          '[FilterOverlay] Replaced categories with ${categories.length} new categories',
+                                        );
+                                      },
+                                      onFocusChanged:
+                                          _onCategorySearchFocusChanged, // Hide top views when focused
+                                      saveToRecent:
+                                          true, // Show recent categories in filter context
+                                      showActionButtons:
+                                          true, // Show "See List" button in filter context
+                                      showAddNewButton:
+                                          false, // Hide "Add new" button in filter context
+                                      previouslySelectedCategories:
+                                          controller.selectedCategories
+                                              .toList(), // Pass previously selected categories
+                                      isInFilterMode:
+                                          true, // Remove bottom padding in filter mode
+                                      backgroundColor:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(
+                                                alpha: 0.2,
+                                              )
+                                              : Colors.white,
+                                      borderRadius: 5,
+                                    ),
+                
+                                    // Selected categories chips
+                                    Obx(() {
+                                      if (controller
+                                          .selectedCategories
+                                          .isEmpty) {
+                                        return const SizedBox.shrink();
+                                      }
+                
+                                      return Container(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children:
+                                              controller.displayCategories.map((
+                                                categoryName,
+                                              ) {
+                                                // Extract emoji and name from categoryName using helper method
+                                                String emoji = '';
+                                                String displayName =
+                                                    _extractNamePart(
+                                                      categoryName,
+                                                    );
+                
+                                                // Get emoji if present
+                                                if (categoryName.contains(
+                                                      ' ',
+                                                    ) &&
+                                                    categoryName.length > 2) {
+                                                  final parts = categoryName
+                                                      .split(' ');
+                                                  if (parts.isNotEmpty &&
+                                                      _isEmoji(parts[0])) {
+                                                    emoji = parts[0];
+                                                  }
+                                                }
+                
+                                                // If no name part extracted, use full category name
+                                                if (displayName.isEmpty) {
+                                                  displayName = categoryName;
+                                                }
+                
+                                                return Chip(
+                                                  label: Text(
+                                                    displayName.isNotEmpty
+                                                        ? '$emoji $displayName'
+                                                        : '$categoryName',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                  deleteIcon: const Icon(
+                                                    Icons.close,
+                                                    size: 16,
+                                                  ),
+                                                  onDeleted: () {
+                                                    debugPrint(
+                                                      'Removing category: $categoryName',
+                                                    );
+                                                    controller.removeCategory(
+                                                      categoryName,
+                                                    );
+                                                  },
+                                                  backgroundColor:
+                                                      uiController
+                                                              .darkMode
+                                                              .value
+                                                          ? Colors.white
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              )
+                                                          : Colors.blue
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
+                                                );
+                                              }).toList(),
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                ),
+                      ),
+                
+                      // Spacing between Search Place Categories and Search Hashtags - Hidden when contacts are focused
+                      Obx(
+                        () =>
+                            _focusedSearchField.value == 'contacts'
+                                ? const SizedBox.shrink()
+                                : const SizedBox(height: 4),
+                      ),
+                
+                      // Search Hashtags - Hidden when contacts are focused
+                      Obx(
+                        () =>
+                            _focusedSearchField.value == 'contacts'
+                                ? const SizedBox.shrink()
+                                : Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    SearchableHashtagWidget(
+                                      title: 'Search Hashtags',
+                                      onHashtagSelected: (hashtag) {
+                                        controller.addHashtag(hashtag);
+                                        debugPrint(
+                                          '[FilterOverlay] Added hashtag: $hashtag',
+                                        );
+                                      },
+                                      onGroupSelected: (group) {
+                                        controller.addHashtagGroup(group);
+                                        debugPrint(
+                                          '[FilterOverlay] Added hashtag group: ${group.name}',
+                                        );
+                                      },
+                                      onMultipleGroupsSelectedFromPicker: (
+                                        groups,
+                                      ) {
+                                        // Replace entire selection when coming back from picker
+                                        controller.replaceSelectedHashtags(
+                                          groups,
+                                        );
+                                        debugPrint(
+                                          '[FilterOverlay] Replaced hashtags with ${groups.length} new groups',
+                                        );
+                                      },
+                                      onFocusChanged:
+                                          _onHashtagSearchFocusChanged, // Hide top views when focused
+                                      previouslySelectedHashtags:
+                                          controller.selectedHashtags
+                                              .toList(), // Pass previously selected hashtags
+                                      isInFilterMode:
+                                          true, // Remove bottom padding in filter mode
+                                      backgroundColor:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(
+                                                alpha: 0.2,
+                                              )
+                                              : Colors.white,
+                                      borderRadius: 5,
+                                    ),
+                
+                                    // Selected hashtags chips
+                                    Obx(() {
+                                      if (controller
+                                          .selectedHashtags
+                                          .isEmpty) {
+                                        return const SizedBox.shrink();
+                                      }
+                
+                                      return Container(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children:
+                                              controller.displayHashtags.map((
+                                                hashtag,
+                                              ) {
+                                                return Chip(
+                                                  label: Text(
+                                                    '#$hashtag',
+                                                    style:
+                                                        GoogleFonts.kumbhSans(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w400,
+                                                        ),
+                                                  ),
+                                                  deleteIcon: const Icon(
+                                                    Icons.close,
+                                                    size: 16,
+                                                  ),
+                                                  onDeleted: () {
+                                                    debugPrint(
+                                                      'Removing hashtag: $hashtag',
+                                                    );
+                                                    controller.removeHashtag(
+                                                      hashtag,
+                                                    );
+                                                  },
+                                                  backgroundColor:
+                                                      uiController
+                                                              .darkMode
+                                                              .value
+                                                          ? Colors.white
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              )
+                                                          : Colors.blue
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
+                                                );
+                                              }).toList(),
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                ),
+                      ),
+                
+                      // Spacing between Search Hashtags and Search Contacts
+                      const SizedBox(height: 4),
+                
+                      // Search Contacts - Using SearchableContactWidget
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Obx(
+                            () => SearchableContactWidget(
+                              title: 'Search Contacts',
+                              onContactSelected: (contact) {
+                                controller.addContact(contact);
+                                debugPrint(
+                                  '[FilterOverlay] Added contact: $contact',
+                                );
+                              },
+                              onGroupSelected: (group) {
+                                controller.addContactGroup(group);
+                                debugPrint(
+                                  '[FilterOverlay] Added contact group: ${group.name}',
+                                );
+                              },
+                              onMultipleGroupsSelectedFromPicker: (groups) {
+                                // Replace entire selection when coming back from picker
+                                controller.replaceSelectedContacts(groups);
+                                debugPrint(
+                                  '[FilterOverlay] Replaced contacts with ${groups.length} new groups',
+                                );
+                              },
+                              onFocusChanged:
+                                  _onContactSearchFocusChanged, // Hide top views when focused
+                              previouslySelectedContacts:
+                                  controller.selectedContacts
+                                      .toList(), // Pass previously selected contacts
+                              isInFilterMode:
+                                  true, // Remove bottom padding in filter mode
+                              backgroundColor:
+                                  uiController.darkMode.value
+                                      ? Colors.white.withValues(alpha: 0.2)
+                                      : Colors.white,
+                              borderRadius: 5,
+                            ),
+                          ),
+                
+                          // Selected contacts chips
+                          Obx(() {
+                            if (controller.selectedContacts.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                
+                            return Container(
+                              padding: const EdgeInsets.all(8),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children:
+                                    controller.displayContacts.map((contact) {
+                                      return Chip(
+                                        label: Text(
+                                          '@$contact',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        deleteIcon: const Icon(
+                                          Icons.close,
+                                          size: 16,
+                                        ),
+                                        onDeleted: () {
+                                          debugPrint(
+                                            'Removing contact: $contact',
+                                          );
+                                          controller.removeContact(contact);
+                                        },
+                                        backgroundColor:
+                                            uiController.darkMode.value
+                                                ? Colors.white.withValues(
+                                                  alpha: 0.2,
+                                                )
+                                                : Colors.blue.withValues(
+                                                  alpha: 0.1,
+                                                ),
+                                      );
+                                    }).toList(),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
+                // ),
               ),
+          
             ],
           ),
         ),
