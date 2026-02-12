@@ -3423,16 +3423,16 @@ class MapControllerNew extends GetxController {
             16,
             '#00EEFF',
             17,
-            '#00A6FF',
+            '#004D99',
             18,
-            '#0080FF',
+            '#6600CC',
             19,
-            '#0051FF',
-            '#2200FF',
+            '#FF2D55',
+            '#004D99',
           ],
         );
       } catch (_) {}
-
+      
       // Optional: use expressions for circle-color / circle-radius by point_count
 
       // await mapboxMap!.style.setStyleLayerProperty(
