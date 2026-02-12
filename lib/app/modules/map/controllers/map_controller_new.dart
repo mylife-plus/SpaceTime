@@ -3433,23 +3433,6 @@ class MapControllerNew extends GetxController {
         );
       } catch (_) {}
       
-      // Optional: use expressions for circle-color / circle-radius by point_count
-
-      // await mapboxMap!.style.setStyleLayerProperty(
-      //   CLUSTERS_CIRCLE_LAYER_ID,
-      //   'circle-radius',
-      //   [
-      //     'step',
-      //     ['get', 'point_count'],
-      //     10.0,
-      //     100,
-      //     10.0,
-      //     750,
-      //     10.0,
-      //   ],
-      // );
-      try {} catch (_) {}
-
       try {
         await mapboxMap!.style.addLayer(
           mapbox.SymbolLayer(

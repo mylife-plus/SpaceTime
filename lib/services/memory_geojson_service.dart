@@ -127,7 +127,9 @@ int range = (maxYear - minYear) + 1;
 
 // Assuming 'targetYear' is the year you are currently processing
 int targetYear = year; 
-
+if(range > 20) {
+  range = 20;
+}
 // 3. Calculate index based on range (0 to range-1)
 int yearDifference = targetYear - minYear;
 int colorIndex = (yearDifference % range).abs();
@@ -182,9 +184,9 @@ _yearColorIndexCache![targetYear] = colorIndex;
   '#00FF73', // 16
   '#00EEFF', // 17
   '#00A6FF', // 18
-  '#0080FF', // 1
-  '#0051FF', // 2
-  '#2200FF', // 3
+  '#004D99', // 19 (deep navy blue - new)
+  '#6600CC', // 20 (royal violet - new)
+  '#FF2D55', // 21 (premium pink-red - new)
 ];
 
   /// Create year-based color expression for MapBox styling
