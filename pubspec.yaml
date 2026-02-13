@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.2
+  sdk: '>=3.6.1 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -66,6 +66,9 @@ dependencies:
 
   # Lat/Lng model + geodesic distance helpers
   latlong2: ^0.9.1
+  flutter_local_notifications: ^20.1.0
+  flutter_background_service: ^5.1.0
+  background_downloader: ^9.5.2
 dependency_overrides:
   csv: ^6.0.0
 

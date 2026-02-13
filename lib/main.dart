@@ -15,6 +15,7 @@ import 'package:spacetime/services/connectivity_service.dart';
 import 'package:spacetime/services/permission_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:background_downloader/background_downloader.dart';
 
 import 'app/modules/memories/controllers/memory_controller.dart';
 import 'app/modules/map/controllers/map_controller_new.dart';
@@ -41,7 +42,26 @@ import 'services/memory_geojson_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // Initialize background downloader with proper configuration
+  await FileDownloader().trackTasks();
+
+  // Configure background downloader for iOS
+  FileDownloader().configureNotification(
+    running: const TaskNotification('Downloading', 'Download in progress'),
+    complete: const TaskNotification('Download complete', 'File downloaded successfully'),
+    error: const TaskNotification('Download failed', 'An error occurred'),
+    paused: const TaskNotification('Download paused', 'Tap to resume'),
+    progressBar: true,
+  );
+
+  // Register background task callback
+  FileDownloader().registerCallbacks(
+    taskNotificationTapCallback: (task, notificationType) {
+      debugPrint('[BackgroundDownloader] Notification tapped: $notificationType');
+    },
+  );
+
   await NearestRegionService().loadFromAssets();
   await OfflineWaterService.instance.init(
     oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',

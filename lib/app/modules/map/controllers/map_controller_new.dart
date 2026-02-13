@@ -180,11 +180,35 @@ class MapControllerNew extends GetxController {
         hasLocationPermission.value = true;
 
         await _getCurrentLocation();
+
+        return;
       } else {
+
+         try {
+      // currentLocation.value = mapbox.Position(10.4515, 51.1657);
+      // Update current zoom level from MapboxZoomHelper
+      // currentZoom.value = MapboxZoomHelper().currentZoomAfterLocation.value;
+
+      await mapboxMap!.flyTo(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(10.4515, 51.1657),
+          ),
+          zoom: 2,
+          bearing: 0,
+          pitch: 0,
+        ),
+        mapbox.MapAnimationOptions(duration: 1500),
+      );
+    } catch (e) {
+      debugPrint('[MapControllerNew] ❌ Error moving camera: $e');
+    }
+    
         hasLocationPermission.value = false;
         locationStatus.value = 'Location permission required';
         isLoadingLocation.value =
             false; // Stop loading since we need user action
+            
       }
     } catch (e) {
       hasLocationPermission.value = false;
@@ -195,6 +219,8 @@ class MapControllerNew extends GetxController {
         isLoadingLocation.value = false;
       }
     }
+
+     
   }
 
   /// Check and request location permissions
@@ -383,6 +409,7 @@ class MapControllerNew extends GetxController {
     await clearAllLines();
 
     if (_currentMemories.isEmpty) {
+      _initializeMap();
       debugPrint('[MapControllerNew] ⚠️ No memories to display on map');
       return;
     }
@@ -2338,9 +2365,9 @@ class MapControllerNew extends GetxController {
   /// Start periodic zoom monitoring
   void _startZoomMonitoring() {
     // Check zoom level every 500ms
-    _zoomMonitorTimer = Timer.periodic(Duration(milliseconds: 500), (timer) {
-      _checkZoomChange();
-    });
+    // _zoomMonitorTimer = Timer.periodic(Duration(milliseconds: 500), (timer) {
+    //   _checkZoomChange();
+    // });
   }
 
   /// Check if zoom level has changed and update layers accordingly
@@ -3441,6 +3468,7 @@ class MapControllerNew extends GetxController {
             filter: ['has', 'point_count'],
             textField: '', // or null; gets overridden
             textSize: 14.0,
+            textHaloColor: 0xFF000000,
             textColor: 0xFFFFFFFF,
             textIgnorePlacement: true,
             textAllowOverlap: true,
@@ -4449,6 +4477,11 @@ class MapControllerNew extends GetxController {
     //     mapbox.MapAnimationOptions(duration: 1500),
     //   );
     // }
+  }
+
+  void setOptimalZoomForMemories() {
+    _setOptimalZoomForMemories(
+      _currentMemories);
   }
 
   // Helper: calculate bearing from base → tip in degrees

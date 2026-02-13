@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:background_downloader/background_downloader.dart';
 
 /// Service to download mbtiles file from server
 ///
@@ -64,7 +65,109 @@ class MbtilesDownloadService extends GetxController {
   final RxInt totalBytes = 0.obs;
 
   String? _localMbtilesPath;
-  CancelToken? _cancelToken;
+  DownloadTask? _backgroundTask;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _initializeBackgroundDownloader();
+    _checkForResumedDownloads();
+  }
+
+  /// Check for any downloads that were in progress when app was closed
+  Future<void> _checkForResumedDownloads() async {
+    try {
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final tasks = await FileDownloader().database.allRecords();
+      debugPrint('[MbtilesDownload] 🔍 Checking for resumed downloads: ${tasks.length} tasks found');
+
+      for (final record in tasks) {
+        if (record.task.filename == LOCAL_MBTILES_FILENAME) {
+          debugPrint('[MbtilesDownload] 🔄 Found existing download task: ${record.task.taskId}');
+          debugPrint('[MbtilesDownload] 🔄 Task status: ${record.status}');
+          debugPrint('[MbtilesDownload] 🔄 Task progress: ${record.progress}');
+
+          _backgroundTask = record.task as DownloadTask;
+
+          if (record.status == TaskStatus.running || record.status == TaskStatus.enqueued) {
+            isDownloading.value = true;
+            downloadProgress.value = record.progress;
+            statusText.value = "Resuming download...";
+            debugPrint('[MbtilesDownload] ▶️ Resuming download from ${(record.progress * 100).toStringAsFixed(1)}%');
+          } else if (record.status == TaskStatus.paused) {
+            downloadProgress.value = record.progress;
+            statusText.value = "Download paused at ${(record.progress * 100).toStringAsFixed(1)}%";
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Error checking for resumed downloads: $e');
+    }
+  }
+
+  Future<void> _initializeBackgroundDownloader() async {
+    await FileDownloader().trackTasks();
+
+    // Listen to ALL updates and filter by metadata or filename
+    FileDownloader().updates.listen((update) {
+      debugPrint('[MbtilesDownload] 🔔 Received update for task: ${update.task.taskId}');
+      debugPrint('[MbtilesDownload] 🔔 Task filename: ${update.task.filename}');
+      debugPrint('[MbtilesDownload] 🔔 Update type: ${update.runtimeType}');
+
+      // Match by filename instead of taskId since taskId changes between app restarts
+      if (update.task.filename == LOCAL_MBTILES_FILENAME) {
+        // Store the task reference if we don't have it
+        if (_backgroundTask == null || _backgroundTask!.taskId != update.task.taskId) {
+          _backgroundTask = update.task as DownloadTask;
+          debugPrint('[MbtilesDownload] 🔄 Updated background task reference: ${_backgroundTask!.taskId}');
+        }
+
+        if (update is TaskProgressUpdate) {
+          downloadProgress.value = update.progress;
+
+          debugPrint('[MbtilesDownload] 📊 Progress update: ${(update.progress * 100).toStringAsFixed(1)}%');
+          debugPrint('[MbtilesDownload] 📊 Expected file size: ${update.expectedFileSize}');
+          debugPrint('[MbtilesDownload] 📊 Network speed: ${update.networkSpeed}');
+          debugPrint('[MbtilesDownload] 📊 Time remaining: ${update.timeRemaining}');
+
+          if (update.expectedFileSize > 0) {
+            final received = (update.progress * update.expectedFileSize).toInt();
+            downloadedBytes.value = received;
+            totalBytes.value = update.expectedFileSize;
+
+            final receivedGB = (received / (1024 * 1024 * 1024)).toStringAsFixed(2);
+            final totalGB = (update.expectedFileSize / (1024 * 1024 * 1024)).toStringAsFixed(2);
+
+            statusText.value = "Downloading: $receivedGB GB / $totalGB GB";
+            debugPrint('[MbtilesDownload] 📊 Downloaded: $receivedGB GB / $totalGB GB');
+          } else {
+            final received = (update.progress * 1024 * 1024 * 1024).toInt();
+            final receivedGB = (received / (1024 * 1024 * 1024)).toStringAsFixed(2);
+            statusText.value = "Downloading: $receivedGB GB";
+            debugPrint('[MbtilesDownload] 📊 Downloaded: $receivedGB GB (size unknown)');
+          }
+        } else if (update is TaskStatusUpdate) {
+          debugPrint('[MbtilesDownload] 📡 Status update: ${update.status}');
+
+          if (update.status == TaskStatus.running) {
+            isDownloading.value = true;
+            statusText.value = "Downloading...";
+          } else if (update.status == TaskStatus.complete) {
+            isDownloading.value = false;
+            isCompleted.value = true;
+            statusText.value = "Download complete!";
+          } else if (update.status == TaskStatus.failed) {
+            isDownloading.value = false;
+            statusText.value = "Download failed";
+            hasError.value = true;
+          } else if (update.status == TaskStatus.paused) {
+            statusText.value = "Download paused";
+          }
+        }
+      }
+    });
+  }
 
   /// Get selected zoom level from preferences
   Future<int> getSelectedZoomLevel() async {
@@ -383,27 +486,12 @@ class MbtilesDownloadService extends GetxController {
         }
       }
 
-      // Create Dio instance with custom configuration
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(minutes: 5),
-        receiveTimeout: const Duration(hours: 2), // Large file needs more time
-        sendTimeout: const Duration(minutes: 5),
-        followRedirects: true,
-        maxRedirects: 10,
-        validateStatus: (status) => status! < 500,
-      ));
-
-      _cancelToken = CancelToken();
-
-      // Download from Cloudflare R2
       debugPrint('[MbtilesDownload] 📡 Preparing to download mbtiles from Cloudflare R2...');
       statusText.value = "Connecting to Cloudflare...";
 
-      // Get download URL for selected zoom level
       final downloadUrl = getDownloadUrl(selectedZoom);
 
-      // Prepare headers (add authentication if token is provided)
-      final headers = <String, dynamic>{};
+      final headers = <String, String>{};
       if (CLOUDFLARE_AUTH_TOKEN.isNotEmpty) {
         headers['Authorization'] = 'Bearer $CLOUDFLARE_AUTH_TOKEN';
         debugPrint('[MbtilesDownload] 🔐 Using authentication token');
@@ -412,49 +500,114 @@ class MbtilesDownloadService extends GetxController {
       debugPrint('[MbtilesDownload] 📥 Download URL: $downloadUrl');
       debugPrint('[MbtilesDownload] 🔢 Zoom level: $selectedZoom');
       debugPrint('[MbtilesDownload] 💾 Saving to: $localFilePath');
+      debugPrint('[MbtilesDownload] 📁 Directory: ${tilesDir.path}');
       statusText.value = "Starting download...";
 
-      // Download the file with progress tracking
-      await dio.download(
-        downloadUrl,
-        localFilePath,
-        cancelToken: _cancelToken,
-        options: Options(
-          headers: headers.isNotEmpty ? headers : null,
-          responseType: ResponseType.bytes,
+      // Check and request notification permission first
+      debugPrint('[MbtilesDownload] 🔔 Checking notification permission...');
+     
+      // Check and request background refresh permission on iOS
+      if (Platform.isIOS) {
+        debugPrint('[MbtilesDownload] 📱 Checking background app refresh permission...');
+        try {
+          final backgroundStatus = await Permission.backgroundRefresh.status;
+          debugPrint('[MbtilesDownload] 📱 Background refresh status: $backgroundStatus');
+
+          if (!backgroundStatus.isGranted) {
+            debugPrint('[MbtilesDownload] 📱 Background refresh not granted, opening settings...');
+            statusText.value = "Please enable Background App Refresh in Settings";
+            await openAppSettings();
+            await Future.delayed(const Duration(seconds: 2));
+            statusText.value = "Starting download...";
+          }
+        } catch (e) {
+          debugPrint('[MbtilesDownload] ⚠️ Error checking background refresh: $e');
+        }
+      }
+
+      _backgroundTask = DownloadTask(
+        url: downloadUrl,
+        filename: LOCAL_MBTILES_FILENAME,
+        directory: 'offline_tiles',
+        baseDirectory: BaseDirectory.applicationSupport,
+        updates: Updates.statusAndProgress,
+        requiresWiFi: false,
+        retries: 3,
+        allowPause: true,
+        metaData: 'mbtiles_download_zoom_$selectedZoom',
+        headers: headers.isNotEmpty ? headers : null,
+      );
+
+      debugPrint('[MbtilesDownload] 🎯 Created download task: ${_backgroundTask!.taskId}');
+      debugPrint('[MbtilesDownload] 🎯 Task URL: ${_backgroundTask!.url}');
+      debugPrint('[MbtilesDownload] 🎯 Task filename: ${_backgroundTask!.filename}');
+      debugPrint('[MbtilesDownload] 🎯 Task directory: ${_backgroundTask!.directory}');
+
+      // Configure notifications with more visible settings
+      FileDownloader().configureNotificationForGroup(
+        FileDownloader.defaultGroup,
+        running: const TaskNotification(
+          'Downloading Map Tiles',
+          'Download in progress',
         ),
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            downloadedBytes.value = received;
-            totalBytes.value = total;
-            downloadProgress.value = received / total;
+        complete: const TaskNotification(
+          'Download Complete!',
+          'Map tiles are ready to use',
+        ),
+        error: const TaskNotification(
+          'Download Failed',
+          'Please try again',
+        ),
+        paused: const TaskNotification(
+          'Download Paused',
+          'Tap to resume',
+        ),
+        progressBar: true,
+      );
+      final downloader = FileDownloader();
 
-            final receivedMB = (received / (1024 * 1024)).toStringAsFixed(1);
-            final totalMB = (total / (1024 * 1024)).toStringAsFixed(1);
-            final receivedGB = (received / (1024 * 1024 * 1024)).toStringAsFixed(2);
-            final totalGB = (total / (1024 * 1024 * 1024)).toStringAsFixed(2);
+await downloader.configure(
+  globalConfig: [
+    (Config.runInForeground, true),
+    //  (Config., true),
+  ],
+);
+      debugPrint('[MbtilesDownload] 🔔 Notifications configured');
 
-            statusText.value = "Downloading: $receivedGB GB / $totalGB GB";
+      debugPrint('[MbtilesDownload] 🚀 Starting download...');
 
-            // Log progress every 5%
-            final progressPercent = (downloadProgress.value * 100);
-            if (progressPercent % 5 < 0.1) {
-              debugPrint('[MbtilesDownload] 📊 Progress: ${progressPercent.toStringAsFixed(1)}% - $receivedGB GB / $totalGB GB');
-            }
-          } else {
-            // Total size unknown, just show received
-            final receivedMB = (received / (1024 * 1024)).toStringAsFixed(1);
-            final receivedGB = (received / (1024 * 1024 * 1024)).toStringAsFixed(2);
-            statusText.value = "Downloading: $receivedGB GB";
+      final result = await FileDownloader().download(
+        _backgroundTask!,
+        onProgress: (progress) {
+          downloadProgress.value = progress;
+          debugPrint('[MbtilesDownload] 📊 Progress: ${(progress * 100).toStringAsFixed(1)}%');
+        },
+        onStatus: (status) {
+          debugPrint('[MbtilesDownload] 📡 Status: $status');
 
-            // Log every 100MB when total is unknown
-            if (received % (100 * 1024 * 1024) < 1024 * 1024) {
-              debugPrint('[MbtilesDownload] 📊 Downloaded: $receivedGB GB ($receivedMB MB)');
-            }
+          if (status == TaskStatus.complete) {
+            debugPrint('[MbtilesDownload] ✅ Download completed successfully');
+            statusText.value = "Download completed!";
+          } else if (status == TaskStatus.failed) {
+            debugPrint('[MbtilesDownload] ❌ Download failed');
+            hasError.value = true;
+            errorMessage.value = "Download failed";
+            statusText.value = "Download failed";
+          } else if (status == TaskStatus.running) {
+            debugPrint('[MbtilesDownload] 🏃 Download running');
+            statusText.value = "Downloading...";
+          } else if (status == TaskStatus.enqueued) {
+            debugPrint('[MbtilesDownload] 📋 Download enqueued');
+            statusText.value = "Preparing...";
           }
         },
-        
       );
+
+      debugPrint('[MbtilesDownload] 🏁 Download result status: ${result.status}');
+
+      if (result.status != TaskStatus.complete) {
+        throw Exception('Download failed with status: ${result.status}');
+      }
 
       debugPrint('[MbtilesDownload] ✅ Download completed: $localFilePath');
 
@@ -541,17 +694,19 @@ Zoom Level: $selectedZoom
       return null;
     } finally {
       isDownloading.value = false;
-      _cancelToken = null;
+      _backgroundTask = null;
     }
   }
 
-  /// Cancel ongoing download
+  
+
   Future<void> cancelDownload() async {
-    if (_cancelToken != null && !_cancelToken!.isCancelled) {
-      _cancelToken!.cancel('Download cancelled by user');
+    if (_backgroundTask != null) {
+      await FileDownloader().cancelTaskWithId(_backgroundTask!.taskId);
       debugPrint('[MbtilesDownload] ❌ Download cancelled');
       statusText.value = "Download cancelled";
       isDownloading.value = false;
+      _backgroundTask = null;
     }
   }
 

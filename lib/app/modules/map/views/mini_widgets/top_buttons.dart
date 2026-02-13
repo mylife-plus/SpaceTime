@@ -226,6 +226,10 @@ class MapTopButtons extends StatelessWidget {
                   var result = await Get.to(() => AddMemoriesView());
 
                   if (result == true) {
+                      // final mapController = Get.find<MapControllerNew>();
+        // await mapController.loadMemoriesFromDB(mapController.currentMemories);
+        // mapController.showLoadedDataOnMap();
+// mapController.setOptimalZoomForMemories();
                     // controller.refreshLocation();
                   }
                 },

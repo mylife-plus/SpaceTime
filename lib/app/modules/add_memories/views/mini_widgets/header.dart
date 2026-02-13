@@ -174,7 +174,8 @@ class Header extends StatelessWidget {
               onTap: () async {
                 try {
                   // MapControllerNew is initialized in main.dart as permanent singleton
-                  // final mapController = Get.find<MapControllerNew>();
+                  final mapController = Get.find<MapControllerNew>();
+                  mapController.setOptimalZoomForMemories();
                   // await mapController.refreshMapView();
                   debugPrint('🌍 HEADER - Earth tapped: Refreshed map view');
 

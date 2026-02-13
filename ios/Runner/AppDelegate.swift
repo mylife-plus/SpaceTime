@@ -1,7 +1,7 @@
 import UIKit
 import Flutter
-import UIKit
 import CoreLocation
+import background_downloader
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -11,8 +11,19 @@ import CoreLocation
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
 
-        
+
     GeneratedPluginRegistrant.register(with: self)
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
+
+    // override func application(
+    //     _ application: UIApplication,
+    //     handleEventsForBackgroundURLSession identifier: String,
+    //     completionHandler: @escaping () -> Void
+    // ) {
+    //     FileDownloaderPlugin.handleEvents(
+    //         forBackgroundURLSession: identifier,
+    //         completionHandler: completionHandler
+    //     )
+    // }
 }

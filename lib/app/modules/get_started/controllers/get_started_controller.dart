@@ -310,6 +310,64 @@ class GetStartedController extends GetxController {
     }
 
     try {
+      // Check and request notification permission first
+      debugPrint('[GetStartedController] 🔔 Checking notification permission...');
+      statusText.value = "Checking permissions...";
+
+      final notificationStatus = await Permission.notification.status;
+      debugPrint('[GetStartedController] 🔔 Notification status: $notificationStatus');
+
+      if (!notificationStatus.isGranted) {
+        debugPrint('[GetStartedController] 🔔 Requesting notification permission...');
+        final result = await Permission.notification.request();
+        debugPrint('[GetStartedController] 🔔 Notification permission result: $result');
+
+        if (!result.isGranted) {
+          debugPrint('[GetStartedController] ⚠️ Notification permission denied');
+        }
+      }
+
+      // Check and request background refresh permission on iOS
+      // if (Platform.isIOS) {
+        debugPrint('[GetStartedController] 📱 Checking background app refresh permission...');
+
+        final backgroundStatus = await Permission.backgroundRefresh.status;
+        debugPrint('[GetStartedController] 📱 Background refresh status: $backgroundStatus');
+
+        if (!backgroundStatus.isGranted) {
+          debugPrint('[GetStartedController] 📱 Background refresh not granted, opening settings...');
+          statusText.value = "Please enable Background App Refresh in Settings";
+
+          // Show dialog to user
+          await Get.dialog(
+            AlertDialog(
+              title: const Text('Background App Refresh Required'),
+              content: const Text(
+                'To download map tiles in the background, please enable Background App Refresh in Settings.\n\n'
+                'Settings > SpaceTime > Background App Refresh',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Get.back(),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Get.back();
+                    openAppSettings();
+                  },
+                  child: const Text('Open Settings'),
+                ),
+              ],
+            ),
+            barrierDismissible: false,
+          );
+
+          statusText.value = "Ready to download";
+          return;
+        }
+      // }
+
       debugPrint('[GetStartedController] 🚀 Starting mbtiles download from Cloudflare R2...');
       debugPrint('[GetStartedController] 🔢 Selected zoom level: ${selectedZoomLevel.value}');
 
