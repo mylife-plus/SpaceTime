@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -12,6 +13,9 @@ import '../../../routes/app_pages.dart';
 import '../../../../services/mbtiles_download_service.dart';
 import '../../../../services/mbtiles_server_service.dart';
 import '../../../../services/style_json_download_service.dart';
+
+const String PREFS_KEY_MBTILES_DOWNLOADED = 'mbtiles_downloaded';
+const String PREFS_KEY_MBTILES_PATH = 'mbtiles_path';
 
 class GetStartedController extends GetxController {
   // Dependencies
@@ -73,81 +77,98 @@ class GetStartedController extends GetxController {
       _initializeServices();
     }
 
-    // 1. First, always check and request location permissions
     await _checkAndRequestLocationPermissions();
 
-    // 2. Check if mbtiles are already downloaded AND download was completed
     if (_mbtilesDownloadService != null) {
-      final isAlreadyDownloaded = await _mbtilesDownloadService!.isMbtilesDownloaded();
-      final tilesPath = _mbtilesDownloadService!.getLocalMbtilesPath();
-
-      // Check if download was completed (not just if file exists)
       final prefs = await SharedPreferences.getInstance();
-      var downloadCompleted = prefs.getBool('mbtiles_download_completed') ?? false;
 
-      // Migration: If tiles exist and are valid, but flag is not set, set it now
-      if (isAlreadyDownloaded && tilesPath != null && !downloadCompleted) {
-        debugPrint('[GetStartedController] 🔄 Migration: Tiles exist but completion flag not set. Setting it now...');
-        await prefs.setBool('mbtiles_download_completed', true);
-        downloadCompleted = true;
-        debugPrint('[GetStartedController] ✅ Migration complete: mbtiles_download_completed flag set to true');
+      var downloadCompleted = prefs.getBool('mbtiles_download_completed') ?? false;
+      final savedPath = prefs.getString(PREFS_KEY_MBTILES_PATH);
+
+      debugPrint('[GetStartedController] 🔍 Initial preference check:');
+      debugPrint('[GetStartedController]    - downloadCompleted: $downloadCompleted');
+      debugPrint('[GetStartedController]    - savedPath: $savedPath');
+
+      bool fileExistsAndValid = false;
+      String? tilesPath;
+
+      if (savedPath != null) {
+        final file = File(savedPath);
+        if (await file.exists()) {
+          final fileSize = await file.length();
+          final fileSizeGB = (fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2);
+          const minExpectedSize = 4 * 1024 * 1024 * 1024;
+
+          debugPrint('[GetStartedController] 📁 File found at: $savedPath');
+          debugPrint('[GetStartedController] 📊 File size: $fileSizeGB GB');
+
+          if (fileSize >= minExpectedSize) {
+            fileExistsAndValid = true;
+            tilesPath = savedPath;
+            debugPrint('[GetStartedController] ✅ File size validation passed');
+          } else {
+            debugPrint('[GetStartedController] ⚠️ File size too small, expected at least 4GB');
+          }
+        } else {
+          debugPrint('[GetStartedController] ⚠️ File does not exist at saved path');
+        }
       }
 
-      debugPrint('[GetStartedController] 🔍 Tile check results:');
-      debugPrint('[GetStartedController]    - isAlreadyDownloaded: $isAlreadyDownloaded');
-      debugPrint('[GetStartedController]    - tilesPath: $tilesPath');
+      bool styleJsonExists = false;
+      if (_styleJsonDownloadService != null) {
+        styleJsonExists = await _styleJsonDownloadService!.isStyleJsonDownloaded();
+        debugPrint('[GetStartedController] 🎨 Style.json exists: $styleJsonExists');
+      }
+
+      if (fileExistsAndValid && styleJsonExists && !downloadCompleted) {
+        debugPrint('[GetStartedController] 🔄 Both files exist but not marked complete - updating preferences...');
+        await prefs.setBool('mbtiles_download_completed', true);
+        await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
+        await prefs.setString(PREFS_KEY_MBTILES_PATH, tilesPath!);
+        downloadCompleted = true;
+        debugPrint('[GetStartedController] ✅ Preferences updated');
+      }
+
+      debugPrint('[GetStartedController] 🔍 Final check results:');
+      debugPrint('[GetStartedController]    - fileExistsAndValid: $fileExistsAndValid');
+      debugPrint('[GetStartedController]    - styleJsonExists: $styleJsonExists');
       debugPrint('[GetStartedController]    - downloadCompleted: $downloadCompleted');
 
-      if (isAlreadyDownloaded && tilesPath != null && downloadCompleted) {
-        debugPrint('[GetStartedController] ✅ MBTiles already downloaded and completed at: $tilesPath');
+      if (fileExistsAndValid && styleJsonExists && downloadCompleted && tilesPath != null) {
+        debugPrint('[GetStartedController] ✅ All files downloaded and verified');
 
-        // Mark that tiles were already downloaded
         tilesAlreadyDownloaded.value = true;
-        debugPrint('[GetStartedController] 📚 Set tilesAlreadyDownloaded = true (book will be 20% smaller)');
 
-        // Start the tile server
         await _startTileServer(tilesPath);
 
-        // Show Get Started screen for at least 3 seconds before navigating
-        debugPrint('[GetStartedController] Showing Get Started screen for 3 seconds...');
         isCheckingTiles.value = false;
-
-        // Show the welcome animation/screen
         showWelcomeAnimation.value = true;
 
-        // Wait for 3 seconds
-        await Future.delayed(const Duration(seconds: 4 ));
+        await Future.delayed(const Duration(seconds: 4));
 
-        // Navigate to map after 3 seconds
-        debugPrint('[GetStartedController] 3 seconds elapsed, navigating to MapViewWidgetNew...');
         Get.offAllNamed(Routes.MAP_NEW);
         return;
-      } else {
-        if (isAlreadyDownloaded && !downloadCompleted) {
-          debugPrint('[GetStartedController] ⚠️ MBTiles download was incomplete - showing download UI');
-        } else {
-          debugPrint('[GetStartedController] ⚠️ MBTiles not downloaded yet - showing download UI');
-        }
+      } else if (!fileExistsAndValid || !styleJsonExists) {
+        debugPrint('[GetStartedController] ⚠️ Files not ready - showing download UI');
 
-        // Show download UI (buttons and language dropdown)
-        debugPrint('[GetStartedController] 🎯 Setting showDownloadUI = true');
-        debugPrint('[GetStartedController] 🎯 Setting isCheckingTiles = false');
         isCheckingTiles.value = false;
         showDownloadUI.value = true;
 
-        debugPrint('[GetStartedController] 🎯 Current state: showDownloadUI=${showDownloadUI.value}, isCheckingTiles=${isCheckingTiles.value}');
-
-        // Reset states for fresh download
         isCompleted.value = false;
         hasError.value = false;
         isDownloading.value = false;
         statusText.value = "Download 5GB of map tiles to use offline";
 
-        // Check internet and show appropriate screen
-        debugPrint('[GetStartedController] Showing Get Started screen for tile download');
         await _checkInternetAndShowAppropriateScreen();
+      } else {
+        debugPrint('[GetStartedController] ⚠️ Files exist but preferences not set - hiding start button');
 
-        debugPrint('[GetStartedController] 🎯 After internet check: showDownloadUI=${showDownloadUI.value}, isCheckingTiles=${isCheckingTiles.value}');
+        isCheckingTiles.value = false;
+        showDownloadUI.value = false;
+        showWelcomeAnimation.value = true;
+
+        await Future.delayed(const Duration(seconds: 4));
+        Get.offAllNamed(Routes.MAP_NEW);
       }
     }
   }

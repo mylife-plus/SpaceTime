@@ -141,6 +141,7 @@ class Header extends StatelessWidget {
                 controller.searchQuery.value = '';
                 controller.isOpenedFromMap = false;
                 controller.isSearchActive.value = true;
+                
               },
               child: Container(
                 padding: const EdgeInsets.all(8),
@@ -175,11 +176,13 @@ class Header extends StatelessWidget {
                 try {
                   // MapControllerNew is initialized in main.dart as permanent singleton
                   final mapController = Get.find<MapControllerNew>();
-                  mapController.setOptimalZoomForMemories();
+                  // mapController.setOptimalZoomForMemories();
+                                      mapController.refreshLocation(callSetCamera: true);
+
                   // await mapController.refreshMapView();
                   debugPrint('🌍 HEADER - Earth tapped: Refreshed map view');
-
-                  Get.back(result: true);
+                  Navigator.of(context).pop(true);
+                  // Get.back(result: true);
 
                   debugPrint(
                     '🌍 HEADER - Earth tapped: Navigating back to map',
@@ -187,7 +190,7 @@ class Header extends StatelessWidget {
                 } catch (e) {
                   debugPrint('Error navigating to map: $e');
 
-                  Get.back(result: true);
+                  Navigator.of(context).pop(true);
                 }
               },
               child: Container(

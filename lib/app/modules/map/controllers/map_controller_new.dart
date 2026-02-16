@@ -304,26 +304,7 @@ class MapControllerNew extends GetxController {
     if (currentLocation.value == null || mapboxMap == null) {
       return;
     }
-
-    try {
-      final position = currentLocation.value!;
-      // Update current zoom level from MapboxZoomHelper
-      currentZoom.value = MapboxZoomHelper().currentZoomAfterLocation.value;
-
-      await mapboxMap!.flyTo(
-        mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(position.longitude, position.latitude),
-          ),
-          zoom: currentZoom.value,
-          bearing: 0,
-          pitch: 0,
-        ),
-        mapbox.MapAnimationOptions(duration: 1500),
-      );
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error moving camera: $e');
-    }
+    refreshLocation();
   }
 
   /// Ensure camera animates to user location with retry mechanism
@@ -461,9 +442,9 @@ class MapControllerNew extends GetxController {
   }
 
   /// Refresh current location
-  Future<void> refreshLocation() async {
+  Future<void> refreshLocation({bool? callSetCamera = null}) async {
     try {
-      _setOptimalZoomForMemories(_currentMemories);
+      _setOptimalZoomForMemories(_currentMemories, callSetCamera: callSetCamera);
       //  ..
     } catch (e) {
       debugPrint('[MapControllerNew] Error refreshing location: $e');
@@ -474,19 +455,19 @@ class MapControllerNew extends GetxController {
   Future<void> animateToUserLocation() async {
     debugPrint('[MapControllerNew] 🎯 Public animateToUserLocation() called');
 
-    if (hasLocationPermission.value) {
-      if (currentLocation.value != null) {
-        // If we already have location, animate immediately
-        await _moveCameraToCurrentLocation();
-      } else {
-        // Get fresh location and animate
-        await _getCurrentLocation();
-      }
-    } else {
-      debugPrint(
-        '[MapControllerNew] ❌ Cannot animate - no location permission',
-      );
-    }
+    // if (hasLocationPermission.value) {
+    //   if (currentLocation.value != null) {
+    //     // If we already have location, animate immediately
+    //     await _moveCameraToCurrentLocation();
+    //   } else {
+    //     // Get fresh location and animate
+    //     await _getCurrentLocation();
+    //   }
+    // } else {
+    //   debugPrint(
+    //     '[MapControllerNew] ❌ Cannot animate - no location permission',
+    //   );
+    // }
   }
 
   /// Check permissions after app resumes (e.g., from settings)
@@ -736,7 +717,7 @@ class MapControllerNew extends GetxController {
 
   /// Calculate and set optimal zoom level based on memory locations (matching old controller)
   Future<void> _setOptimalZoomForMemories(
-    List<Map<String, dynamic>> memories,
+    List<Map<String, dynamic>> memories, {bool? callSetCamera = false}
   ) async {
     if (memories.isEmpty || mapboxMap == null) {
       return;
@@ -863,9 +844,23 @@ class MapControllerNew extends GetxController {
       // Update current zoom variable
       currentZoom.value = zoom;
 
+zoom = zoom + 0.001;
+
       final lat = sorted.last['location_latitude'] as double?;
       final lng = sorted.last['location_longitude'] as double?;
       // Set camera to fit bounds with calculated zoom
+      if(callSetCamera != null)
+      final newLat = offsetLat(lat!, 50); // 50 meters north
+await mapboxMap!.setCamera(
+  mapbox.CameraOptions(
+    center: mapbox.Point(
+      coordinates: mapbox.Position(lng!, lat!),
+    ),
+    zoom: zoom,
+  ),
+);
+
+    if(callSetCamera == null)
       await mapboxMap!.flyTo(
         mapbox.CameraOptions(
           center: mapbox.Point(coordinates: mapbox.Position(lng!, lat!)),
@@ -876,11 +871,15 @@ class MapControllerNew extends GetxController {
         mapbox.MapAnimationOptions(duration: 1500),
       );
 
-      debugPrint('[MapControllerNew] ✅ Optimal zoom level set to: $zoom');
+      debugPrint('[MapControllerNew] ✅ ${(mapboxMap != null)}  zoom level $lat, $lng set to: $zoom');
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error calculating optimal zoom: $e');
     }
   }
+
+double offsetLat(double lat, double meters) {
+  return lat + (meters / 111320);
+}
 
   Timer? _tapDelayTimer;
   String? _pendingTapType; // "cluster" or "memory"
@@ -2244,7 +2243,7 @@ class MapControllerNew extends GetxController {
           '[MapControllerNew] 🎯 iOS: Permission granted after map ready - forcing animation',
         );
         await Future.delayed(Duration(milliseconds: 500));
-        await _moveCameraToCurrentLocation();
+        // await _moveCameraToCurrentLocation();
       }
     } catch (e) {
       debugPrint(
@@ -3470,6 +3469,8 @@ class MapControllerNew extends GetxController {
             textSize: 14.0,
             textHaloColor: 0xFF000000,
             textColor: 0xFFFFFFFF,
+            // textHaloColor: 0xFF000000,  // Black stroke
+textHaloWidth: 2.0,
             textIgnorePlacement: true,
             textAllowOverlap: true,
           ),

@@ -16,14 +16,4 @@ import background_downloader
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
 
-    // override func application(
-    //     _ application: UIApplication,
-    //     handleEventsForBackgroundURLSession identifier: String,
-    //     completionHandler: @escaping () -> Void
-    // ) {
-    //     FileDownloaderPlugin.handleEvents(
-    //         forBackgroundURLSession: identifier,
-    //         completionHandler: completionHandler
-    //     )
-    // }
 }

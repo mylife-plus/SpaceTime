@@ -110,7 +110,7 @@ class MbtilesDownloadService extends GetxController {
     await FileDownloader().trackTasks();
 
     // Listen to ALL updates and filter by metadata or filename
-    FileDownloader().updates.listen((update) {
+    FileDownloader().updates.listen((update) async {
       debugPrint('[MbtilesDownload] 🔔 Received update for task: ${update.task.taskId}');
       debugPrint('[MbtilesDownload] 🔔 Task filename: ${update.task.filename}');
       debugPrint('[MbtilesDownload] 🔔 Update type: ${update.runtimeType}');
@@ -157,6 +157,8 @@ class MbtilesDownloadService extends GetxController {
             isDownloading.value = false;
             isCompleted.value = true;
             statusText.value = "Download complete!";
+
+            await _markDownloadAsCompleted();
           } else if (update.status == TaskStatus.failed) {
             isDownloading.value = false;
             statusText.value = "Download failed";
@@ -167,6 +169,42 @@ class MbtilesDownloadService extends GetxController {
         }
       }
     });
+  }
+
+  Future<void> _markDownloadAsCompleted() async {
+    try {
+      final localFilePath = getLocalMbtilesPath();
+      if (localFilePath == null) {
+        debugPrint('[MbtilesDownload] ⚠️ Cannot mark as completed - no local path');
+        return;
+      }
+
+      final localFile = File(localFilePath);
+      if (!await localFile.exists()) {
+        debugPrint('[MbtilesDownload] ⚠️ Cannot mark as completed - file does not exist');
+        return;
+      }
+
+      final fileSize = await localFile.length();
+      final fileSizeGB = (fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2);
+
+      debugPrint('[MbtilesDownload] ✅ Marking download as completed in preferences');
+      debugPrint('[MbtilesDownload] 📁 File size: $fileSizeGB GB');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
+      await prefs.setBool('mbtiles_download_completed', true);
+      await prefs.setString(PREFS_KEY_MBTILES_PATH, localFilePath);
+
+      final estimatedTileCount = (fileSize / 20000).round();
+      await prefs.setInt('offline_downloaded_tile_count', estimatedTileCount);
+
+      _localMbtilesPath = localFilePath;
+
+      debugPrint('[MbtilesDownload] ✅ Download marked as completed in preferences');
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Error marking download as completed: $e');
+    }
   }
 
   /// Get selected zoom level from preferences

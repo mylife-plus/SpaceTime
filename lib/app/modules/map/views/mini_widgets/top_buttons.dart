@@ -183,7 +183,8 @@ class MapTopButtons extends StatelessWidget {
                       //
                       var result = await Get.to(() => AddMemoriesView());
                       addMemoriesController.isOpenedFromMap = false;
-
+                      // co
+                      controller.setOptimalZoomForMemories();
                       print('Getting back from Add Memories Search');
 
                         // addMemoriesController.isOpenedFromMap = false;
@@ -224,14 +225,9 @@ class MapTopButtons extends StatelessWidget {
               GestureDetector(
                 onTap: () async {
                   var result = await Get.to(() => AddMemoriesView());
+                    controller.refreshLocation();
 
-                  if (result == true) {
-                      // final mapController = Get.find<MapControllerNew>();
-        // await mapController.loadMemoriesFromDB(mapController.currentMemories);
-        // mapController.showLoadedDataOnMap();
-// mapController.setOptimalZoomForMemories();
-                    // controller.refreshLocation();
-                  }
+                 
                 },
                 child: Container(
                   padding: const EdgeInsets.all(6),
