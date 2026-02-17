@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:background_downloader/background_downloader.dart';
 
 /// Service for downloading and managing custom-style.json file
 class StyleJsonDownloadService extends GetxService {
@@ -85,28 +85,39 @@ class StyleJsonDownloadService extends GetxService {
 
       debugPrint('[StyleJsonDownloadService] 📥 Starting style.json download from: $STYLE_JSON_URL');
 
-      // Get app support directory
       final appDir = await getApplicationSupportDirectory();
       final styleDir = Directory('${appDir.path}/offline_tiles');
 
-      // Create directory if it doesn't exist
       if (!await styleDir.exists()) {
         await styleDir.create(recursive: true);
         debugPrint('[StyleJsonDownloadService] 📁 Created directory: ${styleDir.path}');
       }
 
       final filePath = '${styleDir.path}/$LOCAL_STYLE_JSON_FILENAME';
-      final file = File(filePath);
 
-      // Download the file
-      final response = await http.get(Uri.parse(STYLE_JSON_URL));
+      final task = DownloadTask(
+        url: STYLE_JSON_URL,
+        filename: LOCAL_STYLE_JSON_FILENAME,
+        directory: 'offline_tiles',
+        baseDirectory: BaseDirectory.applicationSupport,
+        updates: Updates.statusAndProgress,
+      );
 
-      if (response.statusCode == 200) {
-        await file.writeAsBytes(response.bodyBytes);
+      final result = await FileDownloader().download(
+        task,
+        onProgress: (progress) {
+          downloadProgress.value = progress;
+          debugPrint('[StyleJsonDownloadService] 📊 Progress: ${(progress * 100).toStringAsFixed(1)}%');
+        },
+        onStatus: (status) {
+          debugPrint('[StyleJsonDownloadService] 📡 Status: $status');
+        },
+      );
+
+      if (result.status == TaskStatus.complete) {
         debugPrint('[StyleJsonDownloadService] ✅ Style.json downloaded successfully');
         debugPrint('[StyleJsonDownloadService] 📁 Saved to: $filePath');
 
-        // Save to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(PREFS_KEY_STYLE_JSON_DOWNLOADED, true);
         await prefs.setString(PREFS_KEY_STYLE_JSON_PATH, filePath);
@@ -116,7 +127,7 @@ class StyleJsonDownloadService extends GetxService {
 
         return filePath;
       } else {
-        throw Exception('Failed to download style.json: ${response.statusCode}');
+        throw Exception('Failed to download style.json: ${result.status}');
       }
     } catch (e) {
       debugPrint('[StyleJsonDownloadService] ❌ Error downloading style.json: $e');

@@ -415,28 +415,20 @@ class GetStartedController extends GetxController {
       statusText.value = "Preparing download for zoom level ${selectedZoomLevel.value}...";
       downloadProgress.value = 0.0;
 
-      // Setup listeners for download progress updates
       _setupMbtilesDownloadListeners();
 
-      // Start the download from Cloudflare R2 with selected zoom level
-      // This will download the file to: {appSupportDir}/offline_tiles/tiles.mbtiles
-      debugPrint('[GetStartedController] 📥 Calling MbtilesDownloadService.downloadMbtiles(zoomLevel: ${selectedZoomLevel.value})...');
-      final downloadedPath = await _mbtilesDownloadService!.downloadMbtiles(
+      debugPrint('[GetStartedController] 📥 Starting downloads in parallel...');
+
+      _mbtilesDownloadService!.downloadMbtiles(
         zoomLevel: selectedZoomLevel.value,
       );
 
-      if (downloadedPath != null && downloadedPath.isNotEmpty) {
-        debugPrint('[GetStartedController] ✅ MBTiles download completed successfully');
-        debugPrint('[GetStartedController] 📁 File saved at: $downloadedPath');
-
-        // Mark as completed and navigate to main app
-        _onMbtilesDownloadCompleted(downloadedPath);
-      } else {
-        debugPrint('[GetStartedController] ❌ MBTiles download failed - no path returned');
-        hasError.value = true;
-        errorMessage.value = _mbtilesDownloadService?.errorMessage.value ?? "Download failed - please try again";
-        statusText.value = "Download failed";
-        isDownloading.value = false;
+      if (_styleJsonDownloadService != null) {
+        _styleJsonDownloadService!.downloadStyleJson().then((path) {
+          debugPrint('[GetStartedController] ✅ Style.json download completed');
+        }).catchError((e) {
+          debugPrint('[GetStartedController] ❌ Style.json download error: $e');
+        });
       }
 
     } catch (e) {
