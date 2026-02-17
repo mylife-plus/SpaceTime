@@ -183,32 +183,30 @@ class MapControllerNew extends GetxController {
 
         return;
       } else {
+        try {
+          // currentLocation.value = mapbox.Position(10.4515, 51.1657);
+          // Update current zoom level from MapboxZoomHelper
+          // currentZoom.value = MapboxZoomHelper().currentZoomAfterLocation.value;
 
-         try {
-      // currentLocation.value = mapbox.Position(10.4515, 51.1657);
-      // Update current zoom level from MapboxZoomHelper
-      // currentZoom.value = MapboxZoomHelper().currentZoomAfterLocation.value;
+          await mapboxMap!.flyTo(
+            mapbox.CameraOptions(
+              center: mapbox.Point(
+                coordinates: mapbox.Position(10.4515, 51.1657),
+              ),
+              zoom: 2,
+              bearing: 0,
+              pitch: 0,
+            ),
+            mapbox.MapAnimationOptions(duration: 1500),
+          );
+        } catch (e) {
+          debugPrint('[MapControllerNew] ❌ Error moving camera: $e');
+        }
 
-      await mapboxMap!.flyTo(
-        mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(10.4515, 51.1657),
-          ),
-          zoom: 2,
-          bearing: 0,
-          pitch: 0,
-        ),
-        mapbox.MapAnimationOptions(duration: 1500),
-      );
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error moving camera: $e');
-    }
-    
         hasLocationPermission.value = false;
         locationStatus.value = 'Location permission required';
         isLoadingLocation.value =
             false; // Stop loading since we need user action
-            
       }
     } catch (e) {
       hasLocationPermission.value = false;
@@ -219,8 +217,6 @@ class MapControllerNew extends GetxController {
         isLoadingLocation.value = false;
       }
     }
-
-     
   }
 
   /// Check and request location permissions
@@ -444,7 +440,10 @@ class MapControllerNew extends GetxController {
   /// Refresh current location
   Future<void> refreshLocation({bool? callSetCamera = null}) async {
     try {
-      _setOptimalZoomForMemories(_currentMemories, callSetCamera: callSetCamera);
+      _setOptimalZoomForMemories(
+        _currentMemories,
+        callSetCamera: callSetCamera,
+      );
       //  ..
     } catch (e) {
       debugPrint('[MapControllerNew] Error refreshing location: $e');
@@ -498,6 +497,10 @@ class MapControllerNew extends GetxController {
 
     // Load all memories from database
     final mem1 = await _databaseHelper.getAllMemoriesWithDetails();
+
+    if (mem1.isEmpty) {
+      animateMapToCurrentOrRandomLocation();
+    }
     // debugPrint('$tag Loaded ${memories.length} raw memories from database');
 
     // Transform database memories to UI format
@@ -717,8 +720,9 @@ class MapControllerNew extends GetxController {
 
   /// Calculate and set optimal zoom level based on memory locations (matching old controller)
   Future<void> _setOptimalZoomForMemories(
-    List<Map<String, dynamic>> memories, {bool? callSetCamera = false}
-  ) async {
+    List<Map<String, dynamic>> memories, {
+    bool? callSetCamera = false,
+  }) async {
     if (memories.isEmpty || mapboxMap == null) {
       return;
     }
@@ -844,42 +848,42 @@ class MapControllerNew extends GetxController {
       // Update current zoom variable
       currentZoom.value = zoom;
 
-zoom = zoom + 0.001;
+      zoom = zoom + 0.001;
 
       final lat = sorted.last['location_latitude'] as double?;
       final lng = sorted.last['location_longitude'] as double?;
       // Set camera to fit bounds with calculated zoom
-      if(callSetCamera != null)
-      final newLat = offsetLat(lat!, 50); // 50 meters north
-await mapboxMap!.setCamera(
-  mapbox.CameraOptions(
-    center: mapbox.Point(
-      coordinates: mapbox.Position(lng!, lat!),
-    ),
-    zoom: zoom,
-  ),
-);
-
-    if(callSetCamera == null)
-      await mapboxMap!.flyTo(
+      if (callSetCamera != null)
+        final newLat = offsetLat(lat!, 50); // 50 meters north
+      await mapboxMap!.setCamera(
         mapbox.CameraOptions(
           center: mapbox.Point(coordinates: mapbox.Position(lng!, lat!)),
           zoom: zoom,
-          bearing: 0,
-          pitch: 0,
         ),
-        mapbox.MapAnimationOptions(duration: 1500),
       );
 
-      debugPrint('[MapControllerNew] ✅ ${(mapboxMap != null)}  zoom level $lat, $lng set to: $zoom');
+      if (callSetCamera == null)
+        await mapboxMap!.flyTo(
+          mapbox.CameraOptions(
+            center: mapbox.Point(coordinates: mapbox.Position(lng!, lat!)),
+            zoom: zoom,
+            bearing: 0,
+            pitch: 0,
+          ),
+          mapbox.MapAnimationOptions(duration: 1500),
+        );
+
+      debugPrint(
+        '[MapControllerNew] ✅ ${(mapboxMap != null)}  zoom level $lat, $lng set to: $zoom',
+      );
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error calculating optimal zoom: $e');
     }
   }
 
-double offsetLat(double lat, double meters) {
-  return lat + (meters / 111320);
-}
+  double offsetLat(double lat, double meters) {
+    return lat + (meters / 111320);
+  }
 
   Timer? _tapDelayTimer;
   String? _pendingTapType; // "cluster" or "memory"
@@ -3458,7 +3462,7 @@ double offsetLat(double lat, double meters) {
           ],
         );
       } catch (_) {}
-      
+
       try {
         await mapboxMap!.style.addLayer(
           mapbox.SymbolLayer(
@@ -3470,7 +3474,7 @@ double offsetLat(double lat, double meters) {
             textHaloColor: 0xFF000000,
             textColor: 0xFFFFFFFF,
             // textHaloColor: 0xFF000000,  // Black stroke
-textHaloWidth: 2.0,
+            textHaloWidth: 2.0,
             textIgnorePlacement: true,
             textAllowOverlap: true,
           ),
@@ -4280,7 +4284,7 @@ textHaloWidth: 2.0,
 
         var index = MemoryGeoJsonService.getColorIndexForYear(
           int.parse(aYear),
-         allMemoriesWithoutFilter,
+          allMemoriesWithoutFilter,
         );
         final double? startLat = a['location_latitude'];
         final double? startLng = a['location_longitude'];
@@ -4481,8 +4485,7 @@ textHaloWidth: 2.0,
   }
 
   void setOptimalZoomForMemories() {
-    _setOptimalZoomForMemories(
-      _currentMemories);
+    _setOptimalZoomForMemories(_currentMemories);
   }
 
   // Helper: calculate bearing from base → tip in degrees
@@ -4699,7 +4702,8 @@ textHaloWidth: 2.0,
       );
       // Convert memories to GeoJSON
       final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
-        memories, allMemoriesWithoutFilter
+        memories,
+        allMemoriesWithoutFilter,
       );
       debugPrint('[MapControllerNew] ✅ GeoJSON created successfully');
 
@@ -4942,6 +4946,59 @@ textHaloWidth: 2.0,
       );
     }
   }
+
+Future<void> animateMapToCurrentOrRandomLocation() async {
+  double fallbackLat = 51.1657; // Germany center
+  double fallbackLng = 10.4515;
+
+  try {
+    // 1️⃣ Check permission
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    // 2️⃣ If permission granted
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      await mapboxMap!.setCamera(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(
+              position.longitude,
+              position.latitude,
+            ),
+          ),
+          zoom: 2,
+        ),
+      );
+
+      return;
+    }
+  } catch (e) {
+    print("Location error: $e");
+  }
+
+  // 3️⃣ Fallback to Germany
+  await mapboxMap!.setCamera(
+    mapbox.CameraOptions(
+      center: mapbox.Point(
+        coordinates: mapbox.Position(
+          fallbackLng,
+          fallbackLat,
+        ),
+      ),
+      zoom: 5,
+    ),
+  );
+}
+
 }
 
 /// Helper class for tracking app lifecycle changes

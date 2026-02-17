@@ -348,8 +348,8 @@ class GetStartedController extends GetxController {
         }
       }
 
-      // Check and request background refresh permission on iOS
-      // if (Platform.isIOS) {
+      // Check and request background refresh permission on iOS only
+      if (Platform.isIOS) {
         debugPrint('[GetStartedController] 📱 Checking background app refresh permission...');
 
         final backgroundStatus = await Permission.backgroundRefresh.status;
@@ -387,7 +387,7 @@ class GetStartedController extends GetxController {
           statusText.value = "Ready to download";
           return;
         }
-      // }
+      }
 
       debugPrint('[GetStartedController] 🚀 Starting mbtiles download from Cloudflare R2...');
       debugPrint('[GetStartedController] 🔢 Selected zoom level: ${selectedZoomLevel.value}');
@@ -536,6 +536,11 @@ class GetStartedController extends GetxController {
         isCompleted.value = true;
         debugPrint('[GetStartedController] ✅ Download completed!');
         timer.cancel();
+
+        final downloadedPath = _mbtilesDownloadService!.getLocalMbtilesPath();
+        if (downloadedPath != null) {
+          _onMbtilesDownloadCompleted(downloadedPath);
+        }
       }
 
       // Cancel timer if download is no longer in progress and not completed
