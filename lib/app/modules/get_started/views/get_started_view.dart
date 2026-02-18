@@ -435,7 +435,7 @@ const SizedBox(height: 8),
                   // Download text (only show when download UI is visible)
                   Obx(() => controller.showDownloadUI.value
                       ? Text(
-                          'download 4.5GB of tiles',
+                          'download 4.5GB of map tiles',
                           style: TextStyle(
                             fontFamily: 'KumbhSans',
                             fontSize: _responsiveFontSize(context, 12),
