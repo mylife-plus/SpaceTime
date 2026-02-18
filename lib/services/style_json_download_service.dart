@@ -72,7 +72,8 @@ class StyleJsonDownloadService extends GetxService {
   }
 
   /// Download style.json from Cloudflare R2
-  Future<String?> downloadStyleJson() async {
+  /// [enableBackgroundDownload] - If false, download will only work in foreground (iOS without background refresh)
+  Future<String?> downloadStyleJson({bool enableBackgroundDownload = true}) async {
     if (isDownloading.value) {
       debugPrint('[StyleJsonDownloadService] ⚠️ Download already in progress');
       return null;

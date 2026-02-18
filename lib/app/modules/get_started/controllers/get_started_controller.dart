@@ -348,46 +348,8 @@ class GetStartedController extends GetxController {
         }
       }
 
-      // Check and request background refresh permission on iOS only
-      if (Platform.isIOS) {
-        debugPrint('[GetStartedController] 📱 Checking background app refresh permission...');
-
-        final backgroundStatus = await Permission.backgroundRefresh.status;
-        debugPrint('[GetStartedController] 📱 Background refresh status: $backgroundStatus');
-
-        if (!backgroundStatus.isGranted) {
-          debugPrint('[GetStartedController] 📱 Background refresh not granted, opening settings...');
-          statusText.value = "Please enable Background App Refresh in Settings";
-
-          // Show dialog to user
-          await Get.dialog(
-            AlertDialog(
-              title: const Text('Background App Refresh Required'),
-              content: const Text(
-                'To download map tiles in the background, please enable Background App Refresh in Settings.\n\n'
-                'Settings > SpaceTime > Background App Refresh',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Get.back(),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Get.back();
-                    openAppSettings();
-                  },
-                  child: const Text('Open Settings'),
-                ),
-              ],
-            ),
-            barrierDismissible: false,
-          );
-
-          statusText.value = "Ready to download";
-          return;
-        }
-      }
+      // Always use background download
+      const bool canDownloadInBackground = true;
 
       debugPrint('[GetStartedController] 🚀 Starting mbtiles download from Cloudflare R2...');
       debugPrint('[GetStartedController] 🔢 Selected zoom level: ${selectedZoomLevel.value}');
@@ -418,17 +380,29 @@ class GetStartedController extends GetxController {
       _setupMbtilesDownloadListeners();
 
       debugPrint('[GetStartedController] 📥 Starting downloads in parallel...');
+      debugPrint('[GetStartedController] 📱 Background download enabled: $canDownloadInBackground');
 
+      // Start tiles download
       _mbtilesDownloadService!.downloadMbtiles(
         zoomLevel: selectedZoomLevel.value,
+        enableBackgroundDownload: canDownloadInBackground,
       );
 
+      // Start style.json download in parallel
       if (_styleJsonDownloadService != null) {
-        _styleJsonDownloadService!.downloadStyleJson().then((path) {
-          debugPrint('[GetStartedController] ✅ Style.json download completed');
+        _styleJsonDownloadService!.downloadStyleJson(
+          enableBackgroundDownload: canDownloadInBackground,
+        ).then((path) {
+          if (path != null) {
+            debugPrint('[GetStartedController] ✅ Style.json download completed: $path');
+          } else {
+            debugPrint('[GetStartedController] ⚠️ Style.json download failed');
+          }
         }).catchError((e) {
           debugPrint('[GetStartedController] ❌ Style.json download error: $e');
         });
+      } else {
+        debugPrint('[GetStartedController] ⚠️ StyleJsonDownloadService not initialized');
       }
 
     } catch (e) {

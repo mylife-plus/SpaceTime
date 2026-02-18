@@ -407,7 +407,8 @@ class MbtilesDownloadService extends GetxController {
 
   /// Download mbtiles file from Cloudflare R2 storage
   /// [zoomLevel] - The zoom level to download (11 or 12)
-  Future<String?> downloadMbtiles({int? zoomLevel}) async {
+  /// [enableBackgroundDownload] - If false, download will only work in foreground (iOS without background refresh)
+  Future<String?> downloadMbtiles({int? zoomLevel, bool enableBackgroundDownload = true}) async {
     // if (isDownloading.value) {
     //   debugPrint('[MbtilesDownload] ⚠️ Download already in progress');
     //   return null;
