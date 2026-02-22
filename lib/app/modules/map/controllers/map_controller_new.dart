@@ -590,10 +590,16 @@ class MapControllerNew extends GetxController {
     debugPrint('[MapControllerNew] loadMemoriesFromDB called');
     allMemoriesWithoutFilter.clear();
     allMemoriesWithoutFilter.addAll(transformedMemories);
-    // Use FilterController's filtered memories instead of loading from repository
     _currentMemories.clear();
 
-    final memories = filteredMemoriesData ?? _filterController.filteredMemories;
+    List<Map<String, dynamic>> memories;
+    if (filteredMemoriesData != null) {
+      memories = filteredMemoriesData;
+    } else {
+      _filterController.allMemories.value = transformedMemories;
+      _filterController.applyAllFilters();
+      memories = _filterController.filteredMemories.toList();
+    }
 
     // Spread out memories with same coordinates (~20 meters apart)
     final spreadMemories = _spreadOverlappingMemories(memories);

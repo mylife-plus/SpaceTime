@@ -51,7 +51,15 @@ class GetStartedView extends GetView<GetStartedController> {
           ),
           child: SafeArea(
             child: Obx(() {
-              if (controller.showWelcomeAnimation.value) {
+              if (controller.isInitializing.value) {
+                return Center(
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 100,
+                    height: 100,
+                  ),
+                );
+              } else if (controller.showWelcomeAnimation.value) {
                 return _buildDownloadSection(uiController);
             } else if (controller.isNoInternet.value) {
               return _buildNoInternetSection(uiController);

@@ -13,6 +13,12 @@ import '../../../routes/app_pages.dart';
 import '../../../../services/mbtiles_download_service.dart';
 import '../../../../services/mbtiles_server_service.dart';
 import '../../../../services/style_json_download_service.dart';
+import '../../../services/memory_db.dart';
+import '../../../services/path_migration_helper.dart';
+import '../../../helpers/nearest_region_service.dart';
+import '../../../helpers/offline_water_service.dart';
+import '../../../helpers/mapbox_zoom_helper.dart';
+import '../../../../services/memory_geojson_service.dart';
 
 const String PREFS_KEY_MBTILES_DOWNLOADED = 'mbtiles_downloaded';
 const String PREFS_KEY_MBTILES_PATH = 'mbtiles_path';
@@ -58,12 +64,94 @@ class GetStartedController extends GetxController {
   final RxBool isCheckingTiles = true.obs; // Shows loading state while checking tiles
   final RxBool tilesAlreadyDownloaded = false.obs; // Tracks if tiles were already downloaded when app started
 
+  final RxBool isInitializing = true.obs;
+
   @override
   void onInit() {
     super.onInit();
-    // Initialize services immediately
+    // Start initialization after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeEverything();
+    });
+  }
+
+  Future<void> _initializeEverything() async {
+    isInitializing.value = true;
+
+    // Run all background initialization from main.dart here
+    await _initializeBackgroundServices();
+
+    // Then initialize get started services
     _initializeServices();
-    _checkIfShouldShowGetStarted();
+    await _checkIfShouldShowGetStarted();
+
+    isInitializing.value = false;
+  }
+
+  Future<void> _initializeBackgroundServices() async {
+    // All the heavy initialization from main.dart
+    try {
+      await Future.wait([
+        _initDatabase(),
+        _initAssets(),
+        _initMapboxHelpers(),
+      ]);
+
+      await _initTileServer();
+    } catch (e) {
+      debugPrint('[GetStartedController] Background init error: $e');
+    }
+  }
+
+  Future<void> _initDatabase() async {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final isHealthy = await DatabaseHelper.instance.isDatabaseHealthy();
+      if (!isHealthy) {
+        await DatabaseHelper.instance.resetDatabaseConnection();
+      }
+      await DatabaseHelper.instance.initializePlaceCategoriesIfNeeded();
+      await DatabaseHelper.instance.initializeHashtagGroupsIfNeeded();
+      await PathMigrationHelper.instance.migrateAllPathsToRelative();
+    } catch (e) {
+      debugPrint('[GetStartedController] Database init error: $e');
+    }
+  }
+
+  Future<void> _initAssets() async {
+    try {
+      await NearestRegionService().loadFromAssets();
+      await OfflineWaterService.instance.init(
+        oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',
+        lakeGeoJson: 'assets/geo/ne_110m_lakes.json',
+      );
+    } catch (e) {
+      debugPrint('[GetStartedController] Assets init error: $e');
+    }
+  }
+
+  Future<void> _initMapboxHelpers() async {
+    try {
+      await MapboxZoomHelper.initialize();
+      MemoryGeoJsonService.initializeYearColorIndexCache();
+    } catch (e) {
+      debugPrint('[GetStartedController] Mapbox helper error: $e');
+    }
+  }
+
+  Future<void> _initTileServer() async {
+    try {
+      final mbtilesService = MbtilesDownloadService.instance;
+      final isDownloaded = await mbtilesService.isMbtilesDownloaded();
+      final tilesPath = mbtilesService.getLocalMbtilesPath();
+
+      if (isDownloaded && tilesPath != null) {
+        final serverService = MbtilesServerService.instance;
+        await serverService.startServer(tilesPath);
+      }
+    } catch (e) {
+      debugPrint('[GetStartedController] Tile server error: $e');
+    }
   }
 
   /// Check if get started should be shown or navigate directly to main app
@@ -157,7 +245,7 @@ class GetStartedController extends GetxController {
         isCompleted.value = false;
         hasError.value = false;
         isDownloading.value = false;
-        statusText.value = "Download 5GB of map tiles to use offline";
+        statusText.value = "Download 4.5GB of map tiles to use offline";
 
         await _checkInternetAndShowAppropriateScreen();
       } else {

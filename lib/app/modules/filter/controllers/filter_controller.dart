@@ -818,6 +818,7 @@ List<Map<String, dynamic>> _applyDateFilter(
       );
 
       // Apply all filters
+      updateFilterStatus();
       applyAllFilters();
 
       isLoadingMemories.value = false;

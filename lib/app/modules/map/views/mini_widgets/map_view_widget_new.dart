@@ -260,7 +260,10 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       return mapbox.MapWidget(
         key: ValueKey("mapbox_map_new"),
         cameraOptions: mapbox.CameraOptions(
-          zoom: MapboxZoomHelper().initialCameraZoom.value,
+          center: mapbox.Point(
+            coordinates: mapbox.Position(10.4515, 51.1657),
+          ),
+          zoom: 2.0,
         ),
         styleUri: _getCustomStyleUri(), // Returns blank style
         textureView: io.Platform.isAndroid,
@@ -341,7 +344,10 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         return mapbox.MapWidget(
           key: ValueKey("mapbox_map_new"),
           cameraOptions: mapbox.CameraOptions(
-            zoom: MapboxZoomHelper().initialCameraZoom.value,
+            center: mapbox.Point(
+              coordinates: mapbox.Position(10.4515, 51.1657),
+            ),
+            zoom: 2.0,
           ),
           // Don't set styleUri - we'll load the JSON style after map creation
           // iOS FIX: Use surface view instead of texture view for better iOS compatibility

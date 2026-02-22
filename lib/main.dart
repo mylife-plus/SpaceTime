@@ -43,10 +43,18 @@ import 'services/memory_geojson_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize background downloader with proper configuration
-  await FileDownloader().trackTasks();
+  // Restrict orientation to portrait only
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
-  // Configure background downloader for iOS
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+  MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
+
+  // Initialize background downloader
+  await FileDownloader().trackTasks();
   FileDownloader().configureNotification(
     running: const TaskNotification('Downloading', 'Download in progress'),
     complete: const TaskNotification('Download complete', 'File downloaded successfully'),
@@ -54,141 +62,30 @@ Future<void> main() async {
     paused: const TaskNotification('Download paused', 'Tap to resume'),
     progressBar: true,
   );
-
-  // Register background task callback
   FileDownloader().registerCallbacks(
     taskNotificationTapCallback: (task, notificationType) {
       debugPrint('[BackgroundDownloader] Notification tapped: $notificationType');
     },
   );
 
-  await NearestRegionService().loadFromAssets();
-  await OfflineWaterService.instance.init(
-    oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',
-    lakeGeoJson: 'assets/geo/ne_110m_lakes.json',
-  );
-  // Restrict orientation to portrait only
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // Initialize database with health check
-  debugPrint('🗄️ [MAIN] Initializing database...');
-  try {
-    await DatabaseHelper.instance.database;
-
-    // Verify database health
-    final isHealthy = await DatabaseHelper.instance.isDatabaseHealthy();
-    if (!isHealthy) {
-      debugPrint('🗄️ [MAIN] Database unhealthy, resetting connection...');
-      await DatabaseHelper.instance.resetDatabaseConnection();
-    }
-
-    debugPrint('🗄️ [MAIN] Database initialization completed successfully');
-  } catch (e) {
-    debugPrint('🗄️ [MAIN] Database initialization failed: $e');
-    // Continue with app startup even if database fails
-  }
-
-  // Initialize place categories if not already done
-  debugPrint('🏷️ [MAIN] Initializing place categories...');
-    await DatabaseHelper.instance.initializePlaceCategoriesIfNeeded();
-    debugPrint('🏷️ [MAIN] Place categories initialization completed');
-
-  // Migrate absolute paths to relative paths
-  debugPrint('🔄 [MAIN] Running path migration...');
-  try {
-    await PathMigrationHelper.instance.migrateAllPathsToRelative();
-    debugPrint('🔄 [MAIN] Path migration completed');
-  } catch (e) {
-    debugPrint('🔄 [MAIN] Path migration failed: $e');
-    // Continue with app startup even if migration fails
-  }
-
-  // Initialize hashtag groups if not already done
-  debugPrint('🏷️ [MAIN] Initializing hashtag groups...');
-  try {
-    await DatabaseHelper.instance.initializeHashtagGroupsIfNeeded();
-    debugPrint('🏷️ [MAIN] Hashtag groups initialization completed');
-  } catch (e) {
-    debugPrint('🏷️ [MAIN] Hashtag groups initialization failed: $e');
-  }
-
-  // Initialize Mapbox Zoom Helper (must be done before any map initialization)
-  debugPrint('🔍 [MAIN] Initializing Mapbox Zoom Helper...');
-  try {
-    await MapboxZoomHelper.initialize();
-    debugPrint('🔍 [MAIN] Mapbox Zoom Helper initialized successfully');
-  } catch (e) {
-    debugPrint('🔍 [MAIN] Mapbox Zoom Helper initialization failed: $e');
-  }
-
-  // Initialize year color index cache (once per app launch)
-  debugPrint('🎨 [MAIN] Initializing year color index cache...');
-  try {
-    MemoryGeoJsonService.initializeYearColorIndexCache();
-    debugPrint('🎨 [MAIN] Year color index cache initialized successfully');
-  } catch (e) {
-    debugPrint('🎨 [MAIN] Year color index cache initialization failed: $e');
-  }
-
-  // Start local tile server in background if tiles are downloaded
-  debugPrint('🗺️ [MAIN] Checking for downloaded tiles and starting server...');
-  await _initializeBackgroundTileServer();
-
-  await dotenv.load(fileName: ".env");
-  MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
-
-  // Initialize services
-  debugPrint('🚀 Initializing GeocodingIsolateService...');
-  final geocodingService = Get.put(GeocodingIsolateService(), permanent: true);
-
-  // Ensure the service is properly initialized
-  try {
-    await geocodingService.ensureInitialized();
-    debugPrint('✅ GeocodingIsolateService initialized successfully');
-  } catch (e) {
-    debugPrint('❌ Failed to initialize GeocodingIsolateService: $e');
-  }
-
-  // Initialize global services
-  debugPrint('🔧 Initializing global services...');
+  // Initialize only critical services
+  Get.put(UiController(), permanent: true);
   Get.put(ConnectivityService(), permanent: true);
   Get.put(PermissionService(), permanent: true);
   Get.put(MemoryRepository(), permanent: true);
   Get.put(ClusterRepository(), permanent: true);
   Get.put(MapMarkerCreationService(), permanent: true);
-
   Get.put(MapMarkerService(), permanent: true);
   Get.put(StyleJsonDownloadService(), permanent: true);
-  // MemoryLocationPickerController
+  Get.put(GeocodingIsolateService(), permanent: true);
 
-  // Mapbox tile downloading services removed - using URL-based mbtiles download instead
-  // Get.put(BackgroundTileDownloadService(), permanent: true);
-  // Get.put(OfflineMapService(), permanent: true);
-  // Get.put(OfflineMapRepository(), permanent: true);
-  // Get.put(OfflineMapCoordinatorService(), permanent: true);
-  // Get.put(NativeTileDownloadService(), permanent: true);
-
-  debugPrint('✅ Global services initialized');
-
-  // Initialize controllers as permanent singletons
-  debugPrint('🎮 Initializing controllers...');
-  Get.put(UiController(), permanent: true);
-  Get.put(GetStartedController(), permanent: true); // Initialize Get Started controller first
+  // Initialize controllers - GetStartedController handles heavy init
+  Get.put(GetStartedController(), permanent: true);
   Get.put(MemoryController(), permanent: true);
-  Get.put(FilterController(), permanent: true); // Initialize FilterController before AddMemoriesController and MapControllerNew
+  Get.put(FilterController(), permanent: true);
   Get.put(AddMemoriesController(), permanent: true);
   Get.put(MapControllerNew(), permanent: true);
   Get.put(MemoryLocationPickerControllerWithRadius(), permanent: true);
-  debugPrint('✅ Controllers initialized as permanent singletons');
-
-  // Test the geocoding service
-  _testGeocodingService();
-
-  // TEMPORARY: Clear app data for testing (comment out when not needed)
-  // await _clearAppData();
 
   runApp(MyApp());
 }

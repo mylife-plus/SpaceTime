@@ -18,7 +18,7 @@ import 'dart:math';
 import 'package:spacetime/app/utils/search_utils.dart';
 import '../../filter/controllers/filter_controller.dart';
 
-class AddMemoriesController extends GetxController {
+class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   // ============================================================================
   // FILTER CONTROLLER REFERENCE
   // ============================================================================
@@ -104,14 +104,31 @@ class AddMemoriesController extends GetxController {
     scrollController = ScrollController();
     scrollController.addListener(_scrollListener);
 
+    // Register this controller as a lifecycle observer so we can detect
+    // when the app comes back to the foreground without relying on the View.
+    WidgetsBinding.instance.addObserver(this);
+
     // Add a small delay to ensure UI is ready
     Future.delayed(const Duration(milliseconds: 100), () {
       loadMemoriesFromDatabase();
-      loadFilterData(); // Load filter data
-      _loadHierarchicalData(); // Load hierarchical data for display logic
+      loadFilterData();
+      _loadHierarchicalData();
     });
 
     super.onInit();
+  }
+
+  /// Called by Flutter whenever the app lifecycle state changes.
+  /// On resume we only refresh the memory data — we deliberately do NOT call
+  /// onAgainInit() here because that resets UI state (closes overlays, clears
+  /// indicators) which is unnecessary and disruptive when the user simply
+  /// backgrounds and foregrounds the app.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('AddMemoriesController: app resumed — refreshing memory data only');
+      loadMemoriesFromDatabase();
+    }
   }
 
   // Load filter data for dropdowns (same as memory view popups)
@@ -585,6 +602,8 @@ class AddMemoriesController extends GetxController {
 
   @override
   void onClose() {
+    // Unregister the lifecycle observer to prevent memory leaks.
+    WidgetsBinding.instance.removeObserver(this);
     scrollController.removeListener(_scrollListener);
     scrollController.dispose();
     super.onClose();

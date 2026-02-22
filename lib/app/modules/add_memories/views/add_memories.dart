@@ -22,21 +22,13 @@ import 'mini_widgets/filter_overlay.dart';
 import 'mini_widgets/search_indicator.dart';
 import 'mini_widgets/filter_indicator.dart';
 
-class AddMemoriesView extends GetView<AddMemoriesController>
-    with WidgetsBindingObserver {
-   AddMemoriesView({super.key});
+// App lifecycle is now handled in AddMemoriesController via WidgetsBindingObserver.
+// The controller registers/unregisters itself in onInit/onClose, so the view
+// stays a pure stateless widget with no lifecycle side-effects.
+class AddMemoriesView extends GetView<AddMemoriesController> {
+  AddMemoriesView({super.key});
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      // Refresh memories when app comes back to foreground
-      debugPrint('App resumed, refreshing memories');
-      controller.onAgainInit();
-    }
-  }
-
-                  UiController uiController = Get.find<UiController>();
+  final UiController uiController = Get.find<UiController>();
 
   Widget _buildMemoryList() {
 
@@ -321,10 +313,10 @@ class AddMemoriesView extends GetView<AddMemoriesController>
       Get.find<AddMemoriesController>();
     }
 
-    // Register lifecycle observer
-    WidgetsBinding.instance.addObserver(this);
-
-    final uiController = Get.find<UiController>();
+    // NOTE: Lifecycle observer registration was intentionally removed from here.
+    // It now lives in AddMemoriesController.onInit() so it is registered exactly
+    // once and cleaned up in onClose(), preventing duplicate observer callbacks
+    // on every widget rebuild.
     return Obx(() {
       final mainColor = uiController.mainColor.value;
       final useOriginalImage = mainColor == 'blue';
