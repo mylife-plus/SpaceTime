@@ -68,6 +68,7 @@ dependencies:
   latlong2: ^0.9.1
   background_downloader: ^9.5.2
   flutter_native_splash: ^2.4.4
+  image_picker: ^1.2.1
 dependency_overrides:
   csv: ^6.0.0
 

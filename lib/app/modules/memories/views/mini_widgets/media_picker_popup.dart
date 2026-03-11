@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 class MediaPickerPopup extends StatelessWidget {
@@ -23,6 +24,7 @@ class MediaPickerPopup extends StatelessWidget {
         final isDark = uiController.darkMode.value;
         final bgColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
         final textColor = isDark ? Colors.white : Colors.black;
+        final dividerColor = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300;
 
         return Container(
           decoration: BoxDecoration(
@@ -50,22 +52,34 @@ class MediaPickerPopup extends StatelessWidget {
                   ),
                 ),
               ),
-              const Divider(height: 1),
+              Divider(height: 1, color: dividerColor),
               _buildOption(
                 context,
                 icon: Icons.camera_alt,
-                label: 'Camera',
-                onTap: () => _handleCamera(context),
+                label: 'Camera (Photo)',
+                onTap: () => _handleCameraPhoto(context),
                 isDark: isDark,
+                textColor: textColor,
               ),
+              Divider(height: 1, color: dividerColor),
+              _buildOption(
+                context,
+                icon: Icons.videocam,
+                label: 'Camera (Video)',
+                onTap: () => _handleCameraVideo(context),
+                isDark: isDark,
+                textColor: textColor,
+              ),
+              Divider(height: 1, color: dividerColor),
               _buildOption(
                 context,
                 icon: Icons.photo_library,
                 label: 'Gallery',
                 onTap: () => _handleGallery(context),
                 isDark: isDark,
+                textColor: textColor,
               ),
-              const Divider(height: 1),
+              Divider(height: 1, color: dividerColor),
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: TextButton(
@@ -74,7 +88,7 @@ class MediaPickerPopup extends StatelessWidget {
                     'Cancel',
                     style: GoogleFonts.kumbhSans(
                       fontSize: 16,
-                      color: Colors.grey,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -93,6 +107,7 @@ class MediaPickerPopup extends StatelessWidget {
     required String label,
     required VoidCallback onTap,
     required bool isDark,
+    required Color textColor,
   }) {
     return InkWell(
       onTap: onTap,
@@ -103,7 +118,7 @@ class MediaPickerPopup extends StatelessWidget {
             Icon(
               icon,
               size: 24,
-              color: isDark ? Colors.white : Colors.black,
+              color: textColor,
             ),
             const SizedBox(width: 16),
             Text(
@@ -111,7 +126,7 @@ class MediaPickerPopup extends StatelessWidget {
               style: GoogleFonts.kumbhSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white : Colors.black,
+                color: textColor,
               ),
             ),
           ],
@@ -120,8 +135,23 @@ class MediaPickerPopup extends StatelessWidget {
     );
   }
 
-  Future<void> _handleCamera(BuildContext context) async {
+  Future<void> _handleCameraPhoto(BuildContext context) async {
+    final cameraStatus = await Permission.camera.request();
+
+    if (!cameraStatus.isGranted) {
+      Get.snackbar(
+        'Camera Permission',
+        'Camera permission is required to take photos',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade400,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
     Navigator.pop(context);
+
     final imagePicker = ImagePicker();
     final List<String> imagePaths = [];
     final List<String> videoPaths = [];
@@ -136,8 +166,55 @@ class MediaPickerPopup extends StatelessWidget {
     }
   }
 
-  Future<void> _handleGallery(BuildContext context) async {
+  Future<void> _handleCameraVideo(BuildContext context) async {
+    final cameraStatus = await Permission.camera.request();
+    final micStatus = await Permission.microphone.request();
+
+    if (!cameraStatus.isGranted || !micStatus.isGranted) {
+      Get.snackbar(
+        'Permissions Required',
+        'Camera and microphone permissions are required to record videos',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade400,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
     Navigator.pop(context);
+
+    final imagePicker = ImagePicker();
+    final List<String> imagePaths = [];
+    final List<String> videoPaths = [];
+
+    final videoFile = await imagePicker.pickVideo(source: ImageSource.camera);
+    if (videoFile != null) {
+      videoPaths.add(videoFile.path);
+    }
+
+    if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
+      onMediaSelected(imagePaths, videoPaths);
+    }
+  }
+
+  Future<void> _handleGallery(BuildContext context) async {
+    final photoStatus = await Permission.photos.request();
+
+    if (!photoStatus.isGranted) {
+      Get.snackbar(
+        'Photo Library Permission',
+        'Photo library permission is required to select images and videos',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade400,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+    Navigator.pop(context);
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.media,
       allowMultiple: true,

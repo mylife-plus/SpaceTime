@@ -8,11 +8,13 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 class ImageViewerScreen extends StatefulWidget {
   final List<String> images;
   final int initialIndex;
+  final bool allowHorizontal;
 
   const ImageViewerScreen({
     super.key,
     required this.images,
     required this.initialIndex,
+    this.allowHorizontal = true,
   });
 
   @override
@@ -20,12 +22,13 @@ class ImageViewerScreen extends StatefulWidget {
 }
 
 class _ImageViewerScreenState extends State<ImageViewerScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late PageController _pageController;
   late int _currentIndex;
   late AnimationController _overlayController;
   late AnimationController _fadeController;
   bool _showOverlay = true;
+  bool _isFullScreen = false;
 
   // Add image preloading cache
   final Map<int, ImageProvider> _imageCache = {};
@@ -34,8 +37,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
+    _pageController = PageController(
+      initialPage: widget.initialIndex,
+      viewportFraction: 1.0,
+    );
 
     // Debug logging for image viewer
     debugPrint('=== IMAGE VIEWER INIT DEBUG ===');
@@ -70,6 +77,22 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
 
     // Preload images to prevent black screens during swiping
     _preloadImages();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _overlayController.dispose();
+    _fadeController.dispose();
+    _pageController.dispose();
+    super.dispose();
   }
 
   void _startAutoHideTimer() {
@@ -248,14 +271,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
     }
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    _overlayController.dispose();
-    _fadeController.dispose();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    super.dispose();
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -270,11 +286,11 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
             // Main image viewer
             PageView.builder(
               controller: _pageController,
+              physics: const BouncingScrollPhysics(),
               onPageChanged: (index) {
                 setState(() {
                   _currentIndex = index;
                 });
-                HapticFeedback.lightImpact();
               },
               itemCount: widget.images.length,
               itemBuilder: (context, index) {
@@ -284,10 +300,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                     minScale: 0.5,
                     maxScale: 4.0,
                     child: Center(
-                      child: FadeTransition(
-                        opacity: _fadeController,
-                        child: _buildImageWidget(widget.images[index]),
-                      ),
+                      child: _buildImageWidget(widget.images[index]),
                     ),
                   ),
                 );
@@ -322,6 +335,13 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                           leading: IconButton(
                             icon: const Icon(Icons.close, color: Colors.white),
                             onPressed: () {
+                              if (widget.allowHorizontal) {
+                                SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                                SystemChrome.setPreferredOrientations([
+                                  DeviceOrientation.portraitUp,
+                                  DeviceOrientation.portraitDown,
+                                ]);
+                              }
                               Navigator.of(context).pop();
                               HapticFeedback.lightImpact();
                             },
@@ -336,15 +356,31 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                             ),
                           ),
                           actions: [
-                            IconButton(
-                              icon: const Icon(
-                                Icons.download,
-                                color: Colors.transparent,
+                            if (widget.allowHorizontal)
+                              IconButton(
+                                icon: Icon(
+                                  _isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isFullScreen = !_isFullScreen;
+                                  });
+                                  if (_isFullScreen) {
+                                    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                                    SystemChrome.setPreferredOrientations([
+                                      DeviceOrientation.landscapeLeft,
+                                      DeviceOrientation.landscapeRight,
+                                    ]);
+                                  } else {
+                                    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                                    SystemChrome.setPreferredOrientations([
+                                      DeviceOrientation.portraitUp,
+                                      DeviceOrientation.portraitDown,
+                                    ]);
+                                  }
+                                },
                               ),
-                              onPressed: () {
-                                // Add your action here
-                              },
-                            ),
                           ],
                         ),
                       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,10 +8,12 @@ import '../../../ui/controllers/ui_controller.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoPath;
+  final bool allowHorizontal;
 
   const VideoPlayerScreen({
     super.key,
     required this.videoPath,
+    this.allowHorizontal = true,
   });
 
   @override
@@ -24,6 +27,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _showControls = true;
   bool _isFullScreen = false;
   String? _errorMessage;
+  Timer? _hideControlsTimer;
 
   @override
   void initState() {
@@ -73,12 +77,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _toggleControls() {
+    _hideControlsTimer?.cancel();
     setState(() {
       _showControls = !_showControls;
     });
+    if (_showControls) {
+      _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _showControls = false;
+          });
+        }
+      });
+    }
   }
 
   void _toggleFullScreen() {
+    if (!widget.allowHorizontal) return;
+
     setState(() {
       _isFullScreen = !_isFullScreen;
 
@@ -216,15 +232,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 onPressed: _closePlayer,
                               ),
                               const Spacer(),
-                              IconButton(
-                                icon: Icon(
-                                  _isFullScreen
-                                      ? Icons.fullscreen_exit
-                                      : Icons.fullscreen,
-                                  color: Colors.white,
+                              if (widget.allowHorizontal)
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.screen_rotation,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: _toggleFullScreen,
                                 ),
-                                onPressed: _toggleFullScreen,
-                              ),
                             ],
                           ),
                         ),
@@ -300,6 +315,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _hideControlsTimer?.cancel();
     // Reset orientation to portrait when leaving the screen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([

@@ -744,13 +744,16 @@ class _MemoryCardState extends State<MemoryCard> {
 
       Navigator.of(context)
           .push(
-            MaterialPageRoute(
-              builder: (context) {
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) {
                 debugPrint('🏗️ Building ImageViewerScreen...');
                 return ImageViewerScreen(
                   images: images,
                   initialIndex: initialIndex,
                 );
+              },
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return child;
               },
             ),
           )

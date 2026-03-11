@@ -32,7 +32,7 @@
 			<true/>
 		</dict>
 		<key>NSCameraUsageDescription</key>
-		<string>This app needs camera access to allow you to take photos.</string>
+		<string>This app needs camera access to allow you to take photos and record videos.</string>
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 		<string>This app needs location access to show your current location on the map and provide location-based services.</string>
 		<key>NSLocationAlwaysUsageDescription</key>

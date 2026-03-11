@@ -344,15 +344,6 @@ class _MemoryViewState extends State<MemoryView> {
       // Force UI refresh
       _selectedImagePaths.refresh();
 
-      Get.snackbar(
-        'Deleted',
-        'Your image has been successfully deleted.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade400,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
-
-      );
 
       debugPrint(
         'Image deleted and UI refreshed. Remaining: ${_selectedImagePaths.length}, Deleted indices: $_deletedImageIndices',
@@ -1844,6 +1835,7 @@ class _MemoryViewState extends State<MemoryView> {
                                                     // Open video player
                                                     Get.to(() => VideoPlayerScreen(
                                                       videoPath: _selectedVideoPaths[videoIndex],
+                                                      allowHorizontal: false,
                                                     ));
                                                   },
                                                   onDelete: () async {

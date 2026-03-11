@@ -124,8 +124,10 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   final FocusNode _focusNode = FocusNode();
   bool _isPopupOpen = false;
   ValueNotifier<String>? _searchNotifier;
-  int _savedCursorPosition = 0; // Store cursor position when popup opens
-  bool _preventAutoFocus = false; // Prevent auto-focus after navigation
+  int _savedCursorPosition = 0;
+  bool _preventAutoFocus = false;
+  String _previousText = '';
+  Timer? _cursorDebounceTimer;
 
   final List<String> _tags = [];
   final List<String> _mentions = [];
@@ -275,22 +277,26 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     );
 
     // Sync colored controller changes to widget controller
+    _previousText = widget.controller.text;
     _coloredController.addListener(_onColoredControllerChanged);
 
-    // Sync widget controller changes to colored controller (for external updates)
     widget.controller.addListener(_onWidgetControllerChanged);
 
     _focusNode.addListener(_onFocusChange);
   }
 
   void _onColoredControllerChanged() {
-    // Sync to widget controller
-    if (_coloredController.text != widget.controller.text) {
-      widget.controller.value = _coloredController.value;
-    }
+    final currentText = _coloredController.text;
+    final textChanged = currentText != _previousText;
 
-    // Handle text changes for popup logic
-    _onTextChanged();
+    if (textChanged) {
+      if (_coloredController.text != widget.controller.text) {
+        widget.controller.value = _coloredController.value;
+      }
+      _previousText = currentText;
+      _cursorDebounceTimer?.cancel();
+      _onTextChanged();
+    }
   }
 
   void _onWidgetControllerChanged() {
@@ -358,11 +364,48 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     }
   }
 
+  void _onCursorLanded() {
+    if (!_focusNode.hasFocus || _isPopupOpen) return;
+
+    final text = _coloredController.text;
+    final selection = _coloredController.selection;
+    if (!selection.isCollapsed || selection.baseOffset <= 0 || text.isEmpty) return;
+
+    final cursorPos = selection.baseOffset;
+    final triggerIndex = _findTriggerForWord(text, cursorPos);
+    if (triggerIndex == -1) return;
+
+    final triggerChar = text[triggerIndex];
+    int endIndex = cursorPos;
+    while (endIndex < text.length && text[endIndex] != ' ' && text[endIndex] != '\n') {
+      endIndex++;
+    }
+    final keyword = text.substring(triggerIndex + 1, endIndex);
+    if (keyword.isEmpty || keyword.contains(' ') || keyword.contains('\n')) return;
+
+    if (triggerChar == '#' && _tags.any((t) => t.toLowerCase() == keyword.toLowerCase())) {
+      _showTagPopup(keyword);
+    } else if (triggerChar == '@' && _mentions.any((m) => m.toLowerCase() == keyword.toLowerCase())) {
+      _showMentionPopup(keyword);
+    }
+  }
+
+  int _findTriggerForWord(String text, int cursorPos) {
+    int pos = cursorPos - 1;
+    while (pos >= 0 && text[pos] != ' ' && text[pos] != '\n') {
+      if (text[pos] == '#' || text[pos] == '@') {
+        if (pos == 0 || text[pos - 1] == ' ' || text[pos - 1] == '\n') {
+          return pos;
+        }
+      }
+      pos--;
+    }
+    return -1;
+  }
+
   void _onTextChanged() {
-    // Clean up tags and mentions that are no longer in the text
     _cleanupRemovedItems();
 
-    // Always rebuild the widget when text changes (even from external sources)
     if (mounted) {
       setState(() {});
     }
@@ -388,13 +431,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
       return;
     }
 
-    // Check if there's a valid character before the trigger
-    // Trigger should only work if preceded by space, newline, or at start of text
     if (triggerIndex > 0) {
       final charBeforeTrigger = text[triggerIndex - 1];
       if (charBeforeTrigger != ' ' && charBeforeTrigger != '\n') {
-        // There's text directly before @ or # (like "hello#" or "hello@")
-        // Treat it as normal text, don't show popup
         _removePopup();
         return;
       }
@@ -403,16 +442,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final triggerChar = text[triggerIndex];
     final keyword = text.substring(triggerIndex + 1, cursorPos);
 
-    // Check if keyword contains space or newline
     if (keyword.contains(' ') || keyword.contains('\n')) {
-      // Only show snackbar if popup is currently open (user is actively searching)
-      // Don't show snackbar if popup is not open (space added after item selection)
       if (_isPopupOpen) {
-        // Check if the last character typed was a space (user just typed it)
         final lastChar = cursorPos > 0 ? text[cursorPos - 1] : '';
 
         if (lastChar == ' ' || lastChar == '\n') {
-          // Show snackbar and remove the space
           Get.snackbar(
             'Space Not Allowed',
             'Spaces are not allowed in ${triggerChar == '#' ? 'hashtags' : 'mentions'}',
@@ -422,7 +456,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             snackPosition: SnackPosition.BOTTOM,
           );
 
-          // Remove the space from the text field
           final newText = text.substring(0, cursorPos - 1) + text.substring(cursorPos);
           _coloredController.text = newText;
           _coloredController.selection = TextSelection.collapsed(
@@ -433,7 +466,6 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         }
       }
 
-      // Close popup (either space wasn't just typed, or popup wasn't open)
       _removePopup();
       return;
     }
@@ -680,13 +712,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   void _removeIncompleteTextAndClosePopup() {
-    // Clear the incomplete text from trigger character to cursor
     _clearIncompleteText();
-
-    // Then close the popup
     _forceRemovePopup();
 
-    // Refocus the input field
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         _focusNode.requestFocus();
@@ -696,35 +724,36 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   void _clearIncompleteText() {
     final currentText = _coloredController.text;
-    final selection = _coloredController.selection;
+    final cursorPos = _savedCursorPosition > 0
+        ? _savedCursorPosition
+        : _coloredController.selection.baseOffset;
 
-    if (selection.baseOffset >= 0) {
-      final triggerIndex = _getLastTriggerIndex(
-        currentText,
-        selection.baseOffset,
-      );
-      if (triggerIndex == -1) return;
+    if (cursorPos < 0) return;
 
-      // Find the end of the current word (tag/mention) to remove the entire incomplete word
-      int endIndex = selection.baseOffset;
-      while (endIndex < currentText.length &&
-             currentText[endIndex] != ' ' &&
-             currentText[endIndex] != '\n') {
-        endIndex++;
-      }
+    final triggerIndex = _getLastTriggerIndex(currentText, cursorPos);
+    if (triggerIndex == -1) return;
 
-      // Remove the incomplete text from trigger to end of word
-      final newText = currentText.replaceRange(
-        triggerIndex,
-        endIndex,
-        '',
-      );
-
-      _coloredController.text = newText;
-      _coloredController.selection = TextSelection.collapsed(
-        offset: triggerIndex,
-      );
+    int endIndex = cursorPos;
+    while (endIndex < currentText.length &&
+           currentText[endIndex] != ' ' &&
+           currentText[endIndex] != '\n') {
+      endIndex++;
     }
+
+    final word = currentText.substring(triggerIndex + 1, endIndex);
+    final triggerChar = currentText[triggerIndex];
+
+    if (triggerChar == '#' && _tags.any((t) => t.toLowerCase() == word.toLowerCase())) {
+      return;
+    }
+    if (triggerChar == '@' && _mentions.any((m) => m.toLowerCase() == word.toLowerCase())) {
+      return;
+    }
+
+    final newText = currentText.replaceRange(triggerIndex, endIndex, '');
+    _coloredController.text = newText;
+    _previousText = newText;
+    _coloredController.selection = TextSelection.collapsed(offset: triggerIndex);
   }
 
   void _insertTextAtCursor(String text) {
@@ -792,6 +821,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   @override
   void dispose() {
+    _cursorDebounceTimer?.cancel();
     widget.controller.removeListener(_onWidgetControllerChanged);
     _coloredController.removeListener(_onColoredControllerChanged);
     _coloredController.dispose();
@@ -838,11 +868,10 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             cursorWidth: 2.0,
             cursorHeight: 20.0,
             cursorRadius: const Radius.circular(1.0),
-            onSubmitted: (_) {
-              // Allow newline to be inserted
-            },
             onChanged: (text) {
-              setState(() {}); // Rebuild to update colors
+              _previousText = text;
+              _cursorDebounceTimer?.cancel();
+              setState(() {});
               _onTextChanged();
             },
             onTap: () {
