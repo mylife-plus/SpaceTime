@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -41,7 +42,8 @@ import 'services/style_json_download_service.dart';
 import 'services/memory_geojson_service.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: binding);
 
   // Restrict orientation to portrait only
   await SystemChrome.setPreferredOrientations([
@@ -54,7 +56,7 @@ Future<void> main() async {
   MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
 
   // Initialize background downloader
-  await FileDownloader().trackTasks();
+  FileDownloader().trackTasks();
   FileDownloader().configureNotification(
     running: const TaskNotification('Downloading', 'Download in progress'),
     complete: const TaskNotification('Download complete', 'File downloaded successfully'),

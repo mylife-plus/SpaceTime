@@ -54,6 +54,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   mapbox.PointAnnotation? currentLocationMarker;
   mapbox.PointAnnotationManager? annotationManager;
   bool isLoading = true;
+  bool isSearchingLocation = false;
   bool isOfflineMode = false;
   String offlineModeReason = '';
   OfflineModePriority offlineModePriority = OfflineModePriority.networkCheck;
@@ -601,6 +602,10 @@ Future<bool> _checkOfflineTileCount() async {
 
       debugPrint('📍 Getting current position...');
 
+      setState(() {
+        isSearchingLocation = true;
+      });
+
       // Get fresh current location
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
@@ -610,8 +615,28 @@ Future<bool> _checkOfflineTileCount() async {
       );
 
       debugPrint(
-        '✅ Got current position: ${position.latitude}, ${position.longitude}',
+        '✅ Got current position: ${position.latitude}, ${position.longitude}, Accuracy: ${position.accuracy}m',
       );
+
+      // Check if accuracy is acceptable (less than 50 meters)
+      const double acceptableAccuracy = 50.0;
+      if (position.accuracy > acceptableAccuracy) {
+        debugPrint('⚠️ Location accuracy is poor: ${position.accuracy}m (threshold: ${acceptableAccuracy}m)');
+        setState(() {
+          isSearchingLocation = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('📍 Location accuracy is low (${position.accuracy.toStringAsFixed(1)}m). Please try again or select manually.'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
 
       // Try to get location details for the current position
       debugPrint('🔍 Getting location details for current position...');
@@ -627,6 +652,7 @@ Future<bool> _checkOfflineTileCount() async {
       // Update current position
       setState(() {
         currentPosition = position;
+        isSearchingLocation = false;
       });
 
       // Move camera to current location with smooth animation
@@ -2054,12 +2080,12 @@ Future<bool> _checkOfflineTileCount() async {
               ),
 
             // Current Location Button - only show if location permission is granted
-            if (!isLoading && hasLocationPermission && currentPosition != null)
+            if (!isLoading && hasLocationPermission)
               Positioned(
                 top: 50,
                 left: 20,
                 child: GestureDetector(
-                  onTap: _moveToCurrentLocation,
+                  onTap: isSearchingLocation ? null : _moveToCurrentLocation,
                   child: Container(
                     padding: EdgeInsets.all(6),
                     width: 44,
@@ -2071,11 +2097,24 @@ Future<bool> _checkOfflineTileCount() async {
                         colorFilter: controller.rectangleColorFilter,
                       ),
                     ),
-                    child: Image.asset(
-                      AppImages.location,
-                      fit: BoxFit.contain,
-                      color: Colors.white,
-                    ),
+                    child: isSearchingLocation
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                controller.darkMode.value
+                                    ? Colors.white
+                                    : Colors.white,
+                              ),
+                            ),
+                          )
+                        : Image.asset(
+                            AppImages.location,
+                            fit: BoxFit.contain,
+                            color: Colors.white,
+                          ),
                   ),
                 ),
               ),

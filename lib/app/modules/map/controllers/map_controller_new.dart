@@ -370,10 +370,9 @@ class MapControllerNew extends GetxController {
 
   /// Handle style loaded callback
   void onStyleLoaded(mapbox.StyleLoadedEventData data) {
-    loadMemoriesFromDB();
-
-    Future.delayed(Duration(milliseconds: 1), () {
+    Future.delayed(Duration(milliseconds: 1), () async {
       _initializeMapAfterCreation();
+      await loadMemoriesFromDB();
       showLoadedDataOnMap();
     });
   }
@@ -613,7 +612,7 @@ class MapControllerNew extends GetxController {
 
       // Calculate and set appropriate zoom level based on memory spread
       await _setOptimalZoomForMemories(spreadMemories);
-      // await _moveToLatestMemory();
+      await _moveToLatestMemory();
     } else {
       debugPrint('[MapControllerNew] No memories to display');
       _currentMemories.clear();
@@ -869,14 +868,14 @@ class MapControllerNew extends GetxController {
       );
 
       if (callSetCamera == null)
-        await mapboxMap!.flyTo(
+        await mapboxMap!.setCamera(
           mapbox.CameraOptions(
             center: mapbox.Point(coordinates: mapbox.Position(lng!, lat!)),
             zoom: zoom,
             bearing: 0,
             pitch: 0,
           ),
-          mapbox.MapAnimationOptions(duration: 1500),
+          // mapbox.MapAnimationOptions(duration: 1500),
         );
 
       debugPrint(
@@ -2224,6 +2223,10 @@ class MapControllerNew extends GetxController {
                 );
               }
             });
+          }
+
+          if (mapboxMap != null && isMapReady.value) {
+            showLoadedDataOnMap();
           }
         }
       });
@@ -4562,7 +4565,7 @@ class MapControllerNew extends GetxController {
           // Calculate offset in meters (approximately 20 meters)
           // 1 degree latitude ≈ 111,320 meters
           // 1 degree longitude ≈ 111,320 * cos(latitude) meters
-          const double offsetMeters = 5.0;
+          const double offsetMeters = 2.0;
           const double metersPerDegreeLat = 111320.0;
 
           // Random angle (0-360 degrees)

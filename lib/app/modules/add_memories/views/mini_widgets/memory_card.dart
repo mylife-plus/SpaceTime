@@ -447,26 +447,36 @@ class _MemoryCardState extends State<MemoryCard> {
               bottom: 12,
               left: 0,
               right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  totalMediaCount,
-                  (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color:
-                          _currentIndex == index
-                              ? controller.darkMode.value
-                                  ? controller.mainColor.value == 'blue'
-                                      ? controller.currentMainColor
-                                      : controller.primaryColorDark
-                                  : controller.mainColor.value == 'blue'
-                                  ? Colors.blue
-                                  : controller.primaryColor
-                              : Colors.grey.withValues(alpha: 0.5),
+              child: Center(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      totalMediaCount,
+                      (index) => Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color:
+                              _currentIndex == index
+                                  ? controller.darkMode.value
+                                      ? controller.mainColor.value == 'blue'
+                                          ? controller.currentMainColor
+                                          : controller.primaryColorDark
+                                      : controller.mainColor.value == 'blue'
+                                      ? Colors.blue
+                                      : controller.primaryColor
+                                  : Colors.grey.withValues(alpha: 0.8),
+                        ),
+                      ),
                     ),
                   ),
                 ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -78,14 +79,13 @@ class GetStartedController extends GetxController {
   Future<void> _initializeEverything() async {
     isInitializing.value = true;
 
-    // Run all background initialization from main.dart here
     await _initializeBackgroundServices();
 
-    // Then initialize get started services
     _initializeServices();
     await _checkIfShouldShowGetStarted();
 
     isInitializing.value = false;
+    FlutterNativeSplash.remove();
   }
 
   Future<void> _initializeBackgroundServices() async {
@@ -232,7 +232,7 @@ class GetStartedController extends GetxController {
         isCheckingTiles.value = false;
         showWelcomeAnimation.value = true;
 
-        await Future.delayed(const Duration(seconds: 4));
+        await Future.delayed(const Duration(seconds: 1));
 
         Get.offAllNamed(Routes.MAP_NEW);
         return;
@@ -255,7 +255,7 @@ class GetStartedController extends GetxController {
         showDownloadUI.value = false;
         showWelcomeAnimation.value = true;
 
-        await Future.delayed(const Duration(seconds: 4));
+        await Future.delayed(const Duration(seconds: 1));
         Get.offAllNamed(Routes.MAP_NEW);
       }
     }

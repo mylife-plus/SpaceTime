@@ -830,7 +830,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             maxLines: 50,
             minLines: 8,
             keyboardType: TextInputType.multiline,
-            textInputAction: TextInputAction.done,
+            textInputAction: TextInputAction.newline,
             autocorrect: true,
             enableSuggestions: true,
             showCursor: true,
@@ -839,9 +839,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             cursorHeight: 20.0,
             cursorRadius: const Radius.circular(1.0),
             onSubmitted: (_) {
-              // Hide keyboard when done is pressed
-              // Popup will be kept open by _onFocusChange logic
-              _focusNode.unfocus();
+              // Allow newline to be inserted
             },
             onChanged: (text) {
               setState(() {}); // Rebuild to update colors

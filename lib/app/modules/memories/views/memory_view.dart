@@ -17,6 +17,7 @@ import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_image_w
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_info_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/video_player_screen.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/media_picker_popup.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 
@@ -315,18 +316,30 @@ class _MemoryViewState extends State<MemoryView> {
     try {
       // If in edit mode, mark the image for deletion instead of immediately deleting from database
       if (widget.editMode && _editingMemoryId != null) {
-        // Mark this index as deleted (using the original index before any UI changes)
-        _deletedImageIndices.add(index);
-        debugPrint('Marked image at index $index for deletion in edit mode');
+        // Calculate the original index accounting for previously deleted images
+        final originalBase64Images =
+            widget.memoryData?['base64Images'] as List<String>? ?? [];
+
+        // Count how many images from the original list are still in _selectedImagePaths
+        int originalIndex = 0;
+        int currentIndex = 0;
+
+        for (int i = 0; i < originalBase64Images.length; i++) {
+          if (!_deletedImageIndices.contains(i)) {
+            if (currentIndex == index) {
+              originalIndex = i;
+              break;
+            }
+            currentIndex++;
+          }
+        }
+
+        _deletedImageIndices.add(originalIndex);
+        debugPrint('Marked image at original index $originalIndex for deletion in edit mode (current UI index: $index)');
       }
 
       // Remove from UI list
       _selectedImagePaths.removeAt(index);
-
-      // Note: We don't need to update _deletedImageIndices here because:
-      // 1. _deletedImageIndices tracks original image indices from the database
-      // 2. When we save, we'll use these original indices to determine which images to exclude
-      // 3. The UI list (_selectedImagePaths) and database indices are separate concerns
 
       // Force UI refresh
       _selectedImagePaths.refresh();
@@ -342,7 +355,7 @@ class _MemoryViewState extends State<MemoryView> {
       );
 
       debugPrint(
-        'Image deleted and UI refreshed. Remaining: ${_selectedImagePaths.length}',
+        'Image deleted and UI refreshed. Remaining: ${_selectedImagePaths.length}, Deleted indices: $_deletedImageIndices',
       );
     } catch (e) {
       debugPrint('Error deleting image: $e');
@@ -363,9 +376,26 @@ class _MemoryViewState extends State<MemoryView> {
     try {
       // If in edit mode, mark the video for deletion instead of immediately deleting from database
       if (widget.editMode && _editingMemoryId != null) {
-        // Mark this index as deleted (using the original index before any UI changes)
-        _deletedVideoIndices.add(index);
-        debugPrint('Marked video at index $index for deletion in edit mode');
+        // Calculate the original index accounting for previously deleted videos
+        final originalVideoPaths =
+            widget.memoryData?['videoPaths'] as List<String>? ?? [];
+
+        // Count how many videos from the original list are still in _selectedVideoPaths
+        int originalIndex = 0;
+        int currentIndex = 0;
+
+        for (int i = 0; i < originalVideoPaths.length; i++) {
+          if (!_deletedVideoIndices.contains(i)) {
+            if (currentIndex == index) {
+              originalIndex = i;
+              break;
+            }
+            currentIndex++;
+          }
+        }
+
+        _deletedVideoIndices.add(originalIndex);
+        debugPrint('Marked video at original index $originalIndex for deletion in edit mode (current UI index: $index)');
       }
 
       // Remove from UI list
@@ -385,7 +415,7 @@ class _MemoryViewState extends State<MemoryView> {
       );
 
       debugPrint(
-        'Video deleted and UI refreshed. Remaining: ${_selectedVideoPaths.length}',
+        'Video deleted and UI refreshed. Remaining: ${_selectedVideoPaths.length}, Deleted indices: $_deletedVideoIndices',
       );
     } catch (e) {
       debugPrint('Error deleting video: $e');
@@ -782,51 +812,21 @@ class _MemoryViewState extends State<MemoryView> {
   }
 
   void _handleImageUpload() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.media, // Allow both images and videos
-      allowMultiple: true, // Enable multiple selection
-    );
-
-    if (result != null && result.files.isNotEmpty) {
-      debugPrint('📸🎥 Media selection result: ${result.files.length} files');
-
-      // Separate images and videos based on file extension
-      final List<String> newImagePaths = [];
-      final List<String> newVideoPaths = [];
-
-      for (final file in result.files) {
-        if (file.path != null) {
-          final extension = file.extension?.toLowerCase() ?? '';
-
-          // Check if it's a video file
-          if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp'].contains(extension)) {
-            newVideoPaths.add(file.path!);
-            debugPrint('🎥 Video file: ${file.path}');
-          } else {
-            // Treat as image
-            newImagePaths.add(file.path!);
-            debugPrint('📸 Image file: ${file.path}');
+    showDialog(
+      context: context,
+      builder: (context) => MediaPickerPopup(
+        onMediaSelected: (imagePaths, videoPaths) {
+          if (imagePaths.isNotEmpty) {
+            _selectedImagePaths.addAll(imagePaths);
+            debugPrint('📸 Added ${imagePaths.length} images. Total: ${_selectedImagePaths.length}');
           }
-        }
-      }
-
-      // Add to respective lists
-      if (newImagePaths.isNotEmpty) {
-        _selectedImagePaths.addAll(newImagePaths);
-        debugPrint('📸 Added ${newImagePaths.length} images. Total: ${_selectedImagePaths.length}');
-      }
-
-      if (newVideoPaths.isNotEmpty) {
-        _selectedVideoPaths.addAll(newVideoPaths);
-        debugPrint('🎥 Added ${newVideoPaths.length} videos. Total: ${_selectedVideoPaths.length}');
-      }
-
-      // Auto-save draft when media is added
-      debugPrint('📸🎥 Calling _saveDraft() after media selection...');
-      // _saveDraft();
-    } else {
-      debugPrint('📸🎥 No media selected or result is null');
-    }
+          if (videoPaths.isNotEmpty) {
+            _selectedVideoPaths.addAll(videoPaths);
+            debugPrint('🎥 Added ${videoPaths.length} videos. Total: ${_selectedVideoPaths.length}');
+          }
+        },
+      ),
+    );
   }
 
   void _handleAudioPlay() {

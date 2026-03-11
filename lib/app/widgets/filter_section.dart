@@ -269,36 +269,25 @@ class _FilterPanelState extends State<FilterPanel>
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
 
-    return Stack(
-      children: [
-        /// 🔹 Scrollable Content
-        Positioned.fill(
-          child: SingleChildScrollView(
-            controller: widget.scrollController,
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 96),
-            child: GestureDetector(
-              onTap: () => FocusScope.of(context).unfocus(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(uiController),
-                  const SizedBox(height: 8),
-                  ...widget.children,
-                ],
-              ),
-            ),
-          ),
+    return SingleChildScrollView(
+      controller: widget.scrollController,
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(uiController),
+            const SizedBox(height: 8),
+            ...widget.children,
+            const SizedBox(height: 16),
+            /// 🔹 Bottom Buttons (Below all filters)
+            if (!widget.hideButtons && !_isKeyboardVisible)
+              _buildBottomButtons(uiController),
+            const SizedBox(height: 8),
+          ],
         ),
-
-        /// 🔹 Bottom Buttons
-        if (!widget.hideButtons && !_isKeyboardVisible)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildBottomButtons(uiController),
-          ),
-      ],
+      ),
     );
   }
 

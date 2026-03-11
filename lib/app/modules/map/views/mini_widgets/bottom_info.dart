@@ -198,16 +198,116 @@ class _BottomPanelState extends State<BottomPanel> {
     }).toList();
   }
 
-  Future<void> _viewAllMemories(BuildContext context) async {
+   Future<void> _viewAllMemories(BuildContext context) async {
+    final controller = Get.find<AddMemoriesController>();
     Navigator.of(context).pop();
-    await Get.toNamed(Routes.ADD_MEMORIES);
+
+    // Convert memories to MemoryLocation objects for showSpecificMemories
+    final memoryLocations = _memories
+        .map((memory) {
+          try {
+            return clustering.MemoryLocation.fromMap(memory);
+          } catch (e) {
+            debugPrint('[BottomPanel] ⚠️ Failed to create MemoryLocation from: ${memory['id']} - $e');
+            return null;
+          }
+        })
+        .where((memoryLocation) => memoryLocation != null)
+        .cast<clustering.MemoryLocation>()
+        .toList();
+
+    debugPrint('[BottomPanel] Converted ${memoryLocations.length} memories to MemoryLocation objects');
+
+    final c1 = Get.find<MapControllerNew>();
+      List<int> memoryIdInt = [];
+
+      for(var memory in memoryLocations){
+
+        memoryIdInt.add(int.parse(memory.id));
+      }
+      // Show the specific memory in AddMemories view
+      // controller.showSpecificMemories([memoryLocation]);
+
+      // Apply filter with the memory ID
+      // final memoryIdInt = int.tryParse(memoryId);
+      if (memoryIdInt.isNotEmpty) {
+      controller.applyFilters(memoryIds: memoryIdInt);
+        await c1.loadFilteredMemoriesFromDB();
+        c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
+        debugPrint('[MapControllerNew] 🎯 Applied memory IDs filter: [$memoryIdInt]');
+      }
+
+      // debugPrint('[MapControllerNew] 🎯 Navigating to AddMemories view with memory: ${foundMemory['category'] ?? foundMemory['description']}');
+
+      final result = await Get.toNamed(Routes.ADD_MEMORIES);
+    // Use showSpecificMemories which properly handles the data
+    // controller.showSpecificMemories(memoryLocations);
+    // final result = await Get.toNamed(Routes.ADD_MEMORIES);
+
+    // // If memories were edited/deleted, refresh the map
+    // if (result == true) {
+    //   try {
+    //     final mapController = Get.find<MapControllerNew>();
+    //     await mapController.refreshMapView();
+    //     debugPrint('[BottomPanel] Map refreshed after memory editing');
+    //   } catch (e) {
+    //     debugPrint('[BottomPanel] MapControllerNew not found: $e');
+    //   }
+    // }
   }
 
-  Future<void> _viewMemoriesSubset(
+  // Future<void> _viewAllMemories(BuildContext context) async {
+  //   Navigator.of(context).pop();
+  //   await Get.toNamed(Routes.ADD_MEMORIES);
+  // }
+
+  // Future<void> _viewMemoriesSubset(
+  //   BuildContext context,
+  //   List<Map<String, dynamic>> memories,
+  // ) async {
+  //   Navigator.of(context).pop();
+  //   await Get.toNamed(Routes.ADD_MEMORIES);
+  // }
+
+   Future<void> _viewMemoriesSubset(
     BuildContext context,
     List<Map<String, dynamic>> memories,
   ) async {
+    final controller = Get.find<AddMemoriesController>();
     Navigator.of(context).pop();
+
+    // Convert memories to MemoryLocation objects for showSpecificMemories
+    final memoryLocations = memories
+        .map((memory) {
+          try {
+            return clustering.MemoryLocation.fromMap(memory);
+          } catch (e) {
+            debugPrint('[BottomPanel] ⚠️ Failed to create MemoryLocation from: ${memory['id']} - $e');
+            return null;
+          }
+        })
+        .where((memoryLocation) => memoryLocation != null)
+        .cast<clustering.MemoryLocation>()
+        .toList();
+
+    debugPrint('[BottomPanel] Converted ${memoryLocations.length} memories to MemoryLocation objects for subset');
+
+    // Apply filter logic to show subset of memories
+    final c1 = Get.find<MapControllerNew>();
+    List<int> memoryIdInt = [];
+
+    for (var memory in memoryLocations) {
+      memoryIdInt.add(int.parse(memory.id));
+    }
+
+    // Apply filter with the memory IDs
+    if (memoryIdInt.isNotEmpty) {
+      controller.applyFilters(memoryIds: memoryIdInt);
+      await c1.loadFilteredMemoriesFromDB();
+      c1.handleFilterApplyFromMap(memoryIds: memoryIdInt);
+      debugPrint('[BottomPanel] 🎯 Applied memory IDs filter for subset: $memoryIdInt');
+    }
+
     await Get.toNamed(Routes.ADD_MEMORIES);
   }
 }
