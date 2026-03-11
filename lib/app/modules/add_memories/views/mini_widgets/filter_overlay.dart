@@ -657,7 +657,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
     if (Get.isRegistered<AddMemoriesController>()) {
       final addMemoriesController = Get.find<AddMemoriesController>();
       await addMemoriesController.loadMemoriesFromDatabase();
-      debugPrint('[FilterOverlay] ✅ AddMemories view reloaded');
+      addMemoriesController.isFilterOpen.value = false;
     }
 
     // Close filter overlay and reload map

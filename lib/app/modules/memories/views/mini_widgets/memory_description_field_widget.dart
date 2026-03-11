@@ -854,11 +854,14 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
             borderRadius: BorderRadius.circular(0),
           ),
           padding: const EdgeInsets.all(16),
-          child: TextField(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 350),
+            child: TextField(
             controller: _coloredController,
             focusNode: _focusNode,
-            maxLines: 50,
+            maxLines: null,
             minLines: 8,
+            scrollPhysics: const BouncingScrollPhysics(),
             keyboardType: TextInputType.multiline,
             textInputAction: TextInputAction.newline,
             autocorrect: true,
@@ -898,6 +901,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               color: controller.darkMode.value ? Colors.white : Colors.black,
             ),
           ), // TextField
+          ), // ConstrainedBox
         ), // Container
       // ), // GestureDetector
     );

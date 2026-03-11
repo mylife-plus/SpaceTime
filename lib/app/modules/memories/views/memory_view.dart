@@ -1729,7 +1729,9 @@ class _MemoryViewState extends State<MemoryView> {
                     Expanded(
                       child: SingleChildScrollView(
                       controller: _scrollController,
-                      physics: const BouncingScrollPhysics(),
+                      physics: _isKeyboardVisible.value
+                          ? const BouncingScrollPhysics()
+                          : const NeverScrollableScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1923,8 +1925,8 @@ class _MemoryViewState extends State<MemoryView> {
                             onPlayPause: _handleAudioPlay,
                             onAudioDelete: _deleteAudioAtIndex,
                           ),
-                          // Add bottom padding to ensure description field can scroll above keyboard
-                          SizedBox(height: MediaQuery.of(context).size.height * 0.5),
+                          if (_isKeyboardVisible.value)
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.5),
                         ],
                       ),
                     ),
