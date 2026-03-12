@@ -10,12 +10,14 @@ class MemoryAudioWidget extends StatelessWidget {
   final VoidCallback? onPlayPause;
   final VoidCallback? onRecord;
   final Function(int)? onAudioDelete;
+  final Function(int, int)? onAudioReorder;
 
   const MemoryAudioWidget({
     super.key,
     this.onPlayPause,
     this.onRecord,
     this.onAudioDelete,
+    this.onAudioReorder,
   });
 
   @override
@@ -158,11 +160,22 @@ class MemoryAudioWidget extends StatelessWidget {
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 100,
-                  child: ListView.builder(
+                  child: ReorderableListView.builder(
                     scrollDirection: Axis.horizontal,
+                    buildDefaultDragHandles: false,
+                    onReorder: (oldIndex, newIndex) {
+                      if (onAudioReorder != null) {
+                        onAudioReorder!(oldIndex, newIndex);
+                      } else {
+                        controller.reorderAudio(oldIndex, newIndex);
+                      }
+                    },
                     itemCount: controller.recordedAudios.length,
                     itemBuilder: (context, index) {
-                      return Padding(
+                      return ReorderableDragStartListener(
+                        key: ValueKey('audio_${index}_${controller.recordedAudioPaths.length > index ? controller.recordedAudioPaths[index].hashCode : index}'),
+                        index: index,
+                        child: Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: Stack(
                           clipBehavior: Clip.none,
@@ -309,6 +322,7 @@ class MemoryAudioWidget extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
                       );
                     },
                   ),

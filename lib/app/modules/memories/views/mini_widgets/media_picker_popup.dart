@@ -136,15 +136,43 @@ class MediaPickerPopup extends StatelessWidget {
     );
   }
 
+  Future<bool> _requestCameraPermission() async {
+    var status = await Permission.camera.request();
+    if (status.isPermanentlyDenied) {
+      await openAppSettings();
+      return false;
+    }
+    return status.isGranted;
+  }
+
+  Future<bool> _requestGalleryPermission() async {
+    if (Platform.isIOS) {
+      final status = await Permission.photos.request();
+      if (status.isPermanentlyDenied) {
+        await openAppSettings();
+        return false;
+      }
+      return status.isGranted || status.isLimited;
+    }
+    final photos = await Permission.photos.request();
+    final videos = await Permission.videos.request();
+    if (photos.isPermanentlyDenied || videos.isPermanentlyDenied) {
+      await openAppSettings();
+      return false;
+    }
+    return (photos.isGranted || photos.isLimited) &&
+        (videos.isGranted || videos.isLimited);
+  }
+
   Future<void> _handleCameraPhoto(BuildContext context) async {
-    final cameraStatus = await Permission.camera.request();
+    final cameraGranted = await _requestCameraPermission();
 
     PermissionStatus photoLibraryStatus = PermissionStatus.granted;
     if (Platform.isIOS) {
       photoLibraryStatus = await Permission.photosAddOnly.request();
     }
 
-    if (!cameraStatus.isGranted || !photoLibraryStatus.isGranted) {
+    if (!cameraGranted || !photoLibraryStatus.isGranted) {
       Get.snackbar(
         'Permissions Required',
         'Camera and photo library permissions are required to take and save photos',
@@ -173,15 +201,19 @@ class MediaPickerPopup extends StatelessWidget {
   }
 
   Future<void> _handleCameraVideo(BuildContext context) async {
-    final cameraStatus = await Permission.camera.request();
-    final micStatus = await Permission.microphone.request();
+    final cameraGranted = await _requestCameraPermission();
+    var micStatus = await Permission.microphone.request();
+    if (micStatus.isPermanentlyDenied) {
+      await openAppSettings();
+      return;
+    }
 
     PermissionStatus photoLibraryStatus = PermissionStatus.granted;
     if (Platform.isIOS) {
       photoLibraryStatus = await Permission.photosAddOnly.request();
     }
 
-    if (!cameraStatus.isGranted || !micStatus.isGranted || !photoLibraryStatus.isGranted) {
+    if (!cameraGranted || !micStatus.isGranted || !photoLibraryStatus.isGranted) {
       Get.snackbar(
         'Permissions Required',
         'Camera, microphone, and photo library permissions are required to record and save videos',
@@ -210,15 +242,9 @@ class MediaPickerPopup extends StatelessWidget {
   }
 
   Future<void> _handleGallery(BuildContext context) async {
-    PermissionStatus photoStatus;
+    final granted = await _requestGalleryPermission();
 
-    if (Platform.isIOS) {
-      photoStatus = await Permission.photos.request();
-    } else {
-      photoStatus = await Permission.storage.request();
-    }
-
-    if (!photoStatus.isGranted) {
+    if (!granted) {
       Get.snackbar(
         'Photo Library Permission',
         'Photo library permission is required to select images and videos',

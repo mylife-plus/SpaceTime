@@ -669,6 +669,8 @@ class DatabaseHelper {
     List<String>? imageDataList,
     List<Map<String, dynamic>>? audioDataList,
     List<Map<String, dynamic>>? videoDataList,
+    List<int>? imageOrders,
+    List<int>? videoOrders,
   }) async {
     int retryCount = 0;
     const maxRetries = 3;
@@ -697,7 +699,7 @@ class DatabaseHelper {
               await txn.insert(tableImages, {
                 columnMemoryId: memoryId,
                 columnImageData: imageDataList[i],
-                columnImageOrder: i,
+                columnImageOrder: (imageOrders != null && i < imageOrders.length) ? imageOrders[i] : i,
                 columnImageCreatedAt: DateTime.now().toIso8601String(),
               });
             }
@@ -728,7 +730,7 @@ class DatabaseHelper {
                 columnVideoFilePath: videoData['path'],
                 columnVideoDuration: videoData['duration'],
                 columnVideoThumbnailPath: videoData['thumbnail'],
-                columnVideoOrder: i,
+                columnVideoOrder: (videoOrders != null && i < videoOrders.length) ? videoOrders[i] : i,
                 columnVideoCreatedAt: DateTime.now().toIso8601String(),
               });
             }
@@ -1806,20 +1808,18 @@ class DatabaseHelper {
       for (final memory in memories) {
         final memoryId = memory[columnId] as int;
 
-        // Get images for this memory
         final images = await getMemoryImages(memoryId);
-
-        // Get audio files for this memory
+        final imagesWithOrder = await getMemoryImagesWithOrder(memoryId);
         final audios = await getMemoryAudios(memoryId);
-
-        // Get video files for this memory
         final videos = await getMemoryVideos(memoryId);
+        final videosWithOrder = await getMemoryVideosWithOrder(memoryId);
 
-        // Create memory object with images, audios, and videos
         final memoryWithMedia = Map<String, dynamic>.from(memory);
-        memoryWithMedia['images'] = images; // Store as separate field
-        memoryWithMedia['audios'] = audios; // Store audio data
-        memoryWithMedia['videos'] = videos; // Store video data
+        memoryWithMedia['images'] = images;
+        memoryWithMedia['audios'] = audios;
+        memoryWithMedia['videos'] = videos;
+        memoryWithMedia['imageOrders'] = imagesWithOrder.map((r) => r[columnImageOrder] as int? ?? 0).toList();
+        memoryWithMedia['videoOrders'] = videosWithOrder.map((r) => r[columnVideoOrder] as int? ?? 0).toList();
 
         // For backward compatibility, also store in image_path field
         if (images.isNotEmpty) {

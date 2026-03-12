@@ -363,31 +363,52 @@ class _MemoryCardState extends State<MemoryCard> {
     super.dispose();
   }
 
-  Widget _buildImageGallery() {
-    // Combine images and videos into a single media list
+  List<Map<String, dynamic>> _buildOrderedMediaList() {
     final images =
         widget.assetsImg is List
             ? widget.assetsImg as List<String>
             : widget.assetsImg != null
             ? [widget.assetsImg as String]
             : <String>[];
-
     final videos = widget.videoPaths ?? <String>[];
-    final totalMediaCount = images.length + videos.length;
+    final imageOrders = widget.memoryData['imageOrders'] as List<dynamic>?;
+    final videoOrders = widget.memoryData['videoOrders'] as List<dynamic>?;
 
-    debugPrint(
-      '🎬 Gallery: ${images.length} images, ${videos.length} videos, total: $totalMediaCount',
-    );
-    if (videos.isNotEmpty) {
-      debugPrint('🎬 Video paths: $videos');
+    final List<Map<String, dynamic>> mediaList = [];
+    for (int i = 0; i < images.length; i++) {
+      mediaList.add({
+        'type': 'image',
+        'path': images[i],
+        'order': (imageOrders != null && i < imageOrders.length) ? imageOrders[i] as int : i,
+      });
     }
+    for (int i = 0; i < videos.length; i++) {
+      mediaList.add({
+        'type': 'video',
+        'path': videos[i],
+        'order': (videoOrders != null && i < videoOrders.length) ? videoOrders[i] as int : images.length + i,
+      });
+    }
+    mediaList.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+    return mediaList;
+  }
+
+  Widget _buildImageGallery() {
+    final orderedMedia = _buildOrderedMediaList();
+    final images =
+        widget.assetsImg is List
+            ? widget.assetsImg as List<String>
+            : widget.assetsImg != null
+            ? [widget.assetsImg as String]
+            : <String>[];
+    final videos = widget.videoPaths ?? <String>[];
+    final totalMediaCount = orderedMedia.length;
 
     if (totalMediaCount == 0) {
       return const SizedBox.shrink();
     }
 
     return SizedBox(
-      // height: 300,
       width: double.infinity,
       child: Stack(
         children: [
@@ -405,8 +426,9 @@ class _MemoryCardState extends State<MemoryCard> {
               },
               itemCount: totalMediaCount,
               itemBuilder: (context, index) {
-                // Determine if this is an image or video
-                final isImage = index < images.length;
+                final item = orderedMedia[index];
+                final isImage = item['type'] == 'image';
+                final path = item['path'] as String;
 
                 if (isImage) {
                   if (!_imageCache.containsKey(index)) {
@@ -415,13 +437,12 @@ class _MemoryCardState extends State<MemoryCard> {
                         _openMediaViewer(images, videos, index);
                       },
                       behavior: HitTestBehavior.opaque,
-                      child: ClipRRect(child: _buildImageWidget(images[index])),
+                      child: ClipRRect(child: _buildImageWidget(path)),
                     );
                   }
                   return _imageCache[index]!;
                 } else {
-                  final videoIndex = index - images.length;
-                  return _buildInlineVideoPlayer(videos[videoIndex], index, images, videos);
+                  return _buildInlineVideoPlayer(path, index, images, videos);
                 }
               },
             ),

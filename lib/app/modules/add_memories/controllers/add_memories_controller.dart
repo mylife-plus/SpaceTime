@@ -418,6 +418,8 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       'videoPaths': videoPaths,
       'videoThumbnails': videoThumbnails,
       'videoDurations': videoDurations,
+      'imageOrders': dbMemory['imageOrders'],
+      'videoOrders': dbMemory['videoOrders'],
       'created_at': dbMemory['created_at'],
     };
 

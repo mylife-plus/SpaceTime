@@ -42,26 +42,24 @@ class _MemoryViewState extends State<MemoryView> {
       GlobalKey<MemoryDescriptionFieldState>();
   final ScrollController _scrollController = ScrollController();
   bool _isPopupOpen = false;
-  final RxList<String> _selectedImagePaths = <String>[].obs;
-  final RxList<String> _selectedVideoPaths = <String>[].obs;
+  final RxList<Map<String, dynamic>> _orderedMedia = <Map<String, dynamic>>[].obs;
   int? _editingMemoryId;
 
-  // Track keyboard visibility
   final RxBool _isKeyboardVisible = false.obs;
 
-  // Track original database images, videos, and audio for edit mode
   List<Map<String, dynamic>> _originalImages = [];
   List<Map<String, dynamic>> _originalVideos = [];
   List<Map<String, dynamic>> _originalAudios = [];
 
-  // Track which images are marked for deletion (by index)
   Set<int> _deletedImageIndices = <int>{};
-
-  // Track which videos are marked for deletion (by index)
   Set<int> _deletedVideoIndices = <int>{};
-
-  // Track which audio files are marked for deletion (by index)
   Set<int> _deletedAudioIndices = <int>{};
+
+  List<String> get _selectedImagePaths =>
+      _orderedMedia.where((m) => m['type'] == 'image').map((m) => m['path'] as String).toList();
+
+  List<String> get _selectedVideoPaths =>
+      _orderedMedia.where((m) => m['type'] == 'video').map((m) => m['path'] as String).toList();
 
   final List<String> _existingTags = [
     'travel',
@@ -114,9 +112,8 @@ class _MemoryViewState extends State<MemoryView> {
       });
     }
 
-    // Clear selected images
-    _selectedImagePaths.clear();
-    debugPrint('Image data cleared on init');
+    _orderedMedia.clear();
+    debugPrint('Media data cleared on init');
 
     // Initialize edit mode if editing existing memory
     if (widget.editMode && widget.memoryData != null) {
@@ -134,9 +131,7 @@ class _MemoryViewState extends State<MemoryView> {
     debugPrint('Initializing edit mode for memory ID: $_editingMemoryId');
     debugPrint('Memory data: ${memoryData.toString()}');
 
-    // Clear any existing data first to prevent mixing old and new data
-    _selectedImagePaths.clear();
-    _selectedVideoPaths.clear();
+    _orderedMedia.clear();
     _originalImages.clear();
     _originalVideos.clear();
     _originalAudios.clear();
@@ -311,114 +306,26 @@ class _MemoryViewState extends State<MemoryView> {
     debugPrint('Edit mode initialized for memory ID: $_editingMemoryId');
   }
 
-  // Delete image at specific index, handling both edit mode and new memory mode
-  Future<void> _deleteImageAtIndex(int index) async {
+  Future<void> _deleteMediaAtIndex(int index) async {
     try {
-      // If in edit mode, mark the image for deletion instead of immediately deleting from database
-      if (widget.editMode && _editingMemoryId != null) {
-        // Calculate the original index accounting for previously deleted images
-        final originalBase64Images =
-            widget.memoryData?['base64Images'] as List<String>? ?? [];
+      final item = _orderedMedia[index];
+      final type = item['type'] as String;
 
-        // Count how many images from the original list are still in _selectedImagePaths
-        int originalIndex = 0;
-        int currentIndex = 0;
-
-        for (int i = 0; i < originalBase64Images.length; i++) {
-          if (!_deletedImageIndices.contains(i)) {
-            if (currentIndex == index) {
-              originalIndex = i;
-              break;
-            }
-            currentIndex++;
-          }
+      if (widget.editMode && _editingMemoryId != null && item['originalIndex'] != null) {
+        final origIdx = item['originalIndex'] as int;
+        if (type == 'image') {
+          _deletedImageIndices.add(origIdx);
+        } else {
+          _deletedVideoIndices.add(origIdx);
         }
-
-        _deletedImageIndices.add(originalIndex);
-        debugPrint('Marked image at original index $originalIndex for deletion in edit mode (current UI index: $index)');
+        debugPrint('Marked $type at original index $origIdx for deletion');
       }
 
-      // Remove from UI list
-      _selectedImagePaths.removeAt(index);
-
-      // Force UI refresh
-      _selectedImagePaths.refresh();
-
-
-      debugPrint(
-        'Image deleted and UI refreshed. Remaining: ${_selectedImagePaths.length}, Deleted indices: $_deletedImageIndices',
-      );
+      _orderedMedia.removeAt(index);
+      _orderedMedia.refresh();
+      debugPrint('Media deleted. Remaining: ${_orderedMedia.length}');
     } catch (e) {
-      debugPrint('Error deleting image: $e');
-      Get.snackbar(
-        'Unable to Delete',
-        'Unable to delete image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
-
-      );
-    }
-  }
-
-  // Delete video at specific index, handling both edit mode and new memory mode
-  Future<void> _deleteVideoAtIndex(int index) async {
-    try {
-      // If in edit mode, mark the video for deletion instead of immediately deleting from database
-      if (widget.editMode && _editingMemoryId != null) {
-        // Calculate the original index accounting for previously deleted videos
-        final originalVideoPaths =
-            widget.memoryData?['videoPaths'] as List<String>? ?? [];
-
-        // Count how many videos from the original list are still in _selectedVideoPaths
-        int originalIndex = 0;
-        int currentIndex = 0;
-
-        for (int i = 0; i < originalVideoPaths.length; i++) {
-          if (!_deletedVideoIndices.contains(i)) {
-            if (currentIndex == index) {
-              originalIndex = i;
-              break;
-            }
-            currentIndex++;
-          }
-        }
-
-        _deletedVideoIndices.add(originalIndex);
-        debugPrint('Marked video at original index $originalIndex for deletion in edit mode (current UI index: $index)');
-      }
-
-      // Remove from UI list
-      _selectedVideoPaths.removeAt(index);
-
-      // Force UI refresh
-      _selectedVideoPaths.refresh();
-
-      Get.snackbar(
-        'Deleted',
-        'Your video has been successfully deleted.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade400,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
-
-      );
-
-      debugPrint(
-        'Video deleted and UI refreshed. Remaining: ${_selectedVideoPaths.length}, Deleted indices: $_deletedVideoIndices',
-      );
-    } catch (e) {
-      debugPrint('Error deleting video: $e');
-      Get.snackbar(
-        'Unable to Delete',
-        'Unable to delete video. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
-
-      );
+      debugPrint('Error deleting media: $e');
     }
   }
 
@@ -472,13 +379,9 @@ class _MemoryViewState extends State<MemoryView> {
     try {
       debugPrint('Starting to load ${base64Images.length} images for editing');
 
-      // Clear any existing images first
-      _selectedImagePaths.clear();
-
       final memoryController = Get.find<MemoryController>();
       final tempDir = await getTemporaryDirectory();
 
-      // Create a unique folder for this editing session
       final editSessionDir = Directory(
         '${tempDir.path}/edit_session_${DateTime.now().millisecondsSinceEpoch}',
       );
@@ -490,36 +393,27 @@ class _MemoryViewState extends State<MemoryView> {
         final imageData = base64Images[i];
 
         try {
-          // Check if it's a file path (relative or absolute) or base64
+          String path;
           if (imageData.startsWith('memory_images/') || imageData.startsWith('/')) {
-            // It's a file path - convert to absolute path
-            final absolutePath = await memoryController.getAbsolutePath(imageData);
-            _selectedImagePaths.add(absolutePath);
-            debugPrint('📸 Loaded image path $i: $imageData -> $absolutePath');
+            path = await memoryController.getAbsolutePath(imageData);
           } else {
-            // It's base64 data - decode and save to temp file
             final bytes = base64Decode(imageData);
-
-            // Create temporary file with unique name
             final tempFile = File(
               '${editSessionDir.path}/edit_image_${_editingMemoryId}_$i.png',
             );
             await tempFile.writeAsBytes(bytes);
-
-            _selectedImagePaths.add(tempFile.path);
-            debugPrint('📸 Loaded base64 image $i: ${tempFile.path}');
+            path = tempFile.path;
           }
+          final imgOrder = _originalImages.isNotEmpty && i < _originalImages.length
+              ? (_originalImages[i]['image_order'] as int? ?? i)
+              : i;
+          _orderedMedia.add({'type': 'image', 'path': path, 'originalIndex': i, 'order': imgOrder});
         } catch (e) {
           debugPrint('Error processing image $i: $e');
         }
       }
 
-      // Force UI refresh
-      _selectedImagePaths.refresh();
-
-      debugPrint(
-        'Successfully loaded ${_selectedImagePaths.length} existing images for editing',
-      );
+      debugPrint('Loaded ${base64Images.length} existing images for editing');
     } catch (e) {
       debugPrint('Error loading existing images for edit: $e');
     }
@@ -559,91 +453,69 @@ class _MemoryViewState extends State<MemoryView> {
     }
   }
 
-  // Load existing video files for editing
   Future<void> _loadExistingVideosForEdit(List<String> videoPaths) async {
     try {
-      // Load existing video paths into the selected videos list
-      _selectedVideoPaths.clear();
-
       final memoryController = Get.find<MemoryController>();
 
-      for (final videoPath in videoPaths) {
-        // Convert relative path to absolute path
-        final absolutePath = await memoryController.getAbsolutePath(videoPath);
-        _selectedVideoPaths.add(absolutePath);
-        debugPrint('📹 Loaded video: $videoPath -> $absolutePath');
+      for (int i = 0; i < videoPaths.length; i++) {
+        final absolutePath = await memoryController.getAbsolutePath(videoPaths[i]);
+        final vidOrder = _originalVideos.isNotEmpty && i < _originalVideos.length
+            ? (_originalVideos[i]['video_order'] as int? ?? i)
+            : i;
+        _orderedMedia.add({'type': 'video', 'path': absolutePath, 'originalIndex': i, 'order': vidOrder});
       }
 
-      debugPrint(
-        'Loaded ${videoPaths.length} existing video files for editing',
-      );
+      _orderedMedia.sort((a, b) => (a['order'] as int? ?? 0).compareTo(b['order'] as int? ?? 0));
+      _orderedMedia.refresh();
+
+      debugPrint('Loaded ${videoPaths.length} existing videos for editing');
     } catch (e) {
       debugPrint('Error loading existing video files for edit: $e');
     }
   }
 
-  // Update memory images when editing
   Future<void> _updateMemoryImages(int memoryId) async {
     try {
       final memoryController = Get.find<MemoryController>();
       final databaseHelper = DatabaseHelper.instance;
 
-      // Delete existing images for this memory
       await databaseHelper.deleteMemoryImages(memoryId);
 
-      // Get the original base64 images from memory data
       final originalBase64Images =
           widget.memoryData?['base64Images'] as List<String>? ?? [];
 
-      // Create a list of images to save (original images minus deleted ones + new images)
       final List<String> finalBase64Images = [];
+      final List<int> finalOrders = [];
 
-      // Add original images that weren't deleted
-      for (int i = 0; i < originalBase64Images.length; i++) {
-        if (!_deletedImageIndices.contains(i)) {
-          finalBase64Images.add(originalBase64Images[i]);
+      final imageItems = _orderedMedia.where((m) => m['type'] == 'image').toList();
+
+      for (int i = 0; i < imageItems.length; i++) {
+        final item = imageItems[i];
+        final globalOrder = _orderedMedia.indexOf(item);
+        final origIdx = item['originalIndex'] as int?;
+
+        if (origIdx != null && origIdx < originalBase64Images.length) {
+          finalBase64Images.add(originalBase64Images[origIdx]);
+          finalOrders.add(globalOrder);
+        } else {
+          final path = item['path'] as String;
+          final base64List = await memoryController.convertImagesToBase64([path]);
+          if (base64List.isNotEmpty) {
+            finalBase64Images.add(base64List.first);
+            finalOrders.add(globalOrder);
+          }
         }
       }
 
-      // Add any new images that were added during editing
-      // New images are those in _selectedImagePaths that are beyond the original count
-      final newImagePaths = <String>[];
-      final originalImageCount = originalBase64Images.length;
-
-      // Current _selectedImagePaths contains: (original images - deleted) + new images
-      // We need to identify which are new
-      final currentDisplayCount = _selectedImagePaths.length;
-      final originalMinusDeleted =
-          originalImageCount - _deletedImageIndices.length;
-
-      if (currentDisplayCount > originalMinusDeleted) {
-        // There are new images
-        final newImagesStartIndex = originalMinusDeleted;
-        for (int i = newImagesStartIndex; i < currentDisplayCount; i++) {
-          newImagePaths.add(_selectedImagePaths[i]);
-        }
-      }
-
-      // Convert new images to base64 and add them
-      if (newImagePaths.isNotEmpty) {
-        final newBase64List = await memoryController.convertImagesToBase64(
-          newImagePaths,
-        );
-        finalBase64Images.addAll(newBase64List);
-      }
-
-      // Insert all final images
       for (int i = 0; i < finalBase64Images.length; i++) {
         await databaseHelper.insertMemoryImage(
           memoryId,
           finalBase64Images[i],
-          i,
+          finalOrders[i],
         );
       }
 
-      debugPrint(
-        'Updated ${finalBase64Images.length} images for memory $memoryId (${_deletedImageIndices.length} deleted, ${newImagePaths.length} new)',
-      );
+      debugPrint('Updated ${finalBase64Images.length} images for memory $memoryId');
     } catch (e) {
       debugPrint('Error updating memory images: $e');
       throw e;
@@ -737,84 +609,87 @@ class _MemoryViewState extends State<MemoryView> {
     }
   }
 
-  // Update memory video files when editing
   Future<void> _updateMemoryVideos(int memoryId) async {
     try {
       final memoryController = Get.find<MemoryController>();
       final databaseHelper = DatabaseHelper.instance;
 
-      // Delete existing video files for this memory
       await databaseHelper.deleteMemoryVideos(memoryId);
 
-      // Get the original video data from memory data
       final originalVideoPaths =
           widget.memoryData?['videoPaths'] as List<String>? ?? [];
 
-      // Create a list of video files to save (original videos minus deleted ones + new videos)
       final List<String> finalVideoPaths = [];
+      final List<int> finalOrders = [];
 
-      // Add original videos that weren't deleted
-      for (int i = 0; i < originalVideoPaths.length; i++) {
-        if (!_deletedVideoIndices.contains(i)) {
-          finalVideoPaths.add(originalVideoPaths[i]);
+      final videoItems = _orderedMedia.where((m) => m['type'] == 'video').toList();
+
+      for (int i = 0; i < videoItems.length; i++) {
+        final item = videoItems[i];
+        final globalOrder = _orderedMedia.indexOf(item);
+        final origIdx = item['originalIndex'] as int?;
+
+        if (origIdx != null && origIdx < originalVideoPaths.length) {
+          finalVideoPaths.add(originalVideoPaths[origIdx]);
+          finalOrders.add(globalOrder);
+        } else {
+          final path = item['path'] as String;
+          final savedPaths = await memoryController.saveVideosToAppDirectory([path]);
+          if (savedPaths.isNotEmpty) {
+            finalVideoPaths.add(savedPaths.first);
+            finalOrders.add(globalOrder);
+          }
         }
       }
 
-      // Identify and save new video files that were added during editing
-      final originalVideoCount = originalVideoPaths.length;
-      final currentVideoCount = _selectedVideoPaths.length;
-      final originalMinusDeleted =
-          originalVideoCount - _deletedVideoIndices.length;
-
-      if (currentVideoCount > originalMinusDeleted) {
-        // There are new video files - extract them
-        final newVideoPaths = <String>[];
-        final newVideosStartIndex = originalMinusDeleted;
-        for (int i = newVideosStartIndex; i < currentVideoCount; i++) {
-          newVideoPaths.add(_selectedVideoPaths[i]);
-        }
-
-        // Save new videos to app directory
-        if (newVideoPaths.isNotEmpty) {
-          final savedNewVideoPaths = await memoryController.saveVideosToAppDirectory(newVideoPaths);
-          debugPrint('💾 Saved ${savedNewVideoPaths.length} new videos to app directory during edit');
-          finalVideoPaths.addAll(savedNewVideoPaths);
-        }
-      }
-
-      // Insert all final video files
       for (int i = 0; i < finalVideoPaths.length; i++) {
         await databaseHelper.insertMemoryVideo(
           memoryId,
           finalVideoPaths[i],
-          '', // Duration can be extracted later if needed
-          '', // Thumbnail path can be generated later if needed
-          i,
+          '',
+          '',
+          finalOrders[i],
         );
       }
 
-      debugPrint(
-        'Updated ${finalVideoPaths.length} video files for memory $memoryId (${_deletedVideoIndices.length} deleted, ${finalVideoPaths.length - originalMinusDeleted} new)',
-      );
+      debugPrint('Updated ${finalVideoPaths.length} videos for memory $memoryId');
     } catch (e) {
       debugPrint('Error updating memory video files: $e');
       throw e;
     }
   }
 
+  Future<void> _sortMediaByCreationDate(List<Map<String, dynamic>> newItems) async {
+    final List<MapEntry<Map<String, dynamic>, DateTime>> withDates = [];
+    for (final item in newItems) {
+      try {
+        final file = File(item['path'] as String);
+        final stat = await file.stat();
+        withDates.add(MapEntry(item, stat.modified));
+      } catch (e) {
+        withDates.add(MapEntry(item, DateTime.now()));
+      }
+    }
+    withDates.sort((a, b) => a.value.compareTo(b.value));
+    for (final entry in withDates) {
+      _orderedMedia.add(entry.key);
+    }
+    _orderedMedia.refresh();
+  }
+
   void _handleImageUpload() async {
     showDialog(
       context: context,
       builder: (context) => MediaPickerPopup(
-        onMediaSelected: (imagePaths, videoPaths) {
-          if (imagePaths.isNotEmpty) {
-            _selectedImagePaths.addAll(imagePaths);
-            debugPrint('📸 Added ${imagePaths.length} images. Total: ${_selectedImagePaths.length}');
+        onMediaSelected: (imagePaths, videoPaths) async {
+          final newItems = <Map<String, dynamic>>[];
+          for (final p in imagePaths) {
+            newItems.add({'type': 'image', 'path': p});
           }
-          if (videoPaths.isNotEmpty) {
-            _selectedVideoPaths.addAll(videoPaths);
-            debugPrint('🎥 Added ${videoPaths.length} videos. Total: ${_selectedVideoPaths.length}');
+          for (final p in videoPaths) {
+            newItems.add({'type': 'video', 'path': p});
           }
+          await _sortMediaByCreationDate(newItems);
         },
       ),
     );
@@ -1200,14 +1075,10 @@ class _MemoryViewState extends State<MemoryView> {
         // Clear the description field and selected images
         debugPrint('MemoryView: handleSave - EDIT MODE - Clearing UI fields');
         _descriptionController.clear();
-        _selectedImagePaths.clear();
-        _selectedVideoPaths.clear();
+        _orderedMedia.clear();
         _deletedImageIndices.clear();
         _deletedAudioIndices.clear();
         _deletedVideoIndices.clear();
-
-        // Force UI refresh for images
-        _selectedImagePaths.refresh();
         debugPrint('MemoryView: handleSave - EDIT MODE - UI fields cleared');
 
         // Reload data from FilterController (single source of truth)
@@ -1270,10 +1141,19 @@ class _MemoryViewState extends State<MemoryView> {
 
         debugPrint('MemoryView: handleSave - CREATE MODE - Saving memory to database');
         debugPrint('MemoryView: handleSave - CREATE MODE - Images: ${_selectedImagePaths.length}, Videos: ${_selectedVideoPaths.length}');
+        final imgOrders = <int>[];
+        final vidOrders = <int>[];
+        for (int i = 0; i < _orderedMedia.length; i++) {
+          final item = _orderedMedia[i];
+          if (item['type'] == 'image') imgOrders.add(i);
+          if (item['type'] == 'video') vidOrders.add(i);
+        }
         await memoryController.saveMemory(
           description: description,
           imagePaths: _selectedImagePaths,
           videoPaths: _selectedVideoPaths,
+          imageOrders: imgOrders,
+          videoOrders: vidOrders,
           tags: tags,
           mentions: mentions,
         );
@@ -1287,8 +1167,7 @@ class _MemoryViewState extends State<MemoryView> {
         // Clear the description field
         debugPrint('MemoryView: handleSave - CREATE MODE - Clearing UI fields');
         _descriptionController.clear();
-        _selectedImagePaths.clear();
-        _selectedVideoPaths.clear();
+        _orderedMedia.clear();
         debugPrint('MemoryView: handleSave - CREATE MODE - UI fields cleared');
 
         // Clear all controller data including audio recordings
@@ -1698,8 +1577,7 @@ class _MemoryViewState extends State<MemoryView> {
             debugPrint('Error clearing audio data on back navigation: $e');
           }
 
-          // Clear selected images
-          _selectedImagePaths.clear();
+          _orderedMedia.clear();
           debugPrint('Image data cleared on back navigation');
         }
       },
@@ -1750,8 +1628,7 @@ class _MemoryViewState extends State<MemoryView> {
                                         const Color(0xFFF8FBFF),
                             child: Obx(
                               () {
-                                // Combine images and videos into a single list
-                                final totalMediaCount = _selectedImagePaths.length + _selectedVideoPaths.length;
+                                final totalMediaCount = _orderedMedia.length;
 
                                 return Row(
                                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -1761,88 +1638,88 @@ class _MemoryViewState extends State<MemoryView> {
                                     Expanded(
                                       child: SizedBox(
                                         height: 170,
-                                        child: ListView.builder(
+                                        child: ReorderableListView.builder(
                                           scrollDirection: Axis.horizontal,
+                                          buildDefaultDragHandles: false,
                                           itemCount: totalMediaCount,
+                                          onReorder: (oldIndex, newIndex) {
+                                            if (newIndex > oldIndex) newIndex--;
+                                            final item = _orderedMedia.removeAt(oldIndex);
+                                            _orderedMedia.insert(newIndex, item);
+                                            _orderedMedia.refresh();
+                                          },
                                           itemBuilder: (context, index) {
-                                            // Determine if this is an image or video
-                                            final isImage = index < _selectedImagePaths.length;
+                                            final mediaItem = _orderedMedia[index];
+                                            final isImage = mediaItem['type'] == 'image';
+                                            final path = mediaItem['path'] as String;
 
                                             if (isImage) {
-                                              // Display image
-                                              return Padding(
-                                                padding: const EdgeInsets.only(right: 8),
-                                                child: SizedBox(
-                                                  width: 120,
-                                                  height: 170,
-                                                  child: Stack(
-                                                    children: [
-                                                      GestureDetector(
-                                                        onLongPress: () {
-                                                          showDeleteConfirmationDialog(
-                                                            title: 'Delete Image',
-                                                            message: 'Do you want to delete this image?',
-                                                            onConfirm: () async {
-                                                              await _deleteImageAtIndex(index);
-                                                            },
-                                                          );
-                                                        },
-                                                        child: ClipRRect(
+                                              return ReorderableDragStartListener(
+                                                key: ValueKey('media_$index\_${path.hashCode}'),
+                                                index: index,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.only(right: 8),
+                                                  child: SizedBox(
+                                                    width: 120,
+                                                    height: 170,
+                                                    child: Stack(
+                                                      children: [
+                                                        ClipRRect(
                                                           borderRadius: BorderRadius.circular(8),
                                                           child: Image.file(
-                                                            File(_selectedImagePaths[index]),
+                                                            File(path),
                                                             fit: BoxFit.cover,
                                                             width: 120,
                                                             height: 170,
                                                           ),
                                                         ),
-                                                      ),
-                                                      // Cross button to delete image
-                                                      Positioned(
-                                                        top: 4,
-                                                        right: 4,
-                                                        child: GestureDetector(
-                                                          onTap: () async {
-                                                            await _deleteImageAtIndex(index);
-                                                          },
-                                                          child: Container(
-                                                            width: 24,
-                                                            height: 24,
-                                                            decoration: BoxDecoration(
-                                                              color: Colors.black.withOpacity(0.6),
-                                                              shape: BoxShape.circle,
-                                                            ),
-                                                            child: const Icon(
-                                                              Icons.close,
-                                                              color: Colors.white,
-                                                              size: 16,
+                                                        Positioned(
+                                                          top: 4,
+                                                          right: 4,
+                                                          child: GestureDetector(
+                                                            onTap: () async {
+                                                              await _deleteMediaAtIndex(index);
+                                                            },
+                                                            child: Container(
+                                                              width: 24,
+                                                              height: 24,
+                                                              decoration: BoxDecoration(
+                                                                color: Colors.black.withOpacity(0.6),
+                                                                shape: BoxShape.circle,
+                                                              ),
+                                                              child: const Icon(
+                                                                Icons.close,
+                                                                color: Colors.white,
+                                                                size: 16,
+                                                              ),
                                                             ),
                                                           ),
                                                         ),
-                                                      ),
-                                                    ],
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               );
                                             } else {
-                                              // Display video thumbnail
-                                              final videoIndex = index - _selectedImagePaths.length;
-                                              return Padding(
-                                                padding: const EdgeInsets.only(right: 8),
-                                                child: VideoThumbnailWidget(
-                                                  videoPath: _selectedVideoPaths[videoIndex],
-                                                  width: 120,
-                                                  height: 170,
-                                                  onTap: () {
-                                                    // Open video player
-                                                    Get.to(() => VideoPlayerScreen(
-                                                      videoPath: _selectedVideoPaths[videoIndex],
-                                                      allowHorizontal: false,
-                                                    ));
-                                                  },
-                                                  onDelete: () async {
-                                                    await _deleteVideoAtIndex(videoIndex);
-                                                  },
+                                              return ReorderableDragStartListener(
+                                                key: ValueKey('media_$index\_${path.hashCode}'),
+                                                index: index,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.only(right: 8),
+                                                  child: VideoThumbnailWidget(
+                                                    videoPath: path,
+                                                    width: 120,
+                                                    height: 170,
+                                                    onTap: () {
+                                                      Get.to(() => VideoPlayerScreen(
+                                                        videoPath: path,
+                                                        allowHorizontal: false,
+                                                      ));
+                                                    },
+                                                    onDelete: () async {
+                                                      await _deleteMediaAtIndex(index);
+                                                    },
+                                                  ),
                                                 ),
                                               );
                                             }
@@ -2499,7 +2376,7 @@ class _MemoryViewState extends State<MemoryView> {
           final imageBase64List = List<String>.from(
             draftData['imageBase64List'],
           );
-          _selectedImagePaths.clear();
+          _orderedMedia.clear();
 
           // Create temporary files from base64 data
           final appDir = await getApplicationDocumentsDirectory();
@@ -2518,7 +2395,7 @@ class _MemoryViewState extends State<MemoryView> {
               final tempFile = File('${tempImagesDir.path}/$tempFileName');
 
               await tempFile.writeAsBytes(bytes);
-              _selectedImagePaths.add(tempFile.path);
+              _orderedMedia.add({'type': 'image', 'path': tempFile.path});
               debugPrint('Restored image from draft: $tempFileName');
               debugPrint('Image file exists: ${await tempFile.exists()}');
               debugPrint('Image file size: ${await tempFile.length()} bytes');
@@ -2590,14 +2467,10 @@ class _MemoryViewState extends State<MemoryView> {
           // Add a small delay to ensure all file operations are complete
           await Future.delayed(const Duration(milliseconds: 100));
 
-          // Force reactive list refresh for images
-          _selectedImagePaths.refresh();
+          _orderedMedia.refresh();
           debugPrint(
-            '🔄 Images refreshed. Count: ${_selectedImagePaths.length}',
+            '🔄 Media refreshed. Count: ${_orderedMedia.length}',
           );
-          for (int i = 0; i < _selectedImagePaths.length; i++) {
-            debugPrint('  Image $i: ${_selectedImagePaths[i]}');
-          }
 
           // Force memory controller refresh for audio
           memoryController.recordedAudioPaths.refresh();
@@ -2672,8 +2545,7 @@ class _MemoryViewState extends State<MemoryView> {
       debugPrint('Error clearing audio data on dispose: $e');
     }
 
-    // Clear selected images
-    _selectedImagePaths.clear();
+    _orderedMedia.clear();
     debugPrint('Image data cleared on screen dispose');
 
     // Clean up temporary draft files if not in edit mode

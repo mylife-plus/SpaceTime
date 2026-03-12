@@ -450,6 +450,8 @@ class MemoryController extends GetxController {
     required String description,
     List<String>? imagePaths,
     List<String>? videoPaths,
+    List<int>? imageOrders,
+    List<int>? videoOrders,
     List<String>? tags,
     List<String>? mentions,
   }) async {
@@ -619,6 +621,8 @@ class MemoryController extends GetxController {
         imageDataList: imageDataList,
         audioDataList: audioDataList,
         videoDataList: videoDataList,
+        imageOrders: imageOrders,
+        videoOrders: videoOrders,
       );
 
       debugPrint('💾 Complete memory saved successfully with ID: $memoryId');
@@ -635,6 +639,8 @@ class MemoryController extends GetxController {
           imageDataList: imageDataList,
           audioDataList: audioDataList,
           videoDataList: videoDataList,
+          imageOrders: imageOrders,
+          videoOrders: videoOrders,
         );
 
         debugPrint('💾 Memory saved successfully after recovery with ID: $memoryId');
@@ -1057,6 +1063,18 @@ class MemoryController extends GetxController {
         duration: const Duration(seconds: 2),
       );
     }
+  }
+
+  void reorderAudio(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) newIndex--;
+    final duration = recordedAudios.removeAt(oldIndex);
+    recordedAudios.insert(newIndex, duration);
+    if (oldIndex < recordedAudioPaths.length) {
+      final path = recordedAudioPaths.removeAt(oldIndex);
+      recordedAudioPaths.insert(newIndex, path);
+    }
+    recordedAudios.refresh();
+    recordedAudioPaths.refresh();
   }
 
   void removeAudio(int index) async {
