@@ -6,6 +6,7 @@ class AppTexts {
   static const String data = 'Data';
   static const String hashTagGroups = 'Hashtag Groups';
   static const String contactGroups = 'Contact Groups';
+  static const String places = 'Places';
   static const String feedBack = 'Feedback';
 
   /// security page text

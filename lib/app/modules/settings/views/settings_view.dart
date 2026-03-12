@@ -10,6 +10,7 @@ import '../../ui/views/ui_view.dart';
 import '../../data/views/data_view.dart';
 import '../../hashtag_groups/views/hashtag_groups_view.dart';
 import '../../contact_groups/views/contact_groups_view.dart';
+import '../../../modules/memories/views/mini_widgets/category_picker_widget.dart';
 import '../../feedback/views/feedback_view.dart';
 import '../controllers/settings_controller.dart';
 import 'mini_widgets/settings_spacer.dart';
@@ -71,6 +72,13 @@ class SettingsView extends GetView<SettingsController> {
 
               child: Column(
                 children: [
+                      SettingsTile(
+                    icon: const Text('📍', style: TextStyle(fontSize: 22)),
+                    title: AppTexts.places,
+                    onTap: () {
+                      Get.to(() => const CategoryPickerWidget());
+                    },
+                  ),
                   SettingsTile(
                     icon: Image.asset(
                       AppImages.hash,
@@ -88,10 +96,12 @@ class SettingsView extends GetView<SettingsController> {
                       color: controller.darkMode.value ? Colors.white : null,
                     ),
                     title: AppTexts.contactGroups,
+                    showDivider: true,
                     onTap: () {
                       Get.to(() => ContactGroupsView());
                     },
                   ),
+              
                 ],
               ),
             ),

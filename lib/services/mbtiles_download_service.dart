@@ -545,25 +545,6 @@ class MbtilesDownloadService extends GetxController {
       // Check and request notification permission first
       debugPrint('[MbtilesDownload] 🔔 Checking notification permission...');
      
-      // Check and request background refresh permission on iOS
-      if (Platform.isIOS) {
-        debugPrint('[MbtilesDownload] 📱 Checking background app refresh permission...');
-        try {
-          final backgroundStatus = await Permission.backgroundRefresh.status;
-          debugPrint('[MbtilesDownload] 📱 Background refresh status: $backgroundStatus');
-
-          if (!backgroundStatus.isGranted) {
-            debugPrint('[MbtilesDownload] 📱 Background refresh not granted, opening settings...');
-            statusText.value = "Please enable Background App Refresh in Settings";
-            await openAppSettings();
-            await Future.delayed(const Duration(seconds: 2));
-            statusText.value = "Starting download...";
-          }
-        } catch (e) {
-          debugPrint('[MbtilesDownload] ⚠️ Error checking background refresh: $e');
-        }
-      }
-
       _backgroundTask = DownloadTask(
         url: downloadUrl,
         filename: LOCAL_MBTILES_FILENAME,

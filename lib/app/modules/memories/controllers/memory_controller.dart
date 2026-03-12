@@ -50,6 +50,7 @@ class MemoryController extends GetxController {
   Rx<double?> locationLongitude = Rx<double?>(null);
 
   bool ifCalledFromMemoryView = false;
+  RxBool isFetchingLocation = false.obs;
 
   // Popup controls
   RxBool isPopupOpen = false.obs;
@@ -107,10 +108,12 @@ class MemoryController extends GetxController {
   }
 
   Future<void> fetchCurrentLocation() async {
+    isFetchingLocation.value = true;
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         selectedLocation.value = '';
+        isFetchingLocation.value = false;
         return;
       }
 
@@ -119,12 +122,14 @@ class MemoryController extends GetxController {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           selectedLocation.value = '';
+          isFetchingLocation.value = false;
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
         selectedLocation.value = '';
+        isFetchingLocation.value = false;
         return;
       }
 
@@ -135,6 +140,7 @@ class MemoryController extends GetxController {
       );
 
       if (!ifCalledFromMemoryView) {
+        isFetchingLocation.value = false;
         return;
       }
 
@@ -144,7 +150,6 @@ class MemoryController extends GetxController {
       );
 
       if (reverseGeocodedData != null) {
-        // Set the enhanced location data
         setEnhancedLocationData({
           'latitude': position.latitude,
           'longitude': position.longitude,
@@ -163,6 +168,8 @@ class MemoryController extends GetxController {
       }
     } catch (e) {
       selectedLocation.value = '';
+    } finally {
+      isFetchingLocation.value = false;
     }
   }
 

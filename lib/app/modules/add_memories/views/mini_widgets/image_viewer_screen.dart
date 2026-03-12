@@ -48,6 +48,14 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.allowHorizontal) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     _currentIndex = widget.initialIndex;
     _pageController = PageController(
       initialPage: widget.initialIndex,
@@ -99,6 +107,13 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (widget.allowHorizontal) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
     _overlayController.dispose();
     _fadeController.dispose();
     _pageController.dispose();

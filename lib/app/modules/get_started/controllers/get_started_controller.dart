@@ -412,6 +412,66 @@ class GetStartedController extends GetxController {
 
   /// Start the mbtiles download process from Cloudflare R2
   /// Downloads mbtiles file based on selected zoom level and saves to app-specific folder
+  static const _backgroundRefreshChannel = MethodChannel('com.spacetime.app/settings');
+
+  Future<String> _getBackgroundRefreshStatus() async {
+    if (!Platform.isIOS) return 'available';
+    try {
+      final status = await _backgroundRefreshChannel.invokeMethod<String>('getBackgroundRefreshStatus');
+      return status ?? 'unknown';
+    } catch (e) {
+      debugPrint('[GetStartedController] Error checking background refresh: $e');
+      return 'unknown';
+    }
+  }
+
+  Future<void> _showBackgroundRefreshPopup() async {
+    final completer = Completer<bool>();
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'Background App Refresh',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: const Text(
+          'Background App Refresh is currently disabled for SpaceTime.\n\n'
+          'Enabling it allows the 4.5GB map download to continue when you leave the app.\n\n'
+          'Without it, iOS will keep the download alive for approximately 3 minutes after you leave the app. '
+          'After that the download pauses until you reopen the app.\n\n'
+          'You can enable it in:\nSettings → General → Background App Refresh',
+          style: TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Get.back();
+              completer.complete(false);
+            },
+            child: const Text('Ignore', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              openAppSettings();
+              completer.complete(true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF007AFF),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Activate', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+    final openedSettings = await completer.future;
+    if (openedSettings) {
+      await Future.delayed(const Duration(seconds: 1));
+    }
+  }
+
   Future<void> startDownload() async {
     if (isDownloading.value) {
       debugPrint('[GetStartedController] Download already in progress, ignoring tap');
@@ -419,7 +479,12 @@ class GetStartedController extends GetxController {
     }
 
     try {
-      // Check and request notification permission first
+      final bgStatus = await _getBackgroundRefreshStatus();
+      debugPrint('[GetStartedController] Background refresh status: $bgStatus');
+      if (bgStatus != 'available') {
+        await _showBackgroundRefreshPopup();
+      }
+
       debugPrint('[GetStartedController] 🔔 Checking notification permission...');
       statusText.value = "Checking permissions...";
 
@@ -436,7 +501,6 @@ class GetStartedController extends GetxController {
         }
       }
 
-      // Always use background download
       const bool canDownloadInBackground = true;
 
       debugPrint('[GetStartedController] 🚀 Starting mbtiles download from Cloudflare R2...');

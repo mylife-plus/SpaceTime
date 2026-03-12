@@ -102,6 +102,8 @@ class MemoryInfoWidget extends StatelessWidget {
                 text:
                     controller.selectedLocation.value.isNotEmpty
                         ? '${controller.locationFlag.value} ${controller.locationCity.value}'
+                        : controller.isFetchingLocation.value
+                        ? '(searching current location)'
                         : 'Pick Location *',
                 onTap: () async {
                   if (onAnyWidgetTapped != null) {
