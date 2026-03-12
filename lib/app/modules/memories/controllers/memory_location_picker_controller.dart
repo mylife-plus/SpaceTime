@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/helpers/offline_water_service.dart';
@@ -351,6 +353,8 @@ class MemoryLocationPickerController extends GetxController {
 
     final adminData = await getAdminHierarchy(lat, lng);
     print('Admin Data $adminData');
+          String? waterName = adminData['water'];
+
     final tileSubRegion =adminData['subRegion'] ??  adminData['city'];
 
     final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
@@ -360,18 +364,19 @@ class MemoryLocationPickerController extends GetxController {
       );
    
 
-      String? waterName = adminData['water'];
-      if (waterName != null || waterName!.isNotEmpty) {
-        final waterHit = OfflineWaterService.instance.detect(lat, lng);
-        print('WaterHit $waterHit');
-        if (waterHit != null) {
-          waterName = waterHit.name?.toLowerCase().capitalize;
-        }
-      }
+      
 
       Map<String, dynamic> finalData;
 
       if (waterName != null && waterName.isNotEmpty) {
+
+        // if (waterName != null || waterName!.isNotEmpty) {
+        final waterHit = OfflineWaterService.instance.detect(lat, lng);
+        print('WaterHit $waterHit');
+        if (waterHit != null) {
+          waterName = waterHit.name?.toLowerCase().capitalize;
+        // }
+      }
         finalData = locationData1 ?? {};
         finalData['city'] = waterName;
         finalData['name'] = waterName;
@@ -496,31 +501,13 @@ class MemoryLocationPickerController extends GetxController {
         );
         debugPrint('📍 Auto-selected current location on map load');
       }
-      await _printAllLayersAndSources();
+      // await _printAllLayersAndSources();
     } catch (e) {
       debugPrint('Error in onMapCreated: $e');
     }
   }
 
-  Future<void> _printAllLayersAndSources() async {
-    if (mapController == null) return;
-    try {
-      final layers = await mapController!.style.getStyleLayers();
-      debugPrint('[MapLayers] Total layers: ${layers.length}');
-      for (final layer in layers) {
-        debugPrint('[MapLayers] id=${layer?.id} type=${layer?.type}');
-      }
-
-      final sources = await mapController!.style.getStyleSources();
-      debugPrint('[MapSources] Total sources: ${sources.length}');
-      for (final source in sources) {
-        debugPrint('[MapSources] id=${source?.id} type=${source?.type}');
-      }
-    } catch (e) {
-      debugPrint('[MapLayers] Error: $e');
-    }
-  }
-
+ 
   /// Move camera to location
   Future<void> moveToLocation(double latitude, double longitude) async {
     if (mapController == null) return;
@@ -694,12 +681,42 @@ class MemoryLocationPickerController extends GetxController {
         final sourceLayer = f.queriedFeature.sourceLayer ?? '';
         final className = props?['class']?.toString() ?? '';
 
+        // final sourceLayer = f.queriedFeature.sourceLayer ?? '';
+      final featureId = f.queriedFeature.feature['id']?.toString() ?? '';
+for (final f in features) {
+
+  if (f == null) continue;
+}
         debugPrint('[AdminHierarchy] sourceLayer=$sourceLayer class=$className props=$props');
 
         if (sourceLayer == 'water' || sourceLayer == 'water_name') {
           final name = (props?['name:en'] ?? props?['name'])?.toString();
           if (result['water'] == null) {
             result['water'] = (name != null && name.isNotEmpty) ? name : 'Water';
+          // }
+          // if(result['water'] == 'Water') {
+            
+// final polygonFeature =
+//     await getWaterPolygonById('openmaptiles', sourceLayer, featureId);
+
+// if (polygonFeature != null) {
+//   // final name = polygonFeature['properties']?['name:en'] ??
+//   //     polygonFeature['properties']?['name'] ??
+//   //     'Water';
+//   // final classType =
+//   //     polygonFeature['properties']?['class'] ?? 'water';
+// // final waterName = await getWaterLabel(
+// //       polygonFeature,
+// //   ['Water labels', 'Lakeline labels'], // style layer IDs
+// //   );
+
+//   result['water'] = waterName ?? 'Water';
+//   result['waterType'] = polygonFeature['properties']?['class'] ?? 'water';
+//   print('Water name from polygon is $waterName type ${result['waterType']}');
+//   // print('Water name: $name');
+//   // print('Class: $classType');
+//   // print('Geometry: ${polygonFeature['geometry']}');
+// }
           }
           continue;
         }
@@ -729,13 +746,283 @@ class MemoryLocationPickerController extends GetxController {
     return result;
   }
 
-  /// Clear search
+// ------------------- HELPER: Get water polygon by featureId -------------------
+Future<Map<String, dynamic>?> getWaterPolygonById(
+  String sourceId,
+  String sourceLayer,
+  String featureId,
+  // mapbox.MapboxMapController? mapController,
+) async {
+  // if (mapController == null) return null;
+
+  try {
+    debugPrint(
+        '[getWaterPolygonById] Querying sourceId="$sourceId", layer="$sourceLayer", featureId="$featureId"');
+
+    final sourceFeatures = await mapController?.querySourceFeatures(
+      sourceId,
+      mapbox.SourceQueryOptions(
+        sourceLayerIds: [sourceLayer],
+        filter: 'all', // include all
+      ),
+    );
+
+    debugPrint(
+        '[getWaterPolygonById] Total features retrieved: ${sourceFeatures?.length}');
+
+    for (final f in sourceFeatures!) {
+      if (f?.queriedFeature?.feature == null) continue;
+
+      final geojson = Map<String, dynamic>.from(f!.queriedFeature!.feature!);
+      final id = geojson['id']?.toString();
+      if (id == featureId) {
+        debugPrint(
+            '[getWaterPolygonById] Found feature! id="$id", properties=${geojson['properties']}');
+        return geojson;
+      }
+    }
+  } catch (e, stack) {
+    debugPrint('[getWaterPolygonById] Exception: $e');
+    debugPrint('[getWaterPolygonById] Stack: $stack');
+  }
+
+  return null;
+}
+
+// ------------------- HELPER: Query label for water polygon -------------------
+Future<String?> getWaterLabel(
+  Map<String, dynamic> polygonFeature,
+  // mapbox.MapboxMapController?? mapController,
+  List<String> labelLayers,
+) async {
+  // if (mapController == null) return null;
+
+  try {
+    // Compute polygon centroid
+    final coords = polygonFeature['geometry']['coordinates'][0] as List;
+    double sumLat = 0, sumLng = 0;
+    for (final c in coords) {
+      sumLng += (c[0] as num).toDouble();
+      sumLat += (c[1] as num).toDouble();
+    }
+    final n = coords.length;
+    final centroid = LatLng(sumLat / n, sumLng / n);
+
+    final pixel = await mapController?.pixelForCoordinate(
+      mapbox.Point(coordinates: mapbox.Position(centroid.longitude, centroid.latitude)),
+    );
+    final geometry = mapbox.RenderedQueryGeometry.fromScreenCoordinate(pixel!);
+
+    final labelFeatures = await mapController?.queryRenderedFeatures(
+      geometry,
+      mapbox.RenderedQueryOptions(
+        layerIds: labelLayers,
+        filter: 'all',
+      ),
+    );
+
+   for (final f in labelFeatures!) {
+  if (f == null) continue;
+
+  // Safely get properties
+  final props = (f.queriedFeature.feature['properties'] as Map?)?.cast<String, dynamic>();
+  debugPrint('[getWaterLabel] Feature properties: $props');
+
+  // Optional: print the full feature GeoJSON
+  final featureJson = const JsonEncoder.withIndent('  ').convert(f.queriedFeature.feature);
+  debugPrint('[getWaterLabel] Full feature GeoJSON:\n$featureJson');
+
+  // Extract name if available
+  final name = (props?['name:en'] ?? props?['name'])?.toString();
+  if (name != null && name.isNotEmpty) {
+    debugPrint('[getWaterLabel] Found label: $name');
+    return name; // first valid name
+  }
+}
+  } catch (e, stack) {
+    debugPrint('[getWaterLabel] Exception: $e');
+    debugPrint('[getWaterLabel] Stack: $stack');
+  }
+
+  return null;
+}
+  
+//   Future<Map<String, dynamic>?> getWaterPolygonById(
+//   String sourceId,
+//   String sourceLayer,
+//   String featureId,
+// ) async {
+//   if (mapController == null) {
+//     debugPrint('[getWaterPolygonById] mapController is null');
+//     return null;
+//   }
+
+//   try {
+//     debugPrint(
+//         '[getWaterPolygonById] Querying sourceId="$sourceId", layer="$sourceLayer", featureId="$featureId"');
+
+//     final sourceFeatures = await mapController!.querySourceFeatures(
+//       sourceId,
+//       mapbox.SourceQueryOptions(
+//         sourceLayerIds: [sourceLayer],
+//         filter: 'all', // empty filter to include all features
+//       ),
+//     );
+
+//     if (sourceFeatures.isEmpty) {
+//       debugPrint(
+//           '[getWaterPolygonById] No features returned from source layer "$sourceLayer"');
+//       return null;
+//     }
+
+//     debugPrint(
+//         '[getWaterPolygonById] Total features retrieved: ${sourceFeatures.length}');
+
+//     for (int index = 0; index < sourceFeatures.length; index++) {
+//       final f = sourceFeatures[index];
+//       if (f == null) {
+//         debugPrint('[getWaterPolygonById] Feature at index $index is null');
+//         continue;
+//       }
+
+//       final queriedFeature = f.queriedFeature;
+//       if (queriedFeature == null) {
+//         debugPrint(
+//             '[getWaterPolygonById] queriedFeature at index $index is null');
+//         continue;
+//       }
+
+//       // Safely cast feature map
+//       final geojsonRaw = queriedFeature.feature;
+//       if (geojsonRaw == null) {
+//         debugPrint('[getWaterPolygonById] geojson at index $index is null');
+//         continue;
+//       }
+
+//       final geojson = Map<String, dynamic>.from(geojsonRaw);
+
+//       final id = geojson['id']?.toString();
+//       if (id == null) {
+//         debugPrint('[getWaterPolygonById] feature id at index $index is null');
+//         continue;
+//       }
+
+//       debugPrint('[getWaterPolygonById] Checking feature id="$id"');
+
+//       if (id == featureId) {
+//         debugPrint(
+//             '[getWaterPolygonById] Found matching feature! id="$id" at index $index');
+//         debugPrint('[getWaterPolygonById] Properties: ${geojson['properties']}');
+//         debugPrint('[getWaterPolygonById] Geometry: ${geojson['geometry']}');
+//         return geojson;
+//       }
+//     }
+
+//     debugPrint(
+//         '[getWaterPolygonById] Feature with id="$featureId" not found');
+//   } catch (e, stack) {
+//     debugPrint('[getWaterPolygonById] Exception: $e');
+//     debugPrint('[getWaterPolygonById] Stack trace: $stack');
+//   }
+
+//   return null; // Not found
+// }
+// //   Future<Map<String, dynamic>?> getWaterPolygonById(
+//   String sourceId,
+//   String sourceLayer,
+//   String featureId,
+// ) async {
+//   if (mapController == null) {
+//     debugPrint('[getWaterPolygonById] mapController is null');
+//     return null;
+//   }
+
+//   try {
+//     debugPrint(
+//         '[getWaterPolygonById] Querying sourceId="$sourceId", layer="$sourceLayer", featureId="$featureId"');
+
+//     final List<mapbox.QueriedSourceFeature?> sourceFeatures =
+//         await mapController!.querySourceFeatures(
+//       sourceId,
+//       mapbox.SourceQueryOptions(
+//         sourceLayerIds: [sourceLayer],
+//     filter: 'all', // empty filter to include all features
+//       ),
+//     );
+
+//     if (sourceFeatures.isEmpty) {
+//       debugPrint(
+//           '[getWaterPolygonById] No features returned from source layer "$sourceLayer"');
+//       return null;
+//     }
+
+//     debugPrint(
+//         '[getWaterPolygonById] Total features retrieved: ${sourceFeatures.length}');
+
+//     for (int index = 0; index < sourceFeatures.length; index++) {
+//       final f = sourceFeatures[index];
+//       if (f == null) {
+//         debugPrint('[getWaterPolygonById] Feature at index $index is null');
+//         continue;
+//       }
+
+//       final queriedFeature = f.queriedFeature;
+//       if (queriedFeature == null) {
+//         debugPrint(
+//             '[getWaterPolygonById] queriedFeature at index $index is null');
+//         continue;
+//       }
+
+//       final geojson = queriedFeature.feature as Map<String, dynamic>?;
+//       if (geojson == null) {
+//         debugPrint('[getWaterPolygonById] geojson at index $index is null');
+//         continue;
+//       }
+
+//       final id = geojson['id']?.toString();
+//       if (id == null) {
+//         debugPrint('[getWaterPolygonById] feature id at index $index is null');
+//         continue;
+//       }
+
+//       debugPrint('[getWaterPolygonById] Checking feature id="$id"');
+
+//       if (id == featureId) {
+//         debugPrint(
+//             '[getWaterPolygonById] Found matching feature! id="$id" at index $index');
+//         debugPrint(
+//             '[getWaterPolygonById] Properties: ${geojson['properties']}');
+//         debugPrint(
+//             '[getWaterPolygonById] Geometry: ${geojson['geometry']}');
+//         return geojson; // Full feature map
+//       }
+//     }
+
+//     debugPrint(
+//         '[getWaterPolygonById] Feature with id="$featureId" not found in source layer "$sourceLayer"');
+//   } catch (e, stack) {
+//     debugPrint('[getWaterPolygonById] Exception: $e');
+//     debugPrint('[getWaterPolygonById] Stack trace: $stack');
+//   }
+
+//   return null; // Not found
+// }
+//   /// Clear search
   void clearSearch() {
     searchController.clear();
     showSearchResults.value = false;
     searchResults.clear();
     searchFocusNode.unfocus();
   }
+
+void debugPrintFull(String text) {
+  const int chunkSize = 800;
+  for (var i = 0; i < text.length; i += chunkSize) {
+    debugPrint(text.substring(i, i + chunkSize > text.length ? text.length : i + chunkSize));
+  }
+}
+
+// Usage
 
   /// Request location permission
   Future<void> requestLocationPermission() async {
