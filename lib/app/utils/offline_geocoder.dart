@@ -136,7 +136,6 @@ class OfflineGeocoder {
 
   Future<Map<String, dynamic>?> reverseGeocode(double lat, double lng, {String? tileSubRegion}) async {
     final results = geocoder.search(lat, lng);
-    final hit = OfflineWaterService.instance.detect(lat, lng);
 
     if (results.isNotEmpty) {
       LocationResult? best;
@@ -153,16 +152,6 @@ class OfflineGeocoder {
         final record = _lookupRecord(best.location);
         return _buildResult(record, best.location, lat, lng, tileSubRegion: tileSubRegion);
       }
-    }
-
-    if (hit != null) {
-      return {
-        'country': '',
-        'city': hit.name?.toLowerCase().capitalize ?? '',
-        'name': hit.name?.toLowerCase().capitalize ?? '',
-        'address': '',
-        'flag': '🇺🇳',
-      };
     }
 
     if (results.isEmpty) return null;

@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
+import 'package:spacetime/app/helpers/offline_water_service.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
@@ -15,6 +16,7 @@ import 'package:spacetime/services/mbtiles_download_service.dart';
 import 'package:spacetime/services/mbtiles_server_service.dart';
 import 'package:spacetime/services/style_json_download_service.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
+import 'package:spacetime/app/helpers/offline_water_service.dart';
 
 enum MemoryLocationPickerState {
   loading,
@@ -348,7 +350,8 @@ class MemoryLocationPickerController extends GetxController {
     final lng = selectedLocationMarker!.geometry.coordinates.lng.toDouble();
 
     final adminData = await getAdminHierarchy(lat, lng);
-    final tileSubRegion = adminData['city'] ?? adminData['subRegion'];
+    print('Admin Data $adminData');
+    final tileSubRegion =adminData['subRegion'] ??  adminData['city'];
 
     final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
         lat,
@@ -357,7 +360,29 @@ class MemoryLocationPickerController extends GetxController {
       );
    
 
-      if (locationData1 == null) {
+      String? waterName = adminData['water'];
+      if (waterName != null || waterName!.isNotEmpty) {
+        final waterHit = OfflineWaterService.instance.detect(lat, lng);
+        print('WaterHit $waterHit');
+        if (waterHit != null) {
+          waterName = waterHit.name?.toLowerCase().capitalize;
+        }
+      }
+
+      Map<String, dynamic> finalData;
+
+      if (waterName != null && waterName.isNotEmpty) {
+        finalData = locationData1 ?? {};
+        finalData['city'] = waterName;
+        finalData['name'] = waterName;
+        if (finalData['country'] == null || (finalData['country'] as String? ?? '').isEmpty) {
+          finalData['country'] = '';
+        }
+        if (finalData['flag'] == null || (finalData['flag'] as String? ?? '').isEmpty) {
+          finalData['flag'] = '🌊';
+        }
+        finalData['address'] = waterName;
+      } else if (locationData1 == null) {
         Get.snackbar(
           'Location Not Found',
           'Could not identify this location. Please try a different spot.',
@@ -367,31 +392,33 @@ class MemoryLocationPickerController extends GetxController {
           duration: const Duration(seconds: 3),
         );
         return;
+      } else {
+        finalData = locationData1;
       }
 
-      final locationName = locationData1['display_name'] as String? ?? 'Unknown Location';
+      final locationName = finalData['display_name'] as String? ?? finalData['name'] as String? ?? 'Unknown Location';
 
-      var country = locationData1['country'] as String? ?? '';
-      var flag = locationData1['flag'] as String? ?? '';
-      var city = locationData1['city'] as String? ?? '';
+      var country = finalData['country'] as String? ?? '';
+      var flag = finalData['flag'] as String? ?? '';
+      var city = finalData['city'] as String? ?? '';
 
       if (country.isEmpty && adminData['country'] != null) {
         country = adminData['country']!;
-        locationData1['country'] = country;
+        finalData['country'] = country;
       }
       if (flag.isEmpty && country.isNotEmpty) {
         flag = countryFlags[country.toLowerCase()] ?? '';
-        locationData1['flag'] = flag;
+        finalData['flag'] = flag;
       }
       if (city.isEmpty && tileSubRegion != null && tileSubRegion.isNotEmpty) {
         city = tileSubRegion;
-        locationData1['city'] = city;
+        finalData['city'] = city;
       }
 
       memoryController.locationCountry.value = country;
       memoryController.locationFlag.value = flag;
       memoryController.locationCity.value = city;
-      memoryController.locationAddress.value = locationData1['address'] as String? ?? '';
+      memoryController.locationAddress.value = finalData['address'] as String? ?? '';
 
       memoryController.selectedLocation.value = locationName;
       memoryController.locationLatitude.value = selectedLocationMarker!.geometry.coordinates.lat.toDouble();
@@ -403,7 +430,7 @@ class MemoryLocationPickerController extends GetxController {
       'city': memoryController.locationCity.value,
       'country': memoryController.locationCountry.value,
       'address': memoryController.locationAddress.value,
-      'flag': memoryController.locationFlag.value,
+      'flag': waterName != null ? '🇺🇳' : memoryController.locationFlag.value,
       'name': memoryController.locationName.value,
     };
 
@@ -469,8 +496,28 @@ class MemoryLocationPickerController extends GetxController {
         );
         debugPrint('📍 Auto-selected current location on map load');
       }
+      await _printAllLayersAndSources();
     } catch (e) {
       debugPrint('Error in onMapCreated: $e');
+    }
+  }
+
+  Future<void> _printAllLayersAndSources() async {
+    if (mapController == null) return;
+    try {
+      final layers = await mapController!.style.getStyleLayers();
+      debugPrint('[MapLayers] Total layers: ${layers.length}');
+      for (final layer in layers) {
+        debugPrint('[MapLayers] id=${layer?.id} type=${layer?.type}');
+      }
+
+      final sources = await mapController!.style.getStyleSources();
+      debugPrint('[MapSources] Total sources: ${sources.length}');
+      for (final source in sources) {
+        debugPrint('[MapSources] id=${source?.id} type=${source?.type}');
+      }
+    } catch (e) {
+      debugPrint('[MapLayers] Error: $e');
     }
   }
 
@@ -607,7 +654,7 @@ class MemoryLocationPickerController extends GetxController {
   final latitude = point.coordinates.lat.toDouble();
   final longitude = point.coordinates.lng.toDouble();
 
-  await getAdminHierarchy(latitude, longitude);
+  // await getAdminHierarchy(latitude, longitude);
 
   await selectLocation(latitude, longitude);
 }
@@ -644,13 +691,23 @@ class MemoryLocationPickerController extends GetxController {
       for (final f in features) {
         if (f == null) continue;
         final props = (f.queriedFeature.feature['properties'] as Map?)?.cast<String, dynamic>();
+        final sourceLayer = f.queriedFeature.sourceLayer ?? '';
+        final className = props?['class']?.toString() ?? '';
+
+        debugPrint('[AdminHierarchy] sourceLayer=$sourceLayer class=$className props=$props');
+
+        if (sourceLayer == 'water' || sourceLayer == 'water_name') {
+          final name = (props?['name:en'] ?? props?['name'])?.toString();
+          if (result['water'] == null) {
+            result['water'] = (name != null && name.isNotEmpty) ? name : 'Water';
+          }
+          continue;
+        }
+
         if (props == null) continue;
 
         final name = (props['name:en'] ?? props['name'])?.toString();
         if (name == null || name.isEmpty) continue;
-
-        final sourceLayer = f.queriedFeature.sourceLayer ?? '';
-        final className = props['class']?.toString() ?? '';
 
         if (sourceLayer == 'place') {
           if (['country'].contains(className) && result['country'] == null) {
@@ -662,14 +719,10 @@ class MemoryLocationPickerController extends GetxController {
           } else if (['city', 'town', 'village', 'suburb', 'hamlet', 'quarter', 'neighbourhood'].contains(className) && result['city'] == null) {
             result['city'] = name;
           }
-        } else if (sourceLayer == 'water_name' || sourceLayer == 'water') {
-          result['water'] ??= name;
         }
-
-        debugPrint('[AdminHierarchy] sourceLayer=$sourceLayer class=$className name=$name');
       }
 
-      // debugPrint('[AdminHierarchy] result=$result');
+      debugPrint('[AdminHierarchy] result=$result');
     } catch (e) {
       debugPrint('[AdminHierarchy] Error: $e');
     }

@@ -93,7 +93,7 @@ class GetStartedController extends GetxController {
     try {
       await Future.wait([
         _initDatabase(),
-        _initAssets(),
+        // _initA/ssets(),
         _initMapboxHelpers(),
       ]);
 
@@ -115,18 +115,6 @@ class GetStartedController extends GetxController {
       await PathMigrationHelper.instance.migrateAllPathsToRelative();
     } catch (e) {
       debugPrint('[GetStartedController] Database init error: $e');
-    }
-  }
-
-  Future<void> _initAssets() async {
-    try {
-      await NearestRegionService().loadFromAssets();
-      await OfflineWaterService.instance.init(
-        oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',
-        lakeGeoJson: 'assets/geo/ne_110m_lakes.json',
-      );
-    } catch (e) {
-      debugPrint('[GetStartedController] Assets init error: $e');
     }
   }
 

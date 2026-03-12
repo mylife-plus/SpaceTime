@@ -88,9 +88,23 @@ Future<void> main() async {
   Get.put(AddMemoriesController(), permanent: true);
   Get.put(MapControllerNew(), permanent: true);
   Get.put(MemoryLocationPickerControllerWithRadius(), permanent: true);
-
+_initAssets();
   runApp(MyApp());
 }
+
+
+  Future<void> _initAssets() async {
+    try {
+      await NearestRegionService().loadFromAssets();
+      await OfflineWaterService.instance.init(
+        oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',
+        lakeGeoJson: 'assets/geo/ne_110m_lakes.json',
+      );
+    } catch (e) {
+      debugPrint('[GetStartedController] Assets init error: $e');
+    }
+  }
+
 
 Future<void> clearAppData() async {
   try {
