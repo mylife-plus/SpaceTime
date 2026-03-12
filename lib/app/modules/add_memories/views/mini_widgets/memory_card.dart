@@ -434,7 +434,7 @@ class _MemoryCardState extends State<MemoryCard> {
                   if (!_imageCache.containsKey(index)) {
                     _imageCache[index] = GestureDetector(
                       onTap: () {
-                        _openMediaViewer(images, videos, index);
+                        _openMediaViewer(images, videos, index, orderedMedia: orderedMedia);
                       },
                       behavior: HitTestBehavior.opaque,
                       child: ClipRRect(child: _buildImageWidget(path)),
@@ -442,7 +442,7 @@ class _MemoryCardState extends State<MemoryCard> {
                   }
                   return _imageCache[index]!;
                 } else {
-                  return _buildInlineVideoPlayer(path, index, images, videos);
+                  return _buildInlineVideoPlayer(path, index, images, videos, orderedMedia: orderedMedia);
                 }
               },
             ),
@@ -736,7 +736,7 @@ class _MemoryCardState extends State<MemoryCard> {
     return '$m:$s';
   }
 
-  Widget _buildInlineVideoPlayer(String videoPath, int index, List<String> images, List<String> videos) {
+  Widget _buildInlineVideoPlayer(String videoPath, int index, List<String> images, List<String> videos, {List<Map<String, dynamic>>? orderedMedia}) {
     if (!_inlineVideoControllers.containsKey(index)) {
       final vc = VideoPlayerController.file(File(videoPath));
       _inlineVideoControllers[index] = vc;
@@ -829,7 +829,7 @@ class _MemoryCardState extends State<MemoryCard> {
                       GestureDetector(
                         onTap: () {
                           vc.pause();
-                          _openMediaViewer(images, videos, index);
+                          _openMediaViewer(images, videos, index, orderedMedia: orderedMedia);
                         },
                         child: const Icon(Icons.fullscreen, color: Colors.white, size: 22),
                       ),
@@ -845,7 +845,7 @@ class _MemoryCardState extends State<MemoryCard> {
             right: 8,
             child: GestureDetector(
               onTap: () {
-                _openMediaViewer(images, videos, index);
+                _openMediaViewer(images, videos, index, orderedMedia: orderedMedia);
               },
               child: Container(
                 decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
@@ -858,7 +858,7 @@ class _MemoryCardState extends State<MemoryCard> {
     );
   }
 
-  void _openMediaViewer(List<String> images, List<String> videos, int initialIndex) {
+  void _openMediaViewer(List<String> images, List<String> videos, int initialIndex, {List<Map<String, dynamic>>? orderedMedia}) {
     try {
       Navigator.of(context)
           .push(
@@ -868,6 +868,7 @@ class _MemoryCardState extends State<MemoryCard> {
                   images: images,
                   videoPaths: videos,
                   initialIndex: initialIndex,
+                  orderedMedia: orderedMedia,
                 );
               },
               transitionsBuilder: (context, animation, secondaryAnimation, child) {

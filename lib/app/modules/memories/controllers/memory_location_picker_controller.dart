@@ -342,26 +342,33 @@ class MemoryLocationPickerController extends GetxController {
       return;
     }
 
-final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
+    final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
         selectedLocationMarker!.geometry.coordinates.lat.toDouble(),
         selectedLocationMarker!.geometry.coordinates.lng.toDouble(),
       );
 
-      // Extract location name from the result
-      final locationName = locationData1?['display_name'] as String? ?? 'Unknown Location';
+      if (locationData1 == null) {
+        Get.snackbar(
+          'Location Not Found',
+          'Could not identify this location. Please try a different spot.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.withValues(alpha: 0.8),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
 
-      print('Selected Address $locationName');
+      final locationName = locationData1['display_name'] as String? ?? 'Unknown Location';
 
-      memoryController.locationCountry.value = locationData1?['country'] as String? ?? 'country';
-      memoryController.locationFlag.value = locationData1?['flag'] as String? ?? 'flag';
-      memoryController.locationCity.value = locationData1?['city'] as String? ?? 'city';
-            memoryController.locationAddress.value = locationData1?['address'] as String? ?? 'address';
+      memoryController.locationCountry.value = locationData1['country'] as String? ?? '';
+      memoryController.locationFlag.value = locationData1['flag'] as String? ?? '';
+      memoryController.locationCity.value = locationData1['city'] as String? ?? '';
+      memoryController.locationAddress.value = locationData1['address'] as String? ?? '';
 
-       memoryController.selectedLocation.value = locationName;
+      memoryController.selectedLocation.value = locationName;
       memoryController.locationLatitude.value = selectedLocationMarker!.geometry.coordinates.lat.toDouble();
-      memoryController.locationLongitude.value = selectedLocationMarker!.geometry.coordinates.lat.toDouble();
-    // Return the complete location data including flag
-  //  print('Region Data $city'); // Andorra la Vella
+      memoryController.locationLongitude.value = selectedLocationMarker!.geometry.coordinates.lng.toDouble();
 
     final locationData = {
       'latitude': selectedLocationMarker!.geometry.coordinates.lat,
@@ -373,7 +380,6 @@ final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
       'name': memoryController.locationName.value,
     };
 
-    debugPrint('🎯 Returning location data: $locationData');
     Get.back(result: locationData);
   }
 

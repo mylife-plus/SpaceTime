@@ -69,6 +69,7 @@ dependencies:
   background_downloader: ^9.5.2
   flutter_native_splash: ^2.4.4
   image_picker: ^1.2.1
+  vector_tile: ^3.0.1
 dependency_overrides:
   csv: ^6.0.0
 
@@ -109,6 +110,8 @@ flutter:
     - assets/geo/ne_110m_lakes.json
     - assets/cities_names_1.csv
     - assets/geonames_cities.csv
+    - assets/cities500.csv
+    - assets/admin1codes.csv
     # Note: 11_included.mbtiles is too large (4.5GB) to include in app bundle
     # It should be downloaded separately or provided via external storage
 

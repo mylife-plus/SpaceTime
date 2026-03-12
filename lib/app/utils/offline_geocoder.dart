@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 import 'package:geocoder_offline_json/geocoder_offline.dart';
@@ -5,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/helpers/offline_water_service.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
+import 'package:spacetime/services/mbtiles_geocoder_service.dart';
 
 class _CityRecord {
   final String name;
@@ -82,6 +84,10 @@ class OfflineGeocoder {
       numMarkers: 5,
     );
     _isInitialized = true;
+
+    try {
+      // await MbtilesGeocoderService.instance.init();
+    } catch (_) {}
   }
 
   _CityRecord? _lookupRecord(LocationData loc) {
@@ -90,12 +96,9 @@ class OfflineGeocoder {
   }
 
   String _resolveRegion(String stateName, String countryCode, double lat, double lng) {
-    final region = NearestRegionService().findNearest(lat, lng);
-    if (region != null && countryCode.isNotEmpty && region.countryCode == countryCode) {
-      return region.name;
-    }
-    if (stateName.isNotEmpty) return stateName;
+    final region = NearestRegionService().findNearest(lat, lng, countryCode: countryCode);
     if (region != null) return region.name;
+    if (stateName.isNotEmpty) return stateName;
     return '';
   }
 
@@ -130,10 +133,21 @@ class OfflineGeocoder {
     final results = geocoder.search(lat, lng);
     final hit = OfflineWaterService.instance.detect(lat, lng);
 
-    if (results.isNotEmpty && results.first.distance < 50) {
-      final nearest = results.first;
-      final record = _lookupRecord(nearest.location);
-      return _buildResult(record, nearest.location, lat, lng);
+    if (results.isNotEmpty) {
+      LocationResult? best;
+      double bestDist = double.infinity;
+      for (final r in results) {
+        if (r.location.latitude == null || r.location.longitude == null) continue;
+        final d = _haversineKm(lat, lng, r.location.latitude!, r.location.longitude!);
+        if (d < bestDist) {
+          bestDist = d;
+          best = r;
+        }
+      }
+      if (best != null && bestDist < 50) {
+        final record = _lookupRecord(best.location);
+        return _buildResult(record, best.location, lat, lng);
+      }
     }
 
     if (hit != null) {
@@ -148,8 +162,28 @@ class OfflineGeocoder {
 
     if (results.isEmpty) return null;
 
-    final nearest = results.first;
-    final record = _lookupRecord(nearest.location);
-    return _buildResult(record, nearest.location, lat, lng);
+    LocationResult? fallback;
+    double fallbackDist = double.infinity;
+    for (final r in results) {
+      if (r.location.latitude == null || r.location.longitude == null) continue;
+      final d = _haversineKm(lat, lng, r.location.latitude!, r.location.longitude!);
+      if (d < fallbackDist) {
+        fallbackDist = d;
+        fallback = r;
+      }
+    }
+    if (fallback == null) return null;
+    final record = _lookupRecord(fallback.location);
+    return _buildResult(record, fallback.location, lat, lng);
+  }
+
+  double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371.0;
+    final dLat = (lat2 - lat1) * pi / 180;
+    final dLon = (lon2 - lon1) * pi / 180;
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * pi / 180) * cos(lat2 * pi / 180) *
+        sin(dLon / 2) * sin(dLon / 2);
+    return r * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
 }

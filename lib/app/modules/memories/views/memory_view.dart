@@ -1654,71 +1654,113 @@ class _MemoryViewState extends State<MemoryView> {
                                             final path = mediaItem['path'] as String;
 
                                             if (isImage) {
-                                              return ReorderableDragStartListener(
+                                              return Padding(
                                                 key: ValueKey('media_$index\_${path.hashCode}'),
-                                                index: index,
-                                                child: Padding(
-                                                  padding: const EdgeInsets.only(right: 8),
-                                                  child: SizedBox(
-                                                    width: 120,
-                                                    height: 170,
-                                                    child: Stack(
-                                                      children: [
-                                                        ClipRRect(
-                                                          borderRadius: BorderRadius.circular(8),
-                                                          child: Image.file(
-                                                            File(path),
-                                                            fit: BoxFit.cover,
-                                                            width: 120,
-                                                            height: 170,
-                                                          ),
+                                                padding: const EdgeInsets.only(right: 8),
+                                                child: SizedBox(
+                                                  width: 120,
+                                                  height: 170,
+                                                  child: Stack(
+                                                    children: [
+                                                      ClipRRect(
+                                                        borderRadius: BorderRadius.circular(8),
+                                                        child: Image.file(
+                                                          File(path),
+                                                          fit: BoxFit.cover,
+                                                          width: 120,
+                                                          height: 170,
                                                         ),
-                                                        Positioned(
-                                                          top: 4,
-                                                          right: 4,
-                                                          child: GestureDetector(
-                                                            onTap: () async {
-                                                              await _deleteMediaAtIndex(index);
-                                                            },
-                                                            child: Container(
-                                                              width: 24,
-                                                              height: 24,
-                                                              decoration: BoxDecoration(
-                                                                color: Colors.black.withOpacity(0.6),
-                                                                shape: BoxShape.circle,
-                                                              ),
-                                                              child: const Icon(
-                                                                Icons.close,
-                                                                color: Colors.white,
-                                                                size: 16,
-                                                              ),
+                                                      ),
+                                                      Positioned(
+                                                        top: 4,
+                                                        right: 4,
+                                                        child: GestureDetector(
+                                                          onTap: () async {
+                                                            await _deleteMediaAtIndex(index);
+                                                          },
+                                                          child: Container(
+                                                            width: 24,
+                                                            height: 24,
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.black.withOpacity(0.6),
+                                                              shape: BoxShape.circle,
+                                                            ),
+                                                            child: const Icon(
+                                                              Icons.close,
+                                                              color: Colors.white,
+                                                              size: 16,
                                                             ),
                                                           ),
                                                         ),
-                                                      ],
-                                                    ),
+                                                      ),
+                                                      Positioned(
+                                                        bottom: 4,
+                                                        right: 4,
+                                                        child: ReorderableDragStartListener(
+                                                          index: index,
+                                                          child: Container(
+                                                            width: 28,
+                                                            height: 28,
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.black.withOpacity(0.6),
+                                                              shape: BoxShape.circle,
+                                                            ),
+                                                            child: const Icon(
+                                                              Icons.drag_handle,
+                                                              color: Colors.white,
+                                                              size: 18,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               );
                                             } else {
-                                              return ReorderableDragStartListener(
+                                              return Padding(
                                                 key: ValueKey('media_$index\_${path.hashCode}'),
-                                                index: index,
-                                                child: Padding(
-                                                  padding: const EdgeInsets.only(right: 8),
-                                                  child: VideoThumbnailWidget(
-                                                    videoPath: path,
-                                                    width: 120,
-                                                    height: 170,
-                                                    onTap: () {
-                                                      Get.to(() => VideoPlayerScreen(
+                                                padding: const EdgeInsets.only(right: 8),
+                                                child: SizedBox(
+                                                  width: 120,
+                                                  height: 170,
+                                                  child: Stack(
+                                                    children: [
+                                                      VideoThumbnailWidget(
                                                         videoPath: path,
-                                                        allowHorizontal: false,
-                                                      ));
-                                                    },
-                                                    onDelete: () async {
-                                                      await _deleteMediaAtIndex(index);
-                                                    },
+                                                        width: 120,
+                                                        height: 170,
+                                                        onTap: () {
+                                                          Get.to(() => VideoPlayerScreen(
+                                                            videoPath: path,
+                                                            allowHorizontal: false,
+                                                          ));
+                                                        },
+                                                        onDelete: () async {
+                                                          await _deleteMediaAtIndex(index);
+                                                        },
+                                                      ),
+                                                      Positioned(
+                                                        bottom: 4,
+                                                        right: 4,
+                                                        child: ReorderableDragStartListener(
+                                                          index: index,
+                                                          child: Container(
+                                                            width: 28,
+                                                            height: 28,
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.black.withOpacity(0.6),
+                                                              shape: BoxShape.circle,
+                                                            ),
+                                                            child: const Icon(
+                                                              Icons.drag_handle,
+                                                              color: Colors.white,
+                                                              size: 18,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               );

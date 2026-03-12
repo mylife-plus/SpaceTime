@@ -12,6 +12,7 @@ class ImageViewerScreen extends StatefulWidget {
   final List<String> videoPaths;
   final int initialIndex;
   final bool allowHorizontal;
+  final List<Map<String, dynamic>>? orderedMedia;
 
   const ImageViewerScreen({
     super.key,
@@ -19,6 +20,7 @@ class ImageViewerScreen extends StatefulWidget {
     this.videoPaths = const [],
     required this.initialIndex,
     this.allowHorizontal = true,
+    this.orderedMedia,
   });
 
   @override
@@ -38,11 +40,32 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   final Map<int, bool> _imageLoadingStates = {};
   final Map<int, VideoPlayerController> _videoControllers = {};
 
-  int get _totalCount => widget.images.length + widget.videoPaths.length;
+  bool get _hasOrderedMedia => widget.orderedMedia != null && widget.orderedMedia!.isNotEmpty;
 
-  bool _isVideoAtIndex(int index) => index >= widget.images.length;
+  int get _totalCount => _hasOrderedMedia
+      ? widget.orderedMedia!.length
+      : widget.images.length + widget.videoPaths.length;
 
-  String _getVideoPath(int index) => widget.videoPaths[index - widget.images.length];
+  bool _isVideoAtIndex(int index) {
+    if (_hasOrderedMedia) {
+      return widget.orderedMedia![index]['type'] == 'video';
+    }
+    return index >= widget.images.length;
+  }
+
+  String _getVideoPath(int index) {
+    if (_hasOrderedMedia) {
+      return widget.orderedMedia![index]['path'] as String;
+    }
+    return widget.videoPaths[index - widget.images.length];
+  }
+
+  String _getImageData(int index) {
+    if (_hasOrderedMedia) {
+      return widget.orderedMedia![index]['path'] as String;
+    }
+    return widget.images[index];
+  }
 
   @override
   void initState() {
@@ -133,8 +156,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
 
   // Preload images to prevent black screens during swiping
   void _preloadImages() {
-    for (int i = 0; i < widget.images.length; i++) {
-      final imageData = widget.images[i];
+    for (int i = 0; i < _totalCount; i++) {
+      if (_isVideoAtIndex(i)) continue;
+      final imageData = _getImageData(i);
 
       try {
         ImageProvider imageProvider;
@@ -455,7 +479,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                     minScale: 0.5,
                     maxScale: 4.0,
                     child: Center(
-                      child: _buildImageWidget(widget.images[index]),
+                      child: _buildImageWidget(_getImageData(index)),
                     ),
                   ),
                 );

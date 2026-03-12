@@ -17,7 +17,8 @@ class MbtilesServerService {
   int _port = 8080;
   bool _isRunning = false;
 
-  /// Check if server is running
+  Database? get database => _database;
+
   bool get isRunning => _isRunning;
 
   /// Get the server URL

@@ -172,10 +172,8 @@ class MemoryAudioWidget extends StatelessWidget {
                     },
                     itemCount: controller.recordedAudios.length,
                     itemBuilder: (context, index) {
-                      return ReorderableDragStartListener(
+                      return Padding(
                         key: ValueKey('audio_${index}_${controller.recordedAudioPaths.length > index ? controller.recordedAudioPaths[index].hashCode : index}'),
-                        index: index,
-                        child: Padding(
                         padding: const EdgeInsets.only(right: 8.0),
                         child: Stack(
                           clipBehavior: Clip.none,
@@ -320,9 +318,28 @@ class MemoryAudioWidget extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            Positioned(
+                              bottom: 2,
+                              right: 2,
+                              child: ReorderableDragStartListener(
+                                index: index,
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.drag_handle,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
-                      ),
                       );
                     },
                   ),
