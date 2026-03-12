@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -390,7 +389,9 @@ class _MemoryCardState extends State<MemoryCard> {
           SizedBox(
             height: 260,
             width: double.infinity,
-            child: PageView.builder(
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (_) => true,
+              child: PageView.builder(
               controller: _pageController,
               onPageChanged: (index) {
                 setState(() {
@@ -403,13 +404,10 @@ class _MemoryCardState extends State<MemoryCard> {
                 final isImage = index < images.length;
 
                 if (isImage) {
-                  // Display image
-                  // Use cached widget if available, otherwise build and cache
                   if (!_imageCache.containsKey(index)) {
                     _imageCache[index] = GestureDetector(
                       onTap: () {
-                        debugPrint('🔥 IMAGE TAP DETECTED! Index: $index');
-                        _openImageViewer(images, index);
+                        _openMediaViewer(images, videos, index);
                       },
                       behavior: HitTestBehavior.opaque,
                       child: ClipRRect(child: _buildImageWidget(images[index])),
@@ -417,7 +415,6 @@ class _MemoryCardState extends State<MemoryCard> {
                   }
                   return _imageCache[index]!;
                 } else {
-                  // Display video with play button
                   final videoIndex = index - images.length;
                   return LayoutBuilder(
                     builder: (context, constraints) {
@@ -426,14 +423,7 @@ class _MemoryCardState extends State<MemoryCard> {
                         width: constraints.maxWidth,
                         height: 260,
                         onTap: () {
-                          debugPrint(
-                            '🔥 VIDEO TAP DETECTED! Index: $videoIndex',
-                          );
-                          Get.to(
-                            () => VideoPlayerScreen(
-                              videoPath: videos[videoIndex],
-                            ),
-                          );
+                          _openMediaViewer(images, videos, index);
                         },
                       );
                     },
@@ -441,6 +431,7 @@ class _MemoryCardState extends State<MemoryCard> {
                 }
               },
             ),
+          ),
           ),
           if (totalMediaCount > 1)
             Positioned(
@@ -724,31 +715,15 @@ class _MemoryCardState extends State<MemoryCard> {
     return location; // Return original if not coordinates
   }
 
-  void _openImageViewer(List<String> images, int initialIndex) {
-    debugPrint('=== IMAGE VIEWER DEBUG ===');
-    debugPrint('Opening image viewer with ${images.length} images');
-    debugPrint('Initial index: $initialIndex');
-
-    for (int i = 0; i < images.length; i++) {
-      final image = images[i];
-      debugPrint('Image $i: ${image.length} characters');
-      debugPrint(
-        'Image $i starts with: ${image.substring(0, math.min(50, image.length))}',
-      );
-      debugPrint('Image $i is base64: ${_isBase64String(image)}');
-    }
-    debugPrint('========================');
-
+  void _openMediaViewer(List<String> images, List<String> videos, int initialIndex) {
     try {
-      debugPrint('🚀 Attempting to navigate to ImageViewerScreen...');
-
       Navigator.of(context)
           .push(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) {
-                debugPrint('🏗️ Building ImageViewerScreen...');
                 return ImageViewerScreen(
                   images: images,
+                  videoPaths: videos,
                   initialIndex: initialIndex,
                 );
               },
@@ -756,35 +731,9 @@ class _MemoryCardState extends State<MemoryCard> {
                 return child;
               },
             ),
-          )
-          .then((result) {
-            debugPrint('✅ Navigation completed, result: $result');
-          })
-          .catchError((error) {
-            debugPrint('❌ Navigation error: $error');
-          });
-
-      debugPrint('📱 Navigation call completed');
+          );
     } catch (e) {
-      debugPrint('💥 Exception during navigation: $e');
-
-      // Fallback: Show a simple dialog to test if the issue is with ImageViewerScreen
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Image Viewer'),
-              content: Text(
-                'Would open image viewer with ${images.length} images at index $initialIndex',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-      );
+      debugPrint('Exception during navigation: $e');
     }
   }
 
@@ -977,7 +926,6 @@ class _MemoryCardState extends State<MemoryCard> {
 
       child: GestureDetector(
         onLongPress: () => _handleLongPress(),
-        onTap: () => _handleMemoryTapped(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1070,16 +1018,19 @@ class _MemoryCardState extends State<MemoryCard> {
                         ),
                         // ],
                         Padding(
-                          padding: const EdgeInsets.only(right: 16.0),
+                          padding: const EdgeInsets.only(right: 8.0),
                           child: GestureDetector(
                             onTap: _handleLongPress,
-                            child: Icon(
-                              Icons.edit_outlined,
-                              color:
-                                  controller.darkMode.value
-                                      ? Colors.white.withOpacity(0.6)
-                                      : controller.currentEditIconColor,
-                              size: 20,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Icon(
+                                Icons.edit_outlined,
+                                color:
+                                    controller.darkMode.value
+                                        ? Colors.white.withOpacity(0.6)
+                                        : controller.currentEditIconColor,
+                                size: 20,
+                              ),
                             ),
                           ),
                         ),
@@ -1089,11 +1040,11 @@ class _MemoryCardState extends State<MemoryCard> {
                 ),
               ),
 
-            Container(
+            GestureDetector(
+              onTap: () => _handleMemoryTapped(),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8.0, 2, 8, 4),
                 child: Row(
-                  // crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
@@ -1128,7 +1079,6 @@ class _MemoryCardState extends State<MemoryCard> {
                       ),
                     ),
 
-                    // Category - only show if category exists
                     if (widget.category != null && widget.category!.isNotEmpty)
                       Row(
                         children: [

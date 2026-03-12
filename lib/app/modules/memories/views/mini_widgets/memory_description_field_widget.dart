@@ -572,16 +572,20 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   _removeIncompleteTextAndClosePopup();
                 },
                 onSeeListTapped: () {
-                  // If initialKeyword is empty, remove text from trigger to cursor
                   if (keyword.isEmpty) {
                     _clearIncompleteText();
                   }
-                  // Close popup without removing text
                   Navigator.of(context).pop();
-                  // Don't call _onDialogClosed() here - let the .then() handler do it
                 },
-                excludedItems: _tags, // Pass already added tags
-                isEditingExisting: isEditingExisting, // Pass editing state
+                onSeeListCancelled: () {
+                  _clearIncompleteText();
+                  _onDialogClosed();
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (mounted) _focusNode.requestFocus();
+                  });
+                },
+                excludedItems: _tags,
+                isEditingExisting: isEditingExisting,
               ),
             ),
           ),
@@ -663,16 +667,20 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
                   _removeIncompleteTextAndClosePopup();
                 },
                 onSeeListTapped: () {
-                  // If initialKeyword is empty, remove text from trigger to cursor
                   if (keyword.isEmpty) {
                     _clearIncompleteText();
                   }
-                  // Close popup without removing text
                   Navigator.of(context).pop();
-                  // Don't call _onDialogClosed() here - let the .then() handler do it
                 },
-                excludedItems: _mentions, // Pass already added mentions
-                isEditingExisting: isEditingExisting, // Pass editing state
+                onSeeListCancelled: () {
+                  _clearIncompleteText();
+                  _onDialogClosed();
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (mounted) _focusNode.requestFocus();
+                  });
+                },
+                excludedItems: _mentions,
+                isEditingExisting: isEditingExisting,
               ),
             ),
           ),
@@ -761,29 +769,40 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final selection = _coloredController.selection;
 
     if (selection.baseOffset >= 0) {
+      final cursorPos = selection.baseOffset.clamp(0, currentText.length);
       final triggerIndex = _getLastTriggerIndex(
         currentText,
-        selection.baseOffset,
+        cursorPos,
       );
-      if (triggerIndex == -1) return;
 
-      // Find the end of the current word (tag/mention) to replace the entire word
-      int endIndex = selection.baseOffset;
-      while (endIndex < currentText.length &&
-             currentText[endIndex] != ' ' &&
-             currentText[endIndex] != '\n') {
-        endIndex++;
+      int startIndex;
+      int endIndex;
+
+      if (triggerIndex != -1 && triggerIndex < cursorPos) {
+        startIndex = triggerIndex;
+        endIndex = cursorPos;
+        while (endIndex < currentText.length &&
+               currentText[endIndex] != ' ' &&
+               currentText[endIndex] != '\n') {
+          endIndex++;
+        }
+      } else {
+        startIndex = cursorPos;
+        endIndex = cursorPos;
       }
 
+      final hasTrailingSpace = endIndex < currentText.length && currentText[endIndex] == ' ';
+      final suffix = hasTrailingSpace ? '' : ' ';
+
       final newText = currentText.replaceRange(
-        triggerIndex,
+        startIndex,
         endIndex,
-        '$text ',
+        '$text$suffix',
       );
 
       _coloredController.text = newText;
       _coloredController.selection = TextSelection.collapsed(
-        offset: triggerIndex + text.length + 1,
+        offset: startIndex + text.length + suffix.length,
       );
     }
   }
@@ -792,29 +811,40 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final currentText = _coloredController.text;
 
     if (_savedCursorPosition >= 0) {
+      final clampedPos = _savedCursorPosition.clamp(0, currentText.length);
       final triggerIndex = _getLastTriggerIndex(
         currentText,
-        _savedCursorPosition,
+        clampedPos,
       );
-      if (triggerIndex == -1) return;
 
-      // Find the end of the current word (tag/mention) to replace the entire word
-      int endIndex = _savedCursorPosition;
-      while (endIndex < currentText.length &&
-             currentText[endIndex] != ' ' &&
-             currentText[endIndex] != '\n') {
-        endIndex++;
+      int startIndex;
+      int endIndex;
+
+      if (triggerIndex != -1 && triggerIndex < clampedPos) {
+        startIndex = triggerIndex;
+        endIndex = clampedPos;
+        while (endIndex < currentText.length &&
+               currentText[endIndex] != ' ' &&
+               currentText[endIndex] != '\n') {
+          endIndex++;
+        }
+      } else {
+        startIndex = clampedPos;
+        endIndex = clampedPos;
       }
 
+      final hasTrailingSpace = endIndex < currentText.length && currentText[endIndex] == ' ';
+      final suffix = hasTrailingSpace ? '' : ' ';
+
       final newText = currentText.replaceRange(
-        triggerIndex,
+        startIndex,
         endIndex,
-        '$text ',
+        '$text$suffix',
       );
 
       _coloredController.text = newText;
       _coloredController.selection = TextSelection.collapsed(
-        offset: triggerIndex + text.length + 1,
+        offset: startIndex + text.length + suffix.length,
       );
     }
   }

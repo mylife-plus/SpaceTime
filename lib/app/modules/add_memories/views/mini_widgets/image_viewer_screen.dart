@@ -1,18 +1,22 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:video_player/video_player.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 class ImageViewerScreen extends StatefulWidget {
   final List<String> images;
+  final List<String> videoPaths;
   final int initialIndex;
   final bool allowHorizontal;
 
   const ImageViewerScreen({
     super.key,
     required this.images,
+    this.videoPaths = const [],
     required this.initialIndex,
     this.allowHorizontal = true,
   });
@@ -30,9 +34,15 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   bool _showOverlay = true;
   bool _isFullScreen = false;
 
-  // Add image preloading cache
   final Map<int, ImageProvider> _imageCache = {};
   final Map<int, bool> _imageLoadingStates = {};
+  final Map<int, VideoPlayerController> _videoControllers = {};
+
+  int get _totalCount => widget.images.length + widget.videoPaths.length;
+
+  bool _isVideoAtIndex(int index) => index >= widget.images.length;
+
+  String _getVideoPath(int index) => widget.videoPaths[index - widget.images.length];
 
   @override
   void initState() {
@@ -92,6 +102,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
     _overlayController.dispose();
     _fadeController.dispose();
     _pageController.dispose();
+    for (final vc in _videoControllers.values) {
+      vc.dispose();
+    }
     super.dispose();
   }
 
@@ -257,6 +270,130 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
     }
   }
 
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    if (duration.inHours > 0) return '$hours:$minutes:$seconds';
+    return '$minutes:$seconds';
+  }
+
+  void _toggleVideoPlayPause(int index) {
+    final vc = _videoControllers[index];
+    if (vc == null || !vc.value.isInitialized) return;
+    setState(() {
+      vc.value.isPlaying ? vc.pause() : vc.play();
+    });
+    if (vc.value.isPlaying) {
+      _startAutoHideTimer();
+    }
+  }
+
+  Widget _buildVideoPlayer(String videoPath, int index) {
+    final uiController = Get.find<UiController>();
+    if (!_videoControllers.containsKey(index)) {
+      final vc = VideoPlayerController.file(File(videoPath));
+      _videoControllers[index] = vc;
+      vc.initialize().then((_) {
+        if (mounted) {
+          vc.addListener(() {
+            if (mounted) setState(() {});
+          });
+          setState(() {});
+        }
+      });
+    }
+    final vc = _videoControllers[index]!;
+    if (!vc.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
+    final accentColor = uiController.darkMode.value
+        ? (uiController.mainColor.value == 'blue'
+            ? uiController.currentMainColor
+            : uiController.primaryColorDark) ?? Colors.blue
+        : (uiController.mainColor.value == 'blue'
+            ? Colors.blue
+            : uiController.primaryColor) ?? Colors.blue;
+    return GestureDetector(
+      onTap: () {
+        setState(() { _showOverlay = !_showOverlay; });
+        if (_showOverlay) {
+          _overlayController.forward();
+          _startAutoHideTimer();
+        } else {
+          _overlayController.reverse();
+        }
+      },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: vc.value.size.width,
+                height: vc.value.size.height,
+                child: VideoPlayer(vc),
+              ),
+            ),
+          ),
+          AnimatedOpacity(
+            opacity: _showOverlay ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: IconButton(
+              icon: Icon(
+                vc.value.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                color: Colors.white,
+                size: 64,
+              ),
+              onPressed: () => _toggleVideoPlayPause(index),
+            ),
+          ),
+          if (_showOverlay)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      VideoProgressIndicator(
+                        vc,
+                        allowScrubbing: true,
+                        colors: VideoProgressColors(
+                          playedColor: accentColor,
+                          bufferedColor: Colors.white.withValues(alpha: 0.3),
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            _formatDuration(vc.value.position),
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                          const Spacer(),
+                          Text(
+                            _formatDuration(vc.value.duration),
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _toggleOverlay() {
     setState(() {
       _showOverlay = !_showOverlay;
@@ -279,23 +416,26 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
-      body: GestureDetector(
-        onTap: _toggleOverlay,
-        child: Stack(
+      body: Stack(
           children: [
-            // Main image viewer
             PageView.builder(
               controller: _pageController,
-              physics: const BouncingScrollPhysics(),
+              physics: const ClampingScrollPhysics(),
               onPageChanged: (index) {
+                for (final vc in _videoControllers.values) {
+                  vc.pause();
+                }
                 setState(() {
                   _currentIndex = index;
                 });
               },
-              itemCount: widget.images.length,
+              itemCount: _totalCount,
               itemBuilder: (context, index) {
-                return Hero(
-                  tag: 'image_${widget.images[index]}',
+                if (_isVideoAtIndex(index)) {
+                  return _buildVideoPlayer(_getVideoPath(index), index);
+                }
+                return GestureDetector(
+                  onTap: _toggleOverlay,
                   child: InteractiveViewer(
                     minScale: 0.5,
                     maxScale: 4.0,
@@ -343,12 +483,11 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                                 ]);
                               }
                               Navigator.of(context).pop();
-                              HapticFeedback.lightImpact();
                             },
                           ),
                           title: Center(
                             child: Text(
-                              '${_currentIndex + 1} of ${widget.images.length}',
+                              '${_currentIndex + 1} of $_totalCount',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w500,
@@ -391,7 +530,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
             ),
 
             // Bottom overlay (Dots indicator)
-            if (widget.images.length > 1)
+            if (_totalCount > 1)
               AnimatedBuilder(
                 animation: _overlayController,
                 builder: (context, child) {
@@ -418,7 +557,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: List.generate(
-                                widget.images.length,
+                                _totalCount,
                                 (index) => AnimatedContainer(
                                   duration: const Duration(milliseconds: 300),
                                   margin: const EdgeInsets.symmetric(
@@ -454,7 +593,6 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                 },
               ),
           ],
-        ),
       ),
     );
   }

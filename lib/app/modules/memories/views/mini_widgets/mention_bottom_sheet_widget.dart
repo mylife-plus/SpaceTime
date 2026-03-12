@@ -25,9 +25,10 @@ class TagMentionBottomSheet extends StatefulWidget {
   final String initialKeyword;
   final ValueNotifier<String> searchNotifier;
   final VoidCallback? onEditingComplete;
-  final VoidCallback? onSeeListTapped; // Called when "See list" is tapped (closes without removing text)
-  final List<String>? excludedItems; // Items already added to the description
-  final bool isEditingExisting; // True when editing an existing hashtag/mention
+  final VoidCallback? onSeeListTapped;
+  final VoidCallback? onSeeListCancelled;
+  final List<String>? excludedItems;
+  final bool isEditingExisting;
 
   const TagMentionBottomSheet({
     super.key,
@@ -37,6 +38,7 @@ class TagMentionBottomSheet extends StatefulWidget {
     this.isTagMode = true,
     this.onEditingComplete,
     this.onSeeListTapped,
+    this.onSeeListCancelled,
     this.excludedItems,
     this.isEditingExisting = false,
   });
@@ -795,7 +797,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       ? await Get.toNamed('/hashtag-groups')
                       : await Get.toNamed('/contact-groups');
 
-                  // Handle the returned result
                   if (result != null) {
                     final prefixChar = widget.isTagMode ? '#' : '@';
                     String itemName = '';
@@ -809,6 +810,8 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                     if (itemName.isNotEmpty) {
                       widget.onItemSelected('$prefixChar$itemName');
                     }
+                  } else {
+                    widget.onSeeListCancelled?.call();
                   }
                 },
                 child: Row(

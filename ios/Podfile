@@ -56,6 +56,18 @@ post_install do |installer|
       # Fix for mprotect permission denied error
       config.build_settings['GCC_OPTIMIZATION_LEVEL'] = '0'
       config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
+
+      # Fix permission_handler pod configuration
+      if target.name == 'permission_handler_apple'
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+          '$(inherited)',
+          'PERMISSION_CAMERA=1',
+          'PERMISSION_PHOTOS=1',
+          'PERMISSION_PHOTOS_ADD_ONLY=1',
+          'PERMISSION_MICROPHONE=1',
+          'PERMISSION_MEDIA_LIBRARY=1',
+        ]
+      end
     end
   end
 end

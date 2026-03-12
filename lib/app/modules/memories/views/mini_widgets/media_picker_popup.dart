@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -138,10 +139,15 @@ class MediaPickerPopup extends StatelessWidget {
   Future<void> _handleCameraPhoto(BuildContext context) async {
     final cameraStatus = await Permission.camera.request();
 
-    if (!cameraStatus.isGranted) {
+    PermissionStatus photoLibraryStatus = PermissionStatus.granted;
+    if (Platform.isIOS) {
+      photoLibraryStatus = await Permission.photosAddOnly.request();
+    }
+
+    if (!cameraStatus.isGranted || !photoLibraryStatus.isGranted) {
       Get.snackbar(
-        'Camera Permission',
-        'Camera permission is required to take photos',
+        'Permissions Required',
+        'Camera and photo library permissions are required to take and save photos',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
@@ -170,10 +176,15 @@ class MediaPickerPopup extends StatelessWidget {
     final cameraStatus = await Permission.camera.request();
     final micStatus = await Permission.microphone.request();
 
-    if (!cameraStatus.isGranted || !micStatus.isGranted) {
+    PermissionStatus photoLibraryStatus = PermissionStatus.granted;
+    if (Platform.isIOS) {
+      photoLibraryStatus = await Permission.photosAddOnly.request();
+    }
+
+    if (!cameraStatus.isGranted || !micStatus.isGranted || !photoLibraryStatus.isGranted) {
       Get.snackbar(
         'Permissions Required',
-        'Camera and microphone permissions are required to record videos',
+        'Camera, microphone, and photo library permissions are required to record and save videos',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
@@ -199,7 +210,13 @@ class MediaPickerPopup extends StatelessWidget {
   }
 
   Future<void> _handleGallery(BuildContext context) async {
-    final photoStatus = await Permission.photos.request();
+    PermissionStatus photoStatus;
+
+    if (Platform.isIOS) {
+      photoStatus = await Permission.photos.request();
+    } else {
+      photoStatus = await Permission.storage.request();
+    }
 
     if (!photoStatus.isGranted) {
       Get.snackbar(
