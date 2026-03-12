@@ -56,7 +56,7 @@ class MemoryLocationPickerController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    MapboxZoomHelper().currentLocationZoom.value = 1;
+    MapboxZoomHelper().currentLocationZoom.value = 6;
     searchFocusNode.addListener(onSearchFocusChanged);
     searchController.addListener(onSearchChanged);
     initializeLocationPicker();
@@ -246,7 +246,7 @@ class MemoryLocationPickerController extends GetxController {
             memoryController.locationLatitude.value!,
           ),
         ),
-        zoom: MapboxZoomHelper().currentLocationZoom.value,
+        zoom: 6,
       );
     } else if (currentPosition.value != null) {
       return mapbox.CameraOptions(
@@ -256,7 +256,7 @@ class MemoryLocationPickerController extends GetxController {
             currentPosition.value!.latitude,
           ),
         ),
-        zoom: MapboxZoomHelper().currentLocationZoom.value,
+        zoom: 6,
       );
     }
     return null;
@@ -453,7 +453,7 @@ final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
           center: mapbox.Point(
             coordinates: mapbox.Position(longitude, latitude),
           ),
-          zoom: MapboxZoomHelper().currentLocationZoom.value,
+          zoom: 6,
         ),
         mapbox.MapAnimationOptions(duration: 1000),
       );

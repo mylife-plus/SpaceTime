@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:video_player/video_player.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -9,8 +10,7 @@ import 'package:spacetime/app/modules/add_memories/views/mini_widgets/image_view
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_view_widget_new.dart';
 import 'package:spacetime/app/modules/memories/views/memory_view.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/video_player_screen.dart';
+
 
 import '../../../../config/app_images.dart';
 import '../../../memories/controllers/memory_controller.dart';
@@ -349,12 +349,17 @@ class _MemoryCardState extends State<MemoryCard> {
   final PageController _pageController = PageController();
   final controller = Get.find<UiController>();
   int _currentIndex = 0;
-  final Map<int, Widget> _imageCache = {}; // Cache for built image widgets
+  final Map<int, Widget> _imageCache = {};
+  final Map<int, VideoPlayerController> _inlineVideoControllers = {};
 
   @override
   void dispose() {
     _pageController.dispose();
-    _imageCache.clear(); // Clear image cache to free memory
+    _imageCache.clear();
+    for (final vc in _inlineVideoControllers.values) {
+      vc.dispose();
+    }
+    _inlineVideoControllers.clear();
     super.dispose();
   }
 
@@ -416,18 +421,7 @@ class _MemoryCardState extends State<MemoryCard> {
                   return _imageCache[index]!;
                 } else {
                   final videoIndex = index - images.length;
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      return VideoThumbnailWidget(
-                        videoPath: videos[videoIndex],
-                        width: constraints.maxWidth,
-                        height: 260,
-                        onTap: () {
-                          _openMediaViewer(images, videos, index);
-                        },
-                      );
-                    },
-                  );
+                  return _buildInlineVideoPlayer(videos[videoIndex], index, images, videos);
                 }
               },
             ),
@@ -713,6 +707,134 @@ class _MemoryCardState extends State<MemoryCard> {
     }
 
     return location; // Return original if not coordinates
+  }
+
+  String _formatInlineDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  Widget _buildInlineVideoPlayer(String videoPath, int index, List<String> images, List<String> videos) {
+    if (!_inlineVideoControllers.containsKey(index)) {
+      final vc = VideoPlayerController.file(File(videoPath));
+      _inlineVideoControllers[index] = vc;
+      vc.initialize().then((_) {
+        if (mounted) {
+          vc.addListener(() { if (mounted) setState(() {}); });
+          setState(() {});
+        }
+      });
+    }
+    final vc = _inlineVideoControllers[index]!;
+    final initialized = vc.value.isInitialized;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        initialized
+            ? SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: vc.value.size.width,
+                    height: vc.value.size.height,
+                    child: VideoPlayer(vc),
+                  ),
+                ),
+              )
+            : Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Colors.white))),
+        if (initialized)
+          GestureDetector(
+            onTap: () => setState(() { vc.value.isPlaying ? vc.pause() : vc.play(); }),
+            child: AnimatedOpacity(
+              opacity: vc.value.isPlaying ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                padding: const EdgeInsets.all(12),
+                child: const Icon(Icons.play_arrow, color: Colors.white, size: 40),
+              ),
+            ),
+          ),
+        if (initialized)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  VideoProgressIndicator(
+                    vc,
+                    allowScrubbing: true,
+                    colors: VideoProgressColors(
+                      playedColor: controller.currentMainColor,
+                      bufferedColor: Colors.white.withValues(alpha: 0.3),
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => setState(() { vc.value.isPlaying ? vc.pause() : vc.play(); }),
+                        child: Icon(
+                          vc.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _formatInlineDuration(vc.value.position),
+                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                      ),
+                      const Text(' / ', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                      Text(
+                        _formatInlineDuration(vc.value.duration),
+                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () {
+                          vc.pause();
+                          _openMediaViewer(images, videos, index);
+                        },
+                        child: const Icon(Icons.fullscreen, color: Colors.white, size: 22),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (!initialized)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () {
+                _openMediaViewer(images, videos, index);
+              },
+              child: Container(
+                decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                padding: const EdgeInsets.all(6),
+                child: const Icon(Icons.fullscreen, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   void _openMediaViewer(List<String> images, List<String> videos, int initialIndex) {

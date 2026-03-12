@@ -9,6 +9,7 @@ class VideoThumbnailWidget extends StatefulWidget {
   final double height;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onPlayTap;
 
   const VideoThumbnailWidget({
     super.key,
@@ -17,6 +18,7 @@ class VideoThumbnailWidget extends StatefulWidget {
     this.height = 170,
     this.onTap,
     this.onDelete,
+    this.onPlayTap,
   });
 
   @override
@@ -114,21 +116,45 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                             height: widget.height,
                             color: Colors.grey[300],
                           ),
-            // Play button overlay
             if (!_isLoading && !_hasError)
               Center(
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.play_arrow,
-                    color: Colors.white,
-                    size: 32,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: widget.onPlayTap,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: widget.onTap,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.zoom_in,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             // Delete button
