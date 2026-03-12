@@ -34,8 +34,9 @@ class GeocodingIsolateService extends GetxService {
   /// Reverse geocode coordinates using non-blocking approach
   Future<Map<String, dynamic>?> reverseGeocode(
     double latitude,
-    double longitude,
-  ) async {
+    double longitude, {
+    String? tileSubRegion,
+  }) async {
     try {
       debugPrint(
         '[GeocodingIsolateService] Non-blocking geocoding: $latitude, $longitude',
@@ -43,8 +44,7 @@ class GeocodingIsolateService extends GetxService {
 
       activeRequests.value++;
 
-      // Use a simple async approach to avoid blocking the UI
-      final result = await _performGeocodingAsync(latitude, longitude);
+      final result = await _performGeocodingAsync(latitude, longitude, tileSubRegion: tileSubRegion);
 
       activeRequests.value--;
 
@@ -57,17 +57,16 @@ class GeocodingIsolateService extends GetxService {
     }
   }
 
-  /// Perform geocoding asynchronously without blocking UI
   Future<Map<String, dynamic>?> _performGeocodingAsync(
     double latitude,
-    double longitude,
-  ) async {
+    double longitude, {
+    String? tileSubRegion,
+  }) async {
     try {
-      // Add a small delay to yield control back to the UI thread
       await Future.delayed(const Duration(milliseconds: 1));
 
       final geocoder = OfflineGeocoder.instance;
-      final result = await geocoder.reverseGeocode(latitude, longitude);
+      final result = await geocoder.reverseGeocode(latitude, longitude, tileSubRegion: tileSubRegion);
 
       return result;
     } catch (e) {

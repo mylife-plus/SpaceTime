@@ -14,6 +14,7 @@ import 'package:spacetime/app/modules/location_picker/services/location_picker_s
 import 'package:spacetime/services/mbtiles_download_service.dart';
 import 'package:spacetime/services/mbtiles_server_service.dart';
 import 'package:spacetime/services/style_json_download_service.dart';
+import 'package:spacetime/app/utils/place_categories_utils.dart';
 
 enum MemoryLocationPickerState {
   loading,
@@ -342,10 +343,19 @@ class MemoryLocationPickerController extends GetxController {
       return;
     }
 
+
+    final lat = selectedLocationMarker!.geometry.coordinates.lat.toDouble();
+    final lng = selectedLocationMarker!.geometry.coordinates.lng.toDouble();
+
+    final adminData = await getAdminHierarchy(lat, lng);
+    final tileSubRegion = adminData['city'] ?? adminData['subRegion'];
+
     final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
-        selectedLocationMarker!.geometry.coordinates.lat.toDouble(),
-        selectedLocationMarker!.geometry.coordinates.lng.toDouble(),
+        lat,
+        lng,
+        tileSubRegion: tileSubRegion,
       );
+   
 
       if (locationData1 == null) {
         Get.snackbar(
@@ -361,9 +371,26 @@ class MemoryLocationPickerController extends GetxController {
 
       final locationName = locationData1['display_name'] as String? ?? 'Unknown Location';
 
-      memoryController.locationCountry.value = locationData1['country'] as String? ?? '';
-      memoryController.locationFlag.value = locationData1['flag'] as String? ?? '';
-      memoryController.locationCity.value = locationData1['city'] as String? ?? '';
+      var country = locationData1['country'] as String? ?? '';
+      var flag = locationData1['flag'] as String? ?? '';
+      var city = locationData1['city'] as String? ?? '';
+
+      if (country.isEmpty && adminData['country'] != null) {
+        country = adminData['country']!;
+        locationData1['country'] = country;
+      }
+      if (flag.isEmpty && country.isNotEmpty) {
+        flag = countryFlags[country.toLowerCase()] ?? '';
+        locationData1['flag'] = flag;
+      }
+      if (city.isEmpty && tileSubRegion != null && tileSubRegion.isNotEmpty) {
+        city = tileSubRegion;
+        locationData1['city'] = city;
+      }
+
+      memoryController.locationCountry.value = country;
+      memoryController.locationFlag.value = flag;
+      memoryController.locationCity.value = city;
       memoryController.locationAddress.value = locationData1['address'] as String? ?? '';
 
       memoryController.selectedLocation.value = locationName;
@@ -574,12 +601,79 @@ class MemoryLocationPickerController extends GetxController {
   }
 
   /// Handle map tap
-  Future<void> onMapTap(mapbox.MapContentGestureContext context) async {
-    final point = context.point;
-    final latitude = point.coordinates.lat.toDouble();
-    final longitude = point.coordinates.lng.toDouble();
+ Future<void> onMapTap(mapbox.MapContentGestureContext context) async {
+  final point = context.point;
 
-    await selectLocation(latitude, longitude);
+  final latitude = point.coordinates.lat.toDouble();
+  final longitude = point.coordinates.lng.toDouble();
+
+  await getAdminHierarchy(latitude, longitude);
+
+  await selectLocation(latitude, longitude);
+}
+
+  Future<Map<String, String?>> getAdminHierarchy(double lat, double lng) async {
+    final result = <String, String?>{
+      'city': null,
+      'region': null,
+      'subRegion': null,
+      'country': null,
+      'water': null,
+    };
+    if (mapController == null) return result;
+    try {
+      final pixel = await mapController!.pixelForCoordinate(
+        mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+      );
+
+      final geometry = mapbox.RenderedQueryGeometry.fromScreenCoordinate(pixel);
+
+      final features = await mapController!.queryRenderedFeatures(
+        geometry,
+        mapbox.RenderedQueryOptions(
+          layerIds: null,
+          filter: null,
+        ),
+      );
+
+      if (features.isEmpty) {
+        debugPrint('[AdminHierarchy] No features found at $lat, $lng');
+        return result;
+      }
+
+      for (final f in features) {
+        if (f == null) continue;
+        final props = (f.queriedFeature.feature['properties'] as Map?)?.cast<String, dynamic>();
+        if (props == null) continue;
+
+        final name = (props['name:en'] ?? props['name'])?.toString();
+        if (name == null || name.isEmpty) continue;
+
+        final sourceLayer = f.queriedFeature.sourceLayer ?? '';
+        final className = props['class']?.toString() ?? '';
+
+        if (sourceLayer == 'place') {
+          if (['country'].contains(className) && result['country'] == null) {
+            result['country'] = name;
+          } else if (['state', 'province', 'region'].contains(className) && result['region'] == null) {
+            result['region'] = name;
+          } else if (['county', 'district'].contains(className) && result['subRegion'] == null) {
+            result['subRegion'] = name;
+          } else if (['city', 'town', 'village', 'suburb', 'hamlet', 'quarter', 'neighbourhood'].contains(className) && result['city'] == null) {
+            result['city'] = name;
+          }
+        } else if (sourceLayer == 'water_name' || sourceLayer == 'water') {
+          result['water'] ??= name;
+        }
+
+        debugPrint('[AdminHierarchy] sourceLayer=$sourceLayer class=$className name=$name');
+      }
+
+      // debugPrint('[AdminHierarchy] result=$result');
+    } catch (e) {
+      debugPrint('[AdminHierarchy] Error: $e');
+    }
+    return result;
   }
 
   /// Clear search

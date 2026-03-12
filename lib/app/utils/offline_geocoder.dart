@@ -102,7 +102,7 @@ class OfflineGeocoder {
     return '';
   }
 
-  Map<String, dynamic> _buildResult(_CityRecord? record, LocationData loc, double lat, double lng) {
+  Map<String, dynamic> _buildResult(_CityRecord? record, LocationData loc, double lat, double lng, {String? tileSubRegion}) {
     final city = record?.name ?? loc.featureName ?? '';
     final country = record?.countryName ?? loc.state ?? '';
     final stateName = record?.stateName ?? '';
@@ -111,9 +111,14 @@ class OfflineGeocoder {
 
     final regionName = _resolveRegion(stateName, countryCode, lat, lng);
 
-    var city1 = (regionName.isNotEmpty && !city.contains(regionName))
-        ? '$city, $regionName'
-        : city;
+    String city1;
+    if (tileSubRegion != null && tileSubRegion.isNotEmpty) {
+      city1 = regionName.isNotEmpty ? '$tileSubRegion, $regionName' : tileSubRegion;
+    } else {
+      city1 = (regionName.isNotEmpty && !city.contains(regionName))
+          ? '$city, $regionName'
+          : city;
+    }
 
     final addressComponents = <String>[];
     if (city.isNotEmpty) addressComponents.add(city);
@@ -129,7 +134,7 @@ class OfflineGeocoder {
     };
   }
 
-  Future<Map<String, dynamic>?> reverseGeocode(double lat, double lng) async {
+  Future<Map<String, dynamic>?> reverseGeocode(double lat, double lng, {String? tileSubRegion}) async {
     final results = geocoder.search(lat, lng);
     final hit = OfflineWaterService.instance.detect(lat, lng);
 
@@ -146,7 +151,7 @@ class OfflineGeocoder {
       }
       if (best != null && bestDist < 50) {
         final record = _lookupRecord(best.location);
-        return _buildResult(record, best.location, lat, lng);
+        return _buildResult(record, best.location, lat, lng, tileSubRegion: tileSubRegion);
       }
     }
 
@@ -174,7 +179,7 @@ class OfflineGeocoder {
     }
     if (fallback == null) return null;
     final record = _lookupRecord(fallback.location);
-    return _buildResult(record, fallback.location, lat, lng);
+    return _buildResult(record, fallback.location, lat, lng, tileSubRegion: tileSubRegion);
   }
 
   double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
