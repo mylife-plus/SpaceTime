@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:csv/csv.dart';
@@ -11,6 +12,7 @@ class NearestRegionService {
   final List<Region> _regions = [];
   final List<_CityEntry> _cities = [];
   final Map<String, String> _admin1Names = {};
+  final List<_AdminPolygon> _adminPolygons = [];
   bool _isLoaded = false;
 
   Future<void> loadFromAssets({
@@ -56,6 +58,7 @@ class NearestRegionService {
 
     await _loadCities500();
     await _loadAdmin1Codes();
+    await _loadAdminPolygons();
 
     _isLoaded = true;
   }
@@ -69,14 +72,15 @@ class NearestRegionService {
       ).convert(raw);
       for (int i = 1; i < rows.length; i++) {
         final row = rows[i];
-        if (row.length < 6) continue;
+        if (row.length < 7) continue;
         _cities.add(_CityEntry(
           name: row[0].toString(),
           latitude: double.tryParse(row[1].toString()) ?? 0.0,
           longitude: double.tryParse(row[2].toString()) ?? 0.0,
           countryCode: row[3].toString(),
           admin1: row[4].toString(),
-          population: int.tryParse(row[5].toString()) ?? 0,
+          admin2: row[5].toString(),
+          population: int.tryParse(row[6].toString()) ?? 0,
         ));
       }
       print('[NearestRegion] Loaded ${_cities.length} cities from cities500');
@@ -103,8 +107,118 @@ class NearestRegionService {
     }
   }
 
+  Future<void> _loadAdminPolygons() async {
+    try {
+      final raw = await rootBundle.loadString('assets/geo/ne_10m_admin1.json');
+      final geojson = jsonDecode(raw) as Map<String, dynamic>;
+      final features = geojson['features'] as List;
+      for (final f in features) {
+        final props = f['properties'] as Map<String, dynamic>;
+        final geom = f['geometry'] as Map<String, dynamic>;
+        final name = props['n']?.toString() ?? '';
+        final cc = props['c']?.toString() ?? '';
+        final type = geom['type']?.toString() ?? '';
+
+        final polygons = <List<List<double>>>[];
+        if (type == 'Polygon') {
+          final coords = geom['coordinates'] as List;
+          for (final ring in coords) {
+            polygons.add((ring as List).map((p) => [
+              (p[0] as num).toDouble(),
+              (p[1] as num).toDouble(),
+            ]).toList());
+          }
+        } else if (type == 'MultiPolygon') {
+          final multiCoords = geom['coordinates'] as List;
+          for (final poly in multiCoords) {
+            for (final ring in (poly as List)) {
+              polygons.add((ring as List).map((p) => [
+                (p[0] as num).toDouble(),
+                (p[1] as num).toDouble(),
+              ]).toList());
+            }
+          }
+        }
+
+        if (polygons.isNotEmpty) {
+          double minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+          for (final ring in polygons) {
+            for (final pt in ring) {
+              if (pt[1] < minLat) minLat = pt[1];
+              if (pt[1] > maxLat) maxLat = pt[1];
+              if (pt[0] < minLng) minLng = pt[0];
+              if (pt[0] > maxLng) maxLng = pt[0];
+            }
+          }
+          _adminPolygons.add(_AdminPolygon(
+            name: name,
+            countryCode: cc,
+            rings: polygons,
+            minLat: minLat,
+            maxLat: maxLat,
+            minLng: minLng,
+            maxLng: maxLng,
+          ));
+        }
+      }
+      print('[NearestRegion] Loaded ${_adminPolygons.length} admin polygons');
+    } catch (e) {
+      print('[NearestRegion] Failed to load admin polygons: $e');
+    }
+  }
+
+  String? findStateByPolygon(double lat, double lng, {String? countryCode}) {
+    for (final poly in _adminPolygons) {
+      if (lat < poly.minLat || lat > poly.maxLat) continue;
+      if (lng < poly.minLng || lng > poly.maxLng) continue;
+      if (countryCode != null && countryCode.isNotEmpty && poly.countryCode != countryCode) continue;
+      for (final ring in poly.rings) {
+        if (_pointInRing(lat, lng, ring)) {
+          print('[NearestRegion] Polygon match: ${poly.name} (${poly.countryCode})');
+          return poly.name;
+        }
+      }
+    }
+    return null;
+  }
+
+  bool _pointInRing(double lat, double lng, List<List<double>> ring) {
+    bool inside = false;
+    int j = ring.length - 1;
+    for (int i = 0; i < ring.length; i++) {
+      final xi = ring[i][0], yi = ring[i][1];
+      final xj = ring[j][0], yj = ring[j][1];
+      if (((yi > lat) != (yj > lat)) &&
+          (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+      j = i;
+    }
+    return inside;
+  }
+
   Region? findNearest(double lat, double lng, {String? countryCode}) {
     if (!_isLoaded) return null;
+
+    final polyState = findStateByPolygon(lat, lng, countryCode: countryCode);
+    if (polyState != null) {
+      final match = _regions.where((r) =>
+        r.name.toLowerCase() == polyState.toLowerCase() &&
+        (countryCode == null || countryCode.isEmpty || r.countryCode == countryCode)
+      ).toList();
+      if (match.isNotEmpty) {
+        print('[NearestRegion] Polygon resolved to region: ${match.first.name}');
+        return match.first;
+      }
+      return Region(
+        id: 0, name: polyState, countryId: 0,
+        countryCode: countryCode ?? '', countryName: '',
+        iso2: '', iso3166_2: '', fipsCode: '',
+        type: 'polygon-derived', level: '', parentId: null,
+        nativeName: '', latitude: lat, longitude: lng,
+        timezone: '', wikiDataId: '', population: 0,
+      );
+    }
 
     if (_cities.isNotEmpty) {
       final cityResult = _findNearestCity(lat, lng, countryCode: countryCode);
@@ -329,6 +443,7 @@ class _CityEntry {
   final double longitude;
   final String countryCode;
   final String admin1;
+  final String admin2;
   final int population;
   _CityEntry({
     required this.name,
@@ -336,6 +451,7 @@ class _CityEntry {
     required this.longitude,
     required this.countryCode,
     required this.admin1,
+    required this.admin2,
     required this.population,
   });
 }
@@ -345,4 +461,20 @@ class _RankedCity {
   final double distance;
   double score;
   _RankedCity(this.city, this.distance, {this.score = 0.0});
+}
+
+class _AdminPolygon {
+  final String name;
+  final String countryCode;
+  final List<List<List<double>>> rings;
+  final double minLat, maxLat, minLng, maxLng;
+  _AdminPolygon({
+    required this.name,
+    required this.countryCode,
+    required this.rings,
+    required this.minLat,
+    required this.maxLat,
+    required this.minLng,
+    required this.maxLng,
+  });
 }

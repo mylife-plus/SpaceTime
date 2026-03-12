@@ -112,6 +112,7 @@ flutter:
     - assets/geonames_cities.csv
     - assets/cities500.csv
     - assets/admin1codes.csv
+    - assets/geo/ne_10m_admin1.json
     # Note: 11_included.mbtiles is too large (4.5GB) to include in app bundle
     # It should be downloaded separately or provided via external storage
 
