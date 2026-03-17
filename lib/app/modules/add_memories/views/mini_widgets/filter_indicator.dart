@@ -33,96 +33,103 @@ class FilterIndicator extends StatelessWidget {
         return const SizedBox.shrink();
       }
 
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color:
-              uiController.darkMode.value
-                  ? Colors.black87
-                  : Colors.orange.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color:
-                uiController.darkMode.value
-                    ? Colors.orange[600]!
-                    : Colors.orange.withValues(alpha: 0.4),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          // mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.filter_alt,
-              size: 16,
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            decoration: BoxDecoration(
               color:
                   uiController.darkMode.value
-                      ? Colors.orange[300]
-                      : Colors.orange[700],
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                '$activeFilterCount filter${activeFilterCount > 1 ? 's' : ''} applied',
-                style: TextStyle(
-                  fontSize: 12,
-                  color:
-                      uiController.darkMode.value
-                          ? Colors.orange[300]
-                          : Colors.orange[700],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '(${controller.filteredMemories.length} results)',
-              style: TextStyle(
-                fontSize: 11,
+                      ? Colors.black87
+                      : Colors.orange.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
                 color:
                     uiController.darkMode.value
-                        ? Colors.orange[400]
-                        : Colors.orange[600],
+                        ? Colors.orange[600]!
+                        : Colors.orange.withValues(alpha: 0.6),
+                width: 1,
               ),
             ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () async {
-                final mapController = Get.find<MapControllerNew>();
-                debugPrint('[FilterIndicator] 🧹 Resetting all filters');
-      
-                // Use same logic as filter overlay reset button
-                // controller.resetFilters();
-                // mapController.resetFilters();
-      
-                // Close filter overlay if open and reload with delay
-                Future.delayed(Duration(milliseconds: 500), () {
-                  _closefilterAndReset(mapController);
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color:
-                      uiController.darkMode.value
-                          ? Colors.orange.withValues(alpha: 0.3)
-                          : Colors.orange.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
+            child: Row(
+              // mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: Icon(
+                    Icons.filter_alt,
+                    size: 16,
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.orange[300]
+                            : Colors.white,
+                  ),
                 ),
-                child: Icon(
-                  Icons.close,
-                  size: 16,
-                  color:
-                      uiController.darkMode.value
-                          ? Colors.orange[300]
-                          : Colors.orange[700],
+                const SizedBox(width: 8),
+                Text(
+                  '$activeFilterCount filter${activeFilterCount > 1 ? 's' : ''} applied',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.orange[300]
+                          : Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Text(
+                  '(${controller.filteredMemories.length} results)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.orange[400]
+                          : Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final mapController = Get.find<MapControllerNew>();
+                    debugPrint('[FilterIndicator] 🧹 Resetting all filters');
+          
+                    // Use same logic as filter overlay reset button
+                    // controller.resetFilters();
+                    // mapController.resetFilters();
+          
+                    // Close filter overlay if open and reload with delay
+                    // Future.delayed(Duration(milliseconds: 500), () {
+                      _closefilterAndReset(mapController);
+                    // });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color:
+                          uiController.darkMode.value
+                              ? Colors.orange.withValues(alpha: 0.3)
+                              : Colors.orange.withValues(alpha: 0.8),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      size: 16,
+                      color:
+                          uiController.darkMode.value
+                              ? Colors.orange[300]
+                          : Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       );
     });
   }

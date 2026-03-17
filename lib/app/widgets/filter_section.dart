@@ -343,7 +343,7 @@ class _FilterPanelState extends State<FilterPanel>
 
   Widget _buildBottomButtons(UiController controller) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      // padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: controller.darkMode.value
             ? controller.mainColor.value == 'blue'

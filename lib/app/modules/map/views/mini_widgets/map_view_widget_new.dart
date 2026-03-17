@@ -209,36 +209,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         }),
 
         Positioned(top: 60, left: 0, right: 0, child: SearchIndicator()),
-        // Filter indicator (shown when filters are active and filter overlay is closed)
-        // Search indicator - shows when there's an active keyword search
-        // Obx(() {
-
-        //   if (!Get.isRegistered<AddMemoriesController>()) {
-        //     return const SizedBox.shrink();
-        //   }
-
-        //   // Show search indicator when there's an active search
-        //   // if (Get.find<FilterController>().hasActiveSearch) {
-        //     return const
-        //   // }
-
-        //   // return const SizedBox.shrink();
-        // }),
+       
         const Positioned(top: 60, left: 0, right: 0, child: FilterIndicator()),
-        // Filter indicator - shows when there are active filters (but not search)
-        // Obx(() {
-
-        //   if (!Get.isRegistered<FilterController>()) {
-        //     return const SizedBox.shrink();
-        //   }
-
-        //   return const Positioned(
-        //       top: 60,
-        //       left: 0,
-        //       right: 0,
-        //       child: FilterIndicator(),
-        //     );
-        // }),
 
         // Filter overlay
         Visibility(

@@ -435,10 +435,7 @@ class MapControllerNew extends GetxController {
   /// Refresh current location
   Future<void> refreshLocation({bool? callSetCamera = null}) async {
     try {
-      _setOptimalZoomForMemories(
-        _currentMemories,
-        callSetCamera: callSetCamera,
-      );
+   
       //  ..
     } catch (e) {
       debugPrint('[MapControllerNew] Error refreshing location: $e');
@@ -490,22 +487,8 @@ class MapControllerNew extends GetxController {
       await _databaseHelper.resetDatabaseConnection();
     }
 
-    // Load all memories from database
+    // Load all memories from database (may be empty)
     final mem1 = await _databaseHelper.getAllMemoriesWithDetails();
-
-    // No memories: move to current location (first launch / no filter) or fallback
-    if (mem1.isEmpty) {
-      _currentMemories.clear();
-      if (hasLocationPermission.value &&
-          currentLocation.value != null &&
-          mapboxMap != null) {
-        await _moveCameraToCurrentLocation();
-      } else {
-        await animateMapToCurrentOrRandomLocation();
-      }
-      return;
-    }
-    // debugPrint('$tag Loaded ${memories.length} raw memories from database');
 
     // Transform database memories to UI format
     final transformedMemories = <Map<String, dynamic>>[];
@@ -589,6 +572,8 @@ class MapControllerNew extends GetxController {
         // debugPrint('$tag Error sorting memories: $e');
         return 0;
       }
+
+      
     });
 
     debugPrint('[MapControllerNew] loadMemoriesFromDB called');
@@ -614,14 +599,15 @@ class MapControllerNew extends GetxController {
       debugPrint(
         '[MapControllerNew] Loaded ${spreadMemories.length} memories from FilterController',
       );
-
-      // Calculate and set appropriate zoom level based on memory spread
-      await _setOptimalZoomForMemories(spreadMemories);
-      await _moveToLatestMemory();
     } else {
-      debugPrint('[MapControllerNew] No memories to display');
+      debugPrint(
+        '[MapControllerNew] Filters produced no visible memories; using global default camera',
+      );
       _currentMemories.clear();
     }
+
+    // Decide and set default camera based on memories, current location, or fallback
+    await _setDefaultCameraPosition(transformedMemories);
   }
 
   /// Load a specific memory from database by ID
@@ -1704,6 +1690,116 @@ class MapControllerNew extends GetxController {
         _toDouble(memory['longitude']);
   }
 
+  /// Find the latest memory with valid coordinates in a list
+  Map<String, double>? _getLatestMemoryLatLng(
+    List<Map<String, dynamic>> memories,
+  ) {
+    for (int i = memories.length - 1; i >= 0; i--) {
+      final lat = _extractLatitude(memories[0]);
+      final lng = _extractLongitude(memories[0]);
+      if (lat != null &&
+          lng != null &&
+          !lat.isNaN &&
+          !lng.isNaN) {
+        return {'lat': lat, 'lng': lng};
+      }
+    }
+    return null;
+  }
+
+  /// Decide default camera position:
+  /// 1) Latest memory (from _currentMemories or allMemories fallback)
+  /// 2) Current location (if available)
+  /// 3) Germany fallback
+  Future<void> _setDefaultCameraPosition([
+    List<Map<String, dynamic>>? allMemories,
+  ]) async {
+    if (mapboxMap == null) return;
+
+    // 1) Try latest memory from current view
+    Map<String, double>? latest =
+        _getLatestMemoryLatLng(_currentMemories);
+
+    // If filters hid everything but DB has memories, fall back to allMemories
+    if ((latest == null || latest.isEmpty) &&
+        allMemories != null &&
+        allMemories.isNotEmpty) {
+      latest = _getLatestMemoryLatLng(allMemories);
+    }
+
+    if (latest != null && latest.isNotEmpty) {
+      final lat = latest['lat']!;
+      final lng = latest['lng']!;
+      final zoom = _detailVisibilityMinZoom;
+      currentZoom.value = zoom;
+
+      await mapboxMap!.flyTo(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(lng, lat),
+          ),
+          zoom: 2,
+          bearing: 0,
+          pitch: 0,
+        ),
+        mapbox.MapAnimationOptions(duration: 1500),
+      );
+
+      debugPrint(
+        '[MapControllerNew] ✅ Default camera: latest memory at ($lat, $lng) with zoom $zoom',
+      );
+      return;
+    }
+
+    // 2) Fallback to current location if available
+    if (hasLocationPermission.value &&
+        currentLocation.value != null) {
+      final pos = currentLocation.value!;
+      final zoom = _minZoom.toDouble();
+      currentZoom.value = zoom;
+
+      await mapboxMap!.flyTo(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+            coordinates: mapbox.Position(
+              pos.longitude,
+              pos.latitude,
+            ),
+          ),
+          zoom: 2,
+          bearing: 0,
+          pitch: 0,
+        ),
+        mapbox.MapAnimationOptions(duration: 1500),
+      );
+
+      debugPrint(
+        '[MapControllerNew] ✅ Default camera: current location at (${pos.latitude}, ${pos.longitude}) with zoom $zoom',
+      );
+      return;
+    }
+
+    // 3) Germany fallback
+    const double fallbackLat = 51.1657;
+    const double fallbackLng = 10.4515;
+
+    await mapboxMap!.setCamera(
+      mapbox.CameraOptions(
+        center: mapbox.Point(
+          coordinates: mapbox.Position(
+            fallbackLng,
+            fallbackLat,
+          ),
+        ),
+        zoom: 2,
+      ),
+    );
+
+    debugPrint(
+      '[MapControllerNew] ✅ Default camera: Germany fallback at ($fallbackLat, $fallbackLng) with zoom 5',
+    );
+  }
+
   Map<String, dynamic> _normalizeMemoryForNavigation(
     Map<String, dynamic> memory,
   ) {
@@ -1774,178 +1870,6 @@ class MapControllerNew extends GetxController {
 
   /// Focus request for radius field (used by MemoriesFilterTextFieldRow)
   final RxBool shouldFocusRadiusField = false.obs;
-
-  /// Calculate optimal zoom level based on memory distribution
-  Future<void> _calculateOptimalZoom() async {
-    if (mapboxMap == null || _currentMemories.isEmpty) {
-      debugPrint(
-        '[MapControllerNew] ⚠️ Cannot calculate zoom - no map or memories',
-      );
-      return;
-    }
-
-    try {
-      // Initialize bounds with first valid memory location
-      double? minLat, maxLat, minLng, maxLng;
-      int validLocationCount = 0;
-
-      for (final memory in _currentMemories) {
-        final lat = _extractLatitude(memory);
-        final lng = _extractLongitude(memory);
-
-        // Skip memories without valid coordinates
-        if (lat == null || lng == null || lat.isNaN || lng.isNaN) {
-          continue;
-        }
-
-        validLocationCount++;
-
-        // Initialize bounds with first valid location
-        if (minLat == null) {
-          minLat = maxLat = lat;
-          minLng = maxLng = lng;
-        } else {
-          // Update bounds
-          if (lat < minLat) minLat = lat;
-          if (lat > maxLat!) maxLat = lat;
-          if (lng < minLng!) minLng = lng;
-          if (lng > maxLng!) maxLng = lng;
-        }
-      }
-
-      // Check if we have valid bounds
-      if (validLocationCount == 0 ||
-          minLat == null ||
-          maxLat == null ||
-          minLng == null ||
-          maxLng == null) {
-        debugPrint(
-          '[MapControllerNew] ⚠️ No valid memory locations found for zoom calculation',
-        );
-        // Fallback to current location or default zoom
-        await _fallbackToDefaultZoom();
-        return;
-      }
-
-      // Calculate the spread (matching old controller logic)
-      final double latDiff = maxLat - minLat;
-      final double lngDiff = maxLng - minLng;
-      final double maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
-
-      // Validate calculated differences
-      if (latDiff.isNaN ||
-          lngDiff.isNaN ||
-          maxDiff.isNaN ||
-          maxDiff.isInfinite) {
-        debugPrint(
-          '[MapControllerNew] ⚠️ Invalid bounds calculation, using fallback',
-        );
-        await _fallbackToDefaultZoom();
-        return;
-      }
-
-      // Get zoom level based on geographical spread from MapboxZoomHelper
-      double zoom = MapboxZoomHelper().getZoomForSpread(maxDiff);
-
-      // Calculate center coordinates
-      final centerLat = (minLat + maxLat) / 2;
-      final centerLng = (minLng + maxLng) / 2;
-
-      // Validate center coordinates before using them
-      if (centerLat.isNaN ||
-          centerLng.isNaN ||
-          centerLat.isInfinite ||
-          centerLng.isInfinite) {
-        debugPrint(
-          '[MapControllerNew] ⚠️ Invalid center coordinates, using fallback',
-        );
-        await _fallbackToDefaultZoom();
-        return;
-      }
-
-      // Update current zoom variable
-      currentZoom.value = zoom;
-
-      debugPrint('[MapControllerNew] 📊 Memory spread analysis:');
-      debugPrint(
-        '[MapControllerNew] - Valid locations: $validLocationCount/${_currentMemories.length}',
-      );
-      debugPrint(
-        '[MapControllerNew] - Lat range: $minLat to $maxLat (diff: $latDiff)',
-      );
-      debugPrint(
-        '[MapControllerNew] - Lng range: $minLng to $maxLng (diff: $lngDiff)',
-      );
-      debugPrint('[MapControllerNew] - Max diff: $maxDiff');
-      debugPrint('[MapControllerNew] - Calculated zoom: $zoom');
-      debugPrint('[MapControllerNew] - Center: $centerLat, $centerLng');
-
-      // Set camera to fit bounds with calculated zoom
-      await mapboxMap!.flyTo(
-        mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(centerLng, centerLat),
-          ),
-          zoom: zoom,
-          bearing: 0,
-          pitch: 0,
-        ),
-        mapbox.MapAnimationOptions(duration: 1500),
-      );
-
-      debugPrint('[MapControllerNew] ✅ Optimal zoom level set to: $zoom');
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error calculating optimal zoom: $e');
-      await _fallbackToDefaultZoom();
-    }
-  }
-
-  /// Fallback to default zoom when calculation fails
-  Future<void> _fallbackToDefaultZoom() async {
-    try {
-      debugPrint('[MapControllerNew] 🔄 Using fallback zoom strategy');
-
-      // Use current location if available
-      if (currentLocation.value != null) {
-        currentZoom.value = _minZoom.toDouble();
-        await mapboxMap!.flyTo(
-          mapbox.CameraOptions(
-            center: mapbox.Point(
-              coordinates: mapbox.Position(
-                currentLocation.value!.longitude,
-                currentLocation.value!.latitude,
-              ),
-            ),
-            zoom: currentZoom.value,
-            bearing: 0,
-            pitch: 0,
-          ),
-          mapbox.MapAnimationOptions(duration: 1500),
-        );
-        debugPrint(
-          '[MapControllerNew] ✅ Fallback: Used current location with zoom ${currentZoom.value}',
-        );
-      } else {
-        // Default world view
-        currentZoom.value = _minZoom.toDouble();
-        await mapboxMap!.flyTo(
-          mapbox.CameraOptions(
-            center: mapbox.Point(coordinates: mapbox.Position(0, 0)),
-            zoom: currentZoom.value,
-            bearing: 0,
-            pitch: 0,
-          ),
-          mapbox.MapAnimationOptions(duration: 1500),
-        );
-        debugPrint(
-          '[MapControllerNew] ✅ Fallback: Used world center with zoom ${currentZoom.value}',
-        );
-      }
-    } catch (e) {
-      debugPrint('[MapControllerNew] ❌ Error in fallback zoom: $e');
-    }
-  }
-
   /// Add hashtag to selected hashtags (used by FilterDropdown)
   void addHashtag(String hashtag) {
     if (!selectedHashtags.contains(hashtag)) {
@@ -4944,7 +4868,7 @@ class MapControllerNew extends GetxController {
   Future<void> _moveToLatestMemory() async {
     if (_currentMemories.length > 0) {
       debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
-      await mapboxMap!.flyTo(
+      await mapboxMap!.setCamera(
         mapbox.CameraOptions(
           center: mapbox.Point(
             coordinates: mapbox.Position(
@@ -4956,7 +4880,7 @@ class MapControllerNew extends GetxController {
           bearing: 0,
           pitch: 0,
         ),
-        mapbox.MapAnimationOptions(duration: 1500),
+        // mapbox.MapAnimationOptions(duration: 1500),
       );
     }
   }
@@ -4981,17 +4905,19 @@ Future<void> animateMapToCurrentOrRandomLocation() async {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      await mapboxMap!.setCamera(
-        mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(
-              position.longitude,
-              position.latitude,
-            ),
-          ),
-          zoom: 2,
-        ),
-      );
+      //todo fix it
+
+      // await mapboxMap!.setCamera(
+      //   mapbox.CameraOptions(
+      //     center: mapbox.Point(
+      //       coordinates: mapbox.Position(
+      //         position.longitude,
+      //         position.latitude,
+      //       ),
+      //     ),
+      //     zoom: 2,
+      //   ),
+      // );
 
       return;
     }
@@ -4999,18 +4925,20 @@ Future<void> animateMapToCurrentOrRandomLocation() async {
     print("Location error: $e");
   }
 
+ // todo fix it
+
   // 3️⃣ Fallback to Germany
-  await mapboxMap!.setCamera(
-    mapbox.CameraOptions(
-      center: mapbox.Point(
-        coordinates: mapbox.Position(
-          fallbackLng,
-          fallbackLat,
-        ),
-      ),
-      zoom: 5,
-    ),
-  );
+  // await mapboxMap!.setCamera(
+  //   mapbox.CameraOptions(
+  //     center: mapbox.Point(
+  //       coordinates: mapbox.Position(
+  //         fallbackLng,
+  //         fallbackLat,
+  //       ),
+  //     ),
+  //     zoom: 5,
+  //   ),
+  // );
 }
 
 }
