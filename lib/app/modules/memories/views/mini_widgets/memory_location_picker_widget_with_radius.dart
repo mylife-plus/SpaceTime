@@ -195,7 +195,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
         Positioned(
         top: 5,
         left: 4,
-        right: controller.hasLocationPermission.value ? 60 : 60,
+        right: controller.hasLocationPermission.value ? 60 : 4,
         child: buildSearchContainer(controller.uiController.darkMode.value),),
 
         // Radius seekbar below search
@@ -380,37 +380,34 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
 
   /// Build bottom action buttons - matching new location picker design
   Widget _buildBottomActionButtons() {
-    return Obx(() {
-      // Depend on showSearchResults so this rebuilds when search focus changes
-      final _ = controller.showSearchResults.value;
-      final hasFocus = controller.searchFocusNode.hasFocus;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardVisible = bottomInset > 0;
 
-      return AnimatedPositioned(
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 300),
+      bottom: isKeyboardVisible ? -10 : 30, // Hide when keyboard is visible
+      left: 20,
+      right: 20,
+      child: AnimatedOpacity(
         duration: const Duration(milliseconds: 300),
-        bottom: hasFocus ? -10 : 30, // Hide when search is focused
-        left: 20,
-        right: 20,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 300),
-          opacity: hasFocus ? 0.0 : 1.0, // Fade out when search is focused
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              // Close button
-              _buildBottomButton(
-                iconPath: 'assets/images/ic_cross.png',
-                onTap: () => Get.back(),
-              ),
-              // Done button
-              _buildBottomButton(
-                iconPath: 'assets/images/ic_tick.png',
-                onTap: controller.onDonePressed1,
-              ),
-            ],
-          ),
+        opacity: isKeyboardVisible ? 0.0 : 1.0, // Fade out with keyboard
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // Close button
+            _buildBottomButton(
+              iconPath: 'assets/images/ic_cross.png',
+              onTap: () => Get.back(),
+            ),
+            // Done button
+            _buildBottomButton(
+              iconPath: 'assets/images/ic_tick.png',
+              onTap: controller.onDonePressed1,
+            ),
+          ],
         ),
-      );
-    });
+      ),
+    );
   }
 
   /// Build individual bottom button - matching new location picker design
