@@ -275,6 +275,9 @@ class MemoryLocationPickerController extends GetxController {
       // Only hide if search is empty
       if (searchController.text.isEmpty) {
         showSearchResults.value = false;
+      } else {
+        // Force a refresh so listeners (e.g. bottom buttons) rebuild on focus change
+        showSearchResults.refresh();
       }
     }
   }

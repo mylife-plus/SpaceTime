@@ -380,7 +380,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Build bottom action buttons - matching new location picker design
   Widget _buildBottomActionButtons() {
-    // return Obx(() {
+    return Obx(() {
+      // Depend on showSearchResults so this rebuilds when search focus changes
+      final _ = controller.showSearchResults.value;
       final hasFocus = controller.searchFocusNode.hasFocus;
 
       return AnimatedPositioned(
@@ -408,7 +410,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           ),
         ),
       );
-    // });
+    });
   }
 
   /// Build individual bottom button - matching new location picker design

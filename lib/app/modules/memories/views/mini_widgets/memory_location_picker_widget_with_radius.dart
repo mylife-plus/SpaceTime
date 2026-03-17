@@ -195,7 +195,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
         Positioned(
         top: 5,
         left: 4,
-        right: controller.hasLocationPermission.value ? 60 : 4,
+        right: controller.hasLocationPermission.value ? 60 : 60,
         child: buildSearchContainer(controller.uiController.darkMode.value),),
 
         // Radius seekbar below search
@@ -352,7 +352,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
       }
 
       return Positioned(
-        top: 10,
+        top: 5,
         right: 4,
         child: GestureDetector(
           onTap: controller.moveToCurrentLocation,
@@ -380,7 +380,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
 
   /// Build bottom action buttons - matching new location picker design
   Widget _buildBottomActionButtons() {
-    // return Obx(() {
+    return Obx(() {
+      // Depend on showSearchResults so this rebuilds when search focus changes
+      final _ = controller.showSearchResults.value;
       final hasFocus = controller.searchFocusNode.hasFocus;
 
       return AnimatedPositioned(
@@ -408,7 +410,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
           ),
         ),
       );
-    // });
+    });
   }
 
   /// Build individual bottom button - matching new location picker design
