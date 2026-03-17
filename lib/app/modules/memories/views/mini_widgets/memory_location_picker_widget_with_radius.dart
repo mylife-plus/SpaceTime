@@ -193,7 +193,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
     }),
         // Top search bar
         Positioned(
-        top: 50,
+        top: 5,
         left: 4,
         right: controller.hasLocationPermission.value ? 60 : 4,
         child: buildSearchContainer(controller.uiController.darkMode.value),),
@@ -251,7 +251,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
       }
 
       return Positioned(
-        top: 100, // Below search bar (50) + search height (44) + seekbar height (~78) + spacing (8)
+        top: 46, // Below search bar (50) + search height (44) + seekbar height (~78) + spacing (8)
         left: 4,
         right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
         child: Container(
@@ -276,7 +276,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
     });
   }
 
-  /// Build search results content - matching new location picker design
+  /// Build search resucts content - matching new location picker design
   Widget _buildSearchResultsContent() {
     return Obx(() {
       
@@ -352,7 +352,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
       }
 
       return Positioned(
-        top: 50,
+        top: 10,
         right: 4,
         child: GestureDetector(
           onTap: controller.moveToCurrentLocation,
@@ -385,7 +385,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
 
       return AnimatedPositioned(
         duration: const Duration(milliseconds: 300),
-        bottom: hasFocus ? -100 : 30, // Hide when search is focused
+        bottom: hasFocus ? -10 : 30, // Hide when search is focused
         left: 20,
         right: 20,
         child: AnimatedOpacity(
@@ -453,7 +453,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
       final hasLocation = controller.hasLocationPermission.value && controller.currentPosition.value != null;
 
       return Positioned(
-        top: 102, // Below search bar (50 + 44 + 8)
+        top: 56, // Below search bar (50 + 44 + 8)
         left: 4,
         right: 4,
         child: Container(

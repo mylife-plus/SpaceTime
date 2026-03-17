@@ -6,6 +6,7 @@ import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 /// Popup for adding/editing place categories with emoji selection
 class AddPlaceCategoryPopup extends StatefulWidget {
@@ -749,16 +750,12 @@ Navigator.of(context).pop();
               child: Row(
                 children: [
                   // Close button (red X)
-                  GestureDetector(
+                  TappableBackArea(
                     onTap: () => Get.back(),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.red,
-                        size: 24,
-                      ),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.red,
+                      size: 24,
                     ),
                   ),
 
@@ -1893,16 +1890,12 @@ Navigator.of(context).pop();
               child: Row(
                 children: [
                   // Close button (red X)
-                  GestureDetector(
+                  TappableBackArea(
                     onTap: () => Get.back(),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.red,
-                        size: 24,
-                      ),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.red,
+                      size: 24,
                     ),
                   ),
 

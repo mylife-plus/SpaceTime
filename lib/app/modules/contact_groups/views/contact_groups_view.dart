@@ -10,6 +10,7 @@ import 'package:spacetime/app/models/contact_group_model.dart';
 import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_pop_new.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 import '../../../config/app_text.dart';
 
 class ContactGroupsView extends StatefulWidget {
@@ -1176,9 +1177,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           leading:
               widget.allowMultipleSelection
                   ? Obx(
-                    () => IconButton(
+                    () => TappableBackButton(
                       onPressed: _onDonePressed,
-                      icon: const Icon(Icons.arrow_back),
                       tooltip: _selectedContactGroups.isNotEmpty ? 'Done' : 'Back',
                     ),
                   )

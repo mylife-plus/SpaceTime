@@ -1607,9 +1607,7 @@ class _MemoryViewState extends State<MemoryView> {
                     Expanded(
                       child: SingleChildScrollView(
                       controller: _scrollController,
-                      physics: _isKeyboardVisible.value
-                          ? const BouncingScrollPhysics()
-                          : const NeverScrollableScrollPhysics(),
+                      physics: const BouncingScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

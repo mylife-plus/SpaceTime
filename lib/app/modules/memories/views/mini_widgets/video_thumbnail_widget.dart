@@ -137,23 +137,6 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    GestureDetector(
-                      onTap: widget.onTap,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.zoom_in,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

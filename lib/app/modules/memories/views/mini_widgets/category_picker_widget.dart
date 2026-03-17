@@ -11,6 +11,7 @@ import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/shared/widgets/add_place_category_popup.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 class CategoryPickerWidget extends StatefulWidget {
   final Function(PlaceCategory)? onCategorySelected;
@@ -1542,15 +1543,13 @@ if (categoryToDelete != null) {
                                     : Colors.black87,
                           ),
                         ),
-                        IconButton(
+                        TappableBackButton(
+                          isClose: true,
+                          color:
+                              uiController.darkMode.value
+                                  ? Colors.white70
+                                  : Colors.grey[600],
                           onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            Icons.close,
-                            color:
-                                uiController.darkMode.value
-                                    ? Colors.white70
-                                    : Colors.grey[600],
-                          ),
                         ),
                       ],
                     ),
@@ -1791,9 +1790,8 @@ if (categoryToDelete != null) {
           leading:
               widget.allowMultipleSelection
                   ? Obx(
-                    () => IconButton(
+                    () => TappableBackButton(
                       onPressed: _onDonePressed,
-                      icon: const Icon(Icons.arrow_back),
                       tooltip: _selectedCategories.isNotEmpty ? 'Done' : 'Back',
                     ),
                   )

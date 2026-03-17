@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 import '../services/offline_map_service.dart';
 
 class OfflineDownloadOverlay extends StatelessWidget {
@@ -80,11 +81,10 @@ class OfflineDownloadOverlay extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: onClose,
-                icon: const Icon(Icons.close),
-                iconSize: 20,
+              TappableBackButton(
+                isClose: true,
                 color: Colors.grey.shade600,
+                onPressed: onClose,
               ),
             ],
           ),
@@ -374,15 +374,10 @@ class CompactOfflineDownloadOverlay extends StatelessWidget {
                   ),
                 ),
                 if (onClose != null)
-                  IconButton(
-                    onPressed: onClose,
-                    icon: const Icon(Icons.close),
-                    iconSize: 16,
+                  TappableBackButton(
+                    isClose: true,
                     color: Colors.grey.shade600,
-                    constraints: const BoxConstraints(
-                      minWidth: 24,
-                      minHeight: 24,
-                    ),
+                    onPressed: onClose,
                   ),
               ],
             ),

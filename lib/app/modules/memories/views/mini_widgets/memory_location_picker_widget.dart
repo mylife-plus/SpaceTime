@@ -98,7 +98,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         _buildMap(),
         // Top search bar
         Positioned(
-        top: 50,
+        top: 5,
         left: 4,
         right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
         child: buildSearchContainer(controller.uiController.darkMode.value),),
@@ -252,7 +252,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       }
 
       return Positioned(
-        top: 98, // Below search bar
+        top: 46, // Below search bar
         left: 4,
         right: controller.hasLocationPermission.value? 60 : 4,
         child: Container(
@@ -352,7 +352,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       }
 
       return Positioned(
-        top: 50,
+        top: 5,
         right: 4,
         child: GestureDetector(
           onTap: controller.moveToCurrentLocation,

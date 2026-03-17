@@ -12,6 +12,7 @@ import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
 import 'package:spacetime/app/services/contact_group_service.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 /// Popup for adding/editing groups (place categories, hashtag groups, or contact groups)
 class AddEditGroupPopupNew extends StatefulWidget {
@@ -1536,17 +1537,13 @@ Navigator.of(context).pop();
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
                 children: [
-                  // Close button (red X)
-                  GestureDetector(
+                  // Close button (red X, large tappable area)
+                  TappableBackArea(
                     onTap: () => Get.back(),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.red,
-                        size: 24,
-                      ),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.red,
+                      size: 24,
                     ),
                   ),
 

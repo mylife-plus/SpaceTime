@@ -394,6 +394,23 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       displayLocation = locationAddress;
     }
 
+    // Build single list in upload order (images + videos interleaved by order)
+    final imgList = displayImages ?? <String>[];
+    final vidPaths = videoPaths ?? <String>[];
+    final imgOrders = dbMemory['imageOrders'] as List<dynamic>? ?? [];
+    final vidOrders = dbMemory['videoOrders'] as List<dynamic>? ?? [];
+    final List<Map<String, dynamic>> orderEntries = [];
+    for (int i = 0; i < imgList.length; i++) {
+      final o = i < imgOrders.length ? (imgOrders[i] as num).toInt() : i;
+      orderEntries.add({'order': o, 'type': 'image', 'path': imgList[i]});
+    }
+    for (int i = 0; i < vidPaths.length; i++) {
+      final o = i < vidOrders.length ? (vidOrders[i] as num).toInt() : imgList.length + i;
+      orderEntries.add({'order': o, 'type': 'video', 'path': vidPaths[i]});
+    }
+    orderEntries.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+    final orderedMedia = orderEntries.map((e) => {'type': e['type'], 'path': e['path']}).toList();
+
     final result = {
       'id': dbMemory['id'],
       'year': year,
@@ -420,6 +437,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       'videoDurations': videoDurations,
       'imageOrders': dbMemory['imageOrders'],
       'videoOrders': dbMemory['videoOrders'],
+      'orderedMedia': orderedMedia,
       'created_at': dbMemory['created_at'],
     };
 

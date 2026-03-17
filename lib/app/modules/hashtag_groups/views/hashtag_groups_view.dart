@@ -10,6 +10,7 @@ import 'package:spacetime/app/models/hashtag_group_model.dart';
 import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_pop_new.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 import '../../../config/app_text.dart';
 
 class HashtagGroupsView extends StatefulWidget {
@@ -1131,9 +1132,8 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
           leading:
               widget.allowMultipleSelection
                   ? Obx(
-                    () => IconButton(
+                    () => TappableBackButton(
                       onPressed: _onDonePressed,
-                      icon: const Icon(Icons.arrow_back),
                       tooltip: _selectedHashtagGroups.isNotEmpty ? 'Done' : 'Back',
                     ),
                   )

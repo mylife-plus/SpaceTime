@@ -364,6 +364,17 @@ class _MemoryCardState extends State<MemoryCard> {
   }
 
   List<Map<String, dynamic>> _buildOrderedMediaList() {
+    // Prefer single list in upload order when provided (same as Memory View)
+    final orderedMedia = widget.memoryData['orderedMedia'] as List<dynamic>?;
+    if (orderedMedia != null && orderedMedia.isNotEmpty) {
+      return orderedMedia
+          .map((e) {
+            final m = e as Map<String, dynamic>;
+            return <String, dynamic>{'type': m['type'], 'path': m['path']};
+          })
+          .toList();
+    }
+
     final images =
         widget.assetsImg is List
             ? widget.assetsImg as List<String>

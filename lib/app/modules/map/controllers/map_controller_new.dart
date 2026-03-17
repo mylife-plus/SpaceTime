@@ -32,6 +32,7 @@ import '../../../services/memory_db.dart';
 import '../../../routes/app_pages.dart';
 import '../views/mini_widgets/bottom_info.dart';
 import '../../filter/controllers/filter_controller.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 class MapControllerNew extends GetxController {
   // Constructor with logging
@@ -358,14 +359,9 @@ class MapControllerNew extends GetxController {
 
     initializeMapData();
 
-    // iOS FIX: If we have permission and location already, animate to it
-    if (hasLocationPermission.value && currentLocation.value != null) {
-      // Use platform-specific delays
-      final delay = io.Platform.isIOS ? 2000 : 500;
-      Future.delayed(Duration(milliseconds: delay), () async {
-        await _moveCameraToCurrentLocation();
-      });
-    }
+    // Do not schedule _moveCameraToCurrentLocation here so that loadMemoriesFromDB()
+    // can focus on latest memory on launch; when there are no memories,
+    // loadMemoriesFromDB() already calls animateMapToCurrentOrRandomLocation().
   }
 
   /// Handle style loaded callback
@@ -497,8 +493,17 @@ class MapControllerNew extends GetxController {
     // Load all memories from database
     final mem1 = await _databaseHelper.getAllMemoriesWithDetails();
 
+    // No memories: move to current location (first launch / no filter) or fallback
     if (mem1.isEmpty) {
-      animateMapToCurrentOrRandomLocation();
+      _currentMemories.clear();
+      if (hasLocationPermission.value &&
+          currentLocation.value != null &&
+          mapboxMap != null) {
+        await _moveCameraToCurrentLocation();
+      } else {
+        await animateMapToCurrentOrRandomLocation();
+      }
+      return;
     }
     // debugPrint('$tag Loaded ${memories.length} raw memories from database');
 
@@ -3044,8 +3049,8 @@ class MapControllerNew extends GetxController {
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
+                    TappableBackButton(
+                      isClose: true,
                       onPressed: () => Get.back(),
                     ),
                   ],

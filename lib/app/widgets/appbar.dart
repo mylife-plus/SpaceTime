@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_images.dart';
-import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart'; // Make sure this import is correct
+import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -35,8 +36,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         centerTitle: true,
         title: Row(
           children: [
-            // Back button
-            GestureDetector(
+            // Back button (large tappable area)
+            TappableBackArea(
               onTap: onBack ?? Get.back,
               child: Image.asset(
                 AppImages.arrowBack,

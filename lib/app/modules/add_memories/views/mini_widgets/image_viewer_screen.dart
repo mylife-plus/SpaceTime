@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 class ImageViewerScreen extends StatefulWidget {
   final List<String> images;
@@ -511,8 +512,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                         child: AppBar(
                           backgroundColor: Colors.transparent,
                           elevation: 0,
-                          leading: IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
+                          leading: TappableBackButton(
+                            isClose: true,
+                            color: Colors.white,
                             onPressed: () {
                               if (widget.allowHorizontal) {
                                 SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

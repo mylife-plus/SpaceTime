@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
 import '../../../ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoPath;
@@ -227,8 +228,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           padding: const EdgeInsets.all(16.0),
                           child: Row(
                             children: [
-                              IconButton(
-                                icon: const Icon(Icons.close, color: Colors.white),
+                              TappableBackButton(
+                                isClose: true,
+                                color: Colors.white,
                                 onPressed: _closePlayer,
                               ),
                               const Spacer(),
