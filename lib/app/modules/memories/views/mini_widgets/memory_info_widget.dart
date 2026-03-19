@@ -597,11 +597,17 @@ class _LocationInfoContainer extends StatelessWidget {
             GestureDetector(
               onTap: onEditTap,
               child: Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: Icon(
-                  Icons.edit,
-                  size: 20,
-                  color: uiController.currentEditIconColor,
+                padding: const EdgeInsets.only(right: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Image.asset(
+                    'assets/images/ic_edit.png',
+                    width: 20,
+                    height: 20,
+                    color: uiController.darkMode.value
+                        ? Colors.white.withOpacity(0.6)
+                        : uiController.currentEditIconColor,
+                  ),
                 ),
               ),
             ),

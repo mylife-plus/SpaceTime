@@ -375,13 +375,19 @@ class MemoryLocationPickerController extends GetxController {
 
         // if (waterName != null || waterName!.isNotEmpty) {
         final waterHit = OfflineWaterService.instance.detect(lat, lng);
-        print('WaterHit $waterHit');
+        print('WaterHit $waterHit Water name $waterName');
         if (waterHit != null) {
           waterName = waterHit.name?.toLowerCase().capitalize;
         // }
       }
+
+              print('WaterHit $waterHit Water name $waterName');
+
         finalData = locationData1 ?? {};
-        finalData['city'] = waterName;
+     
+
+        if(waterName!.toLowerCase().contains('ocean') || waterName!.toLowerCase().contains('sea')) {
+             finalData['city'] = waterName;
         finalData['name'] = waterName;
         if (finalData['country'] == null || (finalData['country'] as String? ?? '').isEmpty) {
           finalData['country'] = '';
@@ -390,6 +396,12 @@ class MemoryLocationPickerController extends GetxController {
           finalData['flag'] = '🌊';
         }
         finalData['address'] = waterName;
+          // finalData['flag'] = '🌊';
+        } else{
+          waterName = null;
+          // waterHit = null;
+          finalData = locationData1!;
+        }
       } else if (locationData1 == null) {
         Get.snackbar(
           'Location Not Found',
