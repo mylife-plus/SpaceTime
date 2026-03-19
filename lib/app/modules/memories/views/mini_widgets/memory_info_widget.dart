@@ -5,6 +5,7 @@ import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
@@ -43,10 +44,6 @@ class MemoryInfoWidget extends StatelessWidget {
                       String dateText = "Pick Date";
                       if (controller.selectedDate.value != null) {
                         final selectedDate = controller.selectedDate.value!;
-                        final now = DateTime.now();
-                        final today = DateTime(now.year, now.month, now.day);
-                        final yesterday = today.subtract(const Duration(days: 1));
-                        final selected = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
 
                         // if (selected == today) {
                         //   dateText = "Today";
@@ -97,32 +94,52 @@ class MemoryInfoWidget extends StatelessWidget {
 
             // Location (Required)
             Obx(
-              () => _InfoContainer(
-                imagePath: AppImages.location,
-                text:
-                    controller.selectedLocation.value.isNotEmpty
-                        ? '${controller.locationFlag.value} ${controller.locationCity.value}'
-                        : controller.isFetchingLocation.value
+              () {
+                final hasLocation = controller.selectedLocation.value.isNotEmpty;
+                final text = hasLocation
+                    ? '${controller.locationFlag.value} ${controller.locationCity.value}'
+                    : controller.isFetchingLocation.value
                         ? '(searching current location)'
-                        : 'Pick Location *',
-                onTap: () async {
-                  if (onAnyWidgetTapped != null) {
-                    onAnyWidgetTapped!();
-                  }
+                        : 'Pick Location';
+
+                return _LocationInfoContainer(
+                  imagePath: AppImages.location,
+                  text: text,
+                  isRequired: !hasLocation,
+                  onTap: () async {
+                    if (onAnyWidgetTapped != null) {
+                      onAnyWidgetTapped!();
+                    }
 
                     Get.put(MemoryLocationPickerController(), permanent: true);
 
-                  var data = await Get.to(() => const MemoryLocationPickerWidget());
+                    final data = await Get.to(
+                      () => const MemoryLocationPickerWidget(),
+                    );
 
-                  // Only update location if user pressed done (data is not null)
-                  // If user pressed close (data is null), keep the existing location
-                  if (data != null) {
-                    // Use the new enhanced location method
-                    controller.setEnhancedLocationData(data);
-                  }
-                },
-                isRequired: true, // Location is required for saving memories
-              ),
+                    // Only update location if user pressed done (data is not null)
+                    if (data != null) {
+                      controller.setEnhancedLocationData(data);
+                    }
+                  },
+                  onEditTap: hasLocation
+                      ? () async {
+                          final data = await Get.to(
+                            () => const MemoryLocationAdminEditWidget(),
+                          );
+                          if (data != null) {
+                            // Preserve existing coordinates; only update admin fields.
+                            final merged = <String, dynamic>{
+                              'latitude': controller.locationLatitude.value,
+                              'longitude': controller.locationLongitude.value,
+                              ...Map<String, dynamic>.from(data as Map),
+                            };
+                            controller.setEnhancedLocationData(merged);
+                          }
+                        }
+                      : null,
+                );
+              },
             ),
 
             const SizedBox(height: 5),
@@ -448,13 +465,11 @@ class _InfoContainer extends StatelessWidget {
   final String imagePath;
   final String text;
   final VoidCallback? onTap;
-  final bool isRequired;
 
   const _InfoContainer({
     required this.imagePath,
     required this.text,
     this.onTap,
-    this.isRequired = false,
   });
 
   @override
@@ -501,21 +516,97 @@ class _InfoContainer extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (isRequired)
-                      Text(
-                        ' *',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.red.shade600,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
                   ],
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LocationInfoContainer extends StatelessWidget {
+  final String imagePath;
+  final String text;
+  final VoidCallback onTap;
+  final VoidCallback? onEditTap;
+  final bool isRequired;
+
+  const _LocationInfoContainer({
+    required this.imagePath,
+    required this.text,
+    required this.onTap,
+    this.onEditTap,
+    required this.isRequired,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final uiController = Get.find<UiController>();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: uiController.darkMode.value
+            ? Colors.black.withValues(alpha: 0.5)
+            : Colors.white,
+      ),
+      child: Row(
+        children: [
+          Image.asset(
+            imagePath,
+            width: 20,
+            height: 20,
+            color: uiController.darkMode.value ? Colors.white : Colors.grey[600],
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: AppFonts.medium(
+                        17,
+                        color: uiController.darkMode.value
+                            ? Colors.white
+                            : Colors.grey[700]!,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isRequired)
+                    Text(
+                      ' *',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.red.shade600,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (onEditTap != null) ...[
+            GestureDetector(
+              onTap: onEditTap,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Icon(
+                  Icons.edit,
+                  size: 20,
+                  color: uiController.currentEditIconColor,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
