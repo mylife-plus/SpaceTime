@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/filter_fileds.dart';
-import 'package:spacetime/app/modules/add_memories/views/mini_widgets/filter_dropdown.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
@@ -186,7 +185,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
     final uiController = Get.find<UiController>();
     controller.isOpenedFromMap = widget.isOpenedFromMap;
     return Scaffold(
-      body: Container(
+      body: Obx(() => Container(
         decoration: BoxDecoration(
           color:
               uiController.darkMode.value
@@ -646,7 +645,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

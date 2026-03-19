@@ -72,14 +72,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    if (widget.allowHorizontal) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
+    _applyPreferredOrientations();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(
       initialPage: widget.initialIndex,
@@ -123,9 +116,20 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (mounted) {
-      setState(() {});
+    if (!mounted) return;
+    if (state == AppLifecycleState.resumed) {
+      // Re-apply orientations so OS rotation-lock changes are respected.
+      _applyPreferredOrientations();
     }
+    setState(() {});
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!mounted) return;
+    // Rotation-lock toggle and/or device rotation can trigger metrics changes.
+    // Re-applying preferred orientations helps iOS update the actual rotation.
+    _applyPreferredOrientations();
   }
 
   @override
@@ -145,6 +149,25 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
       vc.dispose();
     }
     super.dispose();
+  }
+
+  void _applyPreferredOrientations() {
+    if (!widget.allowHorizontal) return;
+    // If fullscreen is on, lock to landscape. Otherwise allow both so the
+    // OS rotation-lock toggle can be respected immediately.
+    SystemChrome.setPreferredOrientations(
+      _isFullScreen
+          ? [
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]
+          : [
+              DeviceOrientation.portraitUp,
+              DeviceOrientation.portraitDown,
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ],
+    );
   }
 
   void _startAutoHideTimer() {
@@ -554,9 +577,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                                     ]);
                                   } else {
                                     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                                    // Not fullscreen: allow both portrait + landscape.
                                     SystemChrome.setPreferredOrientations([
                                       DeviceOrientation.portraitUp,
                                       DeviceOrientation.portraitDown,
+                                      DeviceOrientation.landscapeLeft,
+                                      DeviceOrientation.landscapeRight,
                                     ]);
                                   }
                                 },

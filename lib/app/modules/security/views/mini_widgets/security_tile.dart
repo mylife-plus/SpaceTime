@@ -24,7 +24,7 @@ class SecurityTile extends StatelessWidget {
       children: [
         Obx(
           () => Container(
-            color: controller.darkMode.value ? Colors.grey[850] : Colors.white,
+            color: controller.darkMode.value ? controller.darkSurfaceColor : Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

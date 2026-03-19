@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -13,16 +12,15 @@ import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_audio_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_description_field_widget.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_image_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_info_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/video_player_screen.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/media_picker_popup.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
 
 import '../controllers/memory_controller.dart';
-import 'mini_widgets/custom_dialogue_box.dart';
 import '../../add_memories/controllers/add_memories_controller.dart';
 import '../../filter/controllers/filter_controller.dart';
 
@@ -1622,8 +1620,7 @@ class _MemoryViewState extends State<MemoryView> {
                                     ? Colors.white.withOpacity(0.06)
                                     : controller.getLightModeBackgroundColor(
                                           controller.mainColor.value,
-                                        ) ??
-                                        const Color(0xFFF8FBFF),
+                                        ),
                             child: Obx(
                               () {
                                 final totalMediaCount = _orderedMedia.length;
@@ -1857,7 +1854,8 @@ class _MemoryViewState extends State<MemoryView> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                InkWell(
+                                TickCrossActionButton(
+                                  iconPath: 'assets/images/ic_cross.png',
                                   onTap: () {
                                     _handleCancel(
                                       memoryController.recordedAudioPaths,
@@ -1865,46 +1863,7 @@ class _MemoryViewState extends State<MemoryView> {
                                       memoryController.recordedAudios,
                                     );
                                   },
-                          child: Container(
-                            width: 60,
-                            height: 60,
-                            padding: const EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color:
-                                    controller.darkMode.value
-                                        ? Colors.white.withOpacity(0.3)
-                                        : Colors.transparent,
-                              ),
-                              image: DecorationImage(
-                                image: AssetImage(AppImages.whiteRectangle),
-                                fit: BoxFit.cover,
-                                colorFilter: ColorFilter.mode(
-                                  controller.darkMode.value
-                                      ? Colors.black
-                                      : Colors.white.withOpacity(0.7),
-                                  BlendMode.srcATop,
                                 ),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      controller.darkMode.value
-                                          ? Colors.white.withOpacity(0.15)
-                                          : Colors.black.withOpacity(0.1),
-                                  blurRadius: 6,
-                                  spreadRadius: 0.0,
-                                  offset: const Offset(0, 0),
-                                ),
-                              ],
-                            ),
-                            child: Image.asset(
-                              AppImages.rejectImg,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
                         // Delete button (only show in edit mode)
                         // Debug: Check delete button visibility
                         Builder(
@@ -1922,44 +1881,65 @@ class _MemoryViewState extends State<MemoryView> {
                             child: Container(
                               width: 60,
                               height: 60,
-                              padding: const EdgeInsets.all(15),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color:
-                                      controller.darkMode.value
-                                          ? Colors.red.withValues(alpha: 0.3)
-                                          : Colors.transparent,
-                                ),
-                                image: DecorationImage(
-                                  image: AssetImage(AppImages.whiteRectangle),
-                                  fit: BoxFit.cover,
-                                  colorFilter: ColorFilter.mode(
-                                    controller.darkMode.value
-                                        ? Colors.red.withValues(alpha: 0.8)
-                                        : Colors.red.withValues(alpha: 0.7),
-                                    BlendMode.srcATop,
-                                  ),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color:
-                                        controller.darkMode.value
-                                            ? Colors.red.withValues(alpha: 0.15)
-                                            : Colors.red.withValues(alpha: 0.1),
-                                    blurRadius: 6,
-                                    spreadRadius: 0.0,
-                                    offset: const Offset(0, 0),
-                                  ),
-                                  if (controller.darkMode.value)
-                                    BoxShadow(
-                                      color: Colors.red.withValues(alpha: 0.1),
-                                      blurRadius: 4,
-                                      spreadRadius: 0,
-                                      offset: const Offset(0, 0),
-                                    ),
-                                ],
-                              ),
+                              // padding: const EdgeInsets.all(15),
+                              // decoration: BoxDecoration(
+                              //   borderRadius: BorderRadius.circular(20),
+                              //   border: Border.all(
+                              //     color:
+                              //         controller.darkMode.value
+                              //             ? Colors.red.withValues(alpha: 0.3)
+                              //             : Colors.transparent,
+                              //   ),
+                              //   image: DecorationImage(
+                              //     image: AssetImage(AppImages.whiteRectangle),
+                              //     fit: BoxFit.cover,
+                              //     colorFilter: ColorFilter.mode(
+                              //       controller.darkMode.value
+                              //           ? Colors.red.withValues(alpha: 0.8)
+                              //           : Colors.red.withValues(alpha: 0.7),
+                              //       BlendMode.srcATop,
+                              //     ),
+                              // //   ),
+                              //   boxShadow: [
+                              //     BoxShadow(
+                              //       color:
+                              //           controller.darkMode.value
+                              //               ? Colors.red.withValues(alpha: 0.15)
+                              //               : Colors.red.withValues(alpha: 0.1),
+                              //       blurRadius: 20,
+                              //       spreadRadius: 0.0,
+                              //       offset: const Offset(0, 0),
+                              //     ),
+                              //     if (controller.darkMode.value)
+                              //       BoxShadow(
+                              //         color: Colors.red.withValues(alpha: 0.1),
+                              //         blurRadius: 20,
+                              //         spreadRadius: 0,
+                              //         offset: const Offset(0, 0),
+                              //       ),
+                              //   ],
+                              // ),
+                                  //  width: 60,
+        // height: 60,
+
+        
+        decoration: BoxDecoration(
+          color:   controller.darkMode.value ? Colors.red.withValues(alpha: 0.7) :Colors.red.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border:   controller.darkMode.value
+              ? Border.all(
+                  color: Colors.white.withOpacity(0.22),
+                  width: 2,
+                )
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
                               child: const Icon(
                                 Icons.delete,
                                 color: Colors.white,
@@ -1971,54 +1951,9 @@ class _MemoryViewState extends State<MemoryView> {
                         ] else
                           const SizedBox(width: 70),
 
-                        InkWell(
+                        TickCrossActionButton(
+                          iconPath: 'assets/images/ic_tick.png',
                           onTap: _handleSave,
-                          child: Container(
-                            width: 60,
-                            height: 60,
-                            padding: const EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color:
-                                    controller.darkMode.value
-                                        ? Colors.white.withOpacity(0.3)
-                                        : Colors.transparent,
-                              ),
-                              image: DecorationImage(
-                                image: AssetImage(AppImages.whiteRectangle),
-                                fit: BoxFit.cover,
-                                colorFilter: ColorFilter.mode(
-                                  controller.darkMode.value
-                                      ? Colors.black
-                                      : Colors.white.withOpacity(0.7),
-                                  BlendMode.srcATop,
-                                ),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      controller.darkMode.value
-                                          ? Colors.white.withOpacity(0.15)
-                                          : Colors.black.withOpacity(0.1),
-                                  blurRadius: 6,
-                                  spreadRadius: 0.0,
-                                  offset: const Offset(0, 0),
-                                ),
-                                if (controller.darkMode.value)
-                                  BoxShadow(
-                                    color: Colors.greenAccent.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    spreadRadius: 0,
-                                    offset: const Offset(0, 0),
-                                  ),
-                              ],
-                            ),
-                            child: Image.asset(
-                              AppImages.acceptImg,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
                         ),
                       ],
                     ),

@@ -131,6 +131,15 @@ class UiController extends GetxController {
     }
   }
 
+  /// Centralized dark palette (used across the app for uniformity).
+  Color get darkBackgroundColor => Colors.black;
+
+  /// Base "surface" used for cards/tiles in dark mode.
+  Color get darkSurfaceColor => Colors.grey[850]!;
+
+  /// Semi-transparent overlay used for modals/overlays.
+  Color get darkOverlayColor => Colors.black.withOpacity(0.5);
+
   ColorFilter? get rectangleColorFilter {
     if (mainColor.value == 'blue') return null;
 

@@ -280,7 +280,7 @@ class _FilterPanelState extends State<FilterPanel>
             _buildHeader(uiController),
             const SizedBox(height: 8),
             ...widget.children,
-            const SizedBox(height: 16),
+            const SizedBox(height:8),
             /// 🔹 Bottom Buttons (Below all filters)
             if (!widget.hideButtons && !_isKeyboardVisible)
               _buildBottomButtons(uiController),
@@ -344,15 +344,15 @@ class _FilterPanelState extends State<FilterPanel>
   Widget _buildBottomButtons(UiController controller) {
     return Container(
       // padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: controller.darkMode.value
-            ? controller.mainColor.value == 'blue'
-                ? const Color(0xFF001937)
-                : controller.iconColor2
-            : controller.mainColor.value == 'blue'
-                ? const Color(0xFF92C3FF)
-                : controller.primaryColor,
-      ),
+      // decoration: BoxDecoration(
+        // color: controller.darkMode.value
+        //     ? controller.mainColor.value == 'blue'
+        //         ? const Color(0xFF001937)
+        //         : controller.iconColor2
+        //     : controller.mainColor.value == 'blue'
+        //         ? const Color(0xFF92C3FF)
+        //         : controller.primaryColor,
+      // ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

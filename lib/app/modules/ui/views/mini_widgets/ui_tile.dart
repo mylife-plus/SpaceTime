@@ -32,14 +32,15 @@ class UiTile extends StatelessWidget {
 
     return Obx(
       () => Container(
-        color: controller.darkMode.value ? Colors.black : Colors.white,
+        color:
+            controller.darkMode.value ? controller.darkBackgroundColor : Colors.white,
         child: Column(
           children: [
             InkWell(
               onTap: onTap,
               child: Container(
                 color:
-                    controller.darkMode.value ? Colors.grey[850] : Colors.white,
+                    controller.darkMode.value ? controller.darkSurfaceColor : Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 15,
@@ -117,7 +118,7 @@ class UiTile extends StatelessWidget {
                 thickness: 1,
                 color:
                     controller.darkMode.value
-                        ? Colors.grey
+                        ? controller.darkSurfaceColor.withOpacity(0.6)
                         : Colors.black.withOpacity(0.1),
                 indent: 16,
                 endIndent: 16,

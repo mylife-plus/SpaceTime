@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
@@ -61,11 +62,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style:  AppFonts.bold(18, color: Colors.white),
+                  // style: const TextStyle(
+                  //   color: Colors.white,
+                  //   fontSize: 18,
+                  //   fontWeight: FontWeight.w500,
+                  // ),
                 ),
               ],
             ),

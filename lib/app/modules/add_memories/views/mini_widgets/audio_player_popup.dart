@@ -232,276 +232,219 @@ class _AudioPlayerPopupState extends State<AudioPlayerPopup>
   @override
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
-    
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: uiController.darkMode.value
-              ? Colors.grey[900]
-              : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 20,
-              spreadRadius: 5,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                 Opacity(
-                  opacity: 0,
-                   child: IconButton(
+    return Obx(() {
+      final isDark = uiController.darkMode.value;
+      final textColor = isDark ? Colors.white : Colors.black;
+      final surface = isDark ? uiController.darkSurfaceColor : Colors.white;
+      final waveBg =
+          isDark ? uiController.darkOverlayColor : Colors.grey[100]!;
+      final active = uiController.currentMainColor;
+
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Opacity(
+                    opacity: 0,
+                    child: IconButton(
+                      onPressed: () => Get.back(),
+                      icon: Icon(Icons.close, color: textColor),
+                    ),
+                  ),
+                  Text(
+                    'Audio Player',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  IconButton(
                     onPressed: () => Get.back(),
-                    icon: Icon(
-                      Icons.close,
-                      color: uiController.darkMode.value ? Colors.white : Colors.black,
-                    ),
-                                   ),
-                 ),
-                Text(
-                  'Audio Player',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                    icon: Icon(Icons.close, color: textColor),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => Get.back(),
-                  icon: Icon(
-                    Icons.close,
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // File name and debug info
-            // if (widget.fileName != null)
-            //   Column(
-            //     children: [
-            //       Text(
-            //         widget.fileName!,
-            //         style: TextStyle(
-            //           fontSize: 16,
-            //           color: uiController.darkMode.value ? Colors.grey[300] : Colors.grey[600],
-            //         ),
-            //         textAlign: TextAlign.center,
-            //         maxLines: 2,
-            //         overflow: TextOverflow.ellipsis,
-            //       ),
-            //       const SizedBox(height: 8),
-            //       // Debug info
-            //       Text(
-            //         'Path: ${widget.audioPath.split('/').last}',
-            //         style: TextStyle(
-            //           fontSize: 12,
-            //           color: uiController.darkMode.value ? Colors.grey[400] : Colors.grey[500],
-            //         ),
-            //         textAlign: TextAlign.center,
-            //         maxLines: 1,
-            //         overflow: TextOverflow.ellipsis,
-            //       ),
-            //       if (widget.duration != null)
-            //         Text(
-            //           'Duration: ${widget.duration}',
-            //           style: TextStyle(
-            //             fontSize: 12,
-            //             color: uiController.darkMode.value ? Colors.grey[400] : Colors.grey[500],
-            //           ),
-            //           textAlign: TextAlign.center,
-            //         ),
-            //     ],
-            //   ),
-            
-            const SizedBox(height: 30),
-            
-            // Audio wave visualization
-            Container(
-              height: 80,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: uiController.darkMode.value
-                    ? Colors.grey[800]
-                    : Colors.grey[100],
-                borderRadius: BorderRadius.circular(15),
+                ],
               ),
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: _waveAnimation,
-                  builder: (context, child) {
-                    return Image.asset(
-                      AppImages.audioWaves,
-                      width: 60,
-                      height: 60,
-                      color: _isPlaying
-                          ? Colors.blue.withValues(alpha: 0.7 + 0.3 * _waveAnimation.value)
-                          : (uiController.darkMode.value ? Colors.white : Colors.black),
-                    );
-                  },
+
+              const SizedBox(height: 20),
+              const SizedBox(height: 30),
+
+              // Audio wave visualization
+              Container(
+                height: 80,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: waveBg,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Center(
+                  child: AnimatedBuilder(
+                    animation: _waveAnimation,
+                    builder: (context, child) {
+                      final color = _isPlaying
+                          ? active.withValues(
+                              alpha: 0.7 + 0.3 * _waveAnimation.value)
+                          : (isDark ? Colors.white : Colors.black);
+
+                      return Image.asset(
+                        AppImages.audioWaves,
+                        width: 60,
+                        height: 60,
+                        color: color,
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Progress bar
-            Column(
-              children: [
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: Colors.blue,
-                    inactiveTrackColor: Colors.grey[300],
-                    thumbColor: Colors.blue,
-                    overlayColor: Colors.blue.withValues(alpha: 0.2),
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                    trackHeight: 4,
-                  ),
-                  child: Slider(
-                    value: _totalDuration.inMilliseconds > 0
-                        ? _currentPosition.inMilliseconds / _totalDuration.inMilliseconds
-                        : 0.0,
-                    onChanged: _seek,
-                  ),
-                ),
-                
-                // Time display
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatDuration(_currentPosition),
-                        style: TextStyle(
-                          color: uiController.darkMode.value ? Colors.grey[300] : Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                      Text(
-                        _formatDuration(_totalDuration),
-                        style: TextStyle(
-                          color: uiController.darkMode.value ? Colors.grey[300] : Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 20),
 
-            // // Debug button (temporary)
-            // ElevatedButton(
-            //   onPressed: () async {
-            //     debugPrint('🔧 Debug button pressed');
-            //     final file = File(widget.audioPath);
-            //     final exists = await file.exists();
-            //     final size = exists ? await file.length() : 0;
+              const SizedBox(height: 20),
 
-            //     Get.snackbar(
-            //       'Debug Info',
-            //       'File exists: $exists\nSize: $size bytes\nPath: ${widget.audioPath}',
-            //       backgroundColor: Colors.blue.shade400,
-            //       colorText: Colors.white,
-            //       margin: const EdgeInsets.all(12),
-            //       snackPosition: SnackPosition.BOTTOM,
-            //       duration: const Duration(seconds: 5),
-            //     );
-            //   },
-            //   child: const Text('Debug File Info'),
-            // ),
-
-            const SizedBox(height: 20),
-
-            // Control buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Stop button
-                IconButton(
-                  onPressed: _stop,
-                  icon: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
+              // Progress bar
+              Column(
+                children: [
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: active,
+                      inactiveTrackColor:
+                          isDark ? Colors.white.withOpacity(0.2) : Colors.grey[300],
+                      thumbColor: active,
+                      overlayColor: active.withValues(alpha: 0.2),
+                      thumbShape:
+                          const RoundSliderThumbShape(enabledThumbRadius: 8),
+                      trackHeight: 4,
                     ),
-                    child: Icon(
-                      Icons.stop,
-                      color: uiController.darkMode.value ? Colors.white : Colors.black,
-                      size: 24,
+                    child: Slider(
+                      value: _totalDuration.inMilliseconds > 0
+                          ? _currentPosition.inMilliseconds /
+                              _totalDuration.inMilliseconds
+                          : 0.0,
+                      onChanged: _seek,
                     ),
                   ),
-                ),
-                
-                // Play/Pause button
-                IconButton(
-                  onPressed: _isLoading ? null : _playPause,
-                  icon: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          spreadRadius: 2,
+
+                  // Time display
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _formatDuration(_currentPosition),
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.7)
+                                : Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(_totalDuration),
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.7)
+                                : Colors.grey[600],
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Icon(
-                            _isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 32,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Control buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    onPressed: _stop,
+                    icon: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.stop,
+                        color: textColor,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+
+                  IconButton(
+                    onPressed: _isLoading ? null : _playPause,
+                    icon: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: active,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: active.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            spreadRadius: 2,
                           ),
-                  ),
-                ),
-                
-                // Placeholder for symmetry
-                IconButton(
-                  onPressed: null,
-                  icon: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      shape: BoxShape.circle,
+                        ],
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Icon(
+                              _isPlaying ? Icons.pause : Icons.play_arrow,
+                              color: Colors.white,
+                              size: 32,
+                            ),
                     ),
-                    child: Icon(
-                      Icons.stop,
-                      color: Colors.transparent,
-                      size: 24,
+                  ),
+
+                  IconButton(
+                    onPressed: null,
+                    icon: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.stop,
+                        color: Colors.transparent,
+                        size: 24,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

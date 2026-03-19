@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/config/app_text.dart';
-import 'package:spacetime/app/routes/app_pages.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 import '../../ui/controllers/ui_controller.dart';
 import '../../security/views/security_view.dart';
@@ -26,7 +25,7 @@ class SettingsView extends GetView<SettingsController> {
       () => Scaffold(
         backgroundColor:
             controller.darkMode.value
-                ? Colors.black
+                ? controller.darkBackgroundColor
                 : controller.getLightModeBackgroundColor(
                   controller.mainColor.value,
                 ),
@@ -75,6 +74,8 @@ class SettingsView extends GetView<SettingsController> {
                       SettingsTile(
                     icon: const Text('📍', style: TextStyle(fontSize: 22)),
                     title: AppTexts.places,
+                                        showDivider: true,
+
                     onTap: () {
                       Get.to(() => const CategoryPickerWidget());
                     },
@@ -82,6 +83,7 @@ class SettingsView extends GetView<SettingsController> {
                   SettingsTile(
                     icon: Image.asset(
                       AppImages.hash,
+                      // show
                       color: controller.darkMode.value ? Colors.white : null,
                     ),
                     title: AppTexts.hashTagGroups,
@@ -96,7 +98,7 @@ class SettingsView extends GetView<SettingsController> {
                       color: controller.darkMode.value ? Colors.white : null,
                     ),
                     title: AppTexts.contactGroups,
-                    showDivider: true,
+                    showDivider: false,
                     onTap: () {
                       Get.to(() => ContactGroupsView());
                     },

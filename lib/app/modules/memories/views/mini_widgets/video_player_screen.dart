@@ -21,7 +21,8 @@ class VideoPlayerScreen extends StatefulWidget {
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+class _VideoPlayerScreenState extends State<VideoPlayerScreen>
+    with WidgetsBindingObserver {
   late VideoPlayerController _controller;
   bool _isInitialized = false;
   bool _hasError = false;
@@ -33,7 +34,40 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeVideo();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    if (state == AppLifecycleState.resumed) {
+      _applyPreferredOrientationsForCurrentMode();
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!mounted) return;
+    // Rotation-lock toggle and/or device rotation can trigger metrics changes.
+    _applyPreferredOrientationsForCurrentMode();
+  }
+
+  void _applyPreferredOrientationsForCurrentMode() {
+    if (!widget.allowHorizontal) return;
+    if (_isFullScreen) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
   }
 
   Future<void> _initializeVideo() async {
@@ -112,6 +146,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
           DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
         ]);
       }
     });
@@ -317,6 +353,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideControlsTimer?.cancel();
     // Reset orientation to portrait when leaving the screen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

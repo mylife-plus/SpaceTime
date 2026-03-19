@@ -17,7 +17,7 @@ class SecurityView extends GetView<SecurityController> {
     return Scaffold(
       backgroundColor:
           controller.darkMode.value
-              ? Colors.black
+              ? controller.darkBackgroundColor
               : controller.getLightModeBackgroundColor(
                 controller.mainColor.value,
               ),

@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/map/controllers/memory_location_picker_with_radius_controller.dart';
-import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
+import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
 
 class MemoryLocationPickerWidgetWithRadius extends StatefulWidget {
   const MemoryLocationPickerWidgetWithRadius({super.key});
@@ -415,33 +415,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
     required String iconPath,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return TickCrossActionButton(
+      iconPath: iconPath,
       onTap: onTap,
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.black
-              : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Image.asset(
-            iconPath,
-            width: 24,
-            height: 24,
-            fit: BoxFit.contain,
-          ),
-        ),
-      ),
     );
   }
   
@@ -449,7 +425,6 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
   Widget _buildRadiusSeekbar() {
     return Obx(() {
       final isDark = controller.uiController.darkMode.value;
-      final hasLocation = controller.hasLocationPermission.value && controller.currentPosition.value != null;
 
       return Positioned(
         top: 56, // Below search bar (50 + 44 + 8)

@@ -23,7 +23,8 @@ class SettingsTile extends StatelessWidget {
     final controller = Get.find<UiController>();
     return Obx(
       () => Container(
-        color: controller.darkMode.value ? Colors.grey[850] : Colors.white,
+        color:
+            controller.darkMode.value ? controller.darkSurfaceColor : Colors.white,
         child: Column(
           children: [
             ListTile(

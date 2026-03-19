@@ -22,7 +22,7 @@ class MainColorSelectionView extends StatelessWidget {
     return Scaffold(
       backgroundColor:
           controller.darkMode.value
-              ? Colors.black
+              ? controller.darkBackgroundColor
               : controller.getLightModeBackgroundColor(
                 controller.mainColor.value,
               ),

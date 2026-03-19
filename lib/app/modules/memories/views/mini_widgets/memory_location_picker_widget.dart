@@ -4,6 +4,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
+import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
 
 class MemoryLocationPickerWidget extends StatefulWidget {
   const MemoryLocationPickerWidget({super.key});
@@ -415,33 +416,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     required String iconPath,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return TickCrossActionButton(
+      iconPath: iconPath,
       onTap: onTap,
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.black
-              : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Image.asset(
-            iconPath,
-            width: 24,
-            height: 24,
-            fit: BoxFit.contain,
-          ),
-        ),
-      ),
     );
   }
   

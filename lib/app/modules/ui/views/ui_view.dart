@@ -19,7 +19,7 @@ class UiView extends GetView<UiController> {
       () => Scaffold(
         backgroundColor:
             controller.darkMode.value
-                ? Colors.black
+                ? controller.darkBackgroundColor
                 : controller.getLightModeBackgroundColor(
                   controller.mainColor.value,
                 ),

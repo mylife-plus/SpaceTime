@@ -15,7 +15,7 @@ class SettingsGroupSpacer extends StatelessWidget {
         height: 8,
         color:
             controller.darkMode.value
-                ? Colors.black
+                ? controller.darkOverlayColor
                 : controller.currentMainColor.withValues(alpha: 0.1),
       ),
     );
