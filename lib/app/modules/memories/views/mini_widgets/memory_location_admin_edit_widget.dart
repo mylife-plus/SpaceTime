@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
@@ -140,6 +141,28 @@ class _MemoryLocationAdminEditWidgetState
     return v.toStringAsFixed(6);
   }
 
+  String _gpsLocationDisplayText() {
+    final lat = _memoryController.locationLatitude.value;
+    final lng = _memoryController.locationLongitude.value;
+    if (lat == null || lng == null) return '—';
+    return '${_formatCoord(lat)}, ${_formatCoord(lng)}';
+  }
+
+  void _copyGpsLocation() {
+    final lat = _memoryController.locationLatitude.value;
+    final lng = _memoryController.locationLongitude.value;
+    if (lat == null || lng == null) return;
+    final text = '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
+    Clipboard.setData(ClipboardData(text: text));
+    Get.snackbar(
+      '',
+      'Copied to clipboard',
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 1),
+      margin: const EdgeInsets.all(12),
+    );
+  }
+
   String _flagFromIso2(String? iso2) {
     if (iso2 == null) return '🌍';
     final code = iso2.trim().toUpperCase();
@@ -175,6 +198,128 @@ class _MemoryLocationAdminEditWidgetState
           AppImages.arrowBack,
           fit: BoxFit.contain,
           color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGpsLocationRowField({
+    required bool isDark,
+    required Color valueColor,
+  }) {
+    final labelColor = (isDark ? Colors.white70 : Colors.grey[600]!)
+        .withValues(alpha: 0.72);
+    final mutedValue = valueColor.withValues(alpha: 0.72);
+    final borderColor =
+        isDark ? Colors.white30 : Colors.grey.shade400.withValues(alpha: 0.55);
+    final baseFill = isDark
+        ? const Color(0xFF1E1E1E)
+        : const Color(0xFFE8E8E8);
+    final canCopy = _memoryController.locationLatitude.value != null &&
+        _memoryController.locationLongitude.value != null;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: baseFill,
+        border: Border.all(color: borderColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: ClipRect(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
+                        Colors.transparent,
+                        Colors.white.withValues(alpha: isDark ? 0.04 : 0.35),
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                      ),
+                      left: BorderSide(
+                        color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 44),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'GPS Location',
+                          style: AppFonts.medium(14, color: labelColor),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _gpsLocationDisplayText(),
+                          style: AppFonts.medium(16, color: mutedValue),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: IconButton(
+                          tooltip: 'Copy coordinates',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 40,
+                            minHeight: 40,
+                          ),
+                          onPressed: canCopy ? _copyGpsLocation : null,
+                          icon: Icon(
+                            Icons.copy_outlined,
+                            size: 22,
+                            color: valueColor.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -325,6 +470,10 @@ class _MemoryLocationAdminEditWidgetState
                                   Container(
                                     child: Column(
                                       children: [
+                                        _buildGpsLocationRowField(
+                                          isDark: isDark,
+                                          valueColor: valueColor,
+                                        ),
                                         _buildRowField(
                                           isDark: isDark,
                                           label: 'Country',
