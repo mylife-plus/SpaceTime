@@ -155,7 +155,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           }
 
           final isDark = controller.uiController.darkMode.value;
-          final valueColor = isDark ? Colors.white : Colors.black87;
+          final valueColor = isDark ? Colors.white : Colors.white;
 
           final line = MemoryLocationLineFormat.displayLine(
             flag: m.locationFlag.value,
@@ -167,26 +167,26 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
           final editColor = isDark
               ? Colors.white.withValues(alpha: 0.75)
-              : controller.uiController.currentEditIconColor;
+              : Colors.white;
 
           return Material(
             // color: Colors.transparent,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.only(left: 12, top: 10, bottom: 10, right: 6),
+              padding: const EdgeInsets.only(left: 12, top: 4, bottom: 4, right: 6),
               decoration: BoxDecoration(
                 color: isDark
                 ?  controller.uiController.primaryColorDark
                     // ? Colors.black.withValues(alpha: 0.78)
-                    : controller.uiController.primaryColor,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    // color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                    : controller.uiController.currentMainColor.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(4),
+                // boxShadow: [
+                //   BoxShadow(
+                //     // color: Colors.black.withValues(alpha: 0.12),
+                //     // blurRadius: 8,
+                //     offset: const Offset(0, 2),
+                //   ),
+                // ],
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
