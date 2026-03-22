@@ -148,6 +148,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             
             onMapCreated: (mapboxMap) async {
               debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
+              controller.mapController = mapboxMap;
 
               // Disable Mapbox UI elements
               mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
@@ -174,16 +175,15 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
               await mapboxMap.loadStyleJson(styleJson);
               debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
 
-              // STEP 4: Initialize controller
-              debugPrint('[MemoryLocationPicker] 🎮 STEP 4: Initializing controller...');
-              controller.mapController = mapboxMap;
-              controller.onMapCreated(mapboxMap);
-              controller.getCurrentLocation();
-              debugPrint('[MemoryLocationPicker] ✅ Controller initialized successfully');
+              debugPrint('[MemoryLocationPicker] ✅ Style JSON applied; annotations run in onStyleLoaded');
             },
             onStyleLoadedListener: (styleLoadedEventData) async {
               debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
               debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
+              final map = controller.mapController;
+              if (map != null) {
+                await controller.onMapStyleReady(map);
+              }
             },
             onTapListener: controller.onMapTap,
           ),

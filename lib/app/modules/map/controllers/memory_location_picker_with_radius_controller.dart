@@ -68,6 +68,8 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   mapbox.PointAnnotationManager? annotationManager;
   mapbox.PointAnnotation? selectedLocationMarker;
 
+  bool _radiusPickerAnnotationsInitialized = false;
+
   // Server state for local tiles
   final Rxn<String> serverUrl = Rxn<String>();
   final Rxn<String> serverErrorMessage = Rxn<String>();
@@ -170,6 +172,11 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
 
       state.value = MemoryLocationPickerState.loading;
       debugPrint('[MemoryLocationPicker] 📊 State set to: loading');
+
+      _radiusPickerAnnotationsInitialized = false;
+      mapController = null;
+      annotationManager = null;
+      selectedLocationMarker = null;
 
       // Initialize local tile server first
       await initializeLocalTileServer();
@@ -488,8 +495,10 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     await selectLocation(lat, lng);
   }
 
-  /// Handle map creation
-  Future<void> onMapCreated(mapbox.MapboxMap controller) async {
+  /// Call from [MapWidget.onStyleLoadedListener] after style + native renderer are ready.
+  Future<void> onMapStyleReady(mapbox.MapboxMap controller) async {
+    if (_radiusPickerAnnotationsInitialized) return;
+
     try {
 
 controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
@@ -558,8 +567,9 @@ controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
         );
         debugPrint('📍 Auto-selected current location on map load');
       }
+      _radiusPickerAnnotationsInitialized = true;
     } catch (e) {
-      debugPrint('Error in onMapCreated: $e');
+      debugPrint('Error in onMapStyleReady: $e');
     }
   }
 

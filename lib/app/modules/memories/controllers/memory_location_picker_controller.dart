@@ -70,6 +70,9 @@ class MemoryLocationPickerController extends GetxController {
     _labelGeocodeGeneration++;
   }
 
+  /// Point annotations must be created after native style/renderer is ready (see onStyleLoaded).
+  bool _memoryPickerAnnotationsInitialized = false;
+
   // Server state for local tiles
   final Rxn<String> serverUrl = Rxn<String>();
   final Rxn<String> serverErrorMessage = Rxn<String>();
@@ -94,6 +97,11 @@ class MemoryLocationPickerController extends GetxController {
   Future<void> initializeLocationPicker() async {
     try {
       state.value = MemoryLocationPickerState.loading;
+
+      _memoryPickerAnnotationsInitialized = false;
+      mapController = null;
+      annotationManager = null;
+      selectedLocationMarker = null;
 
       // Initialize local tile server first
       await initializeLocalTileServer();
@@ -591,21 +599,15 @@ class MemoryLocationPickerController extends GetxController {
     await selectLocation(lat, lng);
   }
 
-  /// Handle map creation
-  Future<void> onMapCreated(mapbox.MapboxMap controller) async {
-    controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-               controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-               controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
-               controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+  /// Call only from [MapWidget.onStyleLoadedListener] — avoids "No manager found with id: 0" crash
+  /// when [createPointAnnotationManager] runs before the native map/style is ready.
+  Future<void> onMapStyleReady(mapbox.MapboxMap controller) async {
+    if (_memoryPickerAnnotationsInitialized) return;
 
     try {
       mapController = controller;
 
-      // ENABLE online mode to allow localhost tile server access
-      await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-      debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
-
-      // Create annotation manager
+      // Create annotation manager (requires style loaded + valid renderer surface)
       annotationManager = await controller.annotations.createPointAnnotationManager();
 
       // Check if there's already a selected location
@@ -640,9 +642,10 @@ class MemoryLocationPickerController extends GetxController {
         await selectLocation(_fallbackLat, _fallbackLng, userAction: false);
         debugPrint('📍 Memory view, no GPS: using fallback camera + pin');
       }
+      _memoryPickerAnnotationsInitialized = true;
       // await _printAllLayersAndSources();
     } catch (e) {
-      debugPrint('Error in onMapCreated: $e');
+      debugPrint('Error in onMapStyleReady: $e');
     }
   }
 

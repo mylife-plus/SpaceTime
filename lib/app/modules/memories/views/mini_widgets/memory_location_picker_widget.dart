@@ -325,12 +325,14 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
             await mapboxMap.loadStyleJson(styleJson);
             debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
-
-            controller.onMapCreated(mapboxMap);
           },
           onStyleLoadedListener: (styleLoadedEventData) async {
             debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
             debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
+            final map = controller.mapController;
+            if (map != null) {
+              await controller.onMapStyleReady(map);
+            }
           },
           onTapListener: controller.onMapTap,
         );
@@ -464,11 +466,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage(AppImages.rectangle),
-                fit: BoxFit.cover,
-                colorFilter: controller.uiController.rectangleColorFilter,
-              ),
+              color: controller.uiController.currentMainColor.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(12),
+              // image: DecorationImage(
+              //   image: AssetImage(AppImages.rectangle),
+              //   fit: BoxFit.cover,
+              //   colorFilter: controller.uiController.rectangleColorFilter,
+              // ),
             ),
             child: Image.asset(
               AppImages.location,
