@@ -5,7 +5,6 @@ import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart';
 import 'package:spacetime/app/modules/memories/utils/memory_location_line_format.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -129,22 +128,6 @@ class MemoryInfoWidget extends StatelessWidget {
                       controller.setEnhancedLocationData(data);
                     }
                   },
-                  onEditTap: hasLocation
-                      ? () async {
-                          final data = await Get.to(
-                            () => const MemoryLocationAdminEditWidget(),
-                          );
-                          if (data != null) {
-                            // Preserve existing coordinates; only update admin fields.
-                            final merged = <String, dynamic>{
-                              'latitude': controller.locationLatitude.value,
-                              'longitude': controller.locationLongitude.value,
-                              ...Map<String, dynamic>.from(data as Map),
-                            };
-                            controller.setEnhancedLocationData(merged);
-                          }
-                        }
-                      : null,
                 );
               },
             ),
@@ -538,14 +521,12 @@ class _LocationInfoContainer extends StatelessWidget {
   final String imagePath;
   final String text;
   final VoidCallback onTap;
-  final VoidCallback? onEditTap;
   final bool isRequired;
 
   const _LocationInfoContainer({
     required this.imagePath,
     required this.text,
     required this.onTap,
-    this.onEditTap,
     required this.isRequired,
   });
 
@@ -600,25 +581,6 @@ class _LocationInfoContainer extends StatelessWidget {
               ),
             ),
           ),
-          if (onEditTap != null) ...[
-            GestureDetector(
-              onTap: onEditTap,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Image.asset(
-                    'assets/images/ic_edit.png',
-                    width: 20,
-                    height: 20,
-                    color: uiController.darkMode.value
-                        ? Colors.white.withOpacity(0.6)
-                        : uiController.currentEditIconColor,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
