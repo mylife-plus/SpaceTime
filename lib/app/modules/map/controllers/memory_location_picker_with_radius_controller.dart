@@ -495,9 +495,13 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     await selectLocation(lat, lng);
   }
 
-  /// Call from [MapWidget.onStyleLoadedListener] after style + native renderer are ready.
+  /// Call after [loadStyleJson] + delay — not from first [onStyleLoaded] (wrong style / EGL teardown).
   Future<void> onMapStyleReady(mapbox.MapboxMap controller) async {
     if (_radiusPickerAnnotationsInitialized) return;
+    if (mapController != controller) {
+      debugPrint('[MemoryLocationPicker] onMapStyleReady (radius): stale map, skip');
+      return;
+    }
 
     try {
 

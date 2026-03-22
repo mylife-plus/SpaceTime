@@ -599,10 +599,14 @@ class MemoryLocationPickerController extends GetxController {
     await selectLocation(lat, lng);
   }
 
-  /// Call only from [MapWidget.onStyleLoadedListener] — avoids "No manager found with id: 0" crash
-  /// when [createPointAnnotationManager] runs before the native map/style is ready.
+  /// Call after [MapboxMap.loadStyleJson] completes (+ short delay). Never use the first
+  /// [onStyleLoaded] alone — it runs before custom style swap and managers become invalid.
   Future<void> onMapStyleReady(mapbox.MapboxMap controller) async {
     if (_memoryPickerAnnotationsInitialized) return;
+    if (mapController != controller) {
+      debugPrint('[MemoryLocationPicker] onMapStyleReady: stale map instance, skip');
+      return;
+    }
 
     try {
       mapController = controller;

@@ -325,14 +325,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
             await mapboxMap.loadStyleJson(styleJson);
             debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
+            // Do NOT init annotations in onStyleLoaded: it fires for the default style *before*
+            // loadStyleJson; swapping styles destroys EGL/surface and invalidates annotation managers.
+            await Future<void>.delayed(const Duration(milliseconds: 280));
+            await controller.onMapStyleReady(mapboxMap);
           },
-          onStyleLoadedListener: (styleLoadedEventData) async {
-            debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
-            debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
-            final map = controller.mapController;
-            if (map != null) {
-              await controller.onMapStyleReady(map);
-            }
+          onStyleLoadedListener: (styleLoadedEventData) {
+            debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded (log only, annotations after loadStyleJson)');
           },
           onTapListener: controller.onMapTap,
         );

@@ -174,16 +174,11 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
               debugPrint('[MemoryLocationPicker] 📥 STEP 3: Loading custom style JSON into Mapbox...');
               await mapboxMap.loadStyleJson(styleJson);
               debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
-
-              debugPrint('[MemoryLocationPicker] ✅ Style JSON applied; annotations run in onStyleLoaded');
+              await Future<void>.delayed(const Duration(milliseconds: 280));
+              await controller.onMapStyleReady(mapboxMap);
             },
-            onStyleLoadedListener: (styleLoadedEventData) async {
-              debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded callback triggered');
-              debugPrint('[MemoryLocationPicker] ✅ Style.json from assets loaded successfully with local tiles');
-              final map = controller.mapController;
-              if (map != null) {
-                await controller.onMapStyleReady(map);
-              }
+            onStyleLoadedListener: (styleLoadedEventData) {
+              debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded (log only)');
             },
             onTapListener: controller.onMapTap,
           ),
