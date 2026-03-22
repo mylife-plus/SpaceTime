@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
@@ -5,9 +7,13 @@ import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
+import 'package:spacetime/app/modules/memories/utils/memory_location_line_format.dart';
 
 class MemoryLocationPickerWidget extends StatefulWidget {
-  const MemoryLocationPickerWidget({super.key});
+  const MemoryLocationPickerWidget({super.key, this.fromMemoryView = true});
+
+  /// Memory form: auto current/fallback when no pin. Edit-location route: pass false.
+  final bool fromMemoryView;
 
   @override
   State<MemoryLocationPickerWidget> createState() => _MemoryLocationPickerWidgetState();
@@ -18,7 +24,12 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   final MemoryLocationPickerController controller =
     Get.find<MemoryLocationPickerController>();
 
-  /// Initialize location picker
+  @override
+  void initState() {
+    super.initState();
+    controller.configureLaunchFromMemoryView(widget.fromMemoryView);
+    unawaited(controller.initializeLocationPicker());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,21 +108,146 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       children: [
         // Map
         _buildMap(),
-        // Top search bar
+        // Full width to screen edges; GPS button is stacked on top (does not shrink this column).
         Positioned(
-        top: 5,
-        left: 4,
-        right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
-        child: buildSearchContainer(controller.uiController.darkMode.value),),
-      
-        // Search results dropdown
-        _buildSearchResultsOverlay(),
+          top: 5,
+          left: 4,
+          right: 4,
+          child: Obx(
+            () => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                buildSearchContainer(controller.uiController.darkMode.value),
+                const SizedBox(height: 6),
+                _buildLocationDetailLabel(),
+                _buildSearchResultsPanel(),
+              ],
+            ),
+          ),
+        ),
+        
         // Current location button
-        _buildCurrentLocationButton(),
+        // _buildCurrentLocationButton(),
+   
+        
         // Bottom action buttons
         _buildBottomActionButtons(),
       ],
     );
+  }
+
+  /// Same line format as memory form / admin edit ([MemoryLocationLineFormat]).
+  Widget _buildLocationDetailLabel() {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardVisible = bottomInset > 0;
+
+    return AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: isKeyboardVisible ? 0.0 : 1.0,
+        child: Obx(() {
+          final m = controller.memoryController;
+          final lat = m.locationLatitude.value;
+          final lng = m.locationLongitude.value;
+
+          if (lat == null || lng == null) {
+            return const SizedBox.shrink();
+          }
+
+          final isDark = controller.uiController.darkMode.value;
+          final valueColor = isDark ? Colors.white : Colors.black87;
+
+          final line = MemoryLocationLineFormat.displayLine(
+            flag: m.locationFlag.value,
+            locationCity: m.locationCity.value,
+            locationName: m.locationName.value,
+            lat: lat,
+            lng: lng,
+          );
+
+          final editColor = isDark
+              ? Colors.white.withValues(alpha: 0.75)
+              : controller.uiController.currentEditIconColor;
+
+          return Material(
+            // color: Colors.transparent,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(left: 12, top: 10, bottom: 10, right: 6),
+              decoration: BoxDecoration(
+                color: isDark
+                ?  controller.uiController.primaryColorDark
+                    // ? Colors.black.withValues(alpha: 0.78)
+                    : controller.uiController.primaryColor,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    // color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      line,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppFonts.medium(15, color: valueColor),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => controller.onEditLocationTextPressed(),
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Image.asset(
+                        'assets/images/ic_edit.png',
+                        width: 22,
+                        height: 22,
+                        color: editColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+    );
+  }
+
+  /// Search results directly under the location label (same column as search).
+  Widget _buildSearchResultsPanel() {
+    return Obx(() {
+      if (!controller.showSearchResults.value ||
+          (controller.searchController.text.isEmpty &&
+              controller.searchResults.isEmpty)) {
+        return const SizedBox.shrink();
+      }
+
+      return Container(
+        margin: const EdgeInsets.only(top: 4),
+        constraints: const BoxConstraints(maxHeight: 200),
+        decoration: BoxDecoration(
+          color: controller.uiController.darkMode.value
+              ? Colors.black.withValues(alpha: 0.9)
+              : Colors.white.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: _buildSearchResultsContent(),
+      );
+    });
   }
 
   /// Build map widget
@@ -209,7 +345,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
       return Positioned(
         top: 50,
         left: 4,
-        right: controller.hasLocationPermission.value && controller.currentPosition.value != null ? 60 : 4,
+        right: 4,
         child: buildSearchContainer(controller.uiController.darkMode.value),
       );
 
@@ -242,40 +378,6 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         }
       },
     );
-  }
-
-  /// Build search results overlay - matching new location picker design
-  Widget _buildSearchResultsOverlay() {
-    return Obx(() {
-      if (!controller.showSearchResults.value ||
-          (controller.searchController.text.isEmpty && controller.searchResults.isEmpty)) {
-        return const SizedBox.shrink();
-      }
-
-      return Positioned(
-        top: 46, // Below search bar
-        left: 4,
-        right: controller.hasLocationPermission.value? 60 : 4,
-        child: Container(
-          margin: const EdgeInsets.only(top: 4),
-          constraints: const BoxConstraints(maxHeight: 200),
-          decoration: BoxDecoration(
-            color: controller.uiController.darkMode.value
-                ? Colors.black.withValues(alpha: 0.9)
-                : Colors.white.withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: _buildSearchResultsContent(),
-        ),
-      );
-    });
   }
 
   /// Build search results content - matching new location picker design
@@ -352,9 +454,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         return const SizedBox.shrink();
       }
 
-      return Positioned(
-        top: 5,
-        right: 4,
+      return Container(
+                    padding: const EdgeInsets.only(left: 6),
+
         child: GestureDetector(
           onTap: controller.moveToCurrentLocation,
           child: Container(
@@ -395,12 +497,10 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // Close button
             _buildBottomButton(
               iconPath: 'assets/images/ic_cross.png',
               onTap: () => Get.back(),
             ),
-            // Done button
             _buildBottomButton(
               iconPath: 'assets/images/ic_tick.png',
               onTap: controller.onDonePressed,
@@ -424,57 +524,63 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   
   Widget buildSearchContainer(bool isDark) {
     
-    return Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.8)
-                : Colors.white.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+    return Row(
+      children: [
+        Expanded(child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.8)
+                    : Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Image.asset(
-                AppImages.searchNormal,
-                width: 20,
-                height: 20,
-                color: isDark ? Colors.white70 : Colors.grey[600],
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildSearchField(isDark),
-              ),
-              // Clear button - uses ValueListenableBuilder to listen to TextEditingController
-              ValueListenableBuilder<TextEditingValue>(
-                valueListenable: controller.searchController,
-                builder: (context, value, child) {
-                  if (value.text.isEmpty) return const SizedBox.shrink();
-
-                  return GestureDetector(
-                    onTap: () {
-                      controller.searchController.clear();
-                      controller.searchResults.clear();
-                      controller.showSearchResults.value = false;
-                      controller.searchFocusNode.unfocus();
+              child: Row(
+                children: [
+                  Image.asset(
+                    AppImages.searchNormal,
+                    width: 20,
+                    height: 20,
+                    color: isDark ? Colors.white70 : Colors.grey[600],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildSearchField(isDark),
+                  ),
+                  // Clear button - uses ValueListenableBuilder to listen to TextEditingController
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: controller.searchController,
+                    builder: (context, value, child) {
+                      if (value.text.isEmpty) return const SizedBox.shrink();
+        
+                      return GestureDetector(
+                        onTap: () {
+                          controller.searchController.clear();
+                          controller.searchResults.clear();
+                          controller.showSearchResults.value = false;
+                          controller.searchFocusNode.unfocus();
+                        },
+                        child: Icon(
+                          Icons.clear,
+                          size: 20,
+                          color: isDark ? Colors.white54 : Colors.grey[600],
+                        ),
+                      );
                     },
-                    child: Icon(
-                      Icons.clear,
-                      size: 20,
-                      color: isDark ? Colors.white54 : Colors.grey[600],
-                    ),
-                  );
-                },
+                  ),
+                ],
               ),
-            ],
-          ),
-        );}
+            ),),
+                        _buildCurrentLocationButton(),
+
+      ],
+    );}
 
 }

@@ -6,6 +6,7 @@ import 'package:spacetime/app/modules/memories/controllers/memory_controller.dar
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/services/world_locations_service.dart';
+import 'package:spacetime/app/modules/memories/utils/memory_location_line_format.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
 
 class MemoryLocationAdminEditWidget extends StatefulWidget {
@@ -36,9 +37,18 @@ class _MemoryLocationAdminEditWidgetState
   void initState() {
     super.initState();
 
-    // Pre-fill from existing memory location.
-    _stateProvinceController.text = _memoryController.locationAddress.value;
-    _cityTownController.text = _memoryController.locationCity.value;
+    // Admin area [locationCity]: first segment → city/town, after first comma → state/province.
+    final rawAdmin = _memoryController.locationCity.value.trim();
+    final legacyAddr = _memoryController.locationAddress.value.trim();
+    if (rawAdmin.isEmpty) {
+      _cityTownController.text = '';
+      _stateProvinceController.text = legacyAddr;
+    } else {
+      final p = MemoryLocationLineFormat.parseAdminArea(rawAdmin);
+      _cityTownController.text = p.cityTown;
+      _stateProvinceController.text =
+          p.state.isNotEmpty ? p.state : legacyAddr;
+    }
     _countrySearchController.text = _memoryController.locationCountry.value;
 
     _loadCountriesAndSelectCurrent();
@@ -123,6 +133,11 @@ class _MemoryLocationAdminEditWidgetState
   void _closeCountryDropdown() {
     if (!_showCountryDropdown) return;
     setState(() => _showCountryDropdown = false);
+  }
+
+  String _formatCoord(double? v) {
+    if (v == null) return '—';
+    return v.toStringAsFixed(6);
   }
 
   String _flagFromIso2(String? iso2) {
@@ -353,15 +368,17 @@ class _MemoryLocationAdminEditWidgetState
                                         ),
                                         _buildRowField(
                                           isDark: isDark,
-                                          label: 'State/Province/Region',
+                                          label: 'City/Town',
                                           child: plainValueField(
-                                            _stateProvinceController,
+                                            _cityTownController,
                                           ),
                                         ),
                                         _buildRowField(
                                           isDark: isDark,
-                                          label: 'City/Town',
-                                          child: plainValueField(_cityTownController),
+                                          label: 'State/Province/Region',
+                                          child: plainValueField(
+                                            _stateProvinceController,
+                                          ),
                                         ),
                                       ],
                                     ),

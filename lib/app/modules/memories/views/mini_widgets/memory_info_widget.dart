@@ -6,6 +6,7 @@ import 'package:spacetime/app/modules/memories/controllers/memory_controller.dar
 import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart';
+import 'package:spacetime/app/modules/memories/utils/memory_location_line_format.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
@@ -97,7 +98,13 @@ class MemoryInfoWidget extends StatelessWidget {
               () {
                 final hasLocation = controller.selectedLocation.value.isNotEmpty;
                 final text = hasLocation
-                    ? '${controller.locationFlag.value} ${controller.locationCity.value}'
+                    ? MemoryLocationLineFormat.displayLine(
+                        flag: controller.locationFlag.value,
+                        locationCity: controller.locationCity.value,
+                        locationName: controller.locationName.value,
+                        lat: controller.locationLatitude.value,
+                        lng: controller.locationLongitude.value,
+                      )
                     : controller.isFetchingLocation.value
                         ? '(searching current location)'
                         : 'Pick Location';
