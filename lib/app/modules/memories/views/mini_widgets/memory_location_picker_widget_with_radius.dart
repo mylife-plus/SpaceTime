@@ -130,15 +130,26 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             '[MapViewWidgetNew] ❌ Error in FutureBuilder: ${snapshot.error}',
           );
           return Center(
-            child: Text(
-              'Error loading map style',
-              style: TextStyle(color: Colors.red),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                snapshot.error.toString(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 14),
+              ),
             ),
           );
         }
 
-        // Style loaded successfully - build the map
-        final styleJson = snapshot.data ?? controller.getBlankStyleJson();
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const Center(
+            child: Text(
+              'Map style unavailable',
+              style: TextStyle(color: Colors.white70),
+            ),
+          );
+        }
+        final styleJson = snapshot.data!;
 
         return SizedBox.expand(
           child: mapbox.MapWidget(

@@ -57,7 +57,10 @@ class MemoryLocationPickerController extends GetxController {
   final RxBool isSearching = false.obs;
   final RxList<Map<String, dynamic>> searchResults = <Map<String, dynamic>>[].obs;
   final RxBool showSearchResults = false.obs;
-  
+
+  /// `true` = normal (auto geocode / refresh). `false` after admin edit until map tap or search.
+  final RxBool allowLocationAutoRefresh = true.obs;
+
   // Map components
   mapbox.MapboxMap? mapController;
   mapbox.PointAnnotationManager? annotationManager;
@@ -84,6 +87,8 @@ class MemoryLocationPickerController extends GetxController {
     MapboxZoomHelper().currentLocationZoom.value = 6;
     searchFocusNode.addListener(onSearchFocusChanged);
     searchController.addListener(onSearchChanged);
+        initializeLocationPicker();
+
   }
 
   @override
@@ -96,6 +101,7 @@ class MemoryLocationPickerController extends GetxController {
   /// Initialize location picker
   Future<void> initializeLocationPicker() async {
     try {
+      allowLocationAutoRefresh.value = true;
       state.value = MemoryLocationPickerState.loading;
 
       _memoryPickerAnnotationsInitialized = false;
@@ -547,6 +553,7 @@ class MemoryLocationPickerController extends GetxController {
       'flag': patch['flag'] ?? memoryController.locationFlag.value,
       'name': patch['name'] ?? memoryController.locationName.value,
     });
+    allowLocationAutoRefresh.value = false;
   }
 
   Future<bool> _isTapOnWater(
@@ -585,6 +592,8 @@ class MemoryLocationPickerController extends GetxController {
 
   /// Select search result
   Future<void> selectSearchResult(Map<String, dynamic> result) async {
+    allowLocationAutoRefresh.value = true;
+
     final lat = double.tryParse(result['latitude']?.toString() ?? '0') ?? 0.0;
     final lng = double.tryParse(result['longitude']?.toString() ?? '0') ?? 0.0;
 
@@ -686,6 +695,10 @@ class MemoryLocationPickerController extends GetxController {
   }) async {
     if (annotationManager == null) return;
 
+    if (userAction) {
+      allowLocationAutoRefresh.value = true;
+    }
+
     final myGen = ++_labelGeocodeGeneration;
 
     try {
@@ -711,11 +724,12 @@ class MemoryLocationPickerController extends GetxController {
       debugPrint('Error selecting location: $e');
     }
 
-    // Map load / auto pin: don't overwrite admin-edited labels with reverse geocode.
+    // Programmatic pin: skip reverse geocode while memory pin exists or after admin edit
+    // (allowLocationAutoRefresh false) until user taps map or uses search.
     if (!userAction) {
       final hasMemoryPin = memoryController.locationLatitude.value != null &&
           memoryController.locationLongitude.value != null;
-      if (hasMemoryPin) {
+      if (hasMemoryPin || !allowLocationAutoRefresh.value) {
         memoryController.locationLatitude.value = latitude;
         memoryController.locationLongitude.value = longitude;
         memoryController.selectedLocation.value = '$latitude,$longitude';

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
@@ -23,13 +21,6 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
  
   final MemoryLocationPickerController controller =
     Get.find<MemoryLocationPickerController>();
-
-  @override
-  void initState() {
-    super.initState();
-    controller.configureLaunchFromMemoryView(widget.fromMemoryView);
-    unawaited(controller.initializeLocationPicker());
-  }
 
   @override
   Widget build(BuildContext context) {
