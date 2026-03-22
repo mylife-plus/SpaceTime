@@ -232,95 +232,88 @@ class _MemoryLocationAdminEditWidgetState
           ),
         ],
       ),
-      child: ClipRect(
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
-                        Colors.transparent,
-                        Colors.white.withValues(alpha: isDark ? 0.04 : 0.35),
-                      ],
-                      stops: const [0.0, 0.45, 1.0],
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
+                      Colors.transparent,
+                      Colors.white.withValues(alpha: isDark ? 0.04 : 0.35),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                    ),
+                    left: BorderSide(
+                      color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
                     ),
                   ),
                 ),
               ),
             ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'GPS Location',
+                        style: AppFonts.medium(14, color: labelColor),
                       ),
-                      left: BorderSide(
-                        color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.06),
+                      const SizedBox(height: 4),
+                      Text(
+                        _gpsLocationDisplayText(),
+                        style: AppFonts.medium(16, color: mutedValue),
+                      ),
+                    ],
+                  ),
+                ),
+                Tooltip(
+                  message: 'Copy coordinates',
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      onTap: canCopy ? _copyGpsLocation : null,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 2, 8),
+                        child: Icon(
+                          Icons.copy_outlined,
+                          size: 22,
+                          color: valueColor.withValues(
+                            alpha: canCopy ? 0.65 : 0.35,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 44),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'GPS Location',
-                          style: AppFonts.medium(14, color: labelColor),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _gpsLocationDisplayText(),
-                          style: AppFonts.medium(16, color: mutedValue),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: IconButton(
-                          tooltip: 'Copy coordinates',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 40,
-                          ),
-                          onPressed: canCopy ? _copyGpsLocation : null,
-                          icon: Icon(
-                            Icons.copy_outlined,
-                            size: 22,
-                            color: valueColor.withValues(alpha: 0.65),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
