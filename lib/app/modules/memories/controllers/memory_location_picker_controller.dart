@@ -343,39 +343,33 @@ class MemoryLocationPickerController extends GetxController {
   }
 
   Future<void> onDonePressed() async {
-    if (selectedLocationMarker == null) {
+    // Always prefer the currently visible marker coordinates.
+    final hasExistingMemoryCoords =
+        memoryController.locationLatitude.value != null &&
+        memoryController.locationLongitude.value != null;
+
+    if (selectedLocationMarker == null && !hasExistingMemoryCoords) {
       print('Selected Location Marker Is Null');
       Get.back();
       return;
     }
-// map
 
-    final lat = selectedLocationMarker!.geometry.coordinates.lat.toDouble();
-    final lng = selectedLocationMarker!.geometry.coordinates.lng.toDouble();
+    final lat = selectedLocationMarker != null
+        ? selectedLocationMarker!.geometry.coordinates.lat.toDouble()
+        : memoryController.locationLatitude.value!;
+    final lng = selectedLocationMarker != null
+        ? selectedLocationMarker!.geometry.coordinates.lng.toDouble()
+        : memoryController.locationLongitude.value!;
+    print(
+      '[WaterNameSearch] onDonePressed usingMarker=${selectedLocationMarker != null} lat=$lat lng=$lng',
+    );
 
     final adminData = await getAdminHierarchy(lat, lng);
     print('Admin Data $adminData');
-    String? waterName = adminData['water'];
-    print('[WaterNameSearch] onDonePressed admin water=$waterName');
-    // "Water" is generic from rendered/admin feature query; try to resolve
-    // a specific name from nearby rendered water labels/features.
-    if (waterName == null ||
-        waterName.trim().isEmpty ||
-        waterName.trim().toLowerCase() == 'water') {
-      final detailedWaterName = await _queryWaterNameFromRenderedTiles(lat, lng);
-      if (detailedWaterName != null && detailedWaterName.trim().isNotEmpty) {
-        waterName = detailedWaterName;
-      }
-    }
-    if (waterName == null ||
-        waterName.trim().isEmpty ||
-        waterName.trim().toLowerCase() == 'water') {
-      final fallback = _resolveWaterNameFallback(lat, lng);
-      if (fallback != null && fallback.trim().isNotEmpty) {
-        waterName = fallback;
-      }
-    }
-    print('[WaterNameSearch] onDonePressed final water=$waterName');
+    final adminWater = adminData['water'];
+    print('[WaterNameSearch] onDonePressed admin water=$adminWater');
+    final isTapOnWater = await _isTapOnWater(lat, lng, adminWater: adminWater);
+    print('[WaterNameSearch] onDonePressed isTapOnWater=$isTapOnWater');
 
     final tileSubRegion =adminData['subRegion'] ??  adminData['city'];
 
@@ -384,44 +378,31 @@ class MemoryLocationPickerController extends GetxController {
         lng,
         tileSubRegion: tileSubRegion,
       );
-   
-
-      
 
       Map<String, dynamic> finalData;
-
-      if (waterName != null && waterName.isNotEmpty) {
-
-        // if (waterName != null || waterName!.isNotEmpty) {
-        final waterHit = OfflineWaterService.instance.detect(lat, lng);
-        print('WaterHit $waterHit Water name $waterName');
-        if (waterHit != null && (waterHit.name?.trim().isNotEmpty ?? false)) {
-          waterName = waterHit.name?.toLowerCase().capitalize;
-        // }
+      String? waterName;
+      if (isTapOnWater) {
+        waterName = adminWater;
+        if (waterName == null ||
+            waterName.trim().isEmpty ||
+            waterName.trim().toLowerCase() == 'water') {
+          final detailedWaterName = await _queryWaterNameFromRenderedTiles(lat, lng);
+          if (detailedWaterName != null && detailedWaterName.trim().isNotEmpty) {
+            waterName = detailedWaterName;
+          }
+        }
+        if (waterName == null ||
+            waterName.trim().isEmpty ||
+            waterName.trim().toLowerCase() == 'water') {
+          final fallback = _resolveWaterNameFallback(lat, lng);
+          if (fallback != null && fallback.trim().isNotEmpty) {
+            waterName = fallback;
+          }
+        }
+        print('[WaterNameSearch] onDonePressed resolved water=$waterName');
       }
 
-              print('WaterHit $waterHit Water name $waterName');
-
-        finalData = locationData1 ?? {};
-     
-
-        if (_isLikelyWaterName(waterName!)) {
-             finalData['city'] = waterName;
-        finalData['name'] = waterName;
-        if (finalData['country'] == null || (finalData['country'] as String? ?? '').isEmpty) {
-          finalData['country'] = '';
-        }
-        if (finalData['flag'] == null || (finalData['flag'] as String? ?? '').isEmpty) {
-          finalData['flag'] = '🌊';
-        }
-        finalData['address'] = waterName;
-          // finalData['flag'] = '🌊';
-        } else{
-          waterName = null;
-          // waterHit = null;
-          finalData = locationData1!;
-        }
-      } else if (locationData1 == null) {
+      if (locationData1 == null && !isTapOnWater) {
         Get.snackbar(
           'Location Not Found',
           'Could not identify this location. Please try a different spot.',
@@ -431,8 +412,25 @@ class MemoryLocationPickerController extends GetxController {
           duration: const Duration(seconds: 3),
         );
         return;
+      }
+
+      // Start with normal geocoding payload; apply water only when confirmed.
+      finalData = locationData1 ?? <String, dynamic>{};
+      final shouldApplyWater = _shouldApplyWaterResult(
+        isTapOnWater: isTapOnWater,
+        waterName: waterName,
+      );
+      if (shouldApplyWater && waterName != null) {
+        finalData['city'] = waterName;
+        finalData['name'] = waterName;
+        finalData['address'] = waterName;
+        if (finalData['country'] == null ||
+            (finalData['country'] as String? ?? '').isEmpty) {
+          finalData['country'] = '';
+        }
+        finalData['flag'] = '🌊';
       } else {
-        finalData = locationData1;
+        waterName = null;
       }
 
       final locationName = finalData['display_name'] as String? ?? finalData['name'] as String? ?? 'Unknown Location';
@@ -460,8 +458,8 @@ class MemoryLocationPickerController extends GetxController {
       memoryController.locationAddress.value = finalData['address'] as String? ?? '';
 
       memoryController.selectedLocation.value = locationName;
-      memoryController.locationLatitude.value = selectedLocationMarker!.geometry.coordinates.lat.toDouble();
-      memoryController.locationLongitude.value = selectedLocationMarker!.geometry.coordinates.lng.toDouble();
+      memoryController.locationLatitude.value = lat;
+      memoryController.locationLongitude.value = lng;
  var waterflag =  '';
  if(waterName != null && waterName.toLowerCase().contains('ocean')) {
     waterflag ='🇺🇳' ;
@@ -471,8 +469,8 @@ class MemoryLocationPickerController extends GetxController {
   waterflag = '🌊';
  }
     final locationData = {
-      'latitude': selectedLocationMarker!.geometry.coordinates.lat,
-      'longitude': selectedLocationMarker!.geometry.coordinates.lng,
+      'latitude': lat,
+      'longitude': lng,
       'city': memoryController.locationCity.value,
       'country': memoryController.locationCountry.value,
       'address': memoryController.locationAddress.value,
@@ -481,6 +479,40 @@ class MemoryLocationPickerController extends GetxController {
     };
 
     Get.back(result: locationData);
+  }
+
+  Future<bool> _isTapOnWater(
+    double lat,
+    double lng, {
+    String? adminWater,
+  }) async {
+    final admin = (adminWater ?? '').trim().toLowerCase();
+    if (admin.isNotEmpty && admin != 'water') {
+      return true;
+    }
+
+    final offline = OfflineWaterService.instance.detect(lat, lng);
+    if (offline != null) {
+      return true;
+    }
+
+    final rendered = await _queryWaterNameFromRenderedTiles(lat, lng);
+    if (rendered != null && rendered.trim().isNotEmpty) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _shouldApplyWaterResult({
+    required bool isTapOnWater,
+    required String? waterName,
+  }) {
+    if (!isTapOnWater) return false;
+    if (waterName == null) return false;
+    final w = waterName.trim();
+    if (w.isEmpty) return false;
+    if (w.toLowerCase() == 'water') return false;
+    return _isLikelyWaterName(w);
   }
 
   /// Select search result
@@ -517,9 +549,8 @@ class MemoryLocationPickerController extends GetxController {
       annotationManager = await controller.annotations.createPointAnnotationManager();
 
       // Check if there's already a selected location
-      final hasSelectedLocation = memoryController.selectedLocation.value.isNotEmpty &&
-                                   memoryController.locationLatitude.value != null &&
-                                   memoryController.locationLongitude.value != null;
+      final hasSelectedLocation = memoryController.locationLatitude.value != null &&
+          memoryController.locationLongitude.value != null;
 
       if (hasSelectedLocation) {
         // If location is already selected, show that location
@@ -527,7 +558,7 @@ class MemoryLocationPickerController extends GetxController {
         final lng = memoryController.locationLongitude.value!;
 
         await moveToLocation(lat, lng);
-        await selectLocation(lat, lng);
+        await selectLocation(lat, lng, userAction: false);
         debugPrint('📍 Showing previously selected location on map load: $lat, $lng');
       } else if (hasLocationPermission.value && currentPosition.value != null) {
         // Otherwise, show current location if available
@@ -539,6 +570,7 @@ class MemoryLocationPickerController extends GetxController {
         await selectLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,
+          userAction: false,
         );
         debugPrint('📍 Auto-selected current location on map load');
       }
@@ -574,7 +606,11 @@ class MemoryLocationPickerController extends GetxController {
   }
 
   /// Select location and add marker
-  Future<void> selectLocation(double latitude, double longitude) async {
+  Future<void> selectLocation(
+    double latitude,
+    double longitude, {
+    bool userAction = true,
+  }) async {
     if (annotationManager == null) return;
 
   
@@ -959,10 +995,16 @@ class MemoryLocationPickerController extends GetxController {
         final sorted = namedCandidates.entries.toList()
           ..sort((a, b) => a.value.compareTo(b.value));
         final best = sorted.first;
+        if (best.value > 250.0) {
+          print(
+            '[WaterNameSearch] Rejecting rendered candidate "${best.key}" due to far score=${best.value.toStringAsFixed(3)}',
+          );
+        } else {
         print(
           '[WaterNameSearch] Selected nearest water="${best.key}" scoreKm=${best.value.toStringAsFixed(3)} candidates=${sorted.length}',
         );
         return best.key;
+        }
       }
 
       // Rendered labels can be unavailable at some zooms/styles (e.g., oceans).
@@ -973,12 +1015,23 @@ class MemoryLocationPickerController extends GetxController {
         return sourceName;
       }
 
-      // Water geometry found, but unnamed at this zoom.
+      // Water geometry found but unnamed: only trust if offline water detection
+      // also confirms current tap is on water.
       if (sawWaterFeature) {
+        final offlineHit = OfflineWaterService.instance.detect(lat, lng);
+        if (offlineHit != null) {
+          final n = (offlineHit.name ?? '').trim();
+          if (n.isNotEmpty) {
+            print('[WaterNameSearch] Unnamed rendered water confirmed by offline="$n"');
+            return n;
+          }
+          print('[WaterNameSearch] Unnamed rendered water confirmed by offline (generic)');
+          return 'Water';
+        }
         print(
-          '[WaterNameSearch] Water feature found but unnamed at this zoom. Returning "Water"',
+          '[WaterNameSearch] Rendered water seen but offline check is land; treating as non-water',
         );
-        return 'Water';
+        return null;
       }
       print('[WaterNameSearch] No water feature/name found');
     } catch (e) {
@@ -1031,6 +1084,12 @@ class MemoryLocationPickerController extends GetxController {
           if (!(_isWaterClass(className) || _isLikelyWaterName(name))) continue;
 
           final contained = _isPointInsideFeaturePolygon(featureMap, lat, lng);
+          if ((className.toLowerCase().contains('ocean') ||
+                  name.toLowerCase().contains('ocean')) &&
+              !contained) {
+            // Avoid far ocean false positives when tap is inland.
+            continue;
+          }
           double scoreKm = _featureDistanceKm(featureMap, lat, lng);
           if (scoreKm.isInfinite) continue;
           scoreKm += _waterClassPenaltyKm(className, name);
@@ -1048,6 +1107,12 @@ class MemoryLocationPickerController extends GetxController {
       final sorted = sourceCandidates.entries.toList()
         ..sort((a, b) => a.value.compareTo(b.value));
       final best = sorted.first;
+      if (best.value > 250.0) {
+        print(
+          '[WaterNameSearch] Rejecting source candidate "${best.key}" due to far score=${best.value.toStringAsFixed(3)}',
+        );
+        return null;
+      }
       print(
         '[WaterNameSearch] Source nearest water="${best.key}" scoreKm=${best.value.toStringAsFixed(3)} candidates=${sorted.length}',
       );
