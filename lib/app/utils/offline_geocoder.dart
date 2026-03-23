@@ -113,7 +113,9 @@ class OfflineGeocoder {
 
     String city1;
     if (tileSubRegion != null && tileSubRegion.isNotEmpty) {
-      city1 = regionName.isNotEmpty ? '$tileSubRegion, $regionName' : tileSubRegion;
+      // Do not append NearestRegionService admin (e.g. "Oslo") to local tile names
+      // (e.g. "Røst") — that produced invalid "Røst, Oslo" at sea.
+      city1 = tileSubRegion;
     } else {
       city1 = (regionName.isNotEmpty && !city.contains(regionName))
           ? '$city, $regionName'

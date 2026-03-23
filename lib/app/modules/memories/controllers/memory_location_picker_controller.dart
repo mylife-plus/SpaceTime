@@ -378,7 +378,11 @@ class MemoryLocationPickerController extends GetxController {
       if (waterName == null ||
           waterName.trim().isEmpty ||
           waterName.trim().toLowerCase() == 'water') {
-        final detailedWaterName = await _queryWaterNameFromRenderedTiles(lat, lng);
+        final detailedWaterName = await _queryWaterNameFromRenderedTiles(
+          lat,
+          lng,
+          mapWaterClass: adminData['waterClass'],
+        );
         if (detailedWaterName != null && detailedWaterName.trim().isNotEmpty) {
           waterName = detailedWaterName;
         }
@@ -447,9 +451,9 @@ class MemoryLocationPickerController extends GetxController {
     //     ? '🇺🇳'
     //     : '🌊';
 
-        if(waterFlag != null && waterFlag =='🌊') {
-          nameOut = '$waterName, $country';
-        }
+        // if(waterFlag != null && waterFlag =='🌊') {
+        //   nameOut = '$waterName, $country';
+        // }
 
     // final waterFlag = waterName != null && waterName.toLowerCase().contains('ocean')
     //     ? '🇺🇳'
@@ -801,6 +805,7 @@ class MemoryLocationPickerController extends GetxController {
       'subRegion': null,
       'country': null,
       'water': null,
+      'waterClass': null,
     };
     if (mapController == null) return result;
     try {
@@ -834,6 +839,9 @@ class MemoryLocationPickerController extends GetxController {
 
         if (sourceLayer == 'water' || sourceLayer == 'water_name') {
           final name = (props?['name:en'] ?? props?['name'])?.toString();
+          if (result['waterClass'] == null && className.isNotEmpty) {
+            result['waterClass'] = className;
+          }
           if (result['water'] == null) {
             result['water'] = (name != null && name.isNotEmpty) ? name : 'Water';
           // }
@@ -972,13 +980,28 @@ class MemoryLocationPickerController extends GetxController {
         s.contains('basin');
   }
 
-  Future<String?> _queryWaterNameFromRenderedTiles(double lat, double lng) async {
+  /// Larger distances for ocean/sea labels; map vector data can be far from tap.
+  double _maxWaterCandidateScoreKm(String? mapWaterClass) {
+    final c = mapWaterClass?.toLowerCase() ?? '';
+    if (c == 'ocean' || c == 'sea') return 2000.0;
+    if (c.isNotEmpty) return 600.0;
+    return 400.0;
+  }
+
+  Future<String?> _queryWaterNameFromRenderedTiles(
+    double lat,
+    double lng, {
+    String? mapWaterClass,
+  }) async {
     if (mapController == null) {
       print('[WaterNameSearch] mapController is null, skipping');
       return null;
     }
+    final maxCandidateKm = _maxWaterCandidateScoreKm(mapWaterClass);
     try {
-      print('[WaterNameSearch] Start lookup at lat=$lat lng=$lng');
+      print(
+        '[WaterNameSearch] Start lookup at lat=$lat lng=$lng maxCandidateKm=$maxCandidateKm mapWaterClass=$mapWaterClass',
+      );
       final centerPixel = await mapController!.pixelForCoordinate(
         mapbox.Point(coordinates: mapbox.Position(lng, lat)),
       );
@@ -1066,9 +1089,9 @@ class MemoryLocationPickerController extends GetxController {
         final sorted = namedCandidates.entries.toList()
           ..sort((a, b) => a.value.compareTo(b.value));
         final best = sorted.first;
-        if (best.value > 250.0) {
+        if (best.value > maxCandidateKm) {
           print(
-            '[WaterNameSearch] Rejecting rendered candidate "${best.key}" due to far score=${best.value.toStringAsFixed(3)}',
+            '[WaterNameSearch] Rejecting rendered candidate "${best.key}" due to far score=${best.value.toStringAsFixed(3)} (max=$maxCandidateKm)',
           );
         } else {
         print(
@@ -1080,14 +1103,17 @@ class MemoryLocationPickerController extends GetxController {
 
       // Rendered labels can be unavailable at some zooms/styles (e.g., oceans).
       // Query source features directly from loaded vector tiles as fallback.
-      final sourceName = await _queryWaterNameFromSourceFeatures(lat, lng);
+      final sourceName = await _queryWaterNameFromSourceFeatures(
+        lat,
+        lng,
+        mapWaterClass: mapWaterClass,
+      );
       if (sourceName != null && sourceName.trim().isNotEmpty) {
         print('[WaterNameSearch] Source-feature fallback selected "$sourceName"');
         return sourceName;
       }
 
-      // Water geometry found but unnamed: only trust if offline water detection
-      // also confirms current tap is on water.
+      // Rendered water hit but no label: trust map over coarse offline land mask.
       if (sawWaterFeature) {
         final offlineHit = OfflineWaterService.instance.detect(lat, lng);
         if (offlineHit != null) {
@@ -1100,9 +1126,9 @@ class MemoryLocationPickerController extends GetxController {
           return 'Water';
         }
         print(
-          '[WaterNameSearch] Rendered water seen but offline check is land; treating as non-water',
+          '[WaterNameSearch] Rendered water; offline land mask ignored — generic Water',
         );
-        return null;
+        return 'Water';
       }
       print('[WaterNameSearch] No water feature/name found');
     } catch (e) {
@@ -1111,8 +1137,13 @@ class MemoryLocationPickerController extends GetxController {
     return null;
   }
 
-  Future<String?> _queryWaterNameFromSourceFeatures(double lat, double lng) async {
+  Future<String?> _queryWaterNameFromSourceFeatures(
+    double lat,
+    double lng, {
+    String? mapWaterClass,
+  }) async {
     if (mapController == null) return null;
+    final maxCandidateKm = _maxWaterCandidateScoreKm(mapWaterClass);
     try {
       final sourceCandidates = <String, double>{};
       const sourceLayers = <String>[
@@ -1178,9 +1209,9 @@ class MemoryLocationPickerController extends GetxController {
       final sorted = sourceCandidates.entries.toList()
         ..sort((a, b) => a.value.compareTo(b.value));
       final best = sorted.first;
-      if (best.value > 250.0) {
+      if (best.value > maxCandidateKm) {
         print(
-          '[WaterNameSearch] Rejecting source candidate "${best.key}" due to far score=${best.value.toStringAsFixed(3)}',
+          '[WaterNameSearch] Rejecting source candidate "${best.key}" due to far score=${best.value.toStringAsFixed(3)} (max=$maxCandidateKm)',
         );
         return null;
       }
