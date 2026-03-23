@@ -196,8 +196,11 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
               : Colors.white;
 
           return Material(
-            // color: Colors.transparent,
-            child: Container(
+            color: Colors.transparent,
+            elevation: 0,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
               width: double.infinity,
               padding: const EdgeInsets.only(left: 12, top: 4, bottom: 4, right: 6),
               decoration: BoxDecoration(
@@ -240,6 +243,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
                   ),
                 ],
               ),
+            ),
             ),
           );
         }),
