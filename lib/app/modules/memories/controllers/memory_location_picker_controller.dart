@@ -752,16 +752,16 @@ class MemoryLocationPickerController extends GetxController {
   }
 
   /// Handle map tap
- Future<void> onMapTap(mapbox.MapContentGestureContext context) async {
-  final point = context.point;
+  Future<void> onMapTap(mapbox.MapContentGestureContext context) async {
+    clearSearch();
 
-  final latitude = point.coordinates.lat.toDouble();
-  final longitude = point.coordinates.lng.toDouble();
+    final point = context.point;
 
-  // await getAdminHierarchy(latitude, longitude);
+    final latitude = point.coordinates.lat.toDouble();
+    final longitude = point.coordinates.lng.toDouble();
 
-  await selectLocation(latitude, longitude);
-}
+    await selectLocation(latitude, longitude);
+  }
 
   Future<Map<String, String?>> getAdminHierarchy(double lat, double lng) async {
     final result = <String, String?>{
@@ -1487,6 +1487,8 @@ void debugPrintFull(String text) {
 
   /// Move to current location
   Future<void> moveToCurrentLocation() async {
+    clearSearch();
+
     if (!hasLocationPermission.value) {
       await requestLocationPermission();
       return;

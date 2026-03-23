@@ -33,6 +33,7 @@ class _MemoryLocationAdminEditWidgetState
   List<Country> _filteredCountries = <Country>[];
   Country? _selectedCountry;
   final GlobalKey _countryRowKey = GlobalKey();
+  final LayerLink _countryFieldLayerLink = LayerLink();
 
   @override
   void initState() {
@@ -447,7 +448,13 @@ class _MemoryLocationAdminEditWidgetState
         return GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: _closeCountryDropdown,
-          child: Stack(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Match _buildRowField / GPS row: symmetric horizontal margin 10 + 10.
+              final dropdownWidth =
+                  (constraints.maxWidth - 20).clamp(0.0, double.infinity);
+              return Stack(
+            clipBehavior: Clip.none,
             children: [
               Container(
                 color: bg,
@@ -467,20 +474,39 @@ class _MemoryLocationAdminEditWidgetState
                                           isDark: isDark,
                                           valueColor: valueColor,
                                         ),
-                                        _buildRowField(
-                                          isDark: isDark,
-                                          label: 'Country',
-                                          child: Row(
-                                            key: _countryRowKey,
-                                            children: [
-                                              if (_selectedCountry != null)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(
-                                                    right: 8,
+                                        CompositedTransformTarget(
+                                          link: _countryFieldLayerLink,
+                                          child: _buildRowField(
+                                            isDark: isDark,
+                                            label: 'Country',
+                                            child: Row(
+                                              key: _countryRowKey,
+                                              children: [
+                                                if (_selectedCountry != null)
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(
+                                                      right: 8,
+                                                    ),
+                                                    child: Text(
+                                                      _flagFromIso2(
+                                                        _selectedCountry!.code,
+                                                      ),
+                                                      style: AppFonts.medium(
+                                                        16,
+                                                        color: valueColor,
+                                                      ),
+                                                    ),
                                                   ),
-                                                  child: Text(
-                                                    _flagFromIso2(
-                                                      _selectedCountry!.code,
+                                                Expanded(
+                                                  child: TextField(
+                                                    controller: _countrySearchController,
+                                                    onTap: () => setState(
+                                                      () => _showCountryDropdown = true,
+                                                    ),
+                                                    decoration: const InputDecoration(
+                                                      isDense: true,
+                                                      border: InputBorder.none,
+                                                      contentPadding: EdgeInsets.zero,
                                                     ),
                                                     style: AppFonts.medium(
                                                       16,
@@ -488,24 +514,8 @@ class _MemoryLocationAdminEditWidgetState
                                                     ),
                                                   ),
                                                 ),
-                                              Expanded(
-                                                child: TextField(
-                                                  controller: _countrySearchController,
-                                                  onTap: () => setState(
-                                                    () => _showCountryDropdown = true,
-                                                  ),
-                                                  decoration: const InputDecoration(
-                                                    isDense: true,
-                                                    border: InputBorder.none,
-                                                    contentPadding: EdgeInsets.zero,
-                                                  ),
-                                                  style: AppFonts.medium(
-                                                    16,
-                                                    color: valueColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
                                         _buildRowField(
@@ -536,45 +546,53 @@ class _MemoryLocationAdminEditWidgetState
                 ),
               ),
               if (_showCountryDropdown)
-                Positioned(
-                  left: 10,
-                  right: 10,
-                  top: 58,
-                  child: Material(
-                    elevation: 10,
-                    color: isDark ? Colors.grey[900] : Colors.white,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 240),
-                      child: ListView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: _filteredCountries.length,
-                        itemBuilder: (context, index) {
-                          final country = _filteredCountries[index];
-                          final flag = _flagFromIso2(country.code);
-                          return ListTile(
-                            dense: true,
-                            title: Text(
-                              '$flag ${country.name}',
-                              style: AppFonts.medium(
-                                16,
-                                color: isDark ? Colors.white : Colors.black,
+                CompositedTransformFollower(
+                  link: _countryFieldLayerLink,
+                  showWhenUnlinked: false,
+                  targetAnchor: Alignment.bottomLeft,
+                  followerAnchor: Alignment.topLeft,
+                  // Target box includes margin; bottomLeft is x=0 — match row margin 10.
+                  offset: const Offset(10, 2),
+                  child: SizedBox(
+                    width: dropdownWidth,
+                    child: Material(
+                      elevation: 10,
+                      color: isDark ? Colors.grey[900] : Colors.white,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 240),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          shrinkWrap: true,
+                          itemCount: _filteredCountries.length,
+                          itemBuilder: (context, index) {
+                            final country = _filteredCountries[index];
+                            final flag = _flagFromIso2(country.code);
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                '$flag ${country.name}',
+                                style: AppFonts.medium(
+                                  16,
+                                  color: isDark ? Colors.white : Colors.black,
+                                ),
                               ),
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _selectedCountry = country;
-                                _countrySearchController.text = country.name;
-                                _showCountryDropdown = false;
-                              });
-                            },
-                          );
-                        },
+                              onTap: () {
+                                setState(() {
+                                  _selectedCountry = country;
+                                  _countrySearchController.text = country.name;
+                                  _showCountryDropdown = false;
+                                });
+                              },
+                            );
+                          },
+                        ),
+                        ),
                       ),
                     ),
-                  ),
                 ),
             ],
+          );
+            },
           ),
         );
       }),
