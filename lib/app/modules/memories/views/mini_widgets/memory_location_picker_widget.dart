@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
@@ -21,6 +23,30 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
  
   final MemoryLocationPickerController controller =
     Get.find<MemoryLocationPickerController>();
+  late final Future<String> _styleFuture;
+  bool _mapBootstrapDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _styleFuture = _loadStyleOnce();
+  }
+
+  Future<String> _loadStyleOnce() async {
+    if (controller.state.value == MemoryLocationPickerState.loading) {
+      while (controller.state.value == MemoryLocationPickerState.loading) {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+      }
+    }
+
+    final serverUrl = controller.serverUrl.value;
+    if (serverUrl == null || serverUrl.isEmpty) {
+      return controller.getBlankStyleJson();
+    }
+
+    final tileUrl = '$serverUrl/{z}/{x}/{y}.pbf';
+    return controller.loadStyleJsonFromAssets(tileUrl, serverUrl);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +217,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
                     ),
                   ),
                   GestureDetector(
-                    onTap: () => controller.onEditLocationTextPressed(),
+                    // onTap: () => controller.onEditLocationTextPressed(),
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
                       padding: const EdgeInsets.all(8),
@@ -243,16 +269,8 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Build map widget
   Widget _buildMap() {
-    return Obx(() {
-     
-      final tileUrl = '${controller.serverUrl.value}/{z}/{x}/{y}.pbf';
-
-            print('loadded URL tileUrl');
-
-      final serverUrl = controller.serverUrl.value!; // Base server URL without tile pattern
-
       return FutureBuilder<String>(
-      future: controller.loadStyleJsonFromAssets(tileUrl, serverUrl),
+      future: _styleFuture,
       builder: (context, snapshot) {
         // Show loading indicator while style.json is being loaded
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -290,12 +308,8 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           cameraOptions: controller.getCameraOptions(),
           textureView: true,
           onMapCreated: (mapboxMap) async {
-            controller.mapController = mapboxMap;
-                 mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-               mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-               mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
-
-                         mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+            if (_mapBootstrapDone) return;
+            _mapBootstrapDone = true;
 
             debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
 
@@ -314,12 +328,14 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
               debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
             }
 
+            // mapboxMap.stylelo
+
             await mapboxMap.loadStyleJson(styleJson);
             debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
             // Do NOT init annotations in onStyleLoaded: it fires for the default style *before*
             // loadStyleJson; swapping styles destroys EGL/surface and invalidates annotation managers.
             await Future<void>.delayed(const Duration(milliseconds: 280));
-            await controller.onMapStyleReady(mapboxMap);
+            await controller.onMapCreated(mapboxMap);
           },
           onStyleLoadedListener: (styleLoadedEventData) {
             debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded (log only, annotations after loadStyleJson)');
@@ -328,7 +344,6 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         );
       },
       );
-    });
   }
 
   /// Build top search bar - matching new location picker design

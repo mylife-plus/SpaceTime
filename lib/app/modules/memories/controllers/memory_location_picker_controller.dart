@@ -18,7 +18,6 @@ import 'package:spacetime/services/mbtiles_download_service.dart';
 import 'package:spacetime/services/mbtiles_server_service.dart';
 import 'package:spacetime/services/style_json_download_service.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
-import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart';
 
 enum MemoryLocationPickerState {
   loading,
@@ -29,16 +28,6 @@ enum MemoryLocationPickerState {
 }
 
 class MemoryLocationPickerController extends GetxController {
-  /// When true (memory form), empty pin → current GPS or fallback. When false (e.g. edit-location flow), do not auto-jump.
-  bool launchFromMemoryView = true;
-
-  static const double _fallbackLat = 51.1657;
-  static const double _fallbackLng = 10.4515;
-
-  void configureLaunchFromMemoryView(bool value) {
-    launchFromMemoryView = value;
-  }
-
   // Controllers
   final MemoryController memoryController = Get.find<MemoryController>();
   final UiController uiController = Get.find<UiController>();
@@ -57,24 +46,12 @@ class MemoryLocationPickerController extends GetxController {
   final RxBool isSearching = false.obs;
   final RxList<Map<String, dynamic>> searchResults = <Map<String, dynamic>>[].obs;
   final RxBool showSearchResults = false.obs;
-
-  /// `true` = normal (auto geocode / refresh). `false` after admin edit until map tap or search.
-  final RxBool allowLocationAutoRefresh = true.obs;
-
+  
   // Map components
   mapbox.MapboxMap? mapController;
   mapbox.PointAnnotationManager? annotationManager;
   mapbox.PointAnnotation? selectedLocationMarker;
-
-  /// Discards stale [selectLocation] reverse-geocode completions (async race with admin edit).
-  int _labelGeocodeGeneration = 0;
-
-  void _invalidatePendingLabelGeocode() {
-    _labelGeocodeGeneration++;
-  }
-
-  /// Point annotations must be created after native style/renderer is ready (see onStyleLoaded).
-  bool _memoryPickerAnnotationsInitialized = false;
+  bool _mapBootstrapped = false;
 
   // Server state for local tiles
   final Rxn<String> serverUrl = Rxn<String>();
@@ -87,8 +64,7 @@ class MemoryLocationPickerController extends GetxController {
     MapboxZoomHelper().currentLocationZoom.value = 6;
     searchFocusNode.addListener(onSearchFocusChanged);
     searchController.addListener(onSearchChanged);
-        initializeLocationPicker();
-
+    initializeLocationPicker();
   }
 
   @override
@@ -101,13 +77,7 @@ class MemoryLocationPickerController extends GetxController {
   /// Initialize location picker
   Future<void> initializeLocationPicker() async {
     try {
-      allowLocationAutoRefresh.value = true;
       state.value = MemoryLocationPickerState.loading;
-
-      _memoryPickerAnnotationsInitialized = false;
-      mapController = null;
-      annotationManager = null;
-      selectedLocationMarker = null;
 
       // Initialize local tile server first
       await initializeLocalTileServer();
@@ -115,13 +85,8 @@ class MemoryLocationPickerController extends GetxController {
       // Check location permission
       await checkLocationPermission();
 
-      final hasMemoryPin = memoryController.locationLatitude.value != null &&
-          memoryController.locationLongitude.value != null;
-
-      // Only fetch GPS for auto-center when opening from memory view with no saved pin
-      if (hasLocationPermission.value &&
-          !hasMemoryPin &&
-          launchFromMemoryView) {
+      // Get current location if permission is available
+      if (hasLocationPermission.value) {
         await getCurrentLocation();
       }
 
@@ -288,22 +253,13 @@ class MemoryLocationPickerController extends GetxController {
         ),
         zoom: 6,
       );
-    }
-    if (launchFromMemoryView && currentPosition.value != null) {
+    } else if (currentPosition.value != null) {
       return mapbox.CameraOptions(
         center: mapbox.Point(
           coordinates: mapbox.Position(
             currentPosition.value!.longitude,
             currentPosition.value!.latitude,
           ),
-        ),
-        zoom: 6,
-      );
-    }
-    if (launchFromMemoryView) {
-      return mapbox.CameraOptions(
-        center: mapbox.Point(
-          coordinates: mapbox.Position(_fallbackLng, _fallbackLat),
         ),
         zoom: 6,
       );
@@ -387,107 +343,7 @@ class MemoryLocationPickerController extends GetxController {
 ''';
   }
 
-  /// Full geocode + water handling for a pin — updates label fields (city, flag, …).
-  Future<Map<String, dynamic>?> _buildLocationDataForPin(double lat, double lng) async {
-    final adminData = await getAdminHierarchy(lat, lng);
-    final adminWater = adminData['water'];
-    final isTapOnWater = await _isTapOnWater(lat, lng, adminWater: adminWater);
-
-    final tileSubRegion = adminData['subRegion'] ?? adminData['city'];
-
-    final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
-      lat,
-      lng,
-      tileSubRegion: tileSubRegion,
-    );
-
-    Map<String, dynamic> finalData;
-    String? waterName;
-    if (isTapOnWater) {
-      waterName = adminWater;
-      if (waterName == null ||
-          waterName.trim().isEmpty ||
-          waterName.trim().toLowerCase() == 'water') {
-        final detailedWaterName = await _queryWaterNameFromRenderedTiles(lat, lng);
-        if (detailedWaterName != null && detailedWaterName.trim().isNotEmpty) {
-          waterName = detailedWaterName;
-        }
-      }
-      if (waterName == null ||
-          waterName.trim().isEmpty ||
-          waterName.trim().toLowerCase() == 'water') {
-        final fallback = _resolveWaterNameFallback(lat, lng);
-        if (fallback != null && fallback.trim().isNotEmpty) {
-          waterName = fallback;
-        }
-      }
-    }
-
-    if (locationData1 == null && !isTapOnWater) {
-      return null;
-    }
-
-    finalData = locationData1 ?? <String, dynamic>{};
-    final shouldApplyWater = _shouldApplyWaterResult(
-      isTapOnWater: isTapOnWater,
-      waterName: waterName,
-    );
-    if (shouldApplyWater && waterName != null) {
-      finalData['city'] = waterName;
-      finalData['name'] = waterName;
-      finalData['address'] = waterName;
-      if (finalData['country'] == null ||
-          (finalData['country'] as String? ?? '').isEmpty) {
-        finalData['country'] = '';
-      }
-      finalData['flag'] = '🌊';
-    } else {
-      waterName = null;
-    }
-
-    final displayLabel = finalData['display_name'] as String? ??
-        finalData['name'] as String? ??
-        'Unknown Location';
-
-    var country = finalData['country'] as String? ?? '';
-    var flag = finalData['flag'] as String? ?? '';
-    var city = finalData['city'] as String? ?? '';
-
-    if (country.isEmpty && adminData['country'] != null) {
-      country = adminData['country']!;
-      finalData['country'] = country;
-    }
-    if (flag.isEmpty && country.isNotEmpty) {
-      flag = countryFlags[country.toLowerCase()] ?? '';
-      finalData['flag'] = flag;
-    }
-    if (city.isEmpty && tileSubRegion != null && tileSubRegion.isNotEmpty) {
-      city = tileSubRegion;
-      finalData['city'] = city;
-    }
-
-    final waterflag = waterName != null && waterName.toLowerCase().contains('ocean')
-        ? '🇺🇳'
-        : '🌊';
-
-    final rawName = finalData['name'] as String?;
-    final nameOut =
-        rawName != null && rawName.trim().isNotEmpty ? rawName : displayLabel;
-
-    return <String, dynamic>{
-      'latitude': lat,
-      'longitude': lng,
-      'city': city,
-      'country': country,
-      'address': finalData['address'] as String? ?? '',
-      'flag': waterName != null ? waterflag : flag,
-      'name': nameOut,
-    };
-  }
-
   Future<void> onDonePressed() async {
-    _invalidatePendingLabelGeocode();
-
     // Always prefer the currently visible marker coordinates.
     final hasExistingMemoryCoords =
         memoryController.locationLatitude.value != null &&
@@ -509,51 +365,121 @@ class MemoryLocationPickerController extends GetxController {
       '[WaterNameSearch] onDonePressed usingMarker=${selectedLocationMarker != null} lat=$lat lng=$lng',
     );
 
-    // Return what the picker label already shows — no reverse geocode round-trip.
-    final locationData = _locationDataFromCurrentLabel(lat, lng);
-    memoryController.setEnhancedLocationData(locationData);
-    Get.back(result: locationData);
-  }
+    final adminData = await getAdminHierarchy(lat, lng);
+    print('Admin Data $adminData');
+    final adminWater = adminData['water'];
+    print('[WaterNameSearch] onDonePressed admin water=$adminWater');
+    final isTapOnWater = await _isTapOnWater(lat, lng, adminWater: adminWater);
+    print('[WaterNameSearch] onDonePressed isTapOnWater=$isTapOnWater');
 
-  /// Same fields as [MemoryLocationLineFormat] / admin edit — matches on-screen label.
-  Map<String, dynamic> _locationDataFromCurrentLabel(double lat, double lng) {
-    return <String, dynamic>{
+    final tileSubRegion =adminData['subRegion'] ??  adminData['city'];
+
+    final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
+        lat,
+        lng,
+        tileSubRegion: tileSubRegion,
+      );
+
+      Map<String, dynamic> finalData;
+      String? waterName;
+      if (isTapOnWater) {
+        waterName = adminWater;
+        if (waterName == null ||
+            waterName.trim().isEmpty ||
+            waterName.trim().toLowerCase() == 'water') {
+          final detailedWaterName = await _queryWaterNameFromRenderedTiles(lat, lng);
+          if (detailedWaterName != null && detailedWaterName.trim().isNotEmpty) {
+            waterName = detailedWaterName;
+          }
+        }
+        if (waterName == null ||
+            waterName.trim().isEmpty ||
+            waterName.trim().toLowerCase() == 'water') {
+          final fallback = _resolveWaterNameFallback(lat, lng);
+          if (fallback != null && fallback.trim().isNotEmpty) {
+            waterName = fallback;
+          }
+        }
+        print('[WaterNameSearch] onDonePressed resolved water=$waterName');
+      }
+
+      if (locationData1 == null && !isTapOnWater) {
+        Get.snackbar(
+          'Location Not Found',
+          'Could not identify this location. Please try a different spot.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.withValues(alpha: 0.8),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+
+      // Start with normal geocoding payload; apply water only when confirmed.
+      finalData = locationData1 ?? <String, dynamic>{};
+      final shouldApplyWater = _shouldApplyWaterResult(
+        isTapOnWater: isTapOnWater,
+        waterName: waterName,
+      );
+      if (shouldApplyWater && waterName != null) {
+        finalData['city'] = waterName;
+        finalData['name'] = waterName;
+        finalData['address'] = waterName;
+        if (finalData['country'] == null ||
+            (finalData['country'] as String? ?? '').isEmpty) {
+          finalData['country'] = '';
+        }
+        finalData['flag'] = '🌊';
+      } else {
+        waterName = null;
+      }
+
+      final locationName = finalData['display_name'] as String? ?? finalData['name'] as String? ?? 'Unknown Location';
+
+      var country = finalData['country'] as String? ?? '';
+      var flag = finalData['flag'] as String? ?? '';
+      var city = finalData['city'] as String? ?? '';
+
+      if (country.isEmpty && adminData['country'] != null) {
+        country = adminData['country']!;
+        finalData['country'] = country;
+      }
+      if (flag.isEmpty && country.isNotEmpty) {
+        flag = countryFlags[country.toLowerCase()] ?? '';
+        finalData['flag'] = flag;
+      }
+      if (city.isEmpty && tileSubRegion != null && tileSubRegion.isNotEmpty) {
+        city = tileSubRegion;
+        finalData['city'] = city;
+      }
+
+      memoryController.locationCountry.value = country;
+      memoryController.locationFlag.value = flag;
+      memoryController.locationCity.value = city;
+      memoryController.locationAddress.value = finalData['address'] as String? ?? '';
+
+      memoryController.selectedLocation.value = locationName;
+      memoryController.locationLatitude.value = lat;
+      memoryController.locationLongitude.value = lng;
+ var waterflag =  '';
+ if(waterName != null && waterName.toLowerCase().contains('ocean')) {
+    waterflag ='🇺🇳' ;
+
+ } else {
+  // waterName != ;
+  waterflag = '🌊';
+ }
+    final locationData = {
       'latitude': lat,
       'longitude': lng,
-      'country': memoryController.locationCountry.value,
       'city': memoryController.locationCity.value,
+      'country': memoryController.locationCountry.value,
       'address': memoryController.locationAddress.value,
-      'flag': memoryController.locationFlag.value,
+      'flag': waterName != null ? waterflag : memoryController.locationFlag.value,
       'name': memoryController.locationName.value,
     };
-  }
 
-  Future<void> onEditLocationTextPressed() async {
-    _invalidatePendingLabelGeocode();
-
-    final lat = selectedLocationMarker != null
-        ? selectedLocationMarker!.geometry.coordinates.lat.toDouble()
-        : memoryController.locationLatitude.value;
-    final lng = selectedLocationMarker != null
-        ? selectedLocationMarker!.geometry.coordinates.lng.toDouble()
-        : memoryController.locationLongitude.value;
-    if (lat == null || lng == null) return;
-
-    final data = await Get.to(() => const MemoryLocationAdminEditWidget());
-    _invalidatePendingLabelGeocode();
-    if (data == null) return;
-
-    final patch = Map<String, dynamic>.from(data as Map);
-    memoryController.setEnhancedLocationData(<String, dynamic>{
-      'latitude': lat,
-      'longitude': lng,
-      'country': patch['country'] ?? memoryController.locationCountry.value,
-      'city': patch['city'] ?? memoryController.locationCity.value,
-      'address': patch['address'] ?? memoryController.locationAddress.value,
-      'flag': patch['flag'] ?? memoryController.locationFlag.value,
-      'name': patch['name'] ?? memoryController.locationName.value,
-    });
-    allowLocationAutoRefresh.value = false;
+    Get.back(result: locationData);
   }
 
   Future<bool> _isTapOnWater(
@@ -592,8 +518,6 @@ class MemoryLocationPickerController extends GetxController {
 
   /// Select search result
   Future<void> selectSearchResult(Map<String, dynamic> result) async {
-    allowLocationAutoRefresh.value = true;
-
     final lat = double.tryParse(result['latitude']?.toString() ?? '0') ?? 0.0;
     final lng = double.tryParse(result['longitude']?.toString() ?? '0') ?? 0.0;
 
@@ -608,20 +532,27 @@ class MemoryLocationPickerController extends GetxController {
     await selectLocation(lat, lng);
   }
 
-  /// Call after [MapboxMap.loadStyleJson] completes (+ short delay). Never use the first
-  /// [onStyleLoaded] alone — it runs before custom style swap and managers become invalid.
-  Future<void> onMapStyleReady(mapbox.MapboxMap controller) async {
-    if (_memoryPickerAnnotationsInitialized) return;
-    if (mapController != controller) {
-      debugPrint('[MemoryLocationPicker] onMapStyleReady: stale map instance, skip');
+  /// Handle map creation
+  Future<void> onMapCreated(mapbox.MapboxMap controller) async {
+    if (_mapBootstrapped && mapController == controller && annotationManager != null) {
       return;
     }
+
+    controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+               controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+               controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+               controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
 
     try {
       mapController = controller;
 
-      // Create annotation manager (requires style loaded + valid renderer surface)
-      annotationManager = await controller.annotations.createPointAnnotationManager();
+      // ENABLE online mode to allow localhost tile server access
+      await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+      debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+
+      // Create annotation manager only once per live map instance
+      annotationManager ??= await controller.annotations.createPointAnnotationManager();
+      _mapBootstrapped = true;
 
       // Check if there's already a selected location
       final hasSelectedLocation = memoryController.locationLatitude.value != null &&
@@ -635,30 +566,23 @@ class MemoryLocationPickerController extends GetxController {
         await moveToLocation(lat, lng);
         await selectLocation(lat, lng, userAction: false);
         debugPrint('📍 Showing previously selected location on map load: $lat, $lng');
-      } else if (!launchFromMemoryView) {
-        debugPrint(
-          '📍 Non–memory-view launch: skipping auto current/fallback pin',
-        );
       } else if (hasLocationPermission.value && currentPosition.value != null) {
+        // Otherwise, show current location if available
         await moveToLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,
         );
+        // Automatically select current location with red marker
         await selectLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,
           userAction: false,
         );
         debugPrint('📍 Auto-selected current location on map load');
-      } else {
-        await moveToLocation(_fallbackLat, _fallbackLng);
-        await selectLocation(_fallbackLat, _fallbackLng, userAction: false);
-        debugPrint('📍 Memory view, no GPS: using fallback camera + pin');
       }
-      _memoryPickerAnnotationsInitialized = true;
       // await _printAllLayersAndSources();
     } catch (e) {
-      debugPrint('Error in onMapStyleReady: $e');
+      debugPrint('Error in onMapCreated: $e');
     }
   }
 
@@ -668,8 +592,6 @@ class MemoryLocationPickerController extends GetxController {
     if (mapController == null) return;
 
     try {
-      state.value = MemoryLocationPickerState.movingToLocation;
-
       await mapController!.flyTo(
         mapbox.CameraOptions(
           center: mapbox.Point(
@@ -695,12 +617,8 @@ class MemoryLocationPickerController extends GetxController {
   }) async {
     if (annotationManager == null) return;
 
-    if (userAction) {
-      allowLocationAutoRefresh.value = true;
-    }
-
-    final myGen = ++_labelGeocodeGeneration;
-
+  
+    // await Future.delayed(Duration(seconds: 01));
     try {
       // Clear existing markers first
       await clearExistingMarkers();
@@ -724,36 +642,30 @@ class MemoryLocationPickerController extends GetxController {
       debugPrint('Error selecting location: $e');
     }
 
-    // Programmatic pin: skip reverse geocode while memory pin exists or after admin edit
-    // (allowLocationAutoRefresh false) until user taps map or uses search.
-    if (!userAction) {
-      final hasMemoryPin = memoryController.locationLatitude.value != null &&
-          memoryController.locationLongitude.value != null;
-      if (hasMemoryPin || !allowLocationAutoRefresh.value) {
-        memoryController.locationLatitude.value = latitude;
-        memoryController.locationLongitude.value = longitude;
-        memoryController.selectedLocation.value = '$latitude,$longitude';
-        return;
-      }
-    }
-
     try {
-      final full = await _buildLocationDataForPin(latitude, longitude);
-      if (myGen != _labelGeocodeGeneration) return;
-      if (full != null) {
-        memoryController.setEnhancedLocationData(full);
-      } else {
-        memoryController.locationLatitude.value = latitude;
-        memoryController.locationLongitude.value = longitude;
-        memoryController.selectedLocation.value = '$latitude,$longitude';
-      }
-      debugPrint('Selected location ($latitude, $longitude)');
-    } catch (e) {
-      debugPrint('Error applying geocode for pin: $e');
-      if (myGen != _labelGeocodeGeneration) return;
+
+      // Reverse geocode to get location name
+      final locationData = await GeocodingIsolateService.instance.reverseGeocode(
+        latitude,
+        longitude,
+      );
+
+      // Extract location name from the result
+      final locationName = locationData?['display_name'] as String? ?? 'Unknown Location';
+
+      print('Selected Address $locationName');
+
+      // Update memory controller with selected location
+       memoryController.selectedLocation.value = locationName;
       memoryController.locationLatitude.value = latitude;
       memoryController.locationLongitude.value = longitude;
-      memoryController.selectedLocation.value = '$latitude,$longitude';
+      
+      debugPrint('Selected location: $locationName ($latitude, $longitude)');
+
+    }catch(e) {
+
+      print('Error Reverse geocoding $e');
+
     }
   }
 
@@ -1500,167 +1412,6 @@ Future<String?> getWaterLabel(
   return null;
 }
   
-//   Future<Map<String, dynamic>?> getWaterPolygonById(
-//   String sourceId,
-//   String sourceLayer,
-//   String featureId,
-// ) async {
-//   if (mapController == null) {
-//     debugPrint('[getWaterPolygonById] mapController is null');
-//     return null;
-//   }
-
-//   try {
-//     debugPrint(
-//         '[getWaterPolygonById] Querying sourceId="$sourceId", layer="$sourceLayer", featureId="$featureId"');
-
-//     final sourceFeatures = await mapController!.querySourceFeatures(
-//       sourceId,
-//       mapbox.SourceQueryOptions(
-//         sourceLayerIds: [sourceLayer],
-//         filter: 'all', // empty filter to include all features
-//       ),
-//     );
-
-//     if (sourceFeatures.isEmpty) {
-//       debugPrint(
-//           '[getWaterPolygonById] No features returned from source layer "$sourceLayer"');
-//       return null;
-//     }
-
-//     debugPrint(
-//         '[getWaterPolygonById] Total features retrieved: ${sourceFeatures.length}');
-
-//     for (int index = 0; index < sourceFeatures.length; index++) {
-//       final f = sourceFeatures[index];
-//       if (f == null) {
-//         debugPrint('[getWaterPolygonById] Feature at index $index is null');
-//         continue;
-//       }
-
-//       final queriedFeature = f.queriedFeature;
-//       if (queriedFeature == null) {
-//         debugPrint(
-//             '[getWaterPolygonById] queriedFeature at index $index is null');
-//         continue;
-//       }
-
-//       // Safely cast feature map
-//       final geojsonRaw = queriedFeature.feature;
-//       if (geojsonRaw == null) {
-//         debugPrint('[getWaterPolygonById] geojson at index $index is null');
-//         continue;
-//       }
-
-//       final geojson = Map<String, dynamic>.from(geojsonRaw);
-
-//       final id = geojson['id']?.toString();
-//       if (id == null) {
-//         debugPrint('[getWaterPolygonById] feature id at index $index is null');
-//         continue;
-//       }
-
-//       debugPrint('[getWaterPolygonById] Checking feature id="$id"');
-
-//       if (id == featureId) {
-//         debugPrint(
-//             '[getWaterPolygonById] Found matching feature! id="$id" at index $index');
-//         debugPrint('[getWaterPolygonById] Properties: ${geojson['properties']}');
-//         debugPrint('[getWaterPolygonById] Geometry: ${geojson['geometry']}');
-//         return geojson;
-//       }
-//     }
-
-//     debugPrint(
-//         '[getWaterPolygonById] Feature with id="$featureId" not found');
-//   } catch (e, stack) {
-//     debugPrint('[getWaterPolygonById] Exception: $e');
-//     debugPrint('[getWaterPolygonById] Stack trace: $stack');
-//   }
-
-//   return null; // Not found
-// }
-// //   Future<Map<String, dynamic>?> getWaterPolygonById(
-//   String sourceId,
-//   String sourceLayer,
-//   String featureId,
-// ) async {
-//   if (mapController == null) {
-//     debugPrint('[getWaterPolygonById] mapController is null');
-//     return null;
-//   }
-
-//   try {
-//     debugPrint(
-//         '[getWaterPolygonById] Querying sourceId="$sourceId", layer="$sourceLayer", featureId="$featureId"');
-
-//     final List<mapbox.QueriedSourceFeature?> sourceFeatures =
-//         await mapController!.querySourceFeatures(
-//       sourceId,
-//       mapbox.SourceQueryOptions(
-//         sourceLayerIds: [sourceLayer],
-//     filter: 'all', // empty filter to include all features
-//       ),
-//     );
-
-//     if (sourceFeatures.isEmpty) {
-//       debugPrint(
-//           '[getWaterPolygonById] No features returned from source layer "$sourceLayer"');
-//       return null;
-//     }
-
-//     debugPrint(
-//         '[getWaterPolygonById] Total features retrieved: ${sourceFeatures.length}');
-
-//     for (int index = 0; index < sourceFeatures.length; index++) {
-//       final f = sourceFeatures[index];
-//       if (f == null) {
-//         debugPrint('[getWaterPolygonById] Feature at index $index is null');
-//         continue;
-//       }
-
-//       final queriedFeature = f.queriedFeature;
-//       if (queriedFeature == null) {
-//         debugPrint(
-//             '[getWaterPolygonById] queriedFeature at index $index is null');
-//         continue;
-//       }
-
-//       final geojson = queriedFeature.feature as Map<String, dynamic>?;
-//       if (geojson == null) {
-//         debugPrint('[getWaterPolygonById] geojson at index $index is null');
-//         continue;
-//       }
-
-//       final id = geojson['id']?.toString();
-//       if (id == null) {
-//         debugPrint('[getWaterPolygonById] feature id at index $index is null');
-//         continue;
-//       }
-
-//       debugPrint('[getWaterPolygonById] Checking feature id="$id"');
-
-//       if (id == featureId) {
-//         debugPrint(
-//             '[getWaterPolygonById] Found matching feature! id="$id" at index $index');
-//         debugPrint(
-//             '[getWaterPolygonById] Properties: ${geojson['properties']}');
-//         debugPrint(
-//             '[getWaterPolygonById] Geometry: ${geojson['geometry']}');
-//         return geojson; // Full feature map
-//       }
-//     }
-
-//     debugPrint(
-//         '[getWaterPolygonById] Feature with id="$featureId" not found in source layer "$sourceLayer"');
-//   } catch (e, stack) {
-//     debugPrint('[getWaterPolygonById] Exception: $e');
-//     debugPrint('[getWaterPolygonById] Stack trace: $stack');
-//   }
-
-//   return null; // Not found
-// }
-//   /// Clear search
   void clearSearch() {
     searchController.clear();
     showSearchResults.value = false;

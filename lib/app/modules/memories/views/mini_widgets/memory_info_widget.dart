@@ -123,8 +123,8 @@ class MemoryInfoWidget extends StatelessWidget {
                       MemoryLocationPickerController(),
                       permanent: true,
                     );
-                    picker.configureLaunchFromMemoryView(true);
-                    picker.allowLocationAutoRefresh.value = true;
+                    // picker.configureLaunchFromMemoryView(true);
+                    // picker.allowLocationAutoRefresh.value = true;
                     unawaited(picker.initializeLocationPicker());
 
                     final data = await Get.to(
