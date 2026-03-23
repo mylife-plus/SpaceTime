@@ -739,15 +739,14 @@ class MemoryLocationPickerController extends GetxController {
     return byteData!.buffer.asUint8List();
   }
 
-  /// Clear existing markers
+  /// Clear existing markers (all annotations on this manager).
   Future<void> clearExistingMarkers() async {
-    if (annotationManager != null && selectedLocationMarker != null) {
-      try {
-        await annotationManager!.delete(selectedLocationMarker!);
-        selectedLocationMarker = null;
-      } catch (e) {
-        debugPrint('Error clearing existing markers: $e');
-      }
+    if (annotationManager == null) return;
+    try {
+      await annotationManager!.deleteAll();
+      selectedLocationMarker = null;
+    } catch (e) {
+      debugPrint('Error clearing existing markers: $e');
     }
   }
 
