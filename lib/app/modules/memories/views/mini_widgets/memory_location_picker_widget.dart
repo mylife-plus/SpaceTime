@@ -32,6 +32,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     _styleFuture = _loadStyleOnce();
   }
 
+  @override
+  void dispose() {
+    _mapBootstrapDone = false;
+    unawaited(controller.disposePickerMapSession());
+    super.dispose();
+  }
+
   Future<String> _loadStyleOnce() async {
     if (controller.state.value == MemoryLocationPickerState.loading) {
       while (controller.state.value == MemoryLocationPickerState.loading) {
@@ -136,9 +143,11 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 buildSearchContainer(controller.uiController.darkMode.value),
+                                _buildSearchResultsPanel(),
+
                 const SizedBox(height: 6),
                 _buildLocationDetailLabel(),
-                _buildSearchResultsPanel(),
+                // _buildSearchResultsPanel(),
               ],
             ),
           ),

@@ -29,6 +29,9 @@ enum MemoryLocationPickerState {
 }
 
 class MemoryLocationPickerController extends GetxController {
+  static const double _fallbackLat = 51.1657;
+  static const double _fallbackLng = 10.4515;
+
   // Controllers
   final MemoryController memoryController = Get.find<MemoryController>();
   final UiController uiController = Get.find<UiController>();
@@ -53,6 +56,11 @@ class MemoryLocationPickerController extends GetxController {
   mapbox.PointAnnotationManager? annotationManager;
   mapbox.PointAnnotation? selectedLocationMarker;
   bool _mapBootstrapped = false;
+  int _labelGeocodeGeneration = 0;
+
+  void _invalidatePendingLabelGeocode() {
+    _labelGeocodeGeneration++;
+  }
 
   // Server state for local tiles
   final Rxn<String> serverUrl = Rxn<String>();
@@ -344,7 +352,103 @@ class MemoryLocationPickerController extends GetxController {
 ''';
   }
 
+  Future<Map<String, dynamic>?> _buildLocationDataForPin(
+    double lat,
+    double lng,
+  ) async {
+    final adminData = await getAdminHierarchy(lat, lng);
+    final adminWater = adminData['water'];
+    final isTapOnWater = await _isTapOnWater(lat, lng, adminWater: adminWater);
+
+    final tileSubRegion = adminData['subRegion'] ?? adminData['city'];
+    final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
+      lat,
+      lng,
+      tileSubRegion: tileSubRegion,
+    );
+
+    if (locationData1 == null && !isTapOnWater) {
+      return null;
+    }
+
+    Map<String, dynamic> finalData = locationData1 ?? <String, dynamic>{};
+    String? waterName;
+    if (isTapOnWater) {
+      waterName = adminWater;
+      if (waterName == null ||
+          waterName.trim().isEmpty ||
+          waterName.trim().toLowerCase() == 'water') {
+        final detailedWaterName = await _queryWaterNameFromRenderedTiles(lat, lng);
+        if (detailedWaterName != null && detailedWaterName.trim().isNotEmpty) {
+          waterName = detailedWaterName;
+        }
+      }
+      if (waterName == null ||
+          waterName.trim().isEmpty ||
+          waterName.trim().toLowerCase() == 'water') {
+        final fallback = _resolveWaterNameFallback(lat, lng);
+        if (fallback != null && fallback.trim().isNotEmpty) {
+          waterName = fallback;
+        }
+      }
+    }
+
+    final shouldApplyWater = _shouldApplyWaterResult(
+      isTapOnWater: isTapOnWater,
+      waterName: waterName,
+    );
+    if (shouldApplyWater && waterName != null) {
+      finalData['city'] = waterName;
+      finalData['name'] = waterName;
+      finalData['address'] = waterName;
+      if (finalData['country'] == null ||
+          (finalData['country'] as String? ?? '').isEmpty) {
+        finalData['country'] = '';
+      }
+      finalData['flag'] = '🌊';
+    } else {
+      waterName = null;
+    }
+
+    final displayName = finalData['display_name'] as String? ??
+        finalData['name'] as String? ??
+        'Unknown Location';
+    final nameOut = (finalData['name'] as String?)?.trim().isNotEmpty == true
+        ? finalData['name'] as String
+        : displayName;
+
+    var country = finalData['country'] as String? ?? '';
+    var flag = finalData['flag'] as String? ?? '';
+    var city = finalData['city'] as String? ?? '';
+
+    if (country.isEmpty && adminData['country'] != null) {
+      country = adminData['country']!;
+    }
+    if (flag.isEmpty && country.isNotEmpty) {
+      flag = countryFlags[country.toLowerCase()] ?? '';
+    }
+    if (city.isEmpty && tileSubRegion != null && tileSubRegion.isNotEmpty) {
+      city = tileSubRegion;
+    }
+
+    final waterFlag = waterName != null && waterName.toLowerCase().contains('ocean')
+        ? '🇺🇳'
+        : '🌊';
+
+    return <String, dynamic>{
+      'latitude': lat,
+      'longitude': lng,
+      'city': city,
+      'country': country,
+      'address': finalData['address'] as String? ?? '',
+      'flag': waterName != null ? waterFlag : flag,
+      'name': nameOut,
+    };
+  }
+
   Future<void> onDonePressed() async {
+    _invalidatePendingLabelGeocode();
+
     // Always prefer the currently visible marker coordinates.
     final hasExistingMemoryCoords =
         memoryController.locationLatitude.value != null &&
@@ -366,124 +470,37 @@ class MemoryLocationPickerController extends GetxController {
       '[WaterNameSearch] onDonePressed usingMarker=${selectedLocationMarker != null} lat=$lat lng=$lng',
     );
 
-    final adminData = await getAdminHierarchy(lat, lng);
-    print('Admin Data $adminData');
-    final adminWater = adminData['water'];
-    print('[WaterNameSearch] onDonePressed admin water=$adminWater');
-    final isTapOnWater = await _isTapOnWater(lat, lng, adminWater: adminWater);
-    print('[WaterNameSearch] onDonePressed isTapOnWater=$isTapOnWater');
-
-    final tileSubRegion =adminData['subRegion'] ??  adminData['city'];
-
-    final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
-        lat,
-        lng,
-        tileSubRegion: tileSubRegion,
-      );
-
-      Map<String, dynamic> finalData;
-      String? waterName;
-      if (isTapOnWater) {
-        waterName = adminWater;
-        if (waterName == null ||
-            waterName.trim().isEmpty ||
-            waterName.trim().toLowerCase() == 'water') {
-          final detailedWaterName = await _queryWaterNameFromRenderedTiles(lat, lng);
-          if (detailedWaterName != null && detailedWaterName.trim().isNotEmpty) {
-            waterName = detailedWaterName;
-          }
-        }
-        if (waterName == null ||
-            waterName.trim().isEmpty ||
-            waterName.trim().toLowerCase() == 'water') {
-          final fallback = _resolveWaterNameFallback(lat, lng);
-          if (fallback != null && fallback.trim().isNotEmpty) {
-            waterName = fallback;
-          }
-        }
-        print('[WaterNameSearch] onDonePressed resolved water=$waterName');
-      }
-
-      if (locationData1 == null && !isTapOnWater) {
-        Get.snackbar(
-          'Location Not Found',
-          'Could not identify this location. Please try a different spot.',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withValues(alpha: 0.8),
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3),
-        );
-        return;
-      }
-
-      // Start with normal geocoding payload; apply water only when confirmed.
-      finalData = locationData1 ?? <String, dynamic>{};
-      final shouldApplyWater = _shouldApplyWaterResult(
-        isTapOnWater: isTapOnWater,
-        waterName: waterName,
-      );
-      if (shouldApplyWater && waterName != null) {
-        finalData['city'] = waterName;
-        finalData['name'] = waterName;
-        finalData['address'] = waterName;
-        if (finalData['country'] == null ||
-            (finalData['country'] as String? ?? '').isEmpty) {
-          finalData['country'] = '';
-        }
-        finalData['flag'] = '🌊';
-      } else {
-        waterName = null;
-      }
-
-      final locationName = finalData['display_name'] as String? ?? finalData['name'] as String? ?? 'Unknown Location';
-
-      var country = finalData['country'] as String? ?? '';
-      var flag = finalData['flag'] as String? ?? '';
-      var city = finalData['city'] as String? ?? '';
-
-      if (country.isEmpty && adminData['country'] != null) {
-        country = adminData['country']!;
-        finalData['country'] = country;
-      }
-      if (flag.isEmpty && country.isNotEmpty) {
-        flag = countryFlags[country.toLowerCase()] ?? '';
-        finalData['flag'] = flag;
-      }
-      if (city.isEmpty && tileSubRegion != null && tileSubRegion.isNotEmpty) {
-        city = tileSubRegion;
-        finalData['city'] = city;
-      }
-
-      memoryController.locationCountry.value = country;
-      memoryController.locationFlag.value = flag;
-      memoryController.locationCity.value = city;
-      memoryController.locationAddress.value = finalData['address'] as String? ?? '';
-
-      memoryController.selectedLocation.value = locationName;
-      memoryController.locationLatitude.value = lat;
-      memoryController.locationLongitude.value = lng;
- var waterflag =  '';
- if(waterName != null && waterName.toLowerCase().contains('ocean')) {
-    waterflag ='🇺🇳' ;
-
- } else {
-  // waterName != ;
-  waterflag = '🌊';
- }
-    final locationData = {
+    // Use label fields already shown in the picker (no re-fetch).
+    final locationData = <String, dynamic>{
       'latitude': lat,
       'longitude': lng,
-      'city': memoryController.locationCity.value,
       'country': memoryController.locationCountry.value,
+      'city': memoryController.locationCity.value,
       'address': memoryController.locationAddress.value,
-      'flag': waterName != null ? waterflag : memoryController.locationFlag.value,
+      'flag': memoryController.locationFlag.value,
       'name': memoryController.locationName.value,
     };
 
+    memoryController.setEnhancedLocationData(locationData);
     Get.back(result: locationData);
   }
 
+  /// Call when leaving the picker route so the next open does not retain native map state.
+  Future<void> disposePickerMapSession() async {
+    _invalidatePendingLabelGeocode();
+    try {
+      await clearExistingMarkers();
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker] disposePickerMapSession clear markers: $e');
+    }
+    annotationManager = null;
+    selectedLocationMarker = null;
+    mapController = null;
+    _mapBootstrapped = false;
+  }
+
   Future<void> onEditLocationTextPressed() async {
+    _invalidatePendingLabelGeocode();
     final lat = selectedLocationMarker != null
         ? selectedLocationMarker!.geometry.coordinates.lat.toDouble()
         : memoryController.locationLatitude.value;
@@ -493,6 +510,7 @@ class MemoryLocationPickerController extends GetxController {
     if (lat == null || lng == null) return;
 
     final data = await Get.to(() => const MemoryLocationAdminEditWidget());
+    _invalidatePendingLabelGeocode();
     if (data == null) return;
 
     final patch = Map<String, dynamic>.from(data as Map);
@@ -589,7 +607,7 @@ class MemoryLocationPickerController extends GetxController {
         final lng = memoryController.locationLongitude.value!;
 
         await moveToLocation(lat, lng);
-        await selectLocation(lat, lng, userAction: false);
+        await _createOrMoveMarker(lat, lng);
         debugPrint('📍 Showing previously selected location on map load: $lat, $lng');
       } else if (hasLocationPermission.value && currentPosition.value != null) {
         // Otherwise, show current location if available
@@ -604,6 +622,10 @@ class MemoryLocationPickerController extends GetxController {
           userAction: false,
         );
         debugPrint('📍 Auto-selected current location on map load');
+      } else {
+        await moveToLocation(_fallbackLat, _fallbackLng);
+        await selectLocation(_fallbackLat, _fallbackLng, userAction: false);
+        debugPrint('📍 Using Germany fallback on map load');
       }
       // await _printAllLayersAndSources();
     } catch (e) {
@@ -641,17 +663,34 @@ class MemoryLocationPickerController extends GetxController {
     bool userAction = true,
   }) async {
     if (annotationManager == null) return;
+    final myGeneration = ++_labelGeocodeGeneration;
 
-  
-    // await Future.delayed(Duration(seconds: 01));
+    await _createOrMoveMarker(latitude, longitude);
+
     try {
-      // Clear existing markers first
+      final data = await _buildLocationDataForPin(latitude, longitude);
+      if (myGeneration != _labelGeocodeGeneration) return;
+      if (data != null) {
+        memoryController.setEnhancedLocationData(data);
+      } else {
+        memoryController.locationLatitude.value = latitude;
+        memoryController.locationLongitude.value = longitude;
+        memoryController.selectedLocation.value = '$latitude,$longitude';
+      }
+      debugPrint('Selected location ($latitude, $longitude)');
+    } catch (e) {
+      if (myGeneration != _labelGeocodeGeneration) return;
+      debugPrint('Error Reverse geocoding $e');
+      memoryController.locationLatitude.value = latitude;
+      memoryController.locationLongitude.value = longitude;
+      memoryController.selectedLocation.value = '$latitude,$longitude';
+    }
+  }
+
+  Future<void> _createOrMoveMarker(double latitude, double longitude) async {
+    try {
       await clearExistingMarkers();
-
-      // Create custom circular marker with app primary color
       final Uint8List imageData = await _createCircularMarker();
-
-      // Create point annotation options
       final pointAnnotationOptions = mapbox.PointAnnotationOptions(
         geometry: mapbox.Point(
           coordinates: mapbox.Position(longitude, latitude),
@@ -659,38 +698,10 @@ class MemoryLocationPickerController extends GetxController {
         image: imageData,
         iconSize: 1.0,
       );
-      
-       selectedLocationMarker = await annotationManager!.create(pointAnnotationOptions);
-      print('Selected Address $latitude $longitude');
-      // Add marker
+      selectedLocationMarker = await annotationManager!.create(pointAnnotationOptions);
+      debugPrint('Selected Address $latitude $longitude');
     } catch (e) {
       debugPrint('Error selecting location: $e');
-    }
-
-    try {
-
-      // Reverse geocode to get location name
-      final locationData = await GeocodingIsolateService.instance.reverseGeocode(
-        latitude,
-        longitude,
-      );
-
-      // Extract location name from the result
-      final locationName = locationData?['display_name'] as String? ?? 'Unknown Location';
-
-      print('Selected Address $locationName');
-
-      // Update memory controller with selected location
-       memoryController.selectedLocation.value = locationName;
-      memoryController.locationLatitude.value = latitude;
-      memoryController.locationLongitude.value = longitude;
-      
-      debugPrint('Selected location: $locationName ($latitude, $longitude)');
-
-    }catch(e) {
-
-      print('Error Reverse geocoding $e');
-
     }
   }
 
