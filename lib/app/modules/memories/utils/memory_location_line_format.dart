@@ -26,6 +26,12 @@ class MemoryLocationLineFormat {
     double? lat,
     double? lng,
   }) {
+    final f = flag.trim();
+    final n = locationName.trim();
+    if ((f == '🌊' || f == '🇺🇳') && n.isNotEmpty) {
+      return '$f $n';
+    }
+
     final p = parseAdminArea(locationCity);
     String place;
     if (p.cityTown.isNotEmpty && p.state.isNotEmpty) {
@@ -38,7 +44,6 @@ class MemoryLocationLineFormat {
       place = '';
     }
 
-    final f = flag.trim();
     if (f.isNotEmpty && place.isNotEmpty) {
       return '$f $place';
     }
@@ -48,7 +53,6 @@ class MemoryLocationLineFormat {
     if (place.isNotEmpty) {
       return place;
     }
-    final n = locationName.trim();
     if (n.isNotEmpty) {
       return n;
     }

@@ -413,7 +413,7 @@ class MemoryLocationPickerController extends GetxController {
     final displayName = finalData['display_name'] as String? ??
         finalData['name'] as String? ??
         'Unknown Location';
-    final nameOut = (finalData['name'] as String?)?.trim().isNotEmpty == true
+    String nameOut = (finalData['name'] as String?)?.trim().isNotEmpty == true
         ? finalData['name'] as String
         : displayName;
 
@@ -427,6 +427,10 @@ class MemoryLocationPickerController extends GetxController {
     if (flag.isEmpty && country.isNotEmpty) {
       flag = countryFlags[country.toLowerCase()] ?? '';
     }
+
+
+   
+
     if (city.isEmpty && tileSubRegion != null && tileSubRegion.isNotEmpty) {
       city = tileSubRegion;
     }
@@ -434,6 +438,34 @@ class MemoryLocationPickerController extends GetxController {
     final waterFlag = waterName != null && waterName.toLowerCase().contains('ocean')
         ? '🇺🇳'
         : '🌊';
+
+        if(waterFlag != null && waterFlag =='🌊') {
+          nameOut = '$waterName, $country';
+        }
+
+    // final waterFlag = waterName != null && waterName.toLowerCase().contains('ocean')
+    //     ? '🇺🇳'
+    //     : '🌊';
+
+        if(waterFlag != null && waterFlag =='🌊') {
+          nameOut = '$waterName, $country';
+        }
+
+    // final waterFlag = waterName != null && waterName.toLowerCase().contains('ocean')
+    //     ? '🇺🇳'
+    //     : '🌊';
+
+    print('waterName: $waterName');
+    print('waterFlag: $waterFlag');
+    print('flag: $flag');
+    print('country: $country');
+    print('city: $city');
+    print('nameOut: $nameOut');
+    print('finalData: $finalData');
+
+    if (waterName != null) {
+      finalData['name'] = nameOut;
+    }
 
     return <String, dynamic>{
       'latitude': lat,
