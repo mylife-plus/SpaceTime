@@ -18,6 +18,7 @@ import 'package:spacetime/services/mbtiles_download_service.dart';
 import 'package:spacetime/services/mbtiles_server_service.dart';
 import 'package:spacetime/services/style_json_download_service.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart';
 
 enum MemoryLocationPickerState {
   loading,
@@ -480,6 +481,30 @@ class MemoryLocationPickerController extends GetxController {
     };
 
     Get.back(result: locationData);
+  }
+
+  Future<void> onEditLocationTextPressed() async {
+    final lat = selectedLocationMarker != null
+        ? selectedLocationMarker!.geometry.coordinates.lat.toDouble()
+        : memoryController.locationLatitude.value;
+    final lng = selectedLocationMarker != null
+        ? selectedLocationMarker!.geometry.coordinates.lng.toDouble()
+        : memoryController.locationLongitude.value;
+    if (lat == null || lng == null) return;
+
+    final data = await Get.to(() => const MemoryLocationAdminEditWidget());
+    if (data == null) return;
+
+    final patch = Map<String, dynamic>.from(data as Map);
+    memoryController.setEnhancedLocationData(<String, dynamic>{
+      'latitude': lat,
+      'longitude': lng,
+      'country': patch['country'] ?? memoryController.locationCountry.value,
+      'city': patch['city'] ?? memoryController.locationCity.value,
+      'address': patch['address'] ?? memoryController.locationAddress.value,
+      'flag': patch['flag'] ?? memoryController.locationFlag.value,
+      'name': patch['name'] ?? memoryController.locationName.value,
+    });
   }
 
   Future<bool> _isTapOnWater(

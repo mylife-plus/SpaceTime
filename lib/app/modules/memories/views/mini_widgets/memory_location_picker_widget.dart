@@ -217,7 +217,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
                     ),
                   ),
                   GestureDetector(
-                    // onTap: () => controller.onEditLocationTextPressed(),
+                    onTap: () => controller.onEditLocationTextPressed(),
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
                       padding: const EdgeInsets.all(8),
