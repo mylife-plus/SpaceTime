@@ -21,13 +21,29 @@ class MemoryLocationPinGeocoding {
   ) async {
     final adminData = await getAdminHierarchy(lat, lng);
     final mapHadNoRenderedFeatures = adminData['assumeLandFromMap'] == 'true';
-    final adminWater = mapHadNoRenderedFeatures ? null : adminData['water'];
-    final isTapOnWater = await _isTapOnWater(
-      lat,
-      lng,
-      adminWater: adminWater,
-      mapHadNoRenderedFeatures: mapHadNoRenderedFeatures,
-    );
+    final adminMapHasNoWaterLayer = adminData['water'] == null &&
+        adminData['waterClass'] == null;
+
+    final bool isTapOnWater;
+    if (mapHadNoRenderedFeatures) {
+      // No vector hit at pixel — only offline polygons may indicate ocean/lake.
+      isTapOnWater = await _isTapOnWater(
+        lat,
+        lng,
+        adminWater: null,
+        mapHadNoRenderedFeatures: true,
+      );
+    } else if (adminMapHasNoWaterLayer) {
+      // Map returned features but no water / water_name — land: reverse geocode only.
+      isTapOnWater = false;
+    } else {
+      isTapOnWater = await _isTapOnWater(
+        lat,
+        lng,
+        adminWater: adminData['water'],
+        mapHadNoRenderedFeatures: false,
+      );
+    }
 
     final tileSubRegion = adminData['subRegion'] ?? adminData['city'];
     final locationData1 = await GeocodingIsolateService.instance.reverseGeocode(
@@ -43,7 +59,7 @@ class MemoryLocationPinGeocoding {
     Map<String, dynamic> finalData = locationData1 ?? <String, dynamic>{};
     String? waterName;
     if (isTapOnWater) {
-      waterName = adminWater;
+      waterName = adminData['water'];
       if (waterName == null ||
           waterName.trim().isEmpty ||
           waterName.trim().toLowerCase() == 'water') {
