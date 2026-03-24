@@ -7,14 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart'
-    show CameraBoundsOptions;
-import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
-import 'package:spacetime/app/utils/place_categories_utils.dart';
-import 'package:spacetime/app/utils/radius_polygon_helper.dart';
-import 'package:spacetime/services/geocoding_isolate_service.dart';
+import 'package:spacetime/app/modules/memories/services/memory_location_pin_geocoding.dart';
 import 'package:spacetime/app/modules/location_picker/services/location_picker_service.dart';
 import 'package:spacetime/services/mbtiles_download_service.dart';
 import 'package:spacetime/services/mbtiles_server_service.dart';
@@ -611,23 +606,29 @@ controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
     await addCircleLayer(mapController!, latitude, longitude, currentRadius);
 
     try {
-      // Reverse geocode to get location name
-      final locationData = await GeocodingIsolateService.instance
-          .reverseGeocode(latitude, longitude);
-
-      // Extract location name from the result
-      final locationName =
-          locationData?['display_name'] as String? ?? 'Unknown Location';
-
-      print('Selected Address $locationName');
+      final locationData =
+          await MemoryLocationPinGeocoding(mapController).buildLocationDataForPin(
+        latitude,
+        longitude,
+      );
 
       lat = latitude;
       lng = longitude;
-      name = locationName;
-
-      debugPrint('Selected location: $locationName ($latitude, $longitude)');
+      if (locationData != null) {
+        name = locationData['name'] as String? ?? 'Unknown Location';
+        city = locationData['city'] as String? ?? '';
+        country = locationData['country'] as String? ?? '';
+        address = locationData['address'] as String? ?? '';
+        flag = locationData['flag'] as String? ?? '';
+        debugPrint(
+          'Selected location: $name ($latitude, $longitude)',
+        );
+      } else {
+        name = 'Unknown Location';
+        debugPrint('Selected location (no geocode): ($latitude, $longitude)');
+      }
     } catch (e) {
-      print('Error Reverse geocoding $e');
+      debugPrint('Error Reverse geocoding $e');
     }
   }
 
@@ -638,7 +639,6 @@ controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
     double radiusMeters,
   ) async {
     final style = map.style;
-    final layers = await mapController!.style.getStyleLayers();
 
     double width = getWidth(radiusInKm.value);
     // Ensure coordinates are [lng, lat]!
@@ -1073,17 +1073,18 @@ controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
 
 Future<void> _getLocationDetails(double lat, double lng) async {
     try {
-      // Use the geocoding isolate service for reverse geocoding
-      final geocodingService = GeocodingIsolateService.instance;
-      final result = await geocodingService.reverseGeocode(lat, lng);
+      final result =
+          await MemoryLocationPinGeocoding(mapController).buildLocationDataForPin(
+        lat,
+        lng,
+      );
 
       if (result != null) {
-         country = result['country'] ?? '';
-         city = result['city'] ?? '';
-         address = result['address'] ?? '';
-         flag = result['flag'] ?? countryFlags[country.toLowerCase()] ?? '📍';
-         
-         
+         country = result['country'] as String? ?? '';
+         city = result['city'] as String? ?? '';
+         address = result['address'] as String? ?? '';
+         flag = result['flag'] as String? ?? '';
+         name = result['name'] as String? ?? '';
 
       //   memoryController.setEnhancedLocationData({
       //     'latitude': lat,
