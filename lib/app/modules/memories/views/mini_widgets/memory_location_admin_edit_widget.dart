@@ -51,6 +51,7 @@ class _MemoryLocationAdminEditWidgetState
       _stateProvinceController.text =
           p.state.isNotEmpty ? p.state : legacyAddr;
     }
+    _dedupeCityStateIfIdentical();
     _countrySearchController.text = _memoryController.locationCountry.value;
 
     _loadCountriesAndSelectCurrent();
@@ -135,6 +136,17 @@ class _MemoryLocationAdminEditWidgetState
   void _closeCountryDropdown() {
     if (!_showCountryDropdown) return;
     setState(() => _showCountryDropdown = false);
+  }
+
+  /// If city/town equals state/province/region, clear the latter (duplicate admin).
+  void _dedupeCityStateIfIdentical() {
+    final city = _cityTownController.text.trim();
+    final state = _stateProvinceController.text.trim();
+    if (city.isNotEmpty &&
+        state.isNotEmpty &&
+        city.toLowerCase() == state.toLowerCase()) {
+      _stateProvinceController.clear();
+    }
   }
 
   String _formatCoord(double? v) {
@@ -378,8 +390,13 @@ class _MemoryLocationAdminEditWidgetState
       return;
     }
 
-    final state = _stateProvinceController.text.trim();
+    var state = _stateProvinceController.text.trim();
     final city = _cityTownController.text.trim();
+    if (city.isNotEmpty &&
+        state.isNotEmpty &&
+        city.toLowerCase() == state.toLowerCase()) {
+      state = '';
+    }
 
     final combinedCity = () {
       if (city.isNotEmpty && state.isNotEmpty) return '$city, $state';

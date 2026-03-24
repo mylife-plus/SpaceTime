@@ -103,6 +103,7 @@ class MemoryInfoWidget extends StatelessWidget {
                         flag: controller.locationFlag.value,
                         locationCity: controller.locationCity.value,
                         locationName: controller.locationName.value,
+                        locationCountry: controller.locationCountry.value,
                         lat: controller.locationLatitude.value,
                         lng: controller.locationLongitude.value,
                       )

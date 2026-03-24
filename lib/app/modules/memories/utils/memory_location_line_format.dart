@@ -1,3 +1,5 @@
+import 'package:spacetime/app/utils/place_categories_utils.dart';
+
 /// Shared admin-area rules: [locationCity] stores `City/Town, State/Province`
 /// (split on the **first** comma). Edit screen: city field = 1st part, state field = 2nd.
 class MemoryLocationLineFormat {
@@ -23,10 +25,20 @@ class MemoryLocationLineFormat {
     required String flag,
     required String locationCity,
     String locationName = '',
+    String locationCountry = '',
     double? lat,
     double? lng,
   }) {
-    final f = flag.trim();
+    var f = flag.trim();
+    if (f == '🌊') {
+      final c = locationCountry.trim().toLowerCase();
+      if (c.isNotEmpty) {
+        final byCountry = countryFlags[c];
+        if (byCountry != null && byCountry.isNotEmpty) {
+          f = byCountry;
+        }
+      }
+    }
     final n = locationName.trim();
     if ((f == '🌊' || f == '🇺🇳') && n.isNotEmpty) {
       return '$f $n';

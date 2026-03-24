@@ -187,6 +187,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
             flag: m.locationFlag.value,
             locationCity: m.locationCity.value,
             locationName: m.locationName.value,
+            locationCountry: m.locationCountry.value,
             lat: lat,
             lng: lng,
           );
