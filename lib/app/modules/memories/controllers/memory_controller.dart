@@ -173,6 +173,43 @@ class MemoryController extends GetxController {
     }
   }
 
+  /// When reopening a draft, we only restore `selectedLocation` (lat,lng).
+  /// This rebuilds the enhanced location fields (country/city/name/flag/address)
+  /// from those saved coordinates instead of using GPS current location.
+  Future<void> fetchEnhancedLocationFromSelectedLocation() async {
+    final loc = selectedLocation.value.trim();
+    if (loc.isEmpty) return;
+
+    final parts = loc.split(',');
+    if (parts.length != 2) return;
+
+    final lat = double.tryParse(parts[0].trim());
+    final lng = double.tryParse(parts[1].trim());
+    if (lat == null || lng == null) return;
+
+    isFetchingLocation.value = true;
+    try {
+      final reverseGeocodedData = await _getLocationDetailsFromCoordinates(
+        lat,
+        lng,
+      );
+
+      if (reverseGeocodedData != null) {
+        setEnhancedLocationData({
+          'latitude': lat,
+          'longitude': lng,
+          'country': reverseGeocodedData['country'],
+          'city': reverseGeocodedData['city'],
+          'name': reverseGeocodedData['name'],
+          'address': reverseGeocodedData['address'],
+          'flag': reverseGeocodedData['flag'],
+        });
+      }
+    } finally {
+      isFetchingLocation.value = false;
+    }
+  }
+
   void setDate(DateTime date) => selectedDate.value = date;
   void setTime(TimeOfDay time) => selectedTime.value = time;
 
@@ -497,7 +534,22 @@ class MemoryController extends GetxController {
 
     // Get category from MemoryInfoWidget if you have it
     final category = selectedCategory.value;
+    //if locationFlag == 'asd
 
+    if (locationFlag.value.trim() == '🌊') {
+      final c = locationCountry.value.trim().toLowerCase();
+      final resolvedFlag = c.isNotEmpty ? countryFlags[c] : null;
+      if (resolvedFlag != null && resolvedFlag.isNotEmpty) {
+        locationFlag.value = resolvedFlag;
+      }
+
+      if (locationName.value.trim().isEmpty) {
+        final countryName = locationCountry.value.trim();
+        if (countryName.isNotEmpty) {
+          locationName.value = countryName;
+        }
+      }
+    }
     // Prepare memory data without images (images will be stored separately)
     final memory = {
       DatabaseHelper.columnDate: dateStr,
