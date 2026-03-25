@@ -1733,18 +1733,13 @@ class MapControllerNew extends GetxController {
       final zoom = _detailVisibilityMinZoom;
       currentZoom.value = zoom;
 
-      await mapboxMap!.flyTo(
+  await mapboxMap!.setCamera(
         mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(lng, lat),
-          ),
-          zoom: 2,
-          bearing: 0,
-          pitch: 0,
+          center: mapbox.Point(coordinates: mapbox.Position(lng!, lat!)),
+          zoom: zoom,
         ),
-        mapbox.MapAnimationOptions(duration: 1500),
       );
-
+      // 
       debugPrint(
         '[MapControllerNew] ✅ Default camera: latest memory at ($lat, $lng) with zoom $zoom',
       );
@@ -1758,20 +1753,26 @@ class MapControllerNew extends GetxController {
       final zoom = _minZoom.toDouble();
       currentZoom.value = zoom;
 
-      await mapboxMap!.flyTo(
+  await mapboxMap!.setCamera(
         mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(
-              pos.longitude,
-              pos.latitude,
-            ),
-          ),
-          zoom: 2,
-          bearing: 0,
-          pitch: 0,
+          center: mapbox.Point(coordinates: mapbox.Position(pos.longitude!, pos.latitude!)),
+          zoom: 6,
         ),
-        mapbox.MapAnimationOptions(duration: 1500),
       );
+      // await mapboxMap!.flyTo(
+      //   mapbox.CameraOptions(
+      //     center: mapbox.Point(
+      //       coordinates: mapbox.Position(
+      //         pos.longitude,
+      //         pos.latitude,
+      //       ),
+      //     ),
+      //     zoom: 2,
+      //     bearing: 0,
+      //     pitch: 0,
+      //   ),
+      //   mapbox.MapAnimationOptions(duration: 1500),
+      // );
 
       debugPrint(
         '[MapControllerNew] ✅ Default camera: current location at (${pos.latitude}, ${pos.longitude}) with zoom $zoom',
@@ -2672,17 +2673,24 @@ class MapControllerNew extends GetxController {
           '[MapControllerNew] 🔍 Zooming into cluster: $currentZoomLevel → $newZoom',
         );
 
-        await mapboxMap!.flyTo(
-          mapbox.CameraOptions(
-            center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
-            zoom: newZoom,
-          ),
-          mapbox.MapAnimationOptions(
-            duration:
-                800, // Smooth 800ms animation like CircleLayerClusteringPage
-            startDelay: 0,
-          ),
-        );
+        // await mapboxMap!.flyTo(
+        //   mapbox.CameraOptions(
+        //     center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+        //     zoom: newZoom,
+        //   ),
+        //   mapbox.MapAnimationOptions(
+        //     duration:
+        //         800, // Smooth 800ms animation like CircleLayerClusteringPage
+        //     startDelay: 0,
+        //   ),
+        // );
+
+        await mapboxMap!.setCamera(
+        mapbox.CameraOptions(
+          center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+          zoom: 6,
+        ),
+      );
 
         // Update reactive zoom variable
         currentZoom.value = newZoom;
@@ -3759,16 +3767,24 @@ class MapControllerNew extends GetxController {
           '[MapControllerNew] 🔍 Zooming into cluster: $currentZoomLevel → $newZoom',
         );
 
-        await mapboxMap!.flyTo(
-          mapbox.CameraOptions(
-            center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
-            zoom: newZoom,
-          ),
-          mapbox.MapAnimationOptions(
-            duration: 800, // Smooth 800ms animation
-            startDelay: 0,
-          ),
-        );
+
+        await mapboxMap!.setCamera(
+        mapbox.CameraOptions(
+          center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+          zoom: 6,
+        ),
+      );
+
+        // await mapboxMap!.flyTo(
+        //   mapbox.CameraOptions(
+        //     center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+        //     zoom: newZoom,
+        //   ),
+        //   mapbox.MapAnimationOptions(
+        //     duration: 800, // Smooth 800ms animation
+        //     startDelay: 0,
+        //   ),
+        // );
 
         // Update reactive zoom variable
         currentZoom.value = newZoom;
