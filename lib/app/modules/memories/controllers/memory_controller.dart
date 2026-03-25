@@ -51,6 +51,7 @@ class MemoryController extends GetxController {
 
   bool ifCalledFromMemoryView = false;
   RxBool isFetchingLocation = false.obs;
+  int _locationFetchToken = 0;
 
   // Popup controls
   RxBool isPopupOpen = false.obs;
@@ -108,6 +109,7 @@ class MemoryController extends GetxController {
   }
 
   Future<void> fetchCurrentLocation() async {
+    final token = ++_locationFetchToken;
     isFetchingLocation.value = true;
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -150,6 +152,8 @@ class MemoryController extends GetxController {
       );
 
       if (reverseGeocodedData != null) {
+        // Draft reopen might invalidate this fetch; don't override restored values.
+        if (token != _locationFetchToken) return;
         setEnhancedLocationData({
           'latitude': position.latitude,
           'longitude': position.longitude,
@@ -163,6 +167,7 @@ class MemoryController extends GetxController {
         });
         debugPrint('✅ Reverse geocoding successful for current location');
       } else {
+        if (token != _locationFetchToken) return;
         selectedLocation.value = '${position.latitude},${position.longitude}';
         debugPrint('⚠️ Reverse geocoding failed for current location');
       }
@@ -171,6 +176,11 @@ class MemoryController extends GetxController {
     } finally {
       isFetchingLocation.value = false;
     }
+  }
+
+  /// Invalidate any in-flight location fetch so it cannot override restored values.
+  void invalidateLocationFetch() {
+    _locationFetchToken++;
   }
 
   /// When reopening a draft, we only restore `selectedLocation` (lat,lng).

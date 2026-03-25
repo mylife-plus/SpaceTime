@@ -95,10 +95,30 @@ class _MemoryViewState extends State<MemoryView> {
 
     // Load draft for new memories (not in edit mode)
     if (!widget.editMode && widget.memoryData == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadDraft();
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _loadDraft();
 
-        memoryController.fetchCurrentLocation();
+        // Draft reopen might race with an in-flight GPS fetch from MemoryController.
+        // Invalidate it so it cannot override the restored location.
+        memoryController.invalidateLocationFetch();
+
+        // If draft already has enhanced location fields, do NOT geocode again.
+        final hasEnhancedLocation =
+            memoryController.locationFlag.value.isNotEmpty ||
+            memoryController.locationCountry.value.isNotEmpty ||
+            memoryController.locationCity.value.isNotEmpty ||
+            memoryController.locationName.value.isNotEmpty;
+
+        if (hasEnhancedLocation) {
+          return;
+        }
+
+        // Backward-compat: if only coordinates exist, rebuild enhanced fields once.
+        if (memoryController.selectedLocation.value.isNotEmpty) {
+          await memoryController.fetchEnhancedLocationFromSelectedLocation();
+        } else {
+          await memoryController.fetchCurrentLocation();
+        }
       });
 
       // Add auto-save listener to description controller
@@ -2234,6 +2254,14 @@ class _MemoryViewState extends State<MemoryView> {
                 ? '${memoryController.selectedTime.value!.hour}:${memoryController.selectedTime.value!.minute}'
                 : null,
         'selectedLocation': memoryController.selectedLocation.value,
+        // Persist enhanced location fields so we don't refetch on reopen.
+        'locationCountry': memoryController.locationCountry.value,
+        'locationCity': memoryController.locationCity.value,
+        'locationName': memoryController.locationName.value,
+        'locationAddress': memoryController.locationAddress.value,
+        'locationFlag': memoryController.locationFlag.value,
+        'locationLatitude': memoryController.locationLatitude.value,
+        'locationLongitude': memoryController.locationLongitude.value,
         'selectedCategory': memoryController.selectedCategory.value,
         'tags': tags,
         'mentions': mentions,
@@ -2331,6 +2359,27 @@ class _MemoryViewState extends State<MemoryView> {
         if (draftData['selectedLocation'] != null &&
             draftData['selectedLocation'].toString().isNotEmpty) {
           memoryController.setLocation(draftData['selectedLocation']);
+        }
+
+        // Restore enhanced location (avoid reverse geocoding on reopen).
+        memoryController.locationCountry.value =
+            draftData['locationCountry'] ?? '';
+        memoryController.locationCity.value =
+            draftData['locationCity'] ?? '';
+        memoryController.locationName.value =
+            draftData['locationName'] ?? '';
+        memoryController.locationAddress.value =
+            draftData['locationAddress'] ?? '';
+        memoryController.locationFlag.value =
+            draftData['locationFlag'] ?? '';
+
+        final savedLat = draftData['locationLatitude'];
+        final savedLng = draftData['locationLongitude'];
+        if (savedLat != null) {
+          memoryController.locationLatitude.value = (savedLat as num).toDouble();
+        }
+        if (savedLng != null) {
+          memoryController.locationLongitude.value = (savedLng as num).toDouble();
         }
 
         // Restore category
