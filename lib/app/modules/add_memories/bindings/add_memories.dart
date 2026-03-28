@@ -1,13 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/app_bootstrap.dart';
 
 import '../controllers/add_memories_controller.dart';
 
 class AddMemoriesBindings extends Bindings {
   @override
   void dependencies() {
-    // AddMemoriesController is initialized in main.dart as permanent singleton
-    // Always use Get.find() - it should always be available
+    ensureHeavyAppControllersRegistered();
     final controller = Get.find<AddMemoriesController>();
     debugPrint('[AddMemoriesBindings] Using existing AddMemoriesController instance: ${controller.hashCode}');
   }

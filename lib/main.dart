@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -6,24 +8,13 @@ import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/helpers/offline_water_service.dart';
-import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
-import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
-import 'package:spacetime/app/modules/map/controllers/memory_location_picker_with_radius_controller.dart';
-import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
-import 'package:spacetime/services/geocoding_isolate_service.dart';
 import 'package:spacetime/services/connectivity_service.dart';
 import 'package:spacetime/services/permission_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:background_downloader/background_downloader.dart';
 
-import 'app/modules/memories/controllers/memory_controller.dart';
-import 'app/modules/map/controllers/map_controller_new.dart';
-import 'app/repositories/memory_repository.dart';
-import 'app/repositories/cluster_repository.dart';
-import 'app/services/map_marker_service.dart';
-import 'app/services/map_marker_creation_service.dart';
 import 'app/routes/app_pages.dart';
 import 'app/services/memory_db.dart';
 import 'app/services/path_migration_helper.dart';
@@ -34,28 +25,47 @@ import 'app/helpers/mapbox_zoom_helper.dart';
 // import 'app/repositories/offline_map_repository.dart';
 // import 'app/services/offline_map_coordinator_service.dart';
 // import 'app/services/native_tile_download_service.dart';
-import 'app/modules/get_started/controllers/get_started_controller.dart';
 import 'services/asset_tile_loader_service.dart';
 import 'services/mbtiles_download_service.dart';
 import 'services/mbtiles_server_service.dart';
 import 'services/style_json_download_service.dart';
 import 'services/memory_geojson_service.dart';
+import 'package:spacetime/services/geocoding_isolate_service.dart';
+import 'app/modules/get_started/controllers/get_started_controller.dart';
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: binding);
 
-  // Restrict orientation to portrait only
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // Only what MyApp needs for the first frame — everything else runs after paint
+  // so the engine reaches runApp quickly and the native splash can dismiss.
+  Get.put(UiController(), permanent: true);
 
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
-  MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
+  runApp(MyApp());
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _bootstrapAfterFirstPaint();
+  });
+}
 
-  // Initialize background downloader
+Future<void> _bootstrapAfterFirstPaint() async {
+  FlutterNativeSplash.remove();
+
+  try {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  } catch (e) {
+    debugPrint('[main] setPreferredOrientations: $e');
+  }
+
+  try {
+    await dotenv.load(fileName: ".env");
+    MapboxOptions.setAccessToken(dotenv.get('MAPBOX_ACCESS_TOKEN'));
+  } catch (e) {
+    debugPrint('[main] dotenv / Mapbox token: $e');
+  }
+
   FileDownloader().trackTasks();
   FileDownloader().configureNotification(
     running: const TaskNotification('Downloading', 'Download in progress'),
@@ -70,41 +80,33 @@ Future<void> main() async {
     },
   );
 
-  // Initialize only critical services
-  Get.put(UiController(), permanent: true);
   Get.put(ConnectivityService(), permanent: true);
   Get.put(PermissionService(), permanent: true);
-  Get.put(MemoryRepository(), permanent: true);
-  Get.put(ClusterRepository(), permanent: true);
-  Get.put(MapMarkerCreationService(), permanent: true);
-  Get.put(MapMarkerService(), permanent: true);
   Get.put(StyleJsonDownloadService(), permanent: true);
-  Get.put(GeocodingIsolateService(), permanent: true);
 
-  // Initialize controllers - GetStartedController handles heavy init
-  Get.put(GetStartedController(), permanent: true);
-  Get.put(MemoryController(), permanent: true);
-  Get.put(FilterController(), permanent: true);
-  Get.put(AddMemoriesController(), permanent: true);
-  Get.put(MapControllerNew(), permanent: true);
-  Get.put(MemoryLocationPickerControllerWithRadius(), permanent: true);
-_initAssets();
-  runApp(MyApp());
-}
-
-
-  Future<void> _initAssets() async {
-    try {
-      await NearestRegionService().loadFromAssets();
-      await OfflineWaterService.instance.init(
-        oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',
-        lakeGeoJson: 'assets/geo/ne_110m_lakes.json',
-      );
-    } catch (e) {
-      debugPrint('[GetStartedController] Assets init error: $e');
-    }
+  if (Get.isRegistered<GetStartedController>()) {
+    Get.find<GetStartedController>().runStartupInitialization();
   }
 
+  unawaited(_deferGeoAssets());
+}
+
+Future<void> _deferGeoAssets() async {
+  await Future<void>.delayed(const Duration(milliseconds: 400));
+  await _initAssets();
+}
+
+Future<void> _initAssets() async {
+  try {
+    await NearestRegionService().loadFromAssets();
+    await OfflineWaterService.instance.init(
+      oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',
+      lakeGeoJson: 'assets/geo/ne_110m_lakes.json',
+    );
+  } catch (e) {
+    debugPrint('[GetStartedController] Assets init error: $e');
+  }
+}
 
 Future<void> clearAppData() async {
   try {

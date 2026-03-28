@@ -44,7 +44,7 @@ class OfflineWaterService {
   /// - null → land
   WaterHit? detect(double lat, double lng) {
     if (!_initialized) {
-      throw StateError('OfflineWaterService.init() was not called');
+      return null;
     }
 
     final point = LatLng(lat, lng);

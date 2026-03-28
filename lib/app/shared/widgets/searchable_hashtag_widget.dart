@@ -213,6 +213,18 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     debugPrint('[SearchableHashtagWidget] Focus changed: $isFocused');
   }
 
+  /// Scroll area cap by screen size + variant (compact / filter overlay / full).
+  double _resultsPanelMaxHeight(BuildContext context) {
+    final h = MediaQuery.sizeOf(context).height;
+    if (widget.isCompact) {
+      return (h * 0.26).clamp(112.0, 188.0);
+    }
+    if (widget.isInFilterMode) {
+      return (h * 0.30).clamp(160.0, 248.0);
+    }
+    return (h * 0.36).clamp(220.0, 360.0);
+  }
+
   Future<void> _loadData() async {
     _isLoading.value = true;
     try {
@@ -604,13 +616,12 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
           if (_showResults.value) ...[
             const SizedBox(height: 8),
             Container(
-              constraints: BoxConstraints(maxHeight: widget.isInFilterMode ? 225 : 300),
+              constraints: BoxConstraints(maxHeight: _resultsPanelMaxHeight(context)),
               decoration: const BoxDecoration(
                 color: Colors.transparent,
               ),
               child: Column(
                 children: [
-                  // Results list
                   Expanded(
                     child: _isLoading.value
                         ? const Center(
@@ -621,9 +632,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                           )
                         : _buildResultsList(uiController),
                   ),
-
-                  // Bottom "See List" button (sticky)
-                  _buildSeeListButton(uiController),
+                  _buildSeeListButton(context, uiController),
                 ],
               ),
             ),
@@ -817,72 +826,70 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     );
   }
 
-  Widget _buildSeeListButton(UiController uiController) {
+  Widget _buildSeeListButton(BuildContext context, UiController uiController) {
+    final dense = widget.isCompact || widget.isInFilterMode;
+    final minTap = dense ? 44.0 : 48.0;
+    final fontSize = dense ? 15.0 : 16.0;
+    final dividerColor = Theme.of(context).dividerColor.withValues(alpha: 0.35);
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Divider(height: 1, color: Colors.grey.withValues(alpha: 0.3)),
-        InkWell(
-          onTap: () async {
-            // Convert previously selected hashtag strings to HashtagGroup objects
-            List<HashtagGroup>? previouslySelected;
-            if (widget.previouslySelectedHashtags != null && widget.previouslySelectedHashtags!.isNotEmpty) {
-              previouslySelected = await _convertHashtagStringsToGroups(widget.previouslySelectedHashtags!);
-              debugPrint('[SearchableHashtagWidget] Passing ${previouslySelected.length} previously selected hashtag groups to picker');
-            }
+        Divider(height: 1, thickness: 1, color: dividerColor),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () async {
+              List<HashtagGroup>? previouslySelected;
+              if (widget.previouslySelectedHashtags != null && widget.previouslySelectedHashtags!.isNotEmpty) {
+                previouslySelected = await _convertHashtagStringsToGroups(widget.previouslySelectedHashtags!);
+                debugPrint('[SearchableHashtagWidget] Passing ${previouslySelected.length} previously selected hashtag groups to picker');
+              }
 
-            // Navigate to Hashtag Groups page in multiple selection mode
-            final result = await Get.to(
-              () => HashtagGroupsView(
-                allowMultipleSelection: true,
-                selectedHashtagGroups: previouslySelected,
-                onMultipleHashtagGroupsSelected: (selectedGroups) {
-                  // If we have a callback for replacing selection (filter mode), use it
-                  if (widget.onMultipleGroupsSelectedFromPicker != null) {
-                    widget.onMultipleGroupsSelectedFromPicker!(selectedGroups);
-                    // Save each selected group to recents
-                    for (final group in selectedGroups) {
-                      _saveRecentHashtagGroup(group);
+              final result = await Get.to(
+                () => HashtagGroupsView(
+                  allowMultipleSelection: true,
+                  selectedHashtagGroups: previouslySelected,
+                  onMultipleHashtagGroupsSelected: (selectedGroups) {
+                    if (widget.onMultipleGroupsSelectedFromPicker != null) {
+                      widget.onMultipleGroupsSelectedFromPicker!(selectedGroups);
+                      for (final group in selectedGroups) {
+                        _saveRecentHashtagGroup(group);
+                      }
+                      _loadRecentHashtags();
+                    } else {
+                      for (final group in selectedGroups) {
+                        _selectGroup(group);
+                      }
                     }
-                    // Reload recent hashtags to update the UI
-                    _loadRecentHashtags();
-                  } else {
-                    // Otherwise, add groups individually (normal mode)
-                    for (final group in selectedGroups) {
-                      _selectGroup(group);
-                    }
+                  },
+                ),
+              );
+
+              if (result != null && result is List<HashtagGroup>) {
+                if (widget.onMultipleGroupsSelectedFromPicker != null) {
+                  widget.onMultipleGroupsSelectedFromPicker!(result);
+                  for (final group in result) {
+                    _saveRecentHashtagGroup(group);
                   }
-                },
-              ),
-            );
-
-            // Handle result if returned via Get.back
-            if (result != null && result is List<HashtagGroup>) {
-              // If we have a callback for replacing selection (filter mode), use it
-              if (widget.onMultipleGroupsSelectedFromPicker != null) {
-                widget.onMultipleGroupsSelectedFromPicker!(result);
-                // Save each selected group to recents
-                for (final group in result) {
-                  _saveRecentHashtagGroup(group);
-                }
-                // Reload recent hashtags to update the UI
-                _loadRecentHashtags();
-              } else {
-                // Otherwise, add groups individually (normal mode)
-                for (final group in result) {
-                  _selectGroup(group);
+                  _loadRecentHashtags();
+                } else {
+                  for (final group in result) {
+                    _selectGroup(group);
+                  }
                 }
               }
-            }
-          },
-          child: Container(
-            height: widget.isInFilterMode ? 40 : null, // Fixed height only in filter mode
-            padding: widget.isInFilterMode
-                ?  const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 0)
-                : const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 8),
-            child: Center(
-              child: Text(
-                'See List',
-                style: AppFonts.medium(18, color: uiController.currentMainColor),
+            },
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minTap),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  child: Text(
+                    'See List',
+                    style: AppFonts.medium(fontSize, color: uiController.currentMainColor),
+                  ),
+                ),
               ),
             ),
           ),

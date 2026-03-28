@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../../services/connectivity_service.dart';
+import '../../../../services/permission_service.dart';
 import '../../../services/offline_map_coordinator_service.dart';
 import '../../../services/offline_map_service.dart';
 import '../../../routes/app_pages.dart';
@@ -67,13 +66,18 @@ class GetStartedController extends GetxController {
 
   final RxBool isInitializing = true.obs;
 
+  bool _startupInitializationStarted = false;
+
   @override
   void onInit() {
     super.onInit();
-    // Start initialization after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeEverything();
-    });
+  }
+
+  /// Called from [main] after core services register (native splash already removed).
+  void runStartupInitialization() {
+    if (_startupInitializationStarted) return;
+    _startupInitializationStarted = true;
+    _initializeEverything();
   }
 
   Future<void> _initializeEverything() async {
@@ -85,7 +89,6 @@ class GetStartedController extends GetxController {
     await _checkIfShouldShowGetStarted();
 
     isInitializing.value = false;
-    FlutterNativeSplash.remove();
   }
 
   Future<void> _initializeBackgroundServices() async {
@@ -907,59 +910,26 @@ class GetStartedController extends GetxController {
       debugPrint('[GetStartedController] Checking location permissions...');
       isCheckingPermissions.value = true;
 
-      // Add timeout to prevent hanging on Android
-      await Future.any([
-        _performLocationPermissionCheck(),
-        Future.delayed(const Duration(seconds: 10), () {
-          debugPrint('[GetStartedController] ⚠️ Location permission check timed out after 10 seconds');
-          throw TimeoutException('Location permission check timed out');
-        }),
-      ]);
-
-      isCheckingPermissions.value = false;
-    } catch (e) {
-      debugPrint('[GetStartedController] Error checking location permissions: $e');
-      hasLocationPermission.value = false;
-      isCheckingPermissions.value = false;
-    }
-  }
-
-  /// Perform the actual location permission check
-  Future<void> _performLocationPermissionCheck() async {
-    try {
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        debugPrint('[GetStartedController] Location services are disabled');
+      if (!Get.isRegistered<PermissionService>()) {
         hasLocationPermission.value = false;
         return;
       }
-
-      // Check current permission status
-      LocationPermission permission = await Geolocator.checkPermission();
-      debugPrint('[GetStartedController] Current location permission: $permission');
-
-      if (permission == LocationPermission.denied) {
-        // Request permission
-        debugPrint('[GetStartedController] Requesting location permission...');
-        permission = await Geolocator.requestPermission();
-        debugPrint('[GetStartedController] Permission after request: $permission');
-      }
-
-      // Update permission status
-      hasLocationPermission.value = permission == LocationPermission.whileInUse ||
-                                   permission == LocationPermission.always;
-
-      if (permission == LocationPermission.deniedForever) {
-        debugPrint('[GetStartedController] Location permission denied forever');
-        // Could show a dialog to open app settings, but for now just log it
-      }
-
-      debugPrint('[GetStartedController] Final location permission status: ${hasLocationPermission.value}');
+      final ps = Get.find<PermissionService>();
+      final granted = await ps.checkLocationPermission(requestIfDenied: false).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          debugPrint('[GetStartedController] Permission check timed out, using cached state');
+          return ps.hasLocationPermission.value;
+        },
+      );
+      hasLocationPermission.value = granted;
     } catch (e) {
-      debugPrint('[GetStartedController] Error in permission check: $e');
-      hasLocationPermission.value = false;
-      rethrow;
+      debugPrint('[GetStartedController] Error checking location permissions: $e');
+      hasLocationPermission.value = Get.isRegistered<PermissionService>()
+          ? Get.find<PermissionService>().hasLocationPermission.value
+          : false;
+    } finally {
+      isCheckingPermissions.value = false;
     }
   }
 }
