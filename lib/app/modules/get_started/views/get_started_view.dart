@@ -465,8 +465,9 @@ const SizedBox(height: 8),
                     ? const SizedBox(height: 8)
                     : const SizedBox.shrink()),
 
-                  // Start button (only show when download UI is visible)
-                  Obx(() => controller.showDownloadUI.value
+                  // Start button (hide only while tile-check routing is in progress)
+                  Obx(() => (controller.showDownloadUI.value &&
+                          !controller.hideStartButtonDuringTileCheck.value)
                       ? _buildStartButton(uiController)
                       : const SizedBox.shrink()),
 

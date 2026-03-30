@@ -756,6 +756,9 @@ class _MemoryViewState extends State<MemoryView> {
         !hasDescription &&
         !hasCategory) {
       debugPrint('All fields are empty, going back without showing dialog');
+      if (!widget.editMode) {
+        memoryController.clearAllData();
+      }
       Get.back();
       return;
     }
@@ -797,9 +800,9 @@ class _MemoryViewState extends State<MemoryView> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        memoryController.selectedCategory.value = '';
-                        memoryController.selectedDate.value = DateTime.now();
-                        memoryController.selectedTime.value = TimeOfDay.now();
+                        if (!widget.editMode) {
+                          memoryController.clearAllData();
+                        }
 
                         _clearDraft();
                         Navigator.pop(context);
@@ -1597,6 +1600,12 @@ class _MemoryViewState extends State<MemoryView> {
 
           _orderedMedia.clear();
           debugPrint('Image data cleared on back navigation');
+
+          // In create mode, also clear location/category/date so next new memory
+          // starts fresh with current location instead of previous picked one.
+          if (!widget.editMode) {
+            memoryController.clearAllData();
+          }
         }
       },
       child: Obx(
@@ -1944,7 +1953,9 @@ class _MemoryViewState extends State<MemoryView> {
 
         
         decoration: BoxDecoration(
-          color:   controller.darkMode.value ? Colors.red.withValues(alpha: 0.7) :Colors.red.withValues(alpha: 0.1),
+          color: controller.darkMode.value
+              ? Colors.red.withValues(alpha: 0.7)
+              : Colors.red,
           borderRadius: BorderRadius.circular(20),
           border:   controller.darkMode.value
               ? Border.all(

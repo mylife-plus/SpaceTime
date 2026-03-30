@@ -61,6 +61,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
   double _lastScrollOffset = 0.0;
   bool _isScrollingDown = false;
+  DateTime? _lastResumeRefreshAt;
 
   // ============================================================================
   // FILTER STATE (delegates to FilterController)
@@ -126,9 +127,36 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint('AddMemoriesController: app resumed — refreshing memory data only');
-      loadMemoriesFromDatabase();
+      // Prevent duplicate resume refreshes in very short intervals.
+      final now = DateTime.now();
+      if (_lastResumeRefreshAt != null &&
+          now.difference(_lastResumeRefreshAt!) <
+              const Duration(milliseconds: 800)) {
+        return;
+      }
+      _lastResumeRefreshAt = now;
+      debugPrint(
+        'AddMemoriesController: app resumed — refreshing memory data and preserving scroll',
+      );
+      _refreshMemoriesPreserveScroll();
     }
+  }
+
+  Future<void> _refreshMemoriesPreserveScroll() async {
+    final hadClients = scrollController.hasClients;
+    final previousOffset = hadClients ? scrollController.offset : 0.0;
+
+    await loadMemoriesFromDatabase();
+
+    if (!scrollController.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!scrollController.hasClients) return;
+      final maxExtent = scrollController.position.maxScrollExtent;
+      final target = previousOffset.clamp(0.0, maxExtent);
+      if ((scrollController.offset - target).abs() > 0.5) {
+        scrollController.jumpTo(target);
+      }
+    });
   }
 
   // Load filter data for dropdowns (same as memory view popups)
@@ -1859,6 +1887,33 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
         duration: const Duration(seconds: 2),
       );
       return;
+    }
+
+    // Validate date range: "to date" cannot be earlier than "from date"
+    final fromDateStr = filterValues['from date'];
+    final toDateStr = filterValues['to date'];
+    if ((fromDateStr?.isNotEmpty ?? false) && (toDateStr?.isNotEmpty ?? false)) {
+      try {
+        final from = DateTime.parse(fromDateStr!);
+        final to = DateTime.parse(toDateStr!);
+        final fromDateOnly = DateTime(from.year, from.month, from.day);
+        final toDateOnly = DateTime(to.year, to.month, to.day);
+
+        if (toDateOnly.isBefore(fromDateOnly)) {
+          Get.snackbar(
+            'Invalid Date Range',
+            'To Date cannot be earlier than From Date',
+            backgroundColor: Colors.red.shade400,
+            colorText: Colors.white,
+            margin: const EdgeInsets.all(12),
+            snackPosition: SnackPosition.TOP,
+            duration: const Duration(seconds: 2),
+          );
+          return;
+        }
+      } catch (e) {
+        debugPrint('[AddMemoriesController] Date validation parse error: $e');
+      }
     }
 
     // Clear search when filters are applied

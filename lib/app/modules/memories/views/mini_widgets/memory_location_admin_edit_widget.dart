@@ -27,17 +27,31 @@ class _MemoryLocationAdminEditWidgetState
       TextEditingController();
   final TextEditingController _stateProvinceController = TextEditingController();
   final TextEditingController _cityTownController = TextEditingController();
+  final FocusNode _countryFocusNode = FocusNode();
+  final FocusNode _cityFocusNode = FocusNode();
+  final FocusNode _stateFocusNode = FocusNode();
 
   bool _isLoadingCountries = true;
   bool _showCountryDropdown = false;
   List<Country> _filteredCountries = <Country>[];
   Country? _selectedCountry;
+  bool _didSubmit = false;
+  late final String _originalCountry;
+  late final String _originalCity;
+  late final String _originalAddress;
+  late final String _originalFlag;
+  late final String _originalName;
   final GlobalKey _countryRowKey = GlobalKey();
   final LayerLink _countryFieldLayerLink = LayerLink();
 
   @override
   void initState() {
     super.initState();
+    _originalCountry = _memoryController.locationCountry.value;
+    _originalCity = _memoryController.locationCity.value;
+    _originalAddress = _memoryController.locationAddress.value;
+    _originalFlag = _memoryController.locationFlag.value;
+    _originalName = _memoryController.locationName.value;
 
     // Admin area [locationCity]: first segment → city/town, after first comma → state/province.
     final rawAdmin = _memoryController.locationCity.value.trim();
@@ -64,7 +78,22 @@ class _MemoryLocationAdminEditWidgetState
     _countrySearchController.dispose();
     _stateProvinceController.dispose();
     _cityTownController.dispose();
+    _countryFocusNode.dispose();
+    _cityFocusNode.dispose();
+    _stateFocusNode.dispose();
     super.dispose();
+  }
+
+  void _restoreOriginalLocationTextIfCancelled() {
+    _memoryController.setEnhancedLocationData(<String, dynamic>{
+      'latitude': _memoryController.locationLatitude.value,
+      'longitude': _memoryController.locationLongitude.value,
+      'country': _originalCountry,
+      'city': _originalCity,
+      'address': _originalAddress,
+      'flag': _originalFlag,
+      'name': _originalName,
+    });
   }
 
   Future<void> _loadCountriesAndSelectCurrent() async {
@@ -231,7 +260,9 @@ class _MemoryLocationAdminEditWidgetState
     final canCopy = _memoryController.locationLatitude.value != null &&
         _memoryController.locationLongitude.value != null;
 
-    return Container(
+    return InkWell(
+      onTap: canCopy ? _copyGpsLocation : null,
+      child: Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
@@ -283,7 +314,7 @@ class _MemoryLocationAdminEditWidgetState
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -303,32 +334,12 @@ class _MemoryLocationAdminEditWidgetState
                     ],
                   ),
                 ),
-                Tooltip(
-                  message: 'Copy coordinates',
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      onTap: canCopy ? _copyGpsLocation : null,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 8, 2, 8),
-                        child: Icon(
-                          Icons.copy_outlined,
-                          size: 22,
-                          color: valueColor.withValues(
-                            alpha: canCopy ? 0.65 : 0.35,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildRowField({
@@ -365,7 +376,11 @@ class _MemoryLocationAdminEditWidgetState
         children: [
           TickCrossActionButton(
             iconPath: 'assets/images/ic_cross.png',
-            onTap: Get.back,
+            onTap: () {
+              _didSubmit = false;
+              _restoreOriginalLocationTextIfCancelled();
+              Get.back();
+            },
           ),
           TickCrossActionButton(
             iconPath: 'assets/images/ic_tick.png',
@@ -417,12 +432,19 @@ class _MemoryLocationAdminEditWidgetState
       'name': combinedCity.isNotEmpty ? '$combinedCity, $countryName' : countryName,
     };
 
+    _didSubmit = true;
     Get.back(result: payload);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop && !_didSubmit) {
+          _restoreOriginalLocationTextIfCancelled();
+        }
+      },
+      child: Scaffold(
       backgroundColor:
           _uiController.darkMode.value
               ? Colors.black
@@ -450,9 +472,16 @@ class _MemoryLocationAdminEditWidgetState
               _uiController.mainColor.value,
             );
 
-        Widget plainValueField(TextEditingController c) {
+        Widget plainValueField(
+          TextEditingController c, {
+          FocusNode? focusNode,
+          TextInputAction? textInputAction,
+        }) {
           return TextField(
             controller: c,
+            focusNode: focusNode,
+            textInputAction: textInputAction,
+            onTap: _closeCountryDropdown,
             decoration: const InputDecoration(
               isDense: true,
               border: InputBorder.none,
@@ -462,158 +491,176 @@ class _MemoryLocationAdminEditWidgetState
           );
         }
 
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: _closeCountryDropdown,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              // Match _buildRowField / GPS row: symmetric horizontal margin 10 + 10.
-              final dropdownWidth =
-                  (constraints.maxWidth - 20).clamp(0.0, double.infinity);
-              return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                color: bg,
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: _isLoadingCountries
-                          ? const Center(child: CircularProgressIndicator())
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    child: Column(
-                                      children: [
-                                        _buildGpsLocationRowField(
-                                          isDark: isDark,
-                                          valueColor: valueColor,
-                                        ),
-                                        CompositedTransformTarget(
-                                          link: _countryFieldLayerLink,
-                                          child: _buildRowField(
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final dropdownWidth =
+                (constraints.maxWidth - 20).clamp(0.0, double.infinity);
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  color: bg,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child:
+                            _isLoadingCountries
+                                ? const Center(child: CircularProgressIndicator())
+                                : SingleChildScrollView(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Column(
+                                    children: [
+                                      Column(
+                                        children: [
+                                          _buildGpsLocationRowField(
                                             isDark: isDark,
-                                            label: 'Country',
-                                            child: Row(
-                                              key: _countryRowKey,
-                                              children: [
-                                                if (_selectedCountry != null)
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(
-                                                      right: 8,
-                                                    ),
-                                                    child: Text(
-                                                      _flagFromIso2(
-                                                        _selectedCountry!.code,
+                                            valueColor: valueColor,
+                                          ),
+                                          CompositedTransformTarget(
+                                            link: _countryFieldLayerLink,
+                                            child: _buildRowField(
+                                              isDark: isDark,
+                                              label: 'Country',
+                                              child: Row(
+                                                key: _countryRowKey,
+                                                children: [
+                                                  if (_selectedCountry != null)
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            right: 8,
+                                                          ),
+                                                      child: Text(
+                                                        _flagFromIso2(
+                                                          _selectedCountry!.code,
+                                                        ),
+                                                        style: AppFonts.medium(
+                                                          16,
+                                                          color: valueColor,
+                                                        ),
                                                       ),
+                                                    ),
+                                                  Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          _countrySearchController,
+                                                      focusNode:
+                                                          _countryFocusNode,
+                                                      onTap: () {
+                                                        // Mirror other fields: focus immediately on first tap.
+                                                        _countryFocusNode.requestFocus();
+                                                        setState(() {
+                                                          _showCountryDropdown = true;
+                                                        });
+                                                      },
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            isDense: true,
+                                                            border:
+                                                                InputBorder.none,
+                                                            contentPadding:
+                                                                EdgeInsets.zero,
+                                                          ),
                                                       style: AppFonts.medium(
                                                         16,
                                                         color: valueColor,
                                                       ),
                                                     ),
                                                   ),
-                                                Expanded(
-                                                  child: TextField(
-                                                    controller: _countrySearchController,
-                                                    onTap: () => setState(
-                                                      () => _showCountryDropdown = true,
-                                                    ),
-                                                    decoration: const InputDecoration(
-                                                      isDense: true,
-                                                      border: InputBorder.none,
-                                                      contentPadding: EdgeInsets.zero,
-                                                    ),
-                                                    style: AppFonts.medium(
-                                                      16,
-                                                      color: valueColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        _buildRowField(
-                                          isDark: isDark,
-                                          label: 'City/Town',
-                                          child: plainValueField(
-                                            _cityTownController,
+                                          _buildRowField(
+                                            isDark: isDark,
+                                            label: 'City/Town',
+                                            child: plainValueField(
+                                              _cityTownController,
+                                              focusNode: _cityFocusNode,
+                                              textInputAction:
+                                                  TextInputAction.next,
+                                            ),
                                           ),
-                                        ),
-                                        _buildRowField(
-                                          isDark: isDark,
-                                          label: 'State/Province/Region',
-                                          child: plainValueField(
-                                            _stateProvinceController,
+                                          _buildRowField(
+                                            isDark: isDark,
+                                            label: 'State/Province/Region',
+                                            child: plainValueField(
+                                              _stateProvinceController,
+                                              focusNode: _stateFocusNode,
+                                              textInputAction:
+                                                  TextInputAction.done,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 20),
+                                      _buildBottomButtons(),
+                                      const SizedBox(height: 40),
+                                    ],
                                   ),
-                                  const SizedBox(height: 20),
-                                  _buildBottomButtons(),
-                                  const SizedBox(height: 40),
-                                ],
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_showCountryDropdown)
-                CompositedTransformFollower(
-                  link: _countryFieldLayerLink,
-                  showWhenUnlinked: false,
-                  targetAnchor: Alignment.bottomLeft,
-                  followerAnchor: Alignment.topLeft,
-                  // Target box includes margin; bottomLeft is x=0 — match row margin 10.
-                  offset: const Offset(10, 2),
-                  child: SizedBox(
-                    width: dropdownWidth,
-                    child: Material(
-                      elevation: 10,
-                      color: isDark ? Colors.grey[900] : Colors.white,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 240),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          shrinkWrap: true,
-                          itemCount: _filteredCountries.length,
-                          itemBuilder: (context, index) {
-                            final country = _filteredCountries[index];
-                            final flag = _flagFromIso2(country.code);
-                            return ListTile(
-                              dense: true,
-                              title: Text(
-                                '$flag ${country.name}',
-                                style: AppFonts.medium(
-                                  16,
-                                  color: isDark ? Colors.white : Colors.black,
                                 ),
-                              ),
-                              onTap: () {
-                                setState(() {
-                                  _selectedCountry = country;
-                                  _countrySearchController.text = country.name;
-                                  _showCountryDropdown = false;
-                                });
-                              },
-                            );
-                          },
-                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_showCountryDropdown)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _closeCountryDropdown,
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                if (_showCountryDropdown)
+                  CompositedTransformFollower(
+                    link: _countryFieldLayerLink,
+                    showWhenUnlinked: false,
+                    targetAnchor: Alignment.bottomLeft,
+                    followerAnchor: Alignment.topLeft,
+                    offset: const Offset(10, 2),
+                    child: SizedBox(
+                      width: dropdownWidth,
+                      child: Material(
+                        elevation: 10,
+                        color: isDark ? Colors.grey[900] : Colors.white,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 240),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shrinkWrap: true,
+                            itemCount: _filteredCountries.length,
+                            itemBuilder: (context, index) {
+                              final country = _filteredCountries[index];
+                              final flag = _flagFromIso2(country.code);
+                              return ListTile(
+                                dense: true,
+                                title: Text(
+                                  '$flag ${country.name}',
+                                  style: AppFonts.medium(
+                                    16,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCountry = country;
+                                    _countrySearchController.text = country.name;
+                                    _showCountryDropdown = false;
+                                  });
+                                },
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
-                ),
-            ],
-          );
-            },
-          ),
+                  ),
+              ],
+            );
+          },
         );
       }),
-    );
+    ));
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../../services/connectivity_service.dart';
 import '../../../../services/permission_service.dart';
 import '../../../services/offline_map_coordinator_service.dart';
@@ -29,6 +30,8 @@ class GetStartedController extends GetxController {
   OfflineMapService? _offlineMapService;
   MbtilesDownloadService? _mbtilesDownloadService;
   StyleJsonDownloadService? _styleJsonDownloadService;
+  Future<String?>? _styleDownloadFuture;
+  bool _isFinalizingDownload = false;
 
   // UI State
   final RxBool isDownloading = false.obs;
@@ -63,6 +66,7 @@ class GetStartedController extends GetxController {
   final RxBool showDownloadUI = false.obs; // Controls visibility of download button and language dropdown
   final RxBool isCheckingTiles = true.obs; // Shows loading state while checking tiles
   final RxBool tilesAlreadyDownloaded = false.obs; // Tracks if tiles were already downloaded when app started
+  final RxBool hideStartButtonDuringTileCheck = false.obs;
 
   final RxBool isInitializing = true.obs;
 
@@ -170,13 +174,13 @@ class GetStartedController extends GetxController {
 
       bool fileExistsAndValid = false;
       String? tilesPath;
+      const minExpectedSize = 4 * 1024 * 1024 * 1024;
 
       if (savedPath != null) {
         final file = File(savedPath);
         if (await file.exists()) {
           final fileSize = await file.length();
           final fileSizeGB = (fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2);
-          const minExpectedSize = 4 * 1024 * 1024 * 1024;
 
           debugPrint('[GetStartedController] 📁 File found at: $savedPath');
           debugPrint('[GetStartedController] 📊 File size: $fileSizeGB GB');
@@ -193,17 +197,37 @@ class GetStartedController extends GetxController {
         }
       }
 
+      // Recovery path for TestFlight/app updates:
+      // if prefs path is missing, check default app-support path.
+      if (!fileExistsAndValid) {
+        final appSupportDir = await getApplicationSupportDirectory();
+        final fallbackPath = '${appSupportDir.path}/offline_tiles/tiles.mbtiles';
+        final fallbackFile = File(fallbackPath);
+        if (await fallbackFile.exists()) {
+          final fileSize = await fallbackFile.length();
+          if (fileSize >= minExpectedSize) {
+            fileExistsAndValid = true;
+            tilesPath = fallbackPath;
+            await prefs.setString(PREFS_KEY_MBTILES_PATH, fallbackPath);
+            await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
+            await prefs.setBool('mbtiles_download_completed', true);
+            downloadCompleted = true;
+            debugPrint('[GetStartedController] ✅ Recovered tiles path from fallback location');
+          }
+        }
+      }
+
       bool styleJsonExists = false;
       if (_styleJsonDownloadService != null) {
         styleJsonExists = await _styleJsonDownloadService!.isStyleJsonDownloaded();
         debugPrint('[GetStartedController] 🎨 Style.json exists: $styleJsonExists');
       }
 
-      if (fileExistsAndValid && styleJsonExists && !downloadCompleted) {
-        debugPrint('[GetStartedController] 🔄 Both files exist but not marked complete - updating preferences...');
+      if (fileExistsAndValid && !downloadCompleted && tilesPath != null) {
+        debugPrint('[GetStartedController] 🔄 Tiles exist but not marked complete - updating preferences...');
         await prefs.setBool('mbtiles_download_completed', true);
         await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
-        await prefs.setString(PREFS_KEY_MBTILES_PATH, tilesPath!);
+        await prefs.setString(PREFS_KEY_MBTILES_PATH, tilesPath);
         downloadCompleted = true;
         debugPrint('[GetStartedController] ✅ Preferences updated');
       }
@@ -213,23 +237,31 @@ class GetStartedController extends GetxController {
       debugPrint('[GetStartedController]    - styleJsonExists: $styleJsonExists');
       debugPrint('[GetStartedController]    - downloadCompleted: $downloadCompleted');
 
-      if (fileExistsAndValid && styleJsonExists && downloadCompleted && tilesPath != null) {
-        debugPrint('[GetStartedController] ✅ All files downloaded and verified');
+      if (fileExistsAndValid && downloadCompleted && tilesPath != null) {
+        debugPrint('[GetStartedController] ✅ Tiles verified, proceeding to map');
+
+        // If style.json is missing after update, recover it in foreground quickly.
+        if (!styleJsonExists && _styleJsonDownloadService != null) {
+          debugPrint('[GetStartedController] 🎨 style.json missing, attempting recovery download...');
+          try {
+            await _styleJsonDownloadService!.downloadStyleJson(
+              enableBackgroundDownload: false,
+            );
+          } catch (e) {
+            debugPrint('[GetStartedController] ⚠️ style.json recovery failed: $e');
+          }
+        }
 
         tilesAlreadyDownloaded.value = true;
+        _prepareLoaderOnlyState();
 
         await _startTileServer(tilesPath);
-
-        isCheckingTiles.value = false;
-        showWelcomeAnimation.value = true;
-
-        await Future.delayed(const Duration(seconds: 1));
-
-        Get.offAllNamed(Routes.MAP_NEW);
+        await _navigateToMainFromStartup();
         return;
-      } else if (!fileExistsAndValid || !styleJsonExists) {
+      } else if (!fileExistsAndValid) {
         debugPrint('[GetStartedController] ⚠️ Files not ready - showing download UI');
 
+        hideStartButtonDuringTileCheck.value = false;
         isCheckingTiles.value = false;
         showDownloadUI.value = true;
 
@@ -242,14 +274,23 @@ class GetStartedController extends GetxController {
       } else {
         debugPrint('[GetStartedController] ⚠️ Files exist but preferences not set - hiding start button');
 
-        isCheckingTiles.value = false;
-        showDownloadUI.value = false;
-        showWelcomeAnimation.value = true;
-
-        await Future.delayed(const Duration(seconds: 1));
-        Get.offAllNamed(Routes.MAP_NEW);
+        _prepareLoaderOnlyState();
+        await _navigateToMainFromStartup();
       }
     }
+  }
+
+  void _prepareLoaderOnlyState() {
+    // Keep Get Started visuals and hide only Start while we route to the map.
+    hideStartButtonDuringTileCheck.value = true;
+    isCheckingTiles.value = true;
+    showDownloadUI.value = true;
+    isNoInternet.value = false;
+  }
+
+  Future<void> _navigateToMainFromStartup() async {
+    await Future.delayed(const Duration(milliseconds: 250));
+    Get.offAllNamed(Routes.MAP_NEW);
   }
 
   /// Start the tile server with downloaded tiles
@@ -362,6 +403,7 @@ class GetStartedController extends GetxController {
 
     // Stop checking tiles indicator since we're showing the welcome sequence
     isCheckingTiles.value = false;
+    hideStartButtonDuringTileCheck.value = false;
 
     // Ensure download UI is visible (if it was set to true earlier, keep it true)
     // This is important for cases where tiles are not downloaded or download was incomplete
@@ -531,19 +573,25 @@ class GetStartedController extends GetxController {
         enableBackgroundDownload: canDownloadInBackground,
       );
 
-      // Start style.json download in parallel
+      // Start style.json download in parallel and keep a reference so completion
+      // can be finalized only when BOTH tiles + style are ready.
       if (_styleJsonDownloadService != null) {
-        _styleJsonDownloadService!.downloadStyleJson(
+        _styleDownloadFuture = _styleJsonDownloadService!.downloadStyleJson(
           enableBackgroundDownload: canDownloadInBackground,
-        ).then((path) {
-          if (path != null) {
-            debugPrint('[GetStartedController] ✅ Style.json download completed: $path');
-          } else {
-            debugPrint('[GetStartedController] ⚠️ Style.json download failed');
-          }
-        }).catchError((e) {
-          debugPrint('[GetStartedController] ❌ Style.json download error: $e');
-        });
+        );
+        _styleDownloadFuture!
+            .then((path) {
+              if (path != null) {
+                debugPrint(
+                  '[GetStartedController] ✅ Style.json download completed: $path',
+                );
+              } else {
+                debugPrint('[GetStartedController] ⚠️ Style.json download failed');
+              }
+            })
+            .catchError((e) {
+              debugPrint('[GetStartedController] ❌ Style.json download error: $e');
+            });
       } else {
         debugPrint('[GetStartedController] ⚠️ StyleJsonDownloadService not initialized');
       }
@@ -559,23 +607,41 @@ class GetStartedController extends GetxController {
 
   /// Handle mbtiles download completion
   void _onMbtilesDownloadCompleted(String downloadedPath) async {
+    if (_isFinalizingDownload) return;
+    _isFinalizingDownload = true;
+
     debugPrint('[GetStartedController] 🎉 MBTiles download completed!');
     debugPrint('[GetStartedController] 📁 Saved to: $downloadedPath');
 
-    // Download style.json file
-    statusText.value = "Downloading map style...";
-    debugPrint('[GetStartedController] 📥 Starting style.json download...');
+    // Ensure style.json is also complete before marking download state as done.
+    statusText.value = "Finishing map style...";
+    debugPrint('[GetStartedController] 📥 Ensuring style.json is downloaded...');
 
+    String? styleJsonPath;
     try {
-      final styleJsonPath = await _styleJsonDownloadService?.downloadStyleJson();
+      styleJsonPath =
+          await (_styleDownloadFuture ??
+              _styleJsonDownloadService?.downloadStyleJson());
       if (styleJsonPath != null) {
         debugPrint('[GetStartedController] ✅ Style.json downloaded successfully to: $styleJsonPath');
       } else {
-        debugPrint('[GetStartedController] ⚠️ Style.json download failed, will use fallback');
+        debugPrint('[GetStartedController] ❌ Style.json download failed');
       }
     } catch (e) {
       debugPrint('[GetStartedController] ❌ Error downloading style.json: $e');
-      // Continue anyway - the app can use a fallback style
+    } finally {
+      _styleDownloadFuture = null;
+    }
+
+    if (styleJsonPath == null) {
+      hasError.value = true;
+      isDownloading.value = false;
+      isCompleted.value = false;
+      tilesDownloadCompleted.value = false;
+      statusText.value = "Style download failed. Please retry.";
+      errorMessage.value = "Map style download failed";
+      _isFinalizingDownload = false;
+      return;
     }
 
     isCompleted.value = true;
@@ -598,6 +664,7 @@ class GetStartedController extends GetxController {
     await Future.delayed(const Duration(seconds: 2));
 
     navigateToMainApp();
+    _isFinalizingDownload = false;
   }
 
   /// Setup listeners for mbtiles download progress updates
@@ -650,7 +717,6 @@ class GetStartedController extends GetxController {
       // Check for completion
       final completed = _mbtilesDownloadService!.isCompleted.value;
       if (completed && !isCompleted.value) {
-        isCompleted.value = true;
         debugPrint('[GetStartedController] ✅ Download completed!');
         timer.cancel();
 
@@ -840,10 +906,28 @@ class GetStartedController extends GetxController {
   }
 
   /// Close the app
-  void closeApp() {
+  Future<void> closeApp() async {
     debugPrint('[GetStartedController] Closing app...');
-    // Close the app using SystemNavigator
-    SystemNavigator.pop();
+    if (GetPlatform.isAndroid) {
+      await SystemNavigator.pop();
+      return;
+    }
+
+    if (GetPlatform.isIOS) {
+      // iOS does not allow apps to close themselves programmatically.
+      Get.snackbar(
+        'Close App',
+        'On iPhone, close the app from the app switcher.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.black87,
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+
+    await SystemNavigator.pop();
   }
 
   /// Skip download and go to main app

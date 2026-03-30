@@ -23,82 +23,43 @@ class WorldLocationsService {
         'assets/geonames_cities.csv',
       );
 
-      // Parse CSV
-      final lines = csvString.split('\n');
-      if (lines.isEmpty) {
-        debugPrint('❌ CSV file is empty');
-        return false;
-      }
+      // Parse heavy CSV in background isolate to avoid UI jank on iOS.
+      final parsed = await compute(_parseWorldLocationsCsv, csvString);
+      final countriesData = (parsed['countries'] as List).cast<Map>();
+      final locationsData = (parsed['locations'] as List).cast<Map>();
 
-      // Skip header line (name,country_code,country_name,latitude,longitude,population)
-      _allLocations = [];
-      final Map<String, Country> countriesMap = {};
+      _countries =
+          countriesData
+              .map(
+                (c) => Country(
+                  name: c['name'] as String,
+                  code: c['code'] as String,
+                  latitude: (c['latitude'] as num).toDouble(),
+                  longitude: (c['longitude'] as num).toDouble(),
+                  cities: const [],
+                ),
+              )
+              .toList();
 
-      for (int i = 1; i < lines.length; i++) {
-        final line = lines[i].trim();
-        if (line.isEmpty) continue;
-
-        try {
-          final parts = _parseCsvLine(line);
-          if (parts.length < 6) continue;
-
-          final name = parts[0];
-          final countryCode = parts[1];
-          final countryName = parts[2];
-          final latitude = double.tryParse(parts[3]) ?? 0.0;
-          final longitude = double.tryParse(parts[4]) ?? 0.0;
-          final population = int.tryParse(parts[5]) ?? 0;
-
-          // Add city to locations
-          _allLocations.add(
-            LocationResult(
-              name: name,
-              type: LocationType.city,
-              latitude: latitude,
-              longitude: longitude,
-              country: countryName,
-              countryCode: countryCode,
-              city: name,
-              state: null,
-              population: population,
-            ),
-          );
-
-          // Track unique countries
-          if (!countriesMap.containsKey(countryCode)) {
-            countriesMap[countryCode] = Country(
-              name: countryName,
-              code: countryCode,
-              latitude: latitude,
-              longitude: longitude,
-              cities: [],
-            );
-          }
-        } catch (e) {
-          debugPrint('⚠️ Error parsing line $i: $e');
-          continue;
-        }
-      }
-
-      // Convert countries map to list
-      _countries = countriesMap.values.toList();
-
-      // Add countries as searchable locations
-      for (final country in _countries) {
-        _allLocations.add(
-          LocationResult(
-            name: country.name,
-            type: LocationType.country,
-            latitude: country.latitude,
-            longitude: country.longitude,
-            country: country.name,
-            countryCode: country.code,
-            city: null,
-            state: null,
-            population: null,
-          ),
-        );
-      }
+      _allLocations =
+          locationsData
+              .map(
+                (l) => LocationResult(
+                  name: l['name'] as String,
+                  type:
+                      (l['type'] as String) == 'country'
+                          ? LocationType.country
+                          : LocationType.city,
+                  latitude: (l['latitude'] as num).toDouble(),
+                  longitude: (l['longitude'] as num).toDouble(),
+                  country: l['country'] as String,
+                  countryCode: l['countryCode'] as String,
+                  city: l['city'] as String?,
+                  state: l['state'] as String?,
+                  population: l['population'] as int?,
+                ),
+              )
+              .toList();
 
       _isLoaded = true;
       debugPrint(
@@ -109,31 +70,6 @@ class WorldLocationsService {
       debugPrint('❌ Error loading world locations: $e');
       return false;
     }
-  }
-
-  /// Parse a CSV line handling quoted fields
-  List<String> _parseCsvLine(String line) {
-    final List<String> result = [];
-    final buffer = StringBuffer();
-    bool inQuotes = false;
-
-    for (int i = 0; i < line.length; i++) {
-      final char = line[i];
-
-      if (char == '"') {
-        inQuotes = !inQuotes;
-      } else if (char == ',' && !inQuotes) {
-        result.add(buffer.toString().trim());
-        buffer.clear();
-      } else {
-        buffer.write(char);
-      }
-    }
-
-    // Add the last field
-    result.add(buffer.toString().trim());
-
-    return result;
   }
 
   /// Search for locations by query
@@ -368,3 +304,94 @@ class LocationResult {
 }
 
 enum LocationType { country, city }
+
+Map<String, List<Map<String, dynamic>>> _parseWorldLocationsCsv(
+  String csvString,
+) {
+  final lines = csvString.split('\n');
+  if (lines.isEmpty) {
+    return <String, List<Map<String, dynamic>>>{
+      'countries': <Map<String, dynamic>>[],
+      'locations': <Map<String, dynamic>>[],
+    };
+  }
+
+  final locations = <Map<String, dynamic>>[];
+  final countriesByCode = <String, Map<String, dynamic>>{};
+
+  for (int i = 1; i < lines.length; i++) {
+    final line = lines[i].trim();
+    if (line.isEmpty) continue;
+
+    final parts = _parseCsvLineInIsolate(line);
+    if (parts.length < 6) continue;
+
+    final name = parts[0];
+    final countryCode = parts[1];
+    final countryName = parts[2];
+    final latitude = double.tryParse(parts[3]) ?? 0.0;
+    final longitude = double.tryParse(parts[4]) ?? 0.0;
+    final population = int.tryParse(parts[5]) ?? 0;
+
+    locations.add(<String, dynamic>{
+      'name': name,
+      'type': 'city',
+      'latitude': latitude,
+      'longitude': longitude,
+      'country': countryName,
+      'countryCode': countryCode,
+      'city': name,
+      'state': null,
+      'population': population,
+    });
+
+    countriesByCode.putIfAbsent(countryCode, () {
+      return <String, dynamic>{
+        'name': countryName,
+        'code': countryCode,
+        'latitude': latitude,
+        'longitude': longitude,
+      };
+    });
+  }
+
+  final countries = countriesByCode.values.toList(growable: false);
+  for (final c in countries) {
+    locations.add(<String, dynamic>{
+      'name': c['name'],
+      'type': 'country',
+      'latitude': c['latitude'],
+      'longitude': c['longitude'],
+      'country': c['name'],
+      'countryCode': c['code'],
+      'city': null,
+      'state': null,
+      'population': null,
+    });
+  }
+
+  return <String, List<Map<String, dynamic>>>{
+    'countries': countries,
+    'locations': locations,
+  };
+}
+
+List<String> _parseCsvLineInIsolate(String line) {
+  final result = <String>[];
+  final buffer = StringBuffer();
+  var inQuotes = false;
+
+  for (int i = 0; i < line.length; i++) {
+    final char = line[i];
+    if (char == '"') {
+      inQuotes = !inQuotes;
+    } else if (char == ',' && !inQuotes) {
+      result.add(buffer.toString().trim());
+      buffer.clear();
+    } else {
+      buffer.write(char);
+    }
+  }
+  result.add(buffer.toString().trim());
+  return result;
+}

@@ -402,11 +402,14 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
             ),
           ),
           AnimatedOpacity(
-            opacity: _showOverlay ? 1.0 : 0.0,
+            // Keep play button visible whenever video is paused.
+            opacity: (_showOverlay || !vc.value.isPlaying) ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 200),
             child: IconButton(
               icon: Icon(
-                vc.value.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                vc.value.isPlaying
+                    ? Icons.pause_circle_filled
+                    : Icons.play_circle_filled,
                 color: Colors.white,
                 size: 64,
               ),

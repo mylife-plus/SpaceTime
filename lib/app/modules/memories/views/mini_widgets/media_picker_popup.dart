@@ -258,29 +258,43 @@ class MediaPickerPopup extends StatelessWidget {
     if (!context.mounted) return;
     Navigator.pop(context);
 
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.media,
-      allowMultiple: true,
-    );
+    final List<String> imagePaths = [];
+    final List<String> videoPaths = [];
 
-    if (result != null && result.files.isNotEmpty) {
-      final List<String> imagePaths = [];
-      final List<String> videoPaths = [];
-
-      for (final file in result.files) {
-        if (file.path != null) {
-          final extension = file.extension?.toLowerCase() ?? '';
-          if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp'].contains(extension)) {
-            videoPaths.add(file.path!);
-          } else {
-            imagePaths.add(file.path!);
+    if (Platform.isIOS) {
+      // iOS: use ImagePicker so limited photo access is respected.
+      final imagePicker = ImagePicker();
+      final selected = await imagePicker.pickMultipleMedia();
+      for (final media in selected) {
+        final path = media.path;
+        final ext = path.split('.').last.toLowerCase();
+        if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp'].contains(ext)) {
+          videoPaths.add(path);
+        } else {
+          imagePaths.add(path);
+        }
+      }
+    } else {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.media,
+        allowMultiple: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        for (final file in result.files) {
+          if (file.path != null) {
+            final extension = file.extension?.toLowerCase() ?? '';
+            if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp'].contains(extension)) {
+              videoPaths.add(file.path!);
+            } else {
+              imagePaths.add(file.path!);
+            }
           }
         }
       }
+    }
 
-      if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
-        onMediaSelected(imagePaths, videoPaths);
-      }
+    if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
+      onMediaSelected(imagePaths, videoPaths);
     }
   }
 }
