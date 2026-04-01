@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 class MediaPickerPopup extends StatelessWidget {
@@ -80,17 +79,6 @@ class MediaPickerPopup extends StatelessWidget {
                 isDark: isDark,
                 textColor: textColor,
               ),
-              if (Platform.isIOS) ...[
-                Divider(height: 1, color: dividerColor),
-                _buildOption(
-                  context,
-                  icon: Icons.settings,
-                  label: 'Manage Photos Access',
-                  onTap: () => _openPhotoAccessSettings(context),
-                  isDark: isDark,
-                  textColor: textColor,
-                ),
-              ],
               Divider(height: 1, color: dividerColor),
               Padding(
                 padding: const EdgeInsets.all(8),
@@ -147,46 +135,23 @@ class MediaPickerPopup extends StatelessWidget {
     );
   }
 
-  Future<bool> _requestCameraPermission() async {
-    var status = await Permission.camera.request();
-    if (status.isPermanentlyDenied) {
-      await openAppSettings();
-      return false;
-    }
-    return status.isGranted;
-  }
+  // NOTE:
+  // Permission pre-checks for camera/gallery are intentionally disabled here.
+  // We rely on image_picker's native permission flow.
+  // Keeping this method as a soft helper if we want to re-enable checks later.
+  Future<bool> _requestCameraPermission() async => true;
 
-  Future<bool> _requestGalleryPermission() async {
-    if (Platform.isIOS) {
-      final status = await Permission.photos.request();
-      if (status.isPermanentlyDenied) {
-        await openAppSettings();
-        return false;
-      }
-      return status.isGranted || status.isLimited;
-    }
-    final photos = await Permission.photos.request();
-    final videos = await Permission.videos.request();
-    if (photos.isPermanentlyDenied || videos.isPermanentlyDenied) {
-      await openAppSettings();
-      return false;
-    }
-    return (photos.isGranted || photos.isLimited) &&
-        (videos.isGranted || videos.isLimited);
-  }
+  // NOTE:
+  // Permission pre-checks for photo library are intentionally disabled here.
+  // We rely on image_picker/file_picker permission handling.
+  Future<bool> _requestGalleryPermission() async => true;
 
   Future<void> _handleCameraPhoto(BuildContext context) async {
     final cameraGranted = await _requestCameraPermission();
-
-    PermissionStatus photoLibraryStatus = PermissionStatus.granted;
-    if (Platform.isIOS) {
-      photoLibraryStatus = await Permission.photosAddOnly.request();
-    }
-
-    if (!cameraGranted || !photoLibraryStatus.isGranted) {
+    if (!cameraGranted) {
       Get.snackbar(
         'Permissions Required',
-        'Camera and photo library permissions are required to take and save photos',
+        'Camera permission is required to take photos',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
@@ -213,21 +178,10 @@ class MediaPickerPopup extends StatelessWidget {
 
   Future<void> _handleCameraVideo(BuildContext context) async {
     final cameraGranted = await _requestCameraPermission();
-    var micStatus = await Permission.microphone.request();
-    if (micStatus.isPermanentlyDenied) {
-      await openAppSettings();
-      return;
-    }
-
-    PermissionStatus photoLibraryStatus = PermissionStatus.granted;
-    if (Platform.isIOS) {
-      photoLibraryStatus = await Permission.photosAddOnly.request();
-    }
-
-    if (!cameraGranted || !micStatus.isGranted || !photoLibraryStatus.isGranted) {
+    if (!cameraGranted) {
       Get.snackbar(
         'Permissions Required',
-        'Camera, microphone, and photo library permissions are required to record and save videos',
+        'Camera/microphone permissions are required to record videos',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
@@ -309,18 +263,5 @@ class MediaPickerPopup extends StatelessWidget {
     }
   }
 
-  Future<void> _openPhotoAccessSettings(BuildContext context) async {
-    if (!context.mounted) return;
-    Navigator.pop(context);
-
-    Get.snackbar(
-      'Manage Photos Access',
-      'Use iPhone Settings to switch between Full and Limited access.',
-      snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 2),
-    );
-
-    await openAppSettings();
-  }
 }
 
