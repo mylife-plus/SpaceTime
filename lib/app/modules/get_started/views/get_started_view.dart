@@ -395,11 +395,46 @@ class GetStartedView extends GetView<GetStartedController> {
 
                 const SizedBox(height: 8),
 
-                  // Show loading indicator while checking tiles
+                  // Language dropdown (only show when download UI is visible)
+                  Obx(() => (controller.showDownloadUI.value || controller.isCheckingTiles.value)
+                      ? _buildLanguageDropdown()
+                      : const SizedBox.shrink()),
+
+                  Obx(() => (controller.showDownloadUI.value || controller.isCheckingTiles.value)
+                      ? const SizedBox(height: 8)
+                      : const SizedBox.shrink()),
+const SizedBox(height: 8),
+                  // Download text (only show when download UI is visible)
+                  Obx(() => (controller.showDownloadUI.value || controller.isCheckingTiles.value)
+                      ? Text(
+                          'download 4.5GB of map tiles',
+                          style: TextStyle(
+                            fontFamily: 'KumbhSans',
+                            fontSize: _responsiveFontSize(context, 12),
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 8,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                        )
+                      : const SizedBox.shrink()),
+const SizedBox(height: 8),
+                Obx(() => (controller.showDownloadUI.value || controller.isCheckingTiles.value)
+                    ? const SizedBox(height: 8)
+                    : const SizedBox.shrink()),
+
+                  // Keep same UI while checking tiles; show loader in Start button place.
                   Obx(() {
                     if (controller.isCheckingTiles.value) {
                       return Column(
                         children: [
+                          const SizedBox(height: 6),
                           const CircularProgressIndicator(
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
@@ -423,50 +458,13 @@ class GetStartedView extends GetView<GetStartedController> {
                           ),
                         ],
                       );
-                    } else {
-                      return const SizedBox.shrink();
                     }
+                    if (controller.showDownloadUI.value &&
+                        !controller.hideStartButtonDuringTileCheck.value) {
+                      return _buildStartButton(uiController);
+                    }
+                    return const SizedBox.shrink();
                   }),
-
-                  // Language dropdown (only show when download UI is visible)
-                  Obx(() => controller.showDownloadUI.value
-                      ? _buildLanguageDropdown()
-                      : const SizedBox.shrink()),
-
-                  Obx(() => controller.showDownloadUI.value
-                      ? const SizedBox(height: 8)
-                      : const SizedBox.shrink()),
-const SizedBox(height: 8),
-                  // Download text (only show when download UI is visible)
-                  Obx(() => controller.showDownloadUI.value
-                      ? Text(
-                          'download 4.5GB of map tiles',
-                          style: TextStyle(
-                            fontFamily: 'KumbhSans',
-                            fontSize: _responsiveFontSize(context, 12),
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.8),
-                                blurRadius: 8,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                        )
-                      : const SizedBox.shrink()),
-const SizedBox(height: 8),
-                Obx(() => controller.showDownloadUI.value
-                    ? const SizedBox(height: 8)
-                    : const SizedBox.shrink()),
-
-                  // Start button (hide only while tile-check routing is in progress)
-                  Obx(() => (controller.showDownloadUI.value &&
-                          !controller.hideStartButtonDuringTileCheck.value)
-                      ? _buildStartButton(uiController)
-                      : const SizedBox.shrink()),
 
 
                   // Download text
@@ -523,11 +521,29 @@ const SizedBox(height: 8),
                     child: Padding(
                       padding: const EdgeInsets.all(20.0),
                       child: Obx(() {
-                        // Make book 20% smaller when tiles are already downloaded
+                        // Keep book clearly visible while tile-check is running.
+                        if (controller.isCheckingTiles.value) {
+                          return Align(
+                            alignment: Alignment.bottomRight,
+                            child: Transform.rotate(
+                              angle: 4 * 3.14159 / 180, // Convert 4 degrees to radians
+                              child: SizedBox(
+                                width: 220,
+                                height: 220,
+                                child: Image.asset(
+                                  'assets/images/book.png',
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        // Make book smaller when tiles are already downloaded
                         final isDownloaded = controller.tilesAlreadyDownloaded.value ||
                                              controller.isCompleted.value ||
                                              controller.tilesDownloadCompleted.value;
-                        final scale = isDownloaded ? 0.7 : 1.0; // 20% smaller = 0.8 scale
+                        final scale = isDownloaded ? 0.7 : 1.0;
 
                         debugPrint('[GetStartedView] 📚 Book scale: $scale (tilesAlreadyDownloaded: ${controller.tilesAlreadyDownloaded.value})');
 

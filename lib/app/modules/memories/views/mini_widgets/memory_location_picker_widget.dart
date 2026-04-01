@@ -218,31 +218,34 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
                 //   ),
                 // ],
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Text(
-                      line,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppFonts.medium(15, color: valueColor),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => controller.onEditLocationTextPressed(),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Image.asset(
-                        'assets/images/ic_edit.png',
-                        width: 22,
-                        height: 22,
-                        color: editColor,
+              child: GestureDetector(
+                onTap: () => controller.onEditLocationTextPressed(),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        line,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppFonts.medium(15, color: valueColor),
                       ),
                     ),
-                  ),
-                ],
+                    GestureDetector(
+                      onTap: () => controller.onEditLocationTextPressed(),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Image.asset(
+                          'assets/images/ic_edit.png',
+                          width: 22,
+                          height: 22,
+                          color: editColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             ),

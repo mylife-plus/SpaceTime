@@ -80,6 +80,17 @@ class MediaPickerPopup extends StatelessWidget {
                 isDark: isDark,
                 textColor: textColor,
               ),
+              if (Platform.isIOS) ...[
+                Divider(height: 1, color: dividerColor),
+                _buildOption(
+                  context,
+                  icon: Icons.settings,
+                  label: 'Manage Photos Access',
+                  onTap: () => _openPhotoAccessSettings(context),
+                  isDark: isDark,
+                  textColor: textColor,
+                ),
+              ],
               Divider(height: 1, color: dividerColor),
               Padding(
                 padding: const EdgeInsets.all(8),
@@ -296,6 +307,20 @@ class MediaPickerPopup extends StatelessWidget {
     if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
       onMediaSelected(imagePaths, videoPaths);
     }
+  }
+
+  Future<void> _openPhotoAccessSettings(BuildContext context) async {
+    if (!context.mounted) return;
+    Navigator.pop(context);
+
+    Get.snackbar(
+      'Manage Photos Access',
+      'Use iPhone Settings to switch between Full and Limited access.',
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 2),
+    );
+
+    await openAppSettings();
   }
 }
 

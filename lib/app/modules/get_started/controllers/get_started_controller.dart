@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -205,59 +206,32 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       debugPrint('[GetStartedController]    - downloadCompleted: $downloadCompleted');
       debugPrint('[GetStartedController]    - savedPath: $savedPath');
 
-      bool fileExistsAndValid = false;
-      String? tilesPath;
       const minExpectedSize = 4 * 1024 * 1024 * 1024;
+      final appSupportDir = await getApplicationSupportDirectory();
+      final tileCheckFuture = Isolate.run(() {
+        return _checkTilesFileInIsolate(
+          savedPath: savedPath,
+          downloadCompleted: downloadCompleted,
+          fallbackPath: '${appSupportDir.path}/offline_tiles/tiles.mbtiles',
+          minExpectedSize: minExpectedSize,
+        );
+      });
+      final styleCheckFuture = _styleJsonDownloadService?.isStyleJsonDownloaded() ?? Future<bool>.value(false);
+      final tileCheck = await tileCheckFuture;
+      bool fileExistsAndValid = tileCheck['fileExistsAndValid'] as bool;
+      String? tilesPath = tileCheck['tilesPath'] as String?;
+      bool recoveredFromFallback = tileCheck['recoveredFromFallback'] as bool;
+      bool styleJsonExists = await styleCheckFuture;
+      debugPrint('[GetStartedController] 🎨 Style.json exists: $styleJsonExists');
 
-      if (savedPath != null) {
-        final file = File(savedPath);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          final fileSizeGB = (fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2);
-
-          debugPrint('[GetStartedController] 📁 File found at: $savedPath');
-          debugPrint('[GetStartedController] 📊 File size: $fileSizeGB GB');
-
-          if (fileSize >= minExpectedSize) {
-            fileExistsAndValid = true;
-            tilesPath = savedPath;
-            debugPrint('[GetStartedController] ✅ File size validation passed');
-          } else {
-            debugPrint('[GetStartedController] ⚠️ File size too small, expected at least 4GB');
-          }
-        } else {
-          debugPrint('[GetStartedController] ⚠️ File does not exist at saved path');
-        }
+      if (recoveredFromFallback && tilesPath != null) {
+        await prefs.setString(PREFS_KEY_MBTILES_PATH, tilesPath);
+        await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
+        debugPrint('[GetStartedController] ✅ Recovered tiles path from fallback location');
       }
 
-      // Recovery path for TestFlight/app updates:
-      // if prefs path is missing, check default app-support path.
-      if (!fileExistsAndValid) {
-        final appSupportDir = await getApplicationSupportDirectory();
-        final fallbackPath = '${appSupportDir.path}/offline_tiles/tiles.mbtiles';
-        final fallbackFile = File(fallbackPath);
-        if (await fallbackFile.exists()) {
-          final fileSize = await fallbackFile.length();
-          if (fileSize >= minExpectedSize) {
-            fileExistsAndValid = true;
-            tilesPath = fallbackPath;
-            await prefs.setString(PREFS_KEY_MBTILES_PATH, fallbackPath);
-            await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
-            await prefs.setBool('mbtiles_download_completed', true);
-            downloadCompleted = true;
-            debugPrint('[GetStartedController] ✅ Recovered tiles path from fallback location');
-          }
-        }
-      }
-
-      bool styleJsonExists = false;
-      if (_styleJsonDownloadService != null) {
-        styleJsonExists = await _styleJsonDownloadService!.isStyleJsonDownloaded();
-        debugPrint('[GetStartedController] 🎨 Style.json exists: $styleJsonExists');
-      }
-
-      if (fileExistsAndValid && !downloadCompleted && tilesPath != null) {
-        debugPrint('[GetStartedController] 🔄 Tiles exist but not marked complete - updating preferences...');
+      if (fileExistsAndValid && styleJsonExists && !downloadCompleted && tilesPath != null) {
+        debugPrint('[GetStartedController] 🔄 Tiles + style exist but not marked complete - updating preferences...');
         await prefs.setBool('mbtiles_download_completed', true);
         await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
         await prefs.setString(PREFS_KEY_MBTILES_PATH, tilesPath);
@@ -273,22 +247,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       if (fileExistsAndValid && downloadCompleted && tilesPath != null) {
         debugPrint('[GetStartedController] ✅ Tiles verified, proceeding to map');
 
-        // If style.json is missing after update, recover it in foreground quickly.
-        if (!styleJsonExists && _styleJsonDownloadService != null) {
-          debugPrint('[GetStartedController] 🎨 style.json missing, attempting recovery download...');
-          try {
-            await _styleJsonDownloadService!.downloadStyleJson(
-              enableBackgroundDownload: false,
-            );
-          } catch (e) {
-            debugPrint('[GetStartedController] ⚠️ style.json recovery failed: $e');
-          }
-        }
-
         tilesAlreadyDownloaded.value = true;
         _prepareLoaderOnlyState();
-
-        await _startTileServer(tilesPath);
+        // Do heavy warmup in background to keep transition smooth.
+        unawaited(_warmUpAfterStartupNavigation(tilesPath, styleJsonExists, prefs));
         await _navigateToMainFromStartup();
         return;
       } else if (!fileExistsAndValid) {
@@ -324,6 +286,34 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   Future<void> _navigateToMainFromStartup() async {
     await Future.delayed(const Duration(milliseconds: 250));
     Get.offAllNamed(Routes.MAP_NEW);
+  }
+
+  Future<void> _warmUpAfterStartupNavigation(
+    String tilesPath,
+    bool styleJsonExists,
+    SharedPreferences prefs,
+  ) async {
+    // Start tile server without blocking route transition.
+    await _startTileServer(tilesPath);
+
+    // Recover style.json in background when missing.
+    if (!styleJsonExists && _styleJsonDownloadService != null) {
+      debugPrint('[GetStartedController] 🎨 style.json missing, attempting background recovery...');
+      try {
+        await _styleJsonDownloadService!.downloadStyleJson(
+          enableBackgroundDownload: false,
+        );
+        final recovered = await _styleJsonDownloadService!.isStyleJsonDownloaded();
+        if (recovered) {
+          await prefs.setBool('mbtiles_download_completed', true);
+          await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
+          await prefs.setString(PREFS_KEY_MBTILES_PATH, tilesPath);
+          debugPrint('[GetStartedController] ✅ style.json recovered in background');
+        }
+      } catch (e) {
+        debugPrint('[GetStartedController] ⚠️ style.json background recovery failed: $e');
+      }
+    }
   }
 
   /// Start the tile server with downloaded tiles
@@ -1023,17 +1013,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     }
 
     if (GetPlatform.isIOS) {
-      // iOS does not allow apps to close themselves programmatically.
-      Get.snackbar(
-        'Close App',
-        'On iPhone, close the app from the app switcher.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.black87,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
-        duration: const Duration(seconds: 2),
-      );
-      return;
+      // User-requested force close on iOS.
+      exit(0);
     }
 
     await SystemNavigator.pop();
@@ -1125,4 +1106,49 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       isCheckingPermissions.value = false;
     }
   }
+}
+
+Map<String, Object?> _checkTilesFileInIsolate({
+  required String? savedPath,
+  required bool downloadCompleted,
+  required String fallbackPath,
+  required int minExpectedSize,
+}) {
+  bool fileExistsAndValid = false;
+  String? tilesPath;
+  bool recoveredFromFallback = false;
+
+  if (savedPath != null) {
+    final file = File(savedPath);
+    if (file.existsSync()) {
+      if (downloadCompleted) {
+        fileExistsAndValid = true;
+        tilesPath = savedPath;
+      } else {
+        final fileSize = file.lengthSync();
+        if (fileSize >= minExpectedSize) {
+          fileExistsAndValid = true;
+          tilesPath = savedPath;
+        }
+      }
+    }
+  }
+
+  if (!fileExistsAndValid) {
+    final fallbackFile = File(fallbackPath);
+    if (fallbackFile.existsSync()) {
+      final fileSize = fallbackFile.lengthSync();
+      if (fileSize >= minExpectedSize) {
+        fileExistsAndValid = true;
+        tilesPath = fallbackPath;
+        recoveredFromFallback = true;
+      }
+    }
+  }
+
+  return {
+    'fileExistsAndValid': fileExistsAndValid,
+    'tilesPath': tilesPath,
+    'recoveredFromFallback': recoveredFromFallback,
+  };
 }
