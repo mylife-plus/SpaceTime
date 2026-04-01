@@ -72,6 +72,9 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
   bool _startupInitializationStarted = false;
 
+  /// Prevents overlapping [Get.offAllNamed] to MAP_NEW (causes half map / half get-started glitches).
+  bool _navigateToMapRequested = false;
+
   // iOS Background App Refresh gating
   Completer<bool>? _waitingForBackgroundRefreshCompleter;
   bool _backgroundRefreshPopupShowing = false;
@@ -317,8 +320,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> _navigateToMainFromStartup() async {
-    await Future.delayed(const Duration(seconds: 1));
-    Get.offAllNamed(Routes.MAP_NEW);
+    await Future.delayed(const Duration(seconds: 2));
+    await navigateToMainApp();
   }
 
   Future<void> _recoverStyleJsonInBackground(
@@ -1023,20 +1026,33 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
   /// Navigate to the main app
   Future<void> navigateToMainApp() async {
-    debugPrint('[GetStartedController] Navigating to MapViewWidgetNew...');
-
-    // Start tile server if tiles are downloaded
-    if (_mbtilesDownloadService != null) {
-      final isDownloaded = await _mbtilesDownloadService!.isMbtilesDownloaded();
-      final tilesPath = _mbtilesDownloadService!.getLocalMbtilesPath();
-
-      if (isDownloaded && tilesPath != null) {
-        await _startTileServer(tilesPath);
-      }
+    if (_navigateToMapRequested) {
+      debugPrint(
+        '[GetStartedController] navigateToMainApp ignored — already navigating to map',
+      );
+      return;
     }
+    _navigateToMapRequested = true;
 
-    // Navigate to MapViewWidgetNew (main map screen)
-    Get.offAllNamed(Routes.MAP_NEW);
+    try {
+      debugPrint('[GetStartedController] Navigating to MapViewWidgetNew...');
+
+      // Start tile server if tiles are downloaded
+      if (_mbtilesDownloadService != null) {
+        final isDownloaded = await _mbtilesDownloadService!.isMbtilesDownloaded();
+        final tilesPath = _mbtilesDownloadService!.getLocalMbtilesPath();
+
+        if (isDownloaded && tilesPath != null) {
+          await _startTileServer(tilesPath);
+        }
+      }
+
+      // Instant route swap (Transition.noTransition on MAP_NEW) — no extra frame wait.
+      Get.offAllNamed(Routes.MAP_NEW);
+    } catch (e) {
+      debugPrint('[GetStartedController] navigateToMainApp failed: $e');
+      _navigateToMapRequested = false;
+    }
   }
 
   /// Close the app

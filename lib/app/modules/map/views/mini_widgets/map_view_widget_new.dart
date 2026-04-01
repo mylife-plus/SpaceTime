@@ -38,6 +38,15 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   String? _serverUrl;
   String? _errorMessage;
   bool _isInitializing = true;
+  bool _serverInitScheduled = false;
+
+  /// Top bar / FAB / indicators stay off until style is loaded so Flutter does not
+  /// composite heavy widgets while Mapbox is still initializing (reduces jank).
+  bool _mapChromeReady = false;
+
+  /// Must be stable across rebuilds — a new [Future] each [build] resets [FutureBuilder] (infinite loop after [setState]).
+  String? _styleLoadCacheKey;
+  Future<String>? _styleJsonLoadFuture;
 
   @override
   void initState() {
@@ -45,7 +54,16 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     WidgetsBinding.instance.addObserver(this);
 
     controller = Get.find<MapControllerNew>();
-  
+
+    // One frame after mount so ModalRoute is ready; no artificial delay (avoids felt lag).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _beginTileServerInit();
+    });
+  }
+
+  void _beginTileServerInit() {
+    if (!mounted || _serverInitScheduled) return;
+    _serverInitScheduled = true;
     _initializeLocalTileServer();
   }
 
@@ -173,10 +191,12 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           body: SafeArea(
             child: Stack(
               children: [
-                // MapBox Map
-                _buildMapWidget(controller),
+                Positioned.fill(child: _buildMapWidget(controller)),
 
-                Obx(() => _buildOverlays(controller)),
+                if (!_mapChromeReady)
+                  Positioned.fill(child: _buildMapLoadingOverlay()),
+
+                if (_mapChromeReady) Obx(() => _buildOverlays(controller)),
               ],
             ),
           ),
@@ -185,6 +205,71 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     );
     // },
     // );
+  }
+
+  /// Full-screen friendly loader while style JSON / Mapbox surface initialize (avoids long black screen).
+  Widget _buildMapLoadingOverlay() {
+    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ) ??
+        const TextStyle(
+          fontSize: 22,
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        );
+
+    return AbsorbPointer(
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0D1117),
+              Color(0xFF161B22),
+              Color(0xFF010409),
+            ],
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.map_outlined,
+                  size: 52,
+                  color: Colors.white.withOpacity(0.85),
+                ),
+                const SizedBox(height: 28),
+                Text('Preparing your map', style: titleStyle),
+                const SizedBox(height: 12),
+                Text(
+                  'Loading offline tiles and map style…',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.72),
+                    fontSize: 15,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildOverlays(MapControllerNew controller) {
@@ -277,31 +362,33 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     final tileUrl = '$_serverUrl/{z}/{x}/{y}.pbf';
     final serverUrl = _serverUrl!; // Base server URL without tile pattern
 
+    final styleKey = '$serverUrl|$tileUrl';
+    if (_styleLoadCacheKey != styleKey) {
+      _styleLoadCacheKey = styleKey;
+      _styleJsonLoadFuture = _loadStyleJsonFromAssets(tileUrl, serverUrl);
+    }
+
     return FutureBuilder<String>(
-      future: _loadStyleJsonFromAssets(tileUrl, serverUrl),
+      future: _styleJsonLoadFuture!,
       builder: (context, snapshot) {
-        // Show loading indicator while style.json is being loaded
+        // Style JSON loading — full-screen overlay handles UX; keep layer cheap underneath.
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text(
-                  'Loading map style...',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ],
-            ),
+          return const ColoredBox(
+            color: Color(0xFF0D1117),
+            child: SizedBox.expand(),
           );
         }
 
-        // Handle error
+        // Handle error — show chrome so user can still use top bar / leave screen
         if (snapshot.hasError) {
           debugPrint(
             '[MapViewWidgetNew] ❌ Error in FutureBuilder: ${snapshot.error}',
           );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_mapChromeReady) {
+              setState(() => _mapChromeReady = true);
+            }
+          });
           return Center(
             child: Text(
               'Error loading map style',
@@ -376,6 +463,9 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             );
 
             controller.onStyleLoaded(styleLoadedEventData);
+            if (mounted) {
+              setState(() => _mapChromeReady = true);
+            }
           },
           onMapLoadErrorListener: (mapLoadError) {
             debugPrint(

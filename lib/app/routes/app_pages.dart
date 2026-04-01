@@ -1,4 +1,4 @@
-import 'package:get/get_navigation/src/routes/get_route.dart';
+import 'package:get/get.dart';
 import 'package:spacetime/app/modules/add_memories/bindings/add_memories.dart';
 import 'package:spacetime/app/modules/add_memories/views/add_memories.dart';
 import 'package:spacetime/app/modules/contact_groups/bindings/contact_groups_binding.dart';
@@ -46,6 +46,11 @@ class AppPages {
       name: _Paths.MAP_NEW,
       page: () => const MapViewNew(),
       binding: MapBindingNew(),
+      // No cross-fade: avoids two full screens + PlatformView compositing at once (jank / “half” UI).
+      transition: Transition.noTransition,
+      transitionDuration: Duration.zero,
+      opaque: true,
+      showCupertinoParallax: false,
     ),
     GetPage(
       name: _Paths.SETTINGS,
