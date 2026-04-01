@@ -120,13 +120,22 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _initializeEverything() async {
     isInitializing.value = true;
-
     await _initializeBackgroundServices();
-
     _initializeServices();
-    await _checkIfShouldShowGetStarted();
-
+    // Render Get Started UI first, then begin tile checks.
     isInitializing.value = false;
+    await _waitForUiFrame();
+    await _checkIfShouldShowGetStarted();
+  }
+
+  Future<void> _waitForUiFrame() async {
+    final completer = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!completer.isCompleted) completer.complete();
+    });
+    await completer.future;
+    // Small buffer so book/loader paints before heavy checks start.
+    await Future<void>.delayed(const Duration(milliseconds: 120));
   }
 
   Future<void> _initializeBackgroundServices() async {
