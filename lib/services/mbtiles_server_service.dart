@@ -43,11 +43,9 @@ class MbtilesServerService {
 
       debugPrint('[MbtilesServer] ✅ MBTiles database opened successfully');
 
-      // Find an available port
-      _port = await _findAvailablePort();
-
-      // Start HTTP server
-      _server = await HttpServer.bind(InternetAddress.loopbackIPv4, _port);
+      // Start HTTP server using direct bind to avoid check-then-bind port races.
+      _server = await _bindServerOnAvailablePort();
+      _port = _server!.port;
       _isRunning = true;
 
       debugPrint('[MbtilesServer] ✅ Server started at http://localhost:$_port');
@@ -65,19 +63,19 @@ class MbtilesServerService {
     }
   }
 
-  /// Find an available port
-  Future<int> _findAvailablePort() async {
+  /// Bind server directly on the first available port in range.
+  /// This avoids races between "port check" and actual bind.
+  Future<HttpServer> _bindServerOnAvailablePort() async {
     for (int port = 8080; port <= 8090; port++) {
       try {
-        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-        await server.close();
-        return port;
+        return await HttpServer.bind(InternetAddress.loopbackIPv4, port);
       } catch (e) {
         // Port is in use, try next one
         continue;
       }
     }
-    return 8080; // Fallback
+    // Last resort: ask OS for any available ephemeral port.
+    return await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   }
 
   /// Handle HTTP requests

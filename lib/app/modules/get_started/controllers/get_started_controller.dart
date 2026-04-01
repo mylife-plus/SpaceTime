@@ -137,8 +137,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         // _initA/ssets(),
         _initMapboxHelpers(),
       ]);
-
-      await _initTileServer();
+      // Do not block initial UI on tile-server warmup.
+      unawaited(_initTileServer());
     } catch (e) {
       debugPrint('[GetStartedController] Background init error: $e');
     }
@@ -176,7 +176,9 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
       if (isDownloaded && tilesPath != null) {
         final serverService = MbtilesServerService.instance;
-        await serverService.startServer(tilesPath);
+        await serverService
+            .startServer(tilesPath)
+            .timeout(const Duration(seconds: 6));
       }
     } catch (e) {
       debugPrint('[GetStartedController] Tile server error: $e');
@@ -249,8 +251,20 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
         tilesAlreadyDownloaded.value = true;
         _prepareLoaderOnlyState();
-        // Do heavy warmup in background to keep transition smooth.
-        unawaited(_warmUpAfterStartupNavigation(tilesPath, styleJsonExists, prefs));
+        // Gate navigation on server startup to ensure map has a live tile endpoint.
+        final serverStarted = await _startTileServer(tilesPath);
+        if (!serverStarted) {
+          debugPrint('[GetStartedController] ❌ Tile server not ready, staying on Get Started');
+          hideStartButtonDuringTileCheck.value = false;
+          isCheckingTiles.value = false;
+          showDownloadUI.value = true;
+          hasError.value = true;
+          errorMessage.value = 'Tile server failed to start. Please retry.';
+          statusText.value = 'Unable to start tile server.';
+          return;
+        }
+        // Keep style recovery in background.
+        unawaited(_recoverStyleJsonInBackground(tilesPath, styleJsonExists, prefs));
         await _navigateToMainFromStartup();
         return;
       } else if (!fileExistsAndValid) {
@@ -272,6 +286,16 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         _prepareLoaderOnlyState();
         await _navigateToMainFromStartup();
       }
+    } else {
+      // Never leave UI in endless "checking" state.
+      debugPrint('[GetStartedController] ❌ MbtilesDownloadService unavailable, showing download UI fallback');
+      hideStartButtonDuringTileCheck.value = false;
+      isCheckingTiles.value = false;
+      showDownloadUI.value = true;
+      hasError.value = false;
+      isDownloading.value = false;
+      statusText.value = "Download 4.5GB of map tiles to use offline";
+      await _checkInternetAndShowAppropriateScreen();
     }
   }
 
@@ -284,18 +308,15 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> _navigateToMainFromStartup() async {
-    await Future.delayed(const Duration(milliseconds: 250));
+    await Future.delayed(const Duration(seconds: 1));
     Get.offAllNamed(Routes.MAP_NEW);
   }
 
-  Future<void> _warmUpAfterStartupNavigation(
+  Future<void> _recoverStyleJsonInBackground(
     String tilesPath,
     bool styleJsonExists,
     SharedPreferences prefs,
   ) async {
-    // Start tile server without blocking route transition.
-    await _startTileServer(tilesPath);
-
     // Recover style.json in background when missing.
     if (!styleJsonExists && _styleJsonDownloadService != null) {
       debugPrint('[GetStartedController] 🎨 style.json missing, attempting background recovery...');
@@ -317,21 +338,26 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   }
 
   /// Start the tile server with downloaded tiles
-  Future<void> _startTileServer(String tilesPath) async {
+  Future<bool> _startTileServer(String tilesPath) async {
     try {
       debugPrint('[GetStartedController] 🗺️ Starting tile server...');
 
       final serverService = MbtilesServerService.instance;
-      final serverUrl = await serverService.startServer(tilesPath);
+      final serverUrl = await serverService
+          .startServer(tilesPath)
+          .timeout(const Duration(seconds: 8));
 
       if (serverUrl != null) {
         debugPrint('[GetStartedController] ✅ Tile server started successfully at: $serverUrl');
         debugPrint('[GetStartedController] 📡 Tiles will be served from: $serverUrl/{z}/{x}/{y}.pbf');
+        return true;
       } else {
         debugPrint('[GetStartedController] ❌ Failed to start tile server');
+        return false;
       }
     } catch (e) {
       debugPrint('[GetStartedController] ❌ Error starting tile server: $e');
+      return false;
     }
   }
 

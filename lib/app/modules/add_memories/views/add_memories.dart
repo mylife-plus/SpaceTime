@@ -285,22 +285,23 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
             groupedMemories.keys.toList()..sort((a, b) => b.compareTo(a));
         debugPrint('Sorted years: $sortedYears');
 
-        return ListView(
+        final flattenedMemories = <Map<String, dynamic>>[];
+        for (final year in sortedYears) {
+          flattenedMemories.addAll(groupedMemories[year] ?? const []);
+        }
+
+        return ListView.builder(
           controller: controller.scrollController,
-          // shrinkWrap: false,
           padding: EdgeInsets.zero,
           physics: const AlwaysScrollableScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          children: [
-            // Debug container
-            for (final year in sortedYears) ...[
-              if (year.isNotEmpty) Container(),
-              ...(groupedMemories[year] ?? []).map(
-                (memory) => MemoryCard(memoryData: memory),
-              ),
-            ],
-            SizedBox(height: 100),
-          ],
+          itemCount: flattenedMemories.length + 1,
+          itemBuilder: (context, index) {
+            if (index == flattenedMemories.length) {
+              return const SizedBox(height: 100);
+            }
+            return MemoryCard(memoryData: flattenedMemories[index]);
+          },
         );
       }),
     );
