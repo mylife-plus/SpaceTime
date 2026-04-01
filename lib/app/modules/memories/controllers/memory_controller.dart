@@ -53,6 +53,24 @@ class MemoryController extends GetxController {
   RxBool isFetchingLocation = false.obs;
   int _locationFetchToken = 0;
 
+  /// Last permission result from [fetchCurrentLocation] (for Memory View placeholder text).
+  final Rxn<LocationPermission> lastResolvedLocationPermission =
+      Rxn<LocationPermission>();
+
+  /// Placeholder for the location row when no address/coords are shown yet.
+  String get locationFieldPlaceholderText {
+    final p = lastResolvedLocationPermission.value;
+    if (p == null) return 'Searching for location';
+    if (p == LocationPermission.whileInUse || p == LocationPermission.always) {
+      return 'Pick Location';
+    }
+    if (p == LocationPermission.denied ||
+        p == LocationPermission.deniedForever) {
+      return 'Location';
+    }
+    return 'Searching for location';
+  }
+
   // Popup controls
   RxBool isPopupOpen = false.obs;
   RxString triggerChar = ''.obs;
@@ -113,41 +131,38 @@ class MemoryController extends GetxController {
     final token = ++_locationFetchToken;
     isFetchingLocation.value = true;
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         selectedLocation.value = '';
-        isFetchingLocation.value = false;
+        var p = await Geolocator.checkPermission();
+        if (p == LocationPermission.denied) {
+          p = await Geolocator.requestPermission();
+        }
+        lastResolvedLocationPermission.value = p;
         return;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          selectedLocation.value = '';
-          isFetchingLocation.value = false;
-          return;
-        }
       }
+      lastResolvedLocationPermission.value = permission;
 
-      if (permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         selectedLocation.value = '';
-        isFetchingLocation.value = false;
         return;
       }
 
       Position? position = await Geolocator.getLastKnownPosition();
+      position ??= await _tryGeolocateCurrentPosition(token);
 
-      // If no cached location is available, request a fresh (but bounded) reading.
-      position ??= await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 6),
-        ),
-      );
+      if (position == null) {
+        selectedLocation.value = '';
+        return;
+      }
 
       if (!ifCalledFromMemoryView) {
-        isFetchingLocation.value = false;
         return;
       }
 
@@ -185,15 +200,40 @@ class MemoryController extends GetxController {
         debugPrint('⚠️ Reverse geocoding failed for current location');
       }
     } catch (e) {
-      selectedLocation.value = '';
+      if (token == _locationFetchToken) {
+        selectedLocation.value = '';
+      }
+      debugPrint('fetchCurrentLocation error: $e');
     } finally {
-      isFetchingLocation.value = false;
+      if (token == _locationFetchToken) {
+        isFetchingLocation.value = false;
+      }
     }
+  }
+
+  Future<Position?> _tryGeolocateCurrentPosition(int token) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await Geolocator.getCurrentPosition(
+          locationSettings: LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: attempt == 0 ? 8 : 12),
+          ),
+        );
+      } catch (e) {
+        debugPrint('getCurrentPosition attempt ${attempt + 1}: $e');
+        if (attempt == 1) return null;
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        if (token != _locationFetchToken) return null;
+      }
+    }
+    return null;
   }
 
   /// Invalidate any in-flight location fetch so it cannot override restored values.
   void invalidateLocationFetch() {
     _locationFetchToken++;
+    isFetchingLocation.value = false;
   }
 
   /// When reopening a draft, we only restore `selectedLocation` (lat,lng).
@@ -537,6 +577,18 @@ class MemoryController extends GetxController {
       throw Exception('Memory date and time cannot be in the future');
     }
 
+    // Snapshot location before any await — validateAudioFiles / GPS / other work
+    // can interleave and mutate reactive fields, which caused empty saves.
+    final location = selectedLocation.value;
+    var locationCountrySnap = locationCountry.value;
+    var locationCitySnap = locationCity.value;
+    var locationNameSnap = locationName.value;
+    final locationAddressSnap = locationAddress.value;
+    var locationFlagSnap = locationFlag.value;
+    final locationLatitudeSnap = locationLatitude.value;
+    final locationLongitudeSnap = locationLongitude.value;
+    final category = selectedCategory.value;
+
     // Place category is optional - no validation needed
     // if (selectedCategory.value.isEmpty) {
     //   throw Exception('Place is required');
@@ -552,24 +604,17 @@ class MemoryController extends GetxController {
     final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate.value!);
     final timeStr = selectedTime.value!.format(Get.context!);
 
-    // Get location from MemoryInfoWidget
-    final location = selectedLocation.value;
-
-    // Get category from MemoryInfoWidget if you have it
-    final category = selectedCategory.value;
-    //if locationFlag == 'asd
-
-    if (locationFlag.value.trim() == '🌊') {
-      final c = locationCountry.value.trim().toLowerCase();
+    if (locationFlagSnap.trim() == '🌊') {
+      final c = locationCountrySnap.trim().toLowerCase();
       final resolvedFlag = c.isNotEmpty ? countryFlags[c] : null;
       if (resolvedFlag != null && resolvedFlag.isNotEmpty) {
-        locationFlag.value = resolvedFlag;
+        locationFlagSnap = resolvedFlag;
       }
 
-      if (locationName.value.trim().isEmpty) {
-        final countryName = locationCountry.value.trim();
+      if (locationNameSnap.trim().isEmpty) {
+        final countryName = locationCountrySnap.trim();
         if (countryName.isNotEmpty) {
-          locationName.value = countryName;
+          locationNameSnap = countryName;
         }
       }
     }
@@ -579,17 +624,17 @@ class MemoryController extends GetxController {
       DatabaseHelper.columnTime: timeStr,
       DatabaseHelper.columnLocation: location,
       DatabaseHelper.columnLocationCountry:
-          locationCountry.value.isNotEmpty ? locationCountry.value : null,
+          locationCountrySnap.isNotEmpty ? locationCountrySnap : null,
       DatabaseHelper.columnLocationCity:
-          locationCity.value.isNotEmpty ? locationCity.value : null,
+          locationCitySnap.isNotEmpty ? locationCitySnap : null,
       DatabaseHelper.columnLocationName:
-          locationName.value.isNotEmpty ? locationName.value : null,
+          locationNameSnap.isNotEmpty ? locationNameSnap : null,
       DatabaseHelper.columnLocationAddress:
-          locationAddress.value.isNotEmpty ? locationAddress.value : null,
+          locationAddressSnap.isNotEmpty ? locationAddressSnap : null,
       DatabaseHelper.columnLocationFlag:
-          locationFlag.value.isNotEmpty ? locationFlag.value : null,
-      DatabaseHelper.columnLocationLatitude: locationLatitude.value,
-      DatabaseHelper.columnLocationLongitude: locationLongitude.value,
+          locationFlagSnap.isNotEmpty ? locationFlagSnap : null,
+      DatabaseHelper.columnLocationLatitude: locationLatitudeSnap,
+      DatabaseHelper.columnLocationLongitude: locationLongitudeSnap,
       DatabaseHelper.columnCategory: category,
       DatabaseHelper.columnDescription:
           description, // From MemoryDescriptionField
@@ -809,27 +854,35 @@ class MemoryController extends GetxController {
   Future<int> updateMemory(int id, Map<String, dynamic> updatedData) async {
     updatedData['id'] = id;
 
-    // Include enhanced location data if available
-    if (locationCountry.value.isNotEmpty) {
+    // Include enhanced location data only when caller did not already supply keys
+    // (avoids overwriting snapshots taken before async validation).
+    if (!updatedData.containsKey(DatabaseHelper.columnLocationCountry) &&
+        locationCountry.value.isNotEmpty) {
       updatedData[DatabaseHelper.columnLocationCountry] = locationCountry.value;
     }
-    if (locationCity.value.isNotEmpty) {
+    if (!updatedData.containsKey(DatabaseHelper.columnLocationCity) &&
+        locationCity.value.isNotEmpty) {
       updatedData[DatabaseHelper.columnLocationCity] = locationCity.value;
     }
-    if (locationName.value.isNotEmpty) {
+    if (!updatedData.containsKey(DatabaseHelper.columnLocationName) &&
+        locationName.value.isNotEmpty) {
       updatedData[DatabaseHelper.columnLocationName] = locationName.value;
     }
-    if (locationAddress.value.isNotEmpty) {
+    if (!updatedData.containsKey(DatabaseHelper.columnLocationAddress) &&
+        locationAddress.value.isNotEmpty) {
       updatedData[DatabaseHelper.columnLocationAddress] = locationAddress.value;
     }
-    if (locationFlag.value.isNotEmpty) {
+    if (!updatedData.containsKey(DatabaseHelper.columnLocationFlag) &&
+        locationFlag.value.isNotEmpty) {
       updatedData[DatabaseHelper.columnLocationFlag] = locationFlag.value;
     }
-    if (locationLatitude.value != null) {
+    if (!updatedData.containsKey(DatabaseHelper.columnLocationLatitude) &&
+        locationLatitude.value != null) {
       updatedData[DatabaseHelper.columnLocationLatitude] =
           locationLatitude.value;
     }
-    if (locationLongitude.value != null) {
+    if (!updatedData.containsKey(DatabaseHelper.columnLocationLongitude) &&
+        locationLongitude.value != null) {
       updatedData[DatabaseHelper.columnLocationLongitude] =
           locationLongitude.value;
     }
@@ -1248,6 +1301,7 @@ class MemoryController extends GetxController {
     locationFlag.value = '';
     locationLatitude.value = null;
     locationLongitude.value = null;
+    lastResolvedLocationPermission.value = null;
 
     // Reset popup controls
     isPopupOpen.value = false;

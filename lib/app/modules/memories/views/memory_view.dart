@@ -1020,6 +1020,16 @@ class _MemoryViewState extends State<MemoryView> {
           debugPrint('Final audio path string: $finalAudioPathString');
         }
 
+        // Snapshot location before async validation — same race as saveMemory / GPS.
+        final saveLocationSnapshot = memoryController.selectedLocation.value;
+        final saveLocCountry = memoryController.locationCountry.value;
+        final saveLocCity = memoryController.locationCity.value;
+        final saveLocName = memoryController.locationName.value;
+        final saveLocAddress = memoryController.locationAddress.value;
+        final saveLocFlag = memoryController.locationFlag.value;
+        final saveLocLat = memoryController.locationLatitude.value;
+        final saveLocLng = memoryController.locationLongitude.value;
+
         // Validation before updating memory
         debugPrint('MemoryView: handleSave - EDIT MODE - Starting validation');
         final validationResult = await _validateMemoryData(
@@ -1035,19 +1045,40 @@ class _MemoryViewState extends State<MemoryView> {
         }
 
         debugPrint('MemoryView: handleSave - EDIT MODE - Updating memory in database');
-        await memoryController.updateMemory(_editingMemoryId!, {
+        final editUpdate = <String, dynamic>{
           'date': dateStr,
           'time': timeStr,
           'description': description,
           'tags': tags.join(','),
           'mentions': mentions.join(','),
           'category': memoryController.selectedCategory.value,
-          'location': memoryController.selectedLocation.value,
-          'audio_path':
-              finalAudioPathString, // ✅ NEW: Update legacy audio_path field
-          'created_at': selectedDateTime.toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
+          'location': saveLocationSnapshot,
+        };
+        if (saveLocCountry.isNotEmpty) {
+          editUpdate[DatabaseHelper.columnLocationCountry] = saveLocCountry;
+        }
+        if (saveLocCity.isNotEmpty) {
+          editUpdate[DatabaseHelper.columnLocationCity] = saveLocCity;
+        }
+        if (saveLocName.isNotEmpty) {
+          editUpdate[DatabaseHelper.columnLocationName] = saveLocName;
+        }
+        if (saveLocAddress.isNotEmpty) {
+          editUpdate[DatabaseHelper.columnLocationAddress] = saveLocAddress;
+        }
+        if (saveLocFlag.isNotEmpty) {
+          editUpdate[DatabaseHelper.columnLocationFlag] = saveLocFlag;
+        }
+        if (saveLocLat != null) {
+          editUpdate[DatabaseHelper.columnLocationLatitude] = saveLocLat;
+        }
+        if (saveLocLng != null) {
+          editUpdate[DatabaseHelper.columnLocationLongitude] = saveLocLng;
+        }
+        editUpdate['audio_path'] = finalAudioPathString;
+        editUpdate['created_at'] = selectedDateTime.toIso8601String();
+        editUpdate['updated_at'] = DateTime.now().toIso8601String();
+        await memoryController.updateMemory(_editingMemoryId!, editUpdate);
         debugPrint('MemoryView: handleSave - EDIT MODE - Memory updated successfully');
 
         // Update images if they were modified (added, deleted, or changed)

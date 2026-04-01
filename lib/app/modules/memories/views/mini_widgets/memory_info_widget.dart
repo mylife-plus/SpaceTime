@@ -108,8 +108,8 @@ class MemoryInfoWidget extends StatelessWidget {
                         lng: controller.locationLongitude.value,
                       )
                     : controller.isFetchingLocation.value
-                        ? '(searching current location)'
-                        : 'Pick Location';
+                        ? 'Searching for location'
+                        : controller.locationFieldPlaceholderText;
 
                 return _LocationInfoContainer(
                   imagePath: AppImages.location,
