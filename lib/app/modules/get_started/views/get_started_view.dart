@@ -51,7 +51,7 @@ class GetStartedView extends GetView<GetStartedController> {
               if (controller.isInitializing.value) {
                 return Center(
                   child: Image.asset(
-                    'assets/images/logo.png',
+                    'assets/images/app_icon.png',
                     width: 100,
                     height: 100,
                   ),
