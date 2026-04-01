@@ -100,7 +100,8 @@ class MemoryController extends GetxController {
     final now = DateTime.now();
     selectedDate.value = now;
     selectedTime.value = TimeOfDay.fromDateTime(now);
-    await fetchCurrentLocation();
+    // MemoryView explicitly triggers location once UI is ready.
+    // Avoid eager fetch here to prevent duplicate GPS calls on screen open.
   }
 
   Future<void> _loadSavedTagsAndMentions() async {
@@ -135,9 +136,13 @@ class MemoryController extends GetxController {
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
+      Position? position = await Geolocator.getLastKnownPosition();
+
+      // If no cached location is available, request a fresh (but bounded) reading.
+      position ??= await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 6),
         ),
       );
 
@@ -145,6 +150,14 @@ class MemoryController extends GetxController {
         isFetchingLocation.value = false;
         return;
       }
+
+      if (token != _locationFetchToken) return;
+
+      // Show coordinates immediately, then enrich with reverse geocoding.
+      selectedLocation.value =
+          '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+      locationLatitude.value = position.latitude;
+      locationLongitude.value = position.longitude;
 
       final reverseGeocodedData = await _getLocationDetailsFromCoordinates(
         position.latitude,

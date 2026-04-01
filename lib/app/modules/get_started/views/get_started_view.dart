@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path/path.dart';
 import '../../ui/controllers/ui_controller.dart';
 import '../controllers/get_started_controller.dart';
 
@@ -13,9 +12,7 @@ class GetStartedView extends GetView<GetStartedController> {
   double _responsiveFontSize(BuildContext context, double size) {
     size = size * 1.25;
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final baseWidth = 375.0; // iPhone SE width as base
-    final baseHeight = 667.0; // iPhone SE height as base
 
     // Use width-based scaling for more consistent results
     final scale = screenWidth / baseWidth;

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -61,7 +59,6 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
   double _lastScrollOffset = 0.0;
   bool _isScrollingDown = false;
-  DateTime? _lastResumeRefreshAt;
 
   // ============================================================================
   // FILTER STATE (delegates to FilterController)
@@ -120,43 +117,14 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   }
 
   /// Called by Flutter whenever the app lifecycle state changes.
-  /// On resume we only refresh the memory data — we deliberately do NOT call
-  /// onAgainInit() here because that resets UI state (closes overlays, clears
-  /// indicators) which is unnecessary and disruptive when the user simply
-  /// backgrounds and foregrounds the app.
+  /// On resume we intentionally keep the current view state (no reload).
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Prevent duplicate resume refreshes in very short intervals.
-      final now = DateTime.now();
-      if (_lastResumeRefreshAt != null &&
-          now.difference(_lastResumeRefreshAt!) <
-              const Duration(milliseconds: 800)) {
-        return;
-      }
-      _lastResumeRefreshAt = now;
       debugPrint(
-        'AddMemoriesController: app resumed — refreshing memory data and preserving scroll',
+        'AddMemoriesController: app resumed — preserving current state',
       );
-      _refreshMemoriesPreserveScroll();
     }
-  }
-
-  Future<void> _refreshMemoriesPreserveScroll() async {
-    final hadClients = scrollController.hasClients;
-    final previousOffset = hadClients ? scrollController.offset : 0.0;
-
-    await loadMemoriesFromDatabase();
-
-    if (!scrollController.hasClients) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!scrollController.hasClients) return;
-      final maxExtent = scrollController.position.maxScrollExtent;
-      final target = previousOffset.clamp(0.0, maxExtent);
-      if ((scrollController.offset - target).abs() > 0.5) {
-        scrollController.jumpTo(target);
-      }
-    });
   }
 
   // Load filter data for dropdowns (same as memory view popups)
@@ -305,8 +273,6 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   Future<Map<String, dynamic>> transformDatabaseMemoryToUI(
     Map<String, dynamic> dbMemory,
   ) async {
-    final createdAt = DateTime.tryParse(dbMemory['created_at'] ?? '');
-
     final date = _formatDate(dbMemory['date'], dbMemory['created_at']);
 
     final year = _formatYear(dbMemory['date'], dbMemory['created_at']);
@@ -569,21 +535,6 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     if (dbDate != null && dbDate.isNotEmpty) {
       try {
         final date = DateTime.parse(dbDate);
-        final months = [
-          '',
-          'January',
-          'February',
-          'March',
-          'April',
-          'May',
-          'June',
-          'July',
-          'August',
-          'September',
-          'October',
-          'November',
-          'December',
-        ];
         return '${date.year}';
       } catch (e) {
         debugPrint('Error parsing dbDate: $e');

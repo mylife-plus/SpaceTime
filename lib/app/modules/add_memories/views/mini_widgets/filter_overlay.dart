@@ -145,6 +145,34 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
     );
   }
 
+  bool _validateDateRangeOrShowError(AddMemoriesController controller) {
+    final fromDateStr = controller.filterValues['from date'];
+    final toDateStr = controller.filterValues['to date'];
+    if ((fromDateStr?.isNotEmpty ?? false) && (toDateStr?.isNotEmpty ?? false)) {
+      try {
+        final from = DateTime.parse(fromDateStr!);
+        final to = DateTime.parse(toDateStr!);
+        final fromDateOnly = DateTime(from.year, from.month, from.day);
+        final toDateOnly = DateTime(to.year, to.month, to.day);
+        if (toDateOnly.isBefore(fromDateOnly)) {
+          Get.snackbar(
+            'Invalid Date Range',
+            'To Date cannot be earlier than From Date',
+            backgroundColor: Colors.red.shade400,
+            colorText: Colors.white,
+            margin: const EdgeInsets.all(12),
+            snackPosition: SnackPosition.TOP,
+            duration: const Duration(seconds: 2),
+          );
+          return false;
+        }
+      } catch (e) {
+        debugPrint('[FilterOverlay] Date validation parse error: $e');
+      }
+    }
+    return true;
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -231,6 +259,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                     },
                     onApply: () async {
                       final mapController = Get.find<MapControllerNew>();
+                      if (!_validateDateRangeOrShowError(controller)) {
+                        return;
+                      }
                 
                       // Apply filters (this will clear memory ID filters automatically)
                       debugPrint('[FilterOverlay] 🎯 Applying filters from overlay');

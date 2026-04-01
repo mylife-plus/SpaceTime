@@ -352,8 +352,8 @@ class MemoryLocationPickerController extends GetxController {
     double lng,
   ) async {
     return MemoryLocationPinGeocoding(mapController).buildLocationDataForPin(
-      lat,
-      lng,
+        lat,
+        lng,
     );
   }
 
@@ -368,7 +368,7 @@ class MemoryLocationPickerController extends GetxController {
     if (selectedLocationMarker == null && !hasExistingMemoryCoords) {
       print('Selected Location Marker Is Null');
       Get.back();
-      return;
+        return;
     }
 
     final lat = selectedLocationMarker != null
@@ -476,7 +476,7 @@ class MemoryLocationPickerController extends GetxController {
 
       // Check if there's already a selected location
       final hasSelectedLocation = memoryController.locationLatitude.value != null &&
-          memoryController.locationLongitude.value != null;
+                                   memoryController.locationLongitude.value != null;
 
       if (hasSelectedLocation) {
         // If location is already selected, show that location
@@ -575,7 +575,7 @@ class MemoryLocationPickerController extends GetxController {
         image: imageData,
         iconSize: 1.0,
       );
-      selectedLocationMarker = await annotationManager!.create(pointAnnotationOptions);
+       selectedLocationMarker = await annotationManager!.create(pointAnnotationOptions);
       debugPrint('Selected Address $latitude $longitude');
     } catch (e) {
       debugPrint('Error selecting location: $e');
@@ -619,35 +619,35 @@ class MemoryLocationPickerController extends GetxController {
   /// Clear existing markers (all annotations on this manager).
   Future<void> clearExistingMarkers() async {
     if (annotationManager == null) return;
-    try {
+      try {
       await annotationManager!.deleteAll();
-      selectedLocationMarker = null;
-    } catch (e) {
-      debugPrint('Error clearing existing markers: $e');
+        selectedLocationMarker = null;
+      } catch (e) {
+        debugPrint('Error clearing existing markers: $e');
     }
   }
 
   /// Handle map tap
-  Future<void> onMapTap(mapbox.MapContentGestureContext context) async {
+ Future<void> onMapTap(mapbox.MapContentGestureContext context) async {
     clearSearch();
 
-    final point = context.point;
+  final point = context.point;
 
-    final latitude = point.coordinates.lat.toDouble();
-    final longitude = point.coordinates.lng.toDouble();
+  final latitude = point.coordinates.lat.toDouble();
+  final longitude = point.coordinates.lng.toDouble();
 
-    await selectLocation(latitude, longitude);
-  }
+  await selectLocation(latitude, longitude);
+}
 
   Future<Map<String, String?>> getAdminHierarchy(double lat, double lng) async {
     return MemoryLocationPinGeocoding(mapController).getAdminHierarchy(lat, lng);
   }
 
-  Future<Map<String, dynamic>?> getWaterPolygonById(
-    String sourceId,
-    String sourceLayer,
-    String featureId,
-  ) async {
+Future<Map<String, dynamic>?> getWaterPolygonById(
+  String sourceId,
+  String sourceLayer,
+  String featureId,
+) async {
     return MemoryLocationPinGeocoding(mapController).getWaterPolygonById(
       sourceId,
       sourceLayer,
@@ -655,10 +655,10 @@ class MemoryLocationPickerController extends GetxController {
     );
   }
 
-  Future<String?> getWaterLabel(
-    Map<String, dynamic> polygonFeature,
-    List<String> labelLayers,
-  ) async {
+Future<String?> getWaterLabel(
+  Map<String, dynamic> polygonFeature,
+  List<String> labelLayers,
+) async {
     return MemoryLocationPinGeocoding(mapController).getWaterLabel(
       polygonFeature,
       labelLayers,

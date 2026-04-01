@@ -16,15 +16,14 @@ import '../../../../services/mbtiles_server_service.dart';
 import '../../../../services/style_json_download_service.dart';
 import '../../../services/memory_db.dart';
 import '../../../services/path_migration_helper.dart';
-import '../../../helpers/nearest_region_service.dart';
-import '../../../helpers/offline_water_service.dart';
 import '../../../helpers/mapbox_zoom_helper.dart';
 import '../../../../services/memory_geojson_service.dart';
+import '../../ui/controllers/ui_controller.dart';
 
 const String PREFS_KEY_MBTILES_DOWNLOADED = 'mbtiles_downloaded';
 const String PREFS_KEY_MBTILES_PATH = 'mbtiles_path';
 
-class GetStartedController extends GetxController {
+class GetStartedController extends GetxController with WidgetsBindingObserver {
   // Dependencies
   OfflineMapCoordinatorService? _offlineCoordinator;
   OfflineMapService? _offlineMapService;
@@ -72,9 +71,43 @@ class GetStartedController extends GetxController {
 
   bool _startupInitializationStarted = false;
 
+  // iOS Background App Refresh gating
+  Completer<bool>? _waitingForBackgroundRefreshCompleter;
+  bool _backgroundRefreshPopupShowing = false;
+
   @override
   void onInit() {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+
+    // 1) Resolve any pending "wait for background refresh enabled" request
+    final completer = _waitingForBackgroundRefreshCompleter;
+    if (completer != null) {
+      _waitingForBackgroundRefreshCompleter = null;
+      unawaited(() async {
+        final status = await _getBackgroundRefreshStatus();
+        final enabled = status == 'available';
+        if (!completer.isCompleted) completer.complete(enabled);
+      }());
+      return;
+    }
+
+    // 2) If a download is still running and background refresh is off,
+    // show the popup again so user can re-enable (prevents silent pauses).
+    if (Platform.isIOS && isDownloading.value && !tilesDownloadCompleted.value) {
+      unawaited(_maybeShowBackgroundRefreshPopupOnResume());
+    }
   }
 
   /// Called from [main] after core services register (native splash already removed).
@@ -112,7 +145,7 @@ class GetStartedController extends GetxController {
 
   Future<void> _initDatabase() async {
     try {
-      final db = await DatabaseHelper.instance.database;
+      await DatabaseHelper.instance.database;
       final isHealthy = await DatabaseHelper.instance.isDatabaseHealthy();
       if (!isHealthy) {
         await DatabaseHelper.instance.resetDatabaseConnection();
@@ -458,51 +491,123 @@ class GetStartedController extends GetxController {
     }
   }
 
-  Future<void> _showBackgroundRefreshPopup() async {
-    final completer = Completer<bool>();
-    Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text(
-          'Background App Refresh',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        content: const Text(
-          'Background App Refresh is currently disabled for SpaceTime.\n\n'
-          'Enabling it allows the 4.5GB map download to continue when you leave the app.\n\n'
-          'Without it, iOS will keep the download alive for approximately 3 minutes after you leave the app. '
-          'After that the download pauses until you reopen the app.\n\n'
-          'You can enable it in:\nSettings → General → Background App Refresh',
-          style: TextStyle(fontSize: 14, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Get.back();
-              completer.complete(false);
-            },
-            child: const Text('Ignore', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              openAppSettings();
-              completer.complete(true);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007AFF),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  Future<bool> _showBackgroundRefreshPopup() async {
+    if (!Platform.isIOS) return true;
+    if (_backgroundRefreshPopupShowing) return false;
+
+    _backgroundRefreshPopupShowing = true;
+    final uiController = Get.find<UiController>();
+    final isDark = uiController.darkMode.value;
+    final bgColor = isDark ? uiController.darkSurfaceColor : uiController.getLightModeBackgroundColor(uiController.mainColor.value);
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final contentColor = isDark ? Colors.white70 : Colors.black54;
+    final ignoreColor = isDark ? Colors.white70 : Colors.grey.shade600;
+    final accentColor = uiController.currentMainColor;
+
+    try {
+      final completer = Completer<bool>();
+      Get.dialog(
+        AlertDialog(
+          backgroundColor: bgColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+              width: 1,
             ),
-            child: const Text('Activate', style: TextStyle(color: Colors.white)),
           ),
-        ],
-      ),
-      barrierDismissible: false,
-    );
-    final openedSettings = await completer.future;
-    if (openedSettings) {
-      await Future.delayed(const Duration(seconds: 1));
+          title: Text(
+            'Background refresh deactivated',
+            style: TextStyle(
+              fontFamily: 'KumbhSans',
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              color: titleColor,
+            ),
+          ),
+          content: Text(
+            'Activate background refresh in Settings → General → Background App Refresh\n\n'
+            'Otherwise the tile download may cancel after ~3 minutes in background.',
+            style: TextStyle(
+              fontFamily: 'KumbhSans',
+              fontSize: 14,
+              height: 1.35,
+              color: contentColor,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (Get.isDialogOpen != true) return;
+                Get.back();
+                if (!completer.isCompleted) completer.complete(false);
+              },
+              child: Text(
+                'Not now',
+                style: TextStyle(
+                  fontFamily: 'KumbhSans',
+                  color: ignoreColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Get.back();
+                openAppSettings();
+                if (!completer.isCompleted) completer.complete(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accentColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: Text(
+                'Activate',
+                style: TextStyle(
+                  fontFamily: 'KumbhSans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+      );
+
+      return await completer.future;
+    } finally {
+      _backgroundRefreshPopupShowing = false;
     }
+  }
+
+  Future<bool> _waitForBackgroundRefreshToBecomeAvailable({Duration timeout = const Duration(seconds: 90)}) async {
+    if (!Platform.isIOS) return true;
+
+    final statusNow = await _getBackgroundRefreshStatus();
+    if (statusNow == 'available') return true;
+
+    final completer = Completer<bool>();
+    _waitingForBackgroundRefreshCompleter = completer;
+    try {
+      return await completer.future.timeout(timeout);
+    } on TimeoutException {
+      return false;
+    } finally {
+      if (_waitingForBackgroundRefreshCompleter == completer) {
+        _waitingForBackgroundRefreshCompleter = null;
+      }
+    }
+  }
+
+  Future<void> _maybeShowBackgroundRefreshPopupOnResume() async {
+    final status = await _getBackgroundRefreshStatus();
+    if (status == 'available') return;
+    await _showBackgroundRefreshPopup();
   }
 
   Future<void> startDownload() async {
@@ -515,7 +620,11 @@ class GetStartedController extends GetxController {
       final bgStatus = await _getBackgroundRefreshStatus();
       debugPrint('[GetStartedController] Background refresh status: $bgStatus');
       if (bgStatus != 'available') {
-        await _showBackgroundRefreshPopup();
+        final userActivated = await _showBackgroundRefreshPopup();
+        if (userActivated) {
+          // Wait until user returns to app and background refresh is actually enabled.
+          await _waitForBackgroundRefreshToBecomeAvailable();
+        }
       }
 
       debugPrint('[GetStartedController] 🔔 Checking notification permission...');
