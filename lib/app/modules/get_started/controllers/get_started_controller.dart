@@ -37,7 +37,6 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   final RxBool isDownloading = false.obs;
   final RxBool isCompleted = false.obs;
   final RxBool hasError = false.obs;
-  final RxBool isNoInternet = false.obs;
   final RxString statusText = "Preparing to download...".obs;
   final RxDouble downloadProgress = 0.0.obs;
   final RxInt downloadedTileCount = 0.obs;
@@ -291,7 +290,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         isDownloading.value = false;
         statusText.value = "Download 4.5GB of map tiles to use offline";
 
-        await _checkInternetAndShowAppropriateScreen();
+        _startWelcomeSequence();
       } else {
         debugPrint('[GetStartedController] ⚠️ Files exist but preferences not set - hiding start button');
 
@@ -307,7 +306,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       hasError.value = false;
       isDownloading.value = false;
       statusText.value = "Download 4.5GB of map tiles to use offline";
-      await _checkInternetAndShowAppropriateScreen();
+      _startWelcomeSequence();
     }
   }
 
@@ -316,7 +315,6 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     hideStartButtonDuringTileCheck.value = true;
     isCheckingTiles.value = true;
     showDownloadUI.value = true;
-    isNoInternet.value = false;
   }
 
   Future<void> _navigateToMainFromStartup() async {
@@ -373,38 +371,16 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// Check internet connectivity and show appropriate screen
-  Future<void> _checkInternetAndShowAppropriateScreen() async {
-    try {
-      // Check internet connectivity
-      final connectivityService = Get.find<ConnectivityService>();
-      final hasInternet = await connectivityService.hasInternetQuickCheck();
-
-      debugPrint('[GetStartedController] Internet connectivity: $hasInternet');
-
-      if (hasInternet) {
-        // Has internet - show normal get started flow
-        debugPrint('[GetStartedController] Internet available, showing get started flow');
-        _startWelcomeSequence();
-      } else {
-        // No internet - show no internet message
-        debugPrint('[GetStartedController] No internet, showing no internet message');
-        _showNoInternetScreen();
-      }
-    } catch (e) {
-      debugPrint('[GetStartedController] Error checking internet: $e');
-      // On error, assume no internet and show no internet screen
-      _showNoInternetScreen();
-    }
-  }
-
-  /// Show no internet screen
-  void _showNoInternetScreen() {
-    isCheckingTiles.value = false; // Stop checking tiles indicator
-    showWelcomeAnimation.value = false;
-    isNoInternet.value = true;
-    showDownloadUI.value = false; // Hide download UI when no internet
-    statusText.value = "Internet is required to download the tiles. Please connect to the internet and then try again.";
+  void _showNoInternetSnackbar() {
+    Get.snackbar(
+      'No internet',
+      'Connect to the internet to download map tiles and style.',
+      snackPosition: SnackPosition.BOTTOM,
+      margin: const EdgeInsets.all(16),
+      backgroundColor: Colors.black87,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 4),
+    );
   }
 
   /// Get current tile count from SharedPreferences
@@ -645,6 +621,24 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     }
 
     try {
+      final tilesOk =
+          _mbtilesDownloadService != null &&
+          await _mbtilesDownloadService!.isMbtilesDownloaded();
+      final styleOk =
+          _styleJsonDownloadService != null &&
+          await _styleJsonDownloadService!.isStyleJsonDownloaded();
+      if (!tilesOk || !styleOk) {
+        final hasInternet =
+            await Get.find<ConnectivityService>().hasInternetQuickCheck();
+        if (!hasInternet) {
+          debugPrint(
+            '[GetStartedController] Start blocked: offline and tiles/style not ready',
+          );
+          _showNoInternetSnackbar();
+          return;
+        }
+      }
+
       final bgStatus = await _getBackgroundRefreshStatus();
       debugPrint('[GetStartedController] Background refresh status: $bgStatus');
       if (bgStatus != 'available') {
