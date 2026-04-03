@@ -27,10 +27,19 @@ class OfflineLocationSearchService {
     try {
       debugPrint('🔍 Initializing OfflineLocationSearchService...');
 
-      // Check if native search is available
-      // Load offline location database
-      await _loadOfflineDatabase();
+      // Prefer shared WorldLocationsService (single CSV parse in isolate) when available.
+      final worldSvc = world.WorldLocationsService.instance;
+      await worldSvc.initialize();
+      if (worldSvc.isLoaded) {
+        _locations = [];
+        _isInitialized = true;
+        debugPrint(
+          '✅ OfflineLocationSearchService ready (WorldLocationsService, no duplicate CSV)',
+        );
+        return;
+      }
 
+      await _loadOfflineDatabase();
       _isInitialized = true;
       debugPrint('✅ OfflineLocationSearchService initialized successfully');
       debugPrint('   Offline locations: ${_locations.length}');

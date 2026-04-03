@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
@@ -120,13 +118,10 @@ class MemoryInfoWidget extends StatelessWidget {
                       onAnyWidgetTapped!();
                     }
 
-                    final picker = Get.put(
+                    Get.put(
                       MemoryLocationPickerController(),
                       permanent: true,
                     );
-                    // picker.configureLaunchFromMemoryView(true);
-                    // picker.allowLocationAutoRefresh.value = true;
-                    unawaited(picker.initializeLocationPicker());
 
                     final data = await Get.to(
                       () => const MemoryLocationPickerWidget(),

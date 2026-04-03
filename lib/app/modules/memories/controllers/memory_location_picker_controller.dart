@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'package:spacetime/services/mbtiles_server_service.dart';
 import 'package:spacetime/services/style_json_download_service.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart';
 import 'package:spacetime/app/modules/memories/services/memory_location_pin_geocoding.dart';
+import 'package:spacetime/services/offline_location_search_service.dart';
 
 enum MemoryLocationPickerState {
   loading,
@@ -52,9 +54,21 @@ class MemoryLocationPickerController extends GetxController {
   mapbox.PointAnnotation? selectedLocationMarker;
   bool _mapBootstrapped = false;
   int _labelGeocodeGeneration = 0;
+  Timer? _searchDebounce;
+  int _searchRequestId = 0;
 
   void _invalidatePendingLabelGeocode() {
     _labelGeocodeGeneration++;
+  }
+
+  /// Load shared location index before first keystroke (parallel with tile / GPS init).
+  /// Offline service initializes WorldLocationsService first and avoids duplicate CSV parse.
+  Future<void> _warmLocationSearchIndex() async {
+    try {
+      await OfflineLocationSearchService.instance.initialize();
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker] Search index warm-up: $e');
+    }
   }
 
   // Server state for local tiles
@@ -73,6 +87,7 @@ class MemoryLocationPickerController extends GetxController {
 
   @override
   void onClose() {
+    _searchDebounce?.cancel();
     searchController.dispose();
     searchFocusNode.dispose();
     super.onClose();
@@ -82,6 +97,8 @@ class MemoryLocationPickerController extends GetxController {
   Future<void> initializeLocationPicker() async {
     try {
       state.value = MemoryLocationPickerState.loading;
+
+      final warmSearch = _warmLocationSearchIndex();
 
       // Initialize local tile server first
       await initializeLocalTileServer();
@@ -93,6 +110,8 @@ class MemoryLocationPickerController extends GetxController {
       if (hasLocationPermission.value) {
         await getCurrentLocation();
       }
+
+      await warmSearch;
 
       state.value = MemoryLocationPickerState.ready;
     } catch (e) {
@@ -288,13 +307,18 @@ class MemoryLocationPickerController extends GetxController {
 
   /// Handle search text changes
   void onSearchChanged() {
+    _searchDebounce?.cancel();
     final query = searchController.text.trim();
-    if (query.isNotEmpty) {
-      performLocationSearch(query);
-    } else {
+    if (query.isEmpty) {
+      isSearching.value = false;
       showSearchResults.value = false;
       searchResults.clear();
+      return;
     }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      performLocationSearch(query);
+    });
   }
 
   /// Perform location search using LocationPickerService
@@ -304,23 +328,26 @@ class MemoryLocationPickerController extends GetxController {
       return;
     }
 
+    final requestId = ++_searchRequestId;
     showSearchResults.value = true;
     isSearching.value = true;
     searchResults.clear();
 
     try {
-      // Use LocationPickerService for searching
       final results = await locationPickerService.searchLocations(
         query,
         isOfflineMode: isOfflineMode.value,
       );
 
-      // Results are already in the correct format from LocationPickerService
-      searchResults.addAll(results);
+      if (requestId != _searchRequestId) return;
+
+      searchResults.assignAll(results);
     } catch (e) {
       debugPrint('Error performing location search: $e');
     } finally {
-      isSearching.value = false;
+      if (requestId == _searchRequestId) {
+        isSearching.value = false;
+      }
     }
   }
 
