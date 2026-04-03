@@ -397,7 +397,7 @@ class _MemoryLocationAdminEditWidgetState
       child: Container(
         width: double.infinity,
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
           color: isDark ? Colors.black : Colors.white,
           border: Border.all(color: borderColor, width: 1),
@@ -531,7 +531,7 @@ class _MemoryLocationAdminEditWidgetState
             decoration: const InputDecoration(
               isDense: true,
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(vertical: 4),
             ),
             style: AppFonts.medium(16, color: valueColor),
           );
@@ -626,9 +626,9 @@ class _MemoryLocationAdminEditWidgetState
                                                             border:
                                                                 InputBorder.none,
                                                             contentPadding:
-                                                                EdgeInsets
+                                                                const EdgeInsets
                                                                     .symmetric(
-                                                              vertical: 12,
+                                                              vertical: 4,
                                                             ),
                                                           ),
                                                       style: AppFonts.medium(
