@@ -23,6 +23,8 @@ import '../../ui/controllers/ui_controller.dart';
 
 const String PREFS_KEY_MBTILES_DOWNLOADED = 'mbtiles_downloaded';
 const String PREFS_KEY_MBTILES_PATH = 'mbtiles_path';
+const String PREFS_KEY_IOS_BAR_EDUCATION_POPUP_SHOWN =
+    'ios_bar_education_popup_shown';
 
 class GetStartedController extends GetxController with WidgetsBindingObserver {
   // Dependencies
@@ -78,6 +80,9 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   Completer<bool>? _waitingForBackgroundRefreshCompleter;
   bool _backgroundRefreshPopupShowing = false;
 
+  /// Shown below Start after the one-time B.A.R. dialog was seen and refresh is still off.
+  final RxBool iosBackgroundRefreshBannerVisible = false.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -102,15 +107,12 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         final status = await _getBackgroundRefreshStatus();
         final enabled = status == 'available';
         if (!completer.isCompleted) completer.complete(enabled);
+        await refreshIosBackgroundRefreshBanner();
       }());
       return;
     }
 
-    // 2) If a download is still running and background refresh is off,
-    // show the popup again so user can re-enable (prevents silent pauses).
-    if (Platform.isIOS && isDownloading.value && !tilesDownloadCompleted.value) {
-      unawaited(_maybeShowBackgroundRefreshPopupOnResume());
-    }
+    unawaited(refreshIosBackgroundRefreshBanner());
   }
 
   /// Called from [main] after core services register (native splash already removed).
@@ -291,6 +293,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         statusText.value = "Download 4.5GB of map tiles to use offline";
 
         _startWelcomeSequence();
+        unawaited(refreshIosBackgroundRefreshBanner());
       } else {
         debugPrint('[GetStartedController] ⚠️ Files exist but preferences not set - hiding start button');
 
@@ -307,6 +310,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       isDownloading.value = false;
       statusText.value = "Download 4.5GB of map tiles to use offline";
       _startWelcomeSequence();
+      unawaited(refreshIosBackgroundRefreshBanner());
     }
   }
 
@@ -460,6 +464,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
       // Wait for user to manually tap the button to start download
       // No auto-start - user must explicitly confirm
+      unawaited(refreshIosBackgroundRefreshBanner());
     });
   }
 
@@ -512,6 +517,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       final completer = Completer<bool>();
       Get.dialog(
         AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
           backgroundColor: bgColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -520,23 +526,31 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
               width: 1,
             ),
           ),
-          title: Text(
-            'Background refresh deactivated',
-            style: TextStyle(
-              fontFamily: 'KumbhSans',
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-              color: titleColor,
+          title: SizedBox(
+            width: double.infinity,
+            child: Text(
+              'Background refresh deactivated',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: titleColor,
+              ),
             ),
           ),
-          content: Text(
-            'Activate background refresh in Settings → General → Background App Refresh\n\n'
-            'Otherwise the tile download may cancel after ~3 minutes in background.',
-            style: TextStyle(
-              fontFamily: 'KumbhSans',
-              fontSize: 14,
-              height: 1.35,
-              color: contentColor,
+          content: SizedBox(
+            width: double.infinity,
+            child: Text(
+              'Activate background refresh in Settings → General → Background App Refresh\n\n'
+              'Otherwise the tile download may cancel after ~3 minutes in background.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontSize: 14,
+                height: 1.35,
+                color: contentColor,
+              ),
             ),
           ),
           actions: [
@@ -608,10 +622,30 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _maybeShowBackgroundRefreshPopupOnResume() async {
+  Future<bool> _readIosBarPopupShownPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(PREFS_KEY_IOS_BAR_EDUCATION_POPUP_SHOWN) ?? false;
+  }
+
+  Future<void> _writeIosBarPopupShownPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(PREFS_KEY_IOS_BAR_EDUCATION_POPUP_SHOWN, true);
+  }
+
+  /// Updates red banner under Start: visible only after one-time dialog was shown, B.A.R. still off, download not finished/active.
+  Future<void> refreshIosBackgroundRefreshBanner() async {
+    if (!Platform.isIOS) {
+      iosBackgroundRefreshBannerVisible.value = false;
+      return;
+    }
+    if (!await _readIosBarPopupShownPref()) {
+      iosBackgroundRefreshBannerVisible.value = false;
+      return;
+    }
     final status = await _getBackgroundRefreshStatus();
-    if (status == 'available') return;
-    await _showBackgroundRefreshPopup();
+    final barOff = status != 'available';
+    final show = barOff && !isCompleted.value && !isDownloading.value;
+    iosBackgroundRefreshBannerVisible.value = show;
   }
 
   Future<void> startDownload() async {
@@ -639,14 +673,23 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         }
       }
 
-      final bgStatus = await _getBackgroundRefreshStatus();
-      debugPrint('[GetStartedController] Background refresh status: $bgStatus');
-      if (bgStatus != 'available') {
-        final userActivated = await _showBackgroundRefreshPopup();
-        if (userActivated) {
-          // Wait until user returns to app and background refresh is actually enabled.
-          await _waitForBackgroundRefreshToBecomeAvailable();
+      if (Platform.isIOS) {
+        final bgStatus = await _getBackgroundRefreshStatus();
+        debugPrint('[GetStartedController] Background refresh status: $bgStatus');
+        if (bgStatus != 'available') {
+          final alreadyShown = await _readIosBarPopupShownPref();
+          var userOpenedSettings = false;
+          if (!alreadyShown) {
+            userOpenedSettings = await _showBackgroundRefreshPopup();
+            await _writeIosBarPopupShownPref();
+          }
+          if (userOpenedSettings) {
+            await _waitForBackgroundRefreshToBecomeAvailable();
+          }
         }
+        await refreshIosBackgroundRefreshBanner();
+      } else {
+        iosBackgroundRefreshBannerVisible.value = false;
       }
 
       debugPrint('[GetStartedController] 🔔 Checking notification permission...');
@@ -692,6 +735,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       errorMessage.value = "";
       statusText.value = "Preparing download for zoom level ${selectedZoomLevel.value}...";
       downloadProgress.value = 0.0;
+      unawaited(refreshIosBackgroundRefreshBanner());
 
       _setupMbtilesDownloadListeners();
 
@@ -733,6 +777,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       errorMessage.value = "Failed to start download: ${e.toString()}";
       statusText.value = "Download error";
       isDownloading.value = false;
+      unawaited(refreshIosBackgroundRefreshBanner());
     }
   }
 
@@ -780,6 +825,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     tilesDownloadCompleted.value = true;
     statusText.value = "Map tiles ready!";
     downloadProgress.value = 1.0;
+    unawaited(refreshIosBackgroundRefreshBanner());
 
     // Save download completed flag to SharedPreferences
     try {
@@ -843,6 +889,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         errorMessage.value = _mbtilesDownloadService!.errorMessage.value;
         debugPrint('[GetStartedController] ❌ Error detected: ${errorMessage.value}');
         timer.cancel();
+        unawaited(refreshIosBackgroundRefreshBanner());
       }
 
       // Check for completion
@@ -994,6 +1041,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     isDownloading.value = false;
     tilesDownloadCompleted.value = true;
     statusText.value = "Download completed! ${downloadedTileCount.value} tiles ready";
+    unawaited(refreshIosBackgroundRefreshBanner());
 
     // Don't save persistent download completion status - always download on app start
     // await _saveTileDownloadCompletionStatus(true);

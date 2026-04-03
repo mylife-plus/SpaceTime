@@ -764,6 +764,38 @@ const SizedBox(height: 8),
     );
   }
 
+  Widget _iosBackgroundRefreshBannerBelowStart() {
+    if (!controller.iosBackgroundRefreshBannerVisible.value) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 320),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.redAccent.withValues(alpha: 0.9),
+          ),
+        ),
+        child: Text(
+          'Background App Refresh is off. Turn it on in Settings → General → Background App Refresh.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'KumbhSans',
+            fontSize: 13,
+            height: 1.35,
+            color: Colors.red.shade100,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Build the blue start button
   Widget _buildStartButton(UiController uiController) {
     return Obx(() {
@@ -808,42 +840,48 @@ const SizedBox(height: 8),
         );
       } else if (controller.hasError.value) {
         // Show retry button on error
-        return Container(
-          width: 150,
-          height: 45,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(6),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF007AFF).withValues(alpha: 0.4),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 150,
+              height: 45,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF007AFF), Color(0xFF0051D5)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF007AFF).withValues(alpha: 0.4),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(2),
-              onTap: controller.retryDownload,
-              child: Center(
-                child: Text(
-                  'Start',
-                  style: TextStyle(
-                    fontFamily: 'KumbhSans',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(2),
+                  onTap: controller.retryDownload,
+                  child: Center(
+                    child: Text(
+                      'Start',
+                      style: TextStyle(
+                        fontFamily: 'KumbhSans',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+            _iosBackgroundRefreshBannerBelowStart(),
+          ],
         );
       } else if (controller.isDownloading.value) {
         // Hide button completely while downloading
@@ -851,6 +889,7 @@ const SizedBox(height: 8),
       } else {
         // Show "Download Tiles" button when not downloading
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Main action button
             Container(
@@ -890,7 +929,7 @@ const SizedBox(height: 8),
                 ),
               ),
             ),
-
+            _iosBackgroundRefreshBannerBelowStart(),
             const SizedBox(height: 16),
           ],
         );
