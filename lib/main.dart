@@ -9,6 +9,8 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/helpers/offline_water_service.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/services/app_lock_controller.dart';
+import 'package:spacetime/widgets/app_lock_gate.dart';
 import 'package:spacetime/services/connectivity_service.dart';
 import 'package:spacetime/services/permission_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,6 +42,7 @@ Future<void> main() async {
   // Only what MyApp needs for the first frame — everything else runs after paint
   // so the engine reaches runApp quickly and the native splash can dismiss.
   Get.put(UiController(), permanent: true);
+  Get.put(AppLockController(), permanent: true);
 
   runApp(MyApp());
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -191,6 +194,10 @@ class MyApp extends StatelessWidget {
         initialRoute: AppPages.INITIAL,
         getPages: AppPages.routes,
         debugShowCheckedModeBanner: false,
+        builder: (context, child) {
+          if (child == null) return const SizedBox.shrink();
+          return AppLockGate(child: child);
+        },
         theme: ThemeData.light(),
         darkTheme: ThemeData.dark().copyWith(
           scaffoldBackgroundColor: Colors.black,

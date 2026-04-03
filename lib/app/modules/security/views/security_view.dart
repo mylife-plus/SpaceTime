@@ -29,8 +29,7 @@ class SecurityView extends GetView<SecurityController> {
         () => SecurityTile(
           title: AppTexts.activePhoneVerification,
           isActive: controller.phoneVerificationEnabled.value,
-          onChanged:
-              (value) => controller.phoneVerificationEnabled.value = value,
+          onChanged: (value) => controller.setAppLockEnabled(value),
         ),
       ),
     );

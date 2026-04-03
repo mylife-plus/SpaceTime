@@ -43,6 +43,8 @@
 		<string>This app needs location access to show your current location on the map and provide location-based services.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>This app needs microphone access for recording audio in videos.</string>
+		<key>NSFaceIDUsageDescription</key>
+		<string>Unlock SpaceTime with Face ID when app lock is enabled.</string>
 		<key>NSAppleMusicUsageDescription</key>
 		<string>SpaceTime does not use Apple Music. This key is required by Apple because an included SDK references media APIs. Photo and video picking uses the photo library descriptions above.</string>
 		<key>NSPhotoLibraryUsageDescription</key>

@@ -167,6 +167,11 @@ class _MemoryLocationAdminEditWidgetState
     setState(() => _showCountryDropdown = false);
   }
 
+  void _onCountryOverlayTap() {
+    _closeCountryDropdown();
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   /// If city/town equals state/province/region, clear the latter (duplicate admin).
   void _dedupeCityStateIfIdentical() {
     final city = _cityTownController.text.trim();
@@ -196,12 +201,38 @@ class _MemoryLocationAdminEditWidgetState
     if (lat == null || lng == null) return;
     final text = '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
     Clipboard.setData(ClipboardData(text: text));
+    final isDark = _uiController.darkMode.value;
+    final bg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+    final fg = isDark ? Colors.white : const Color(0xFF1C1C1E);
+    final sub = isDark ? Colors.white70 : const Color(0xFF636366);
     Get.snackbar(
       '',
-      'Copied to clipboard',
+      '',
       snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 1),
-      margin: const EdgeInsets.all(12),
+      duration: const Duration(seconds: 2),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      borderRadius: 14,
+      isDismissible: true,
+      backgroundColor: bg,
+      boxShadows: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+      ],
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      maxWidth: 420,
+      titleText: Text(
+        'Copied',
+        textAlign: TextAlign.center,
+        style: AppFonts.bold(17, color: fg),
+      ),
+      messageText: Text(
+        'GPS coordinates are on the clipboard.',
+        textAlign: TextAlign.center,
+        style: AppFonts.medium(14, color: sub).copyWith(height: 1.35),
+      ),
     );
   }
 
@@ -346,24 +377,38 @@ class _MemoryLocationAdminEditWidgetState
     required bool isDark,
     required String label,
     required Widget child,
+    FocusNode? focusNode,
+    VoidCallback? onRowTap,
   }) {
     final labelColor = isDark ? Colors.white70 : Colors.grey[600]!;
     final borderColor = isDark ? Colors.white54 : Colors.black12;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.black : Colors.white,
-        border: Border.all(color: borderColor, width: 1),
-        // elevation: 1,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: AppFonts.medium(14, color: labelColor)),
-          child,
-        ],
+    void handleRowTap() {
+      _closeCountryDropdown();
+      if (onRowTap != null) {
+        onRowTap();
+      } else {
+        focusNode?.requestFocus();
+      }
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: handleRowTap,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.black : Colors.white,
+          border: Border.all(color: borderColor, width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: AppFonts.medium(14, color: labelColor)),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -482,10 +527,11 @@ class _MemoryLocationAdminEditWidgetState
             focusNode: focusNode,
             textInputAction: textInputAction,
             onTap: _closeCountryDropdown,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             decoration: const InputDecoration(
               isDense: true,
               border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
+              contentPadding: EdgeInsets.symmetric(vertical: 12),
             ),
             style: AppFonts.medium(16, color: valueColor),
           );
@@ -506,9 +552,18 @@ class _MemoryLocationAdminEditWidgetState
                         child:
                             _isLoadingCountries
                                 ? const Center(child: CircularProgressIndicator())
-                                : SingleChildScrollView(
+                                : GestureDetector(
+                                  behavior: HitTestBehavior.translucent,
+                                  onTap: () =>
+                                      FocusManager.instance.primaryFocus
+                                          ?.unfocus(),
+                                  child: SingleChildScrollView(
                                   padding: const EdgeInsets.only(top: 10),
-                                  child: Column(
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: constraints.maxHeight - 10,
+                                    ),
+                                    child: Column(
                                     children: [
                                       Column(
                                         children: [
@@ -521,6 +576,12 @@ class _MemoryLocationAdminEditWidgetState
                                             child: _buildRowField(
                                               isDark: isDark,
                                               label: 'Country',
+                                              onRowTap: () {
+                                                _countryFocusNode.requestFocus();
+                                                setState(() {
+                                                  _showCountryDropdown = true;
+                                                });
+                                              },
                                               child: Row(
                                                 key: _countryRowKey,
                                                 children: [
@@ -547,19 +608,28 @@ class _MemoryLocationAdminEditWidgetState
                                                       focusNode:
                                                           _countryFocusNode,
                                                       onTap: () {
-                                                        // Mirror other fields: focus immediately on first tap.
-                                                        _countryFocusNode.requestFocus();
+                                                        _countryFocusNode
+                                                            .requestFocus();
                                                         setState(() {
-                                                          _showCountryDropdown = true;
+                                                          _showCountryDropdown =
+                                                              true;
                                                         });
                                                       },
+                                                      onTapOutside: (_) =>
+                                                          FocusManager
+                                                              .instance
+                                                              .primaryFocus
+                                                              ?.unfocus(),
                                                       decoration:
                                                           const InputDecoration(
                                                             isDense: true,
                                                             border:
                                                                 InputBorder.none,
                                                             contentPadding:
-                                                                EdgeInsets.zero,
+                                                                EdgeInsets
+                                                                    .symmetric(
+                                                              vertical: 12,
+                                                            ),
                                                           ),
                                                       style: AppFonts.medium(
                                                         16,
@@ -574,6 +644,7 @@ class _MemoryLocationAdminEditWidgetState
                                           _buildRowField(
                                             isDark: isDark,
                                             label: 'City/Town',
+                                            focusNode: _cityFocusNode,
                                             child: plainValueField(
                                               _cityTownController,
                                               focusNode: _cityFocusNode,
@@ -584,6 +655,7 @@ class _MemoryLocationAdminEditWidgetState
                                           _buildRowField(
                                             isDark: isDark,
                                             label: 'State/Province/Region',
+                                            focusNode: _stateFocusNode,
                                             child: plainValueField(
                                               _stateProvinceController,
                                               focusNode: _stateFocusNode,
@@ -599,6 +671,8 @@ class _MemoryLocationAdminEditWidgetState
                                     ],
                                   ),
                                 ),
+                                  ),
+                                ),
                       ),
                     ],
                   ),
@@ -607,7 +681,7 @@ class _MemoryLocationAdminEditWidgetState
                   Positioned.fill(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: _closeCountryDropdown,
+                      onTap: _onCountryOverlayTap,
                       child: const SizedBox.expand(),
                     ),
                   ),

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 class MediaPickerPopup extends StatelessWidget {
@@ -135,20 +136,39 @@ class MediaPickerPopup extends StatelessWidget {
     );
   }
 
-  // NOTE:
-  // Permission pre-checks for camera/gallery are intentionally disabled here.
-  // We rely on image_picker's native permission flow.
-  // Keeping this method as a soft helper if we want to re-enable checks later.
-  Future<bool> _requestCameraPermission() async => true;
+  void _popDialogIfOpen(BuildContext context) {
+    if (!context.mounted) return;
+    final nav = Navigator.of(context, rootNavigator: true);
+    if (nav.canPop()) nav.pop();
+  }
 
-  // NOTE:
-  // Permission pre-checks for photo library are intentionally disabled here.
-  // We rely on image_picker/file_picker permission handling.
-  Future<bool> _requestGalleryPermission() async => true;
+  Future<bool> _ensureCameraPermission() async {
+    final status = await Permission.camera.request();
+    return status.isGranted;
+  }
+
+  Future<bool> _ensureCameraAndMicForVideo() async {
+    final cam = await Permission.camera.request();
+    final mic = await Permission.microphone.request();
+    return cam.isGranted && mic.isGranted;
+  }
+
+  Future<bool> _ensurePhotosPermission() async {
+    if (Platform.isIOS) {
+      final p = await Permission.photos.request();
+      return p.isGranted || p.isLimited;
+    }
+    if (Platform.isAndroid) {
+      final photos = await Permission.photos.request();
+      if (photos.isGranted) return true;
+      final storage = await Permission.storage.request();
+      return storage.isGranted;
+    }
+    return true;
+  }
 
   Future<void> _handleCameraPhoto(BuildContext context) async {
-    final cameraGranted = await _requestCameraPermission();
-    if (!cameraGranted) {
+    if (!await _ensureCameraPermission()) {
       Get.snackbar(
         'Permissions Required',
         'Camera permission is required to take photos',
@@ -159,29 +179,21 @@ class MediaPickerPopup extends StatelessWidget {
       return;
     }
 
-    if (!context.mounted) return;
-    Navigator.pop(context);
-
     final imagePicker = ImagePicker();
-    final List<String> imagePaths = [];
-    final List<String> videoPaths = [];
-
     final photoFile = await imagePicker.pickImage(source: ImageSource.camera);
-    if (photoFile != null) {
-      imagePaths.add(photoFile.path);
-    }
 
-    if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
-      onMediaSelected(imagePaths, videoPaths);
+    _popDialogIfOpen(context);
+
+    if (photoFile != null) {
+      onMediaSelected([photoFile.path], []);
     }
   }
 
   Future<void> _handleCameraVideo(BuildContext context) async {
-    final cameraGranted = await _requestCameraPermission();
-    if (!cameraGranted) {
+    if (!await _ensureCameraAndMicForVideo()) {
       Get.snackbar(
         'Permissions Required',
-        'Camera/microphone permissions are required to record videos',
+        'Camera and microphone are required to record video',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
@@ -189,27 +201,21 @@ class MediaPickerPopup extends StatelessWidget {
       return;
     }
 
-    if (!context.mounted) return;
-    Navigator.pop(context);
-
     final imagePicker = ImagePicker();
-    final List<String> imagePaths = [];
-    final List<String> videoPaths = [];
+    final videoFile = await imagePicker.pickVideo(
+      source: ImageSource.camera,
+      maxDuration: const Duration(minutes: 10),
+    );
 
-    final videoFile = await imagePicker.pickVideo(source: ImageSource.camera);
+    _popDialogIfOpen(context);
+
     if (videoFile != null) {
-      videoPaths.add(videoFile.path);
-    }
-
-    if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
-      onMediaSelected(imagePaths, videoPaths);
+      onMediaSelected([], [videoFile.path]);
     }
   }
 
   Future<void> _handleGallery(BuildContext context) async {
-    final granted = await _requestGalleryPermission();
-
-    if (!granted) {
+    if (!await _ensurePhotosPermission()) {
       Get.snackbar(
         'Photo Library Permission',
         'Photo library permission is required to select images and videos',
@@ -219,9 +225,6 @@ class MediaPickerPopup extends StatelessWidget {
       );
       return;
     }
-
-    if (!context.mounted) return;
-    Navigator.pop(context);
 
     final List<String> imagePaths = [];
     final List<String> videoPaths = [];
@@ -257,6 +260,8 @@ class MediaPickerPopup extends StatelessWidget {
         }
       }
     }
+
+    _popDialogIfOpen(context);
 
     if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
       onMediaSelected(imagePaths, videoPaths);

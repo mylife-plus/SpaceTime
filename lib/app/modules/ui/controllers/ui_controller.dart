@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../services/app_lock_controller.dart';
+
 class UiController extends GetxController {
   RxBool darkMode = false.obs;
   RxBool togglePlayPause = false.obs;
@@ -27,6 +29,21 @@ class UiController extends GetxController {
   void setDarkMode(bool isDark) {
     darkMode.value = isDark;
     _saveDarkMode(isDark);
+  }
+
+  /// App lock (biometrics / device PIN). Synced with [AppLockController].
+  Future<void> setAppLockEnabled(bool value) async {
+    phoneVerificationEnabled.value = value;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('app_lock_enabled', value);
+      debugPrint('[UiController] App lock saved: $value');
+    } catch (e) {
+      debugPrint('[UiController] Error saving app lock: $e');
+    }
+    if (!value && Get.isRegistered<AppLockController>()) {
+      Get.find<AppLockController>().clearLockIfDisabled();
+    }
   }
 
   // Save dark mode preference
@@ -63,6 +80,9 @@ class UiController extends GetxController {
       // Load main color (default: 'blue')
       final savedMainColor = prefs.getString('main_color') ?? 'blue';
       mainColor.value = savedMainColor;
+
+      phoneVerificationEnabled.value =
+          prefs.getBool('app_lock_enabled') ?? false;
 
       debugPrint('[UiController] Preferences loaded - Dark mode: $savedDarkMode, Main color: $savedMainColor');
     } catch (e) {

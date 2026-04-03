@@ -2151,13 +2151,14 @@ class MapControllerNew extends GetxController {
                 debugPrint(
                   '[MapControllerNew] 🎉 Permission granted detected via app lifecycle!',
                 );
+                // Refresh map only when permission actually changed to granted (e.g. back from Settings)
+                if (mapboxMap != null && isMapReady.value) {
+                  showLoadedDataOnMap();
+                }
               }
             });
           }
-
-          if (mapboxMap != null && isMapReady.value) {
-            showLoadedDataOnMap();
-          }
+          // Do not call showLoadedDataOnMap() on every resume — it re-clusters/redraws and looks like a full map refresh.
         }
       });
 
