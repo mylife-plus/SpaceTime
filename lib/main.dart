@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/config/app_input_theme.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/helpers/offline_water_service.dart';
@@ -198,7 +199,9 @@ class MyApp extends StatelessWidget {
           if (child == null) return const SizedBox.shrink();
           return AppLockGate(child: child);
         },
-        theme: ThemeData.light(),
+        theme: ThemeData.light().copyWith(
+          inputDecorationTheme: AppInputTheme.singleLineDecorationTheme,
+        ),
         darkTheme: ThemeData.dark().copyWith(
           scaffoldBackgroundColor: Colors.black,
           textTheme: const TextTheme(
@@ -209,6 +212,7 @@ class MyApp extends StatelessWidget {
             backgroundColor: Colors.black,
             iconTheme: IconThemeData(color: Colors.white),
           ),
+          inputDecorationTheme: AppInputTheme.singleLineDecorationTheme,
         ),
         themeMode:
             uiController.darkMode.value ? ThemeMode.dark : ThemeMode.light,

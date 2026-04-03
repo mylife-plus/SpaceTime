@@ -290,8 +290,7 @@ class _MemoryLocationAdminEditWidgetState
     required bool isDark,
     required Color valueColor,
   }) {
-    final labelColor = (isDark ? Colors.white70 : Colors.grey[600]!)
-        .withValues(alpha: 0.72);
+    final labelColor = isDark ? Colors.white70 : Colors.grey[600]!;
     final mutedValue = valueColor.withValues(alpha: 0.72);
     final borderColor =
         isDark ? Colors.white30 : Colors.grey.shade400.withValues(alpha: 0.55);
@@ -355,22 +354,24 @@ class _MemoryLocationAdminEditWidgetState
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'GPS Location',
-                        style: AppFonts.medium(14, color: labelColor),
+                        style: AppFonts.medium(12, color: labelColor),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         _gpsLocationDisplayText(),
-                        style: AppFonts.medium(16, color: mutedValue),
+                        style: AppFonts.medium(15, color: mutedValue)
+                            .copyWith(height: 1.2),
                       ),
                     ],
                   ),

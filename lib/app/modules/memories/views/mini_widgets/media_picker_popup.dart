@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/shared/widgets/permission_open_settings_dialog.dart';
 
 class MediaPickerPopup extends StatelessWidget {
   final Function(List<String> imagePaths, List<String> videoPaths) onMediaSelected;
@@ -153,28 +154,22 @@ class MediaPickerPopup extends StatelessWidget {
     return cam.isGranted && mic.isGranted;
   }
 
-  Future<bool> _ensurePhotosPermission() async {
-    if (Platform.isIOS) {
-      final p = await Permission.photos.request();
-      return p.isGranted || p.isLimited;
-    }
-    if (Platform.isAndroid) {
-      final photos = await Permission.photos.request();
-      if (photos.isGranted) return true;
-      final storage = await Permission.storage.request();
-      return storage.isGranted;
-    }
-    return true;
+  /// Android only — [FilePicker] needs storage/photos access.
+  Future<bool> _ensureAndroidGalleryPermission() async {
+    if (!Platform.isAndroid) return true;
+    final photos = await Permission.photos.request();
+    if (photos.isGranted) return true;
+    final storage = await Permission.storage.request();
+    return storage.isGranted;
   }
 
   Future<void> _handleCameraPhoto(BuildContext context) async {
     if (!await _ensureCameraPermission()) {
-      Get.snackbar(
-        'Permissions Required',
-        'Camera permission is required to take photos',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade400,
-        colorText: Colors.white,
+      await showPermissionOpenSettingsDialog(
+        context,
+        title: 'Camera access needed',
+        message:
+            'Camera access is turned off for this app. Turn it on in Settings to take photos.',
       );
       return;
     }
@@ -191,12 +186,11 @@ class MediaPickerPopup extends StatelessWidget {
 
   Future<void> _handleCameraVideo(BuildContext context) async {
     if (!await _ensureCameraAndMicForVideo()) {
-      Get.snackbar(
-        'Permissions Required',
-        'Camera and microphone are required to record video',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade400,
-        colorText: Colors.white,
+      await showPermissionOpenSettingsDialog(
+        context,
+        title: 'Camera & microphone needed',
+        message:
+            'Recording video needs camera and microphone access. Enable both in Settings for this app.',
       );
       return;
     }
@@ -215,22 +209,13 @@ class MediaPickerPopup extends StatelessWidget {
   }
 
   Future<void> _handleGallery(BuildContext context) async {
-    if (!await _ensurePhotosPermission()) {
-      Get.snackbar(
-        'Photo Library Permission',
-        'Photo library permission is required to select images and videos',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade400,
-        colorText: Colors.white,
-      );
-      return;
-    }
-
     final List<String> imagePaths = [];
     final List<String> videoPaths = [];
 
     if (Platform.isIOS) {
-      // iOS: use ImagePicker so limited photo access is respected.
+      // Do not call Permission.photos here. PHPicker (used by pickMultipleMedia)
+      // does not require prior library read access; pre-requesting photos pushes
+      // iOS toward "all photos" and breaks normal Limited Library behavior.
       final imagePicker = ImagePicker();
       final selected = await imagePicker.pickMultipleMedia();
       for (final media in selected) {
@@ -243,6 +228,15 @@ class MediaPickerPopup extends StatelessWidget {
         }
       }
     } else {
+      if (!await _ensureAndroidGalleryPermission()) {
+        await showPermissionOpenSettingsDialog(
+          context,
+          title: 'Photos access needed',
+          message:
+              'Storage or photo access is turned off for this app. Turn it on in Settings to choose photos and videos.',
+        );
+        return;
+      }
       final result = await FilePicker.platform.pickFiles(
         type: FileType.media,
         allowMultiple: true,
