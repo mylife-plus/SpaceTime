@@ -14,19 +14,12 @@ class MemoryLocationPickerWidgetWithRadius extends StatefulWidget {
 }
 
 class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetWithRadius> {
- 
   final MemoryLocationPickerControllerWithRadius controller =
-          Get.put(MemoryLocationPickerControllerWithRadius());
+      Get.put(MemoryLocationPickerControllerWithRadius());
 
-
-  @override
-  void initState() {
-        controller.onInit();
-    super.initState();
-        controller.onInit();
-    
-  }
-  /// Initialize location picker
+  /// Avoid restarting style load when Obx rebuilds (e.g. error message text).
+  String? _styleFutureServerKey;
+  Future<String>? _memoizedStyleFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -77,35 +70,39 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
     // return Obx(() {
     return Stack(
       children: [
-        // Map
+        // Map — Obx only on serverUrl so search UI updates don't touch FutureBuilder.
         Obx(() {
-      // Check if server URL is available
-      if (controller.serverUrl.value == null) {
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
-                controller.serverErrorMessage.value ?? 'Initializing map server...',
-                style: TextStyle(color: Colors.white),
-                textAlign: TextAlign.center,
+          final serverUrl = controller.serverUrl.value;
+          if (serverUrl == null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Obx(
+                    () => Text(
+                      controller.serverErrorMessage.value ??
+                          'Initializing map server...',
+                      style: const TextStyle(color: Colors.white),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      }
+            );
+          }
 
-      final tileUrl = '${controller.serverUrl.value}/{z}/{x}/{y}.pbf';
+          if (_styleFutureServerKey != serverUrl) {
+            _styleFutureServerKey = serverUrl;
+            final tileUrl = '$serverUrl/{z}/{x}/{y}.pbf';
+            _memoizedStyleFuture =
+                controller.loadStyleJsonFromAssets(tileUrl, serverUrl);
+          }
 
-      debugPrint('Loaded URL tileUrl: $tileUrl');
-
-      final serverUrl = controller.serverUrl.value!; // Base server URL without tile pattern
-
-      return FutureBuilder<String>(
-      future: controller.loadStyleJsonFromAssets(tileUrl, serverUrl),
-      builder: (context, snapshot) {
+          return FutureBuilder<String>(
+            future: _memoizedStyleFuture,
+            builder: (context, snapshot) {
         // Show loading indicator while style.json is being loaded
       
  if (snapshot.connectionState == ConnectionState.waiting) {
@@ -149,10 +146,10 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             ),
           );
         }
-        final styleJson = snapshot.data!;
+              final styleJson = snapshot.data!;
 
-        return SizedBox.expand(
-          child: mapbox.MapWidget(
+              return SizedBox.expand(
+                child: mapbox.MapWidget(
             key: const ValueKey('memory_location_picker_map'),
             cameraOptions: controller.getCameraOptions(),
             textureView: true,
@@ -191,18 +188,23 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             onStyleLoadedListener: (styleLoadedEventData) {
               debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded (log only)');
             },
-            onTapListener: controller.onMapTap,
-          ),
-        );
-      },
-      );
-    }),
+                  onTapListener: controller.onMapTap,
+                ),
+              );
+            },
+          );
+        }),
         // Top search bar
-        Positioned(
-        top: 5,
-        left: 4,
-        right: controller.hasLocationPermission.value ? 60 : 4,
-        child: buildSearchContainer(controller.uiController.darkMode.value),),
+        Obx(
+          () => Positioned(
+            top: 5,
+            left: 4,
+            right: controller.hasLocationPermission.value ? 60 : 4,
+            child: buildSearchContainer(
+              controller.uiController.darkMode.value,
+            ),
+          ),
+        ),
 
         // Radius seekbar below search
         _buildRadiusSeekbar(),
@@ -285,8 +287,6 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
   /// Build search resucts content - matching new location picker design
   Widget _buildSearchResultsContent() {
     return Obx(() {
-      
-
       final isDark = controller.uiController.darkMode.value;
 
       return ListView.separated(
@@ -299,55 +299,54 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
         ),
         itemBuilder: (context, index) {
           final result = controller.searchResults[index];
-          return _buildSearchResultItem(result);
+          return _buildSearchResultItem(result, isDark);
         },
       );
     });
   }
 
   /// Build individual search result item - matching new location picker design
-  Widget _buildSearchResultItem(Map<String, dynamic> result) {
-    return Obx(() {
-      final isDark = controller.uiController.darkMode.value;
-
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            controller.selectSearchResult(result);
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+  Widget _buildSearchResultItem(
+    Map<String, dynamic> result,
+    bool isDark,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          controller.selectSearchResult(result);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                result['name'] ?? 'Unknown Location',
+                style: AppFonts.medium(
+                  16,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (result['address'] != null) ...[
+                const SizedBox(height: 4),
                 Text(
-                  result['name'] ?? 'Unknown Location',
-                  style: AppFonts.medium(
-                    16,
-                    color: isDark ? Colors.white : Colors.black87,
+                  result['address'],
+                  style: AppFonts.regular(
+                    14,
+                    color: isDark ? Colors.white70 : Colors.grey[600]!,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (result['address'] != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    result['address'],
-                    style: AppFonts.regular(
-                      14,
-                      color: isDark ? Colors.white70 : Colors.grey[600]!,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
-      );
-    });
+      ),
+    );
   }
 
   /// Build current location button - matching new location picker design

@@ -44,6 +44,16 @@ class _MemoryLocationAdminEditWidgetState
   final GlobalKey _countryRowKey = GlobalKey();
   final LayerLink _countryFieldLayerLink = LayerLink();
 
+  static const InputDecoration _locationValueDecoration = InputDecoration(
+    isDense: true,
+    border: InputBorder.none,
+    contentPadding: EdgeInsets.zero,
+  );
+
+  TextStyle _locationValueTextStyle(Color valueColor) {
+    return AppFonts.medium(15, color: valueColor).copyWith(height: 1.2);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -397,15 +407,17 @@ class _MemoryLocationAdminEditWidgetState
       child: Container(
         width: double.infinity,
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
         decoration: BoxDecoration(
           color: isDark ? Colors.black : Colors.white,
           border: Border.all(color: borderColor, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: AppFonts.medium(14, color: labelColor)),
+            Text(label, style: AppFonts.medium(12, color: labelColor)),
+            const SizedBox(height: 2),
             child,
           ],
         ),
@@ -526,14 +538,11 @@ class _MemoryLocationAdminEditWidgetState
             controller: c,
             focusNode: focusNode,
             textInputAction: textInputAction,
+            maxLines: 1,
             onTap: _closeCountryDropdown,
             onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 4),
-            ),
-            style: AppFonts.medium(16, color: valueColor),
+            decoration: _locationValueDecoration,
+            style: _locationValueTextStyle(valueColor),
           );
         }
 
@@ -584,6 +593,8 @@ class _MemoryLocationAdminEditWidgetState
                                               },
                                               child: Row(
                                                 key: _countryRowKey,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
                                                 children: [
                                                   if (_selectedCountry != null)
                                                     Padding(
@@ -596,9 +607,9 @@ class _MemoryLocationAdminEditWidgetState
                                                           _selectedCountry!.code,
                                                         ),
                                                         style: AppFonts.medium(
-                                                          16,
+                                                          15,
                                                           color: valueColor,
-                                                        ),
+                                                        ).copyWith(height: 1.2),
                                                       ),
                                                     ),
                                                   Expanded(
@@ -607,6 +618,7 @@ class _MemoryLocationAdminEditWidgetState
                                                           _countrySearchController,
                                                       focusNode:
                                                           _countryFocusNode,
+                                                      maxLines: 1,
                                                       onTap: () {
                                                         _countryFocusNode
                                                             .requestFocus();
@@ -621,19 +633,10 @@ class _MemoryLocationAdminEditWidgetState
                                                               .primaryFocus
                                                               ?.unfocus(),
                                                       decoration:
-                                                          const InputDecoration(
-                                                            isDense: true,
-                                                            border:
-                                                                InputBorder.none,
-                                                            contentPadding:
-                                                                const EdgeInsets
-                                                                    .symmetric(
-                                                              vertical: 4,
-                                                            ),
-                                                          ),
-                                                      style: AppFonts.medium(
-                                                        16,
-                                                        color: valueColor,
+                                                          _locationValueDecoration,
+                                                      style:
+                                                          _locationValueTextStyle(
+                                                        valueColor,
                                                       ),
                                                     ),
                                                   ),

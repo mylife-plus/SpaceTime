@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:ui' as ui;
@@ -13,6 +14,7 @@ import 'package:spacetime/app/modules/memories/services/memory_location_pin_geoc
 import 'package:spacetime/app/modules/location_picker/services/location_picker_service.dart';
 import 'package:spacetime/services/mbtiles_download_service.dart';
 import 'package:spacetime/services/mbtiles_server_service.dart';
+import 'package:spacetime/services/offline_location_search_service.dart';
 import 'package:spacetime/services/style_json_download_service.dart';
 
 enum MemoryLocationPickerState {
@@ -64,6 +66,8 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   mapbox.PointAnnotation? selectedLocationMarker;
 
   bool _radiusPickerAnnotationsInitialized = false;
+  Timer? _searchDebounce;
+  int _searchRequestId = 0;
 
   // Server state for local tiles
   final Rxn<String> serverUrl = Rxn<String>();
@@ -153,8 +157,17 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     }
   }
 
+  Future<void> _warmLocationSearchIndex() async {
+    try {
+      await OfflineLocationSearchService.instance.initialize();
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker][radius] Search index warm-up: $e');
+    }
+  }
+
   @override
   void onClose() {
+    _searchDebounce?.cancel();
     searchController.dispose();
     searchFocusNode.dispose();
     super.onClose();
@@ -173,11 +186,10 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       annotationManager = null;
       selectedLocationMarker = null;
 
-      // Initialize local tile server first
+      final warmSearch = _warmLocationSearchIndex();
       await initializeLocalTileServer();
+      await warmSearch;
 
-      // Check location permission
-    
       state.value = MemoryLocationPickerState.ready;
     } catch (e) {
       debugPrint('🟢🟢🟢🟢🟢 Error initializing location picker: $e');
@@ -387,13 +399,18 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
 
   /// Handle search text changes
   void onSearchChanged() {
+    _searchDebounce?.cancel();
     final query = searchController.text.trim();
-    if (query.isNotEmpty) {
-      performLocationSearch(query);
-    } else {
+    if (query.isEmpty) {
+      isSearching.value = false;
       showSearchResults.value = false;
       searchResults.clear();
+      return;
     }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      performLocationSearch(query);
+    });
   }
 
   /// Perform location search using LocationPickerService
@@ -403,23 +420,26 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       return;
     }
 
+    final requestId = ++_searchRequestId;
     showSearchResults.value = true;
     isSearching.value = true;
     searchResults.clear();
 
     try {
-      // Use LocationPickerService for searching
       final results = await locationPickerService.searchLocations(
         query,
         isOfflineMode: true,
       );
 
-      // Results are already in the correct format from LocationPickerService
-      searchResults.addAll(results);
+      if (requestId != _searchRequestId) return;
+
+      searchResults.assignAll(results);
     } catch (e) {
       debugPrint('Error performing location search: $e');
     } finally {
-      isSearching.value = false;
+      if (requestId == _searchRequestId) {
+        isSearching.value = false;
+      }
     }
   }
 
