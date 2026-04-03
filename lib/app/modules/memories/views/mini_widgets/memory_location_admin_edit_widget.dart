@@ -225,12 +225,12 @@ class _MemoryLocationAdminEditWidgetState
       maxWidth: 420,
       titleText: Text(
         'Copied',
-        textAlign: TextAlign.center,
+        textAlign: TextAlign.left,
         style: AppFonts.bold(17, color: fg),
       ),
       messageText: Text(
         'GPS coordinates are on the clipboard.',
-        textAlign: TextAlign.center,
+        textAlign: TextAlign.left,
         style: AppFonts.medium(14, color: sub).copyWith(height: 1.35),
       ),
     );
