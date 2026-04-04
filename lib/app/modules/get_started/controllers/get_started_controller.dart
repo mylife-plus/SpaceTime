@@ -12,7 +12,6 @@ import '../../../../services/permission_service.dart';
 import '../../../services/offline_map_coordinator_service.dart';
 import '../../../services/offline_map_service.dart';
 import '../../../routes/app_pages.dart';
-import '../../../services/permission_settings_resume_service.dart';
 import '../../../../services/mbtiles_download_service.dart';
 import '../../../../services/mbtiles_server_service.dart';
 import '../../../../services/style_json_download_service.dart';
@@ -1092,7 +1091,6 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
       // Instant route swap (Transition.noTransition on MAP_NEW) — no extra frame wait.
       Get.offAllNamed(Routes.MAP_NEW);
-      PermissionSettingsResumeService.scheduleOpenMemoryViewIfPending();
     } catch (e) {
       debugPrint('[GetStartedController] navigateToMainApp failed: $e');
       _navigateToMapRequested = false;

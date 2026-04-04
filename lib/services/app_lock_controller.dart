@@ -15,10 +15,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   bool _wentToBackground = false;
   bool _bootstrapDone = false;
 
-  /// When true, the next resume after background will not show the lock (e.g. user opened
-  /// system Settings from a permission dialog and is returning to the same screen).
-  bool _skipLockOnceAfterExternalSettings = false;
-
   final LocalAuthentication _localAuth = LocalAuthentication();
 
   @override
@@ -51,12 +47,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   static const _prefsKey = 'app_lock_enabled';
 
-  /// Call immediately before [openAppSettings] so returning from Settings does not
-  /// treat the trip as a generic background and force unlock / lose context.
-  void skipLockOnNextResumeFromSettings() {
-    _skipLockOnceAfterExternalSettings = true;
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
@@ -78,10 +68,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     }
     if (_wentToBackground) {
       _wentToBackground = false;
-      if (_skipLockOnceAfterExternalSettings) {
-        _skipLockOnceAfterExternalSettings = false;
-        return;
-      }
       isLocked.value = true;
       unawaited(authenticate(isColdStart: false));
     }

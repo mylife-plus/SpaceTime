@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../routes/app_pages.dart';
-import '../services/permission_settings_resume_service.dart';
 import '../../../services/mbtiles_download_service.dart';
 
 /// Widget that handles initial routing based on tile download status
@@ -38,7 +37,6 @@ class _StartupRouterState extends State<StartupRouter> {
         // Tiles downloaded - go directly to MapViewWidgetNew
         debugPrint('[StartupRouter] ✅ Tiles found, navigating to MapViewWidgetNew');
         Get.offAllNamed(Routes.MAP_NEW);
-        PermissionSettingsResumeService.scheduleOpenMemoryViewIfPending();
       } else {
         // Tiles not downloaded - show Get Started screen
         debugPrint('[StartupRouter] ⚠️ Tiles not found, navigating to Get Started screen');
