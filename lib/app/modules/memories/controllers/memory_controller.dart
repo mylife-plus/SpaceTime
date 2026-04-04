@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:spacetime/app/shared/widgets/permission_open_settings_dialog.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
 import 'package:spacetime/app/services/hashtag_group_service.dart';
@@ -935,21 +937,20 @@ class MemoryController extends GetxController {
     try {
       debugPrint('🎤 Attempting to start audio recording...');
 
-      // Check permissions first
-      final hasPermission = await _audioRecorder.hasPermission();
-      debugPrint('🎤 Audio permission status: $hasPermission');
+      final micStatus = await Permission.microphone.request();
+      debugPrint('🎤 Microphone permission status: $micStatus');
 
-      if (!hasPermission) {
-        debugPrint('❌ Audio recording permission not granted');
-        Get.snackbar(
-          'Permission Required',
-          'Microphone permission is required for audio recording',
-          backgroundColor: Colors.red.shade400,
-          colorText: Colors.white,
-          margin: const EdgeInsets.all(12),
-          snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-        );
+      if (!micStatus.isGranted) {
+        debugPrint('❌ Microphone permission not granted');
+        final ctx = Get.context;
+        if (ctx != null && ctx.mounted) {
+          await showPermissionOpenSettingsDialog(
+            ctx,
+            title: 'Microphone access needed',
+            message:
+                'Microphone access is turned off for this app. Turn it on in Settings to record audio.',
+          );
+        }
         return;
       }
 

@@ -148,12 +148,6 @@ class MediaPickerPopup extends StatelessWidget {
     return status.isGranted;
   }
 
-  Future<bool> _ensureCameraAndMicForVideo() async {
-    final cam = await Permission.camera.request();
-    final mic = await Permission.microphone.request();
-    return cam.isGranted && mic.isGranted;
-  }
-
   /// Android only — [FilePicker] needs storage/photos access.
   Future<bool> _ensureAndroidGalleryPermission() async {
     if (!Platform.isAndroid) return true;
@@ -185,12 +179,24 @@ class MediaPickerPopup extends StatelessWidget {
   }
 
   Future<void> _handleCameraVideo(BuildContext context) async {
-    if (!await _ensureCameraAndMicForVideo()) {
+    final cam = await Permission.camera.request();
+    if (!cam.isGranted) {
       await showPermissionOpenSettingsDialog(
         context,
-        title: 'Camera & microphone needed',
+        title: 'Camera access needed',
         message:
-            'Recording video needs camera and microphone access. Enable both in Settings for this app.',
+            'Camera access is turned off for this app. Turn it on in Settings to record video.',
+      );
+      return;
+    }
+
+    final mic = await Permission.microphone.request();
+    if (!mic.isGranted) {
+      await showPermissionOpenSettingsDialog(
+        context,
+        title: 'Microphone access needed',
+        message:
+            'Microphone access is turned off for this app. Turn it on in Settings to record video with sound.',
       );
       return;
     }
