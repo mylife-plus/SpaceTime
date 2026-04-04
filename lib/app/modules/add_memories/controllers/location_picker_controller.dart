@@ -10,11 +10,13 @@ import 'package:spacetime/services/connectivity_service.dart';
 
 class LocationPickerController extends GetxController {
   // Services
+
   late final ConnectivityService connectivityService;
   final addMemoryController = Get.find<AddMemoriesController>();
 
   // Map related
   mapbox.MapboxMap? mapController;
+  mapbox.MapboxMap? mapController1;
   mapbox.PointAnnotation? currentLocationMarker;
   mapbox.PointAnnotationManager? annotationManager;
 
