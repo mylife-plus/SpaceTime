@@ -17,6 +17,7 @@ import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnai
 import 'package:spacetime/app/modules/memories/views/mini_widgets/video_player_screen.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/media_picker_popup.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/services/permission_settings_resume_service.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
 
@@ -34,7 +35,7 @@ class MemoryView extends StatefulWidget {
   State<MemoryView> createState() => _MemoryViewState();
 }
 
-class _MemoryViewState extends State<MemoryView> {
+class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<MemoryDescriptionFieldState> _descriptionFieldKey =
       GlobalKey<MemoryDescriptionFieldState>();
@@ -80,6 +81,7 @@ class _MemoryViewState extends State<MemoryView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // print('Init State Called:');
     final memoryController = Get.find<MemoryController>();
     memoryController.setTime(TimeOfDay.now());
@@ -2601,7 +2603,16 @@ class _MemoryViewState extends State<MemoryView> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      PermissionSettingsResumeService.clearPendingRestoreMemoryView();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Clear audio and image data when screen is closed
     try {
       final memoryController = Get.find<MemoryController>();
