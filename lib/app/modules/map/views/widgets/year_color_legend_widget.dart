@@ -45,7 +45,7 @@ class YearColorLegendWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Year Color Legend',
+              'text_year_color_legend'.tr,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -132,9 +132,9 @@ class YearColorLegendWidget extends StatelessWidget {
                       color: color,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Text(
-                      'NOW',
-                      style: TextStyle(
+                    child: Text(
+                      'text_now'.tr,
+                      style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -215,9 +215,9 @@ class YearColorLegendWidget extends StatelessWidget {
                             ),
                           ),
                           if (isCurrent)
-                            const Text(
-                              'NOW',
-                              style: TextStyle(
+                            Text(
+                              'text_now_2'.tr,
+                              style: const TextStyle(
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,

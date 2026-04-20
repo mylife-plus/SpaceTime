@@ -12,6 +12,7 @@ import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/shared/widgets/add_place_category_popup.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class CategoryPickerWidget extends StatefulWidget {
   final Function(PlaceCategory)? onCategorySelected;
@@ -667,13 +668,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Validate that name is provided
     if (name.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a Place category name',
+      showTrSnackbar('snackbar_validation_error_3', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -703,23 +700,16 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           '[CategoryPickerWidget][_saveInlineMainCategory] Successfully added main category: ${newCategory.id}',
         );
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to add Place Category',
+        showTrSnackbar('snackbar_error_20', 
           backgroundColor: Colors.red,        duration: const Duration(seconds: 2),
 
-          colorText: Colors.white,
-        );
+          colorText: Colors.white,);
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_saveInlineMainCategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to add Place Category: $e',
+      showTrSnackbar('snackbar_error_21', args: [e], 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -770,24 +760,16 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Validate that both name and emoji are provided
     if (name.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a Place category',
+      showTrSnackbar('snackbar_validation_error_4', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
     if (emoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select an icon',
+      showTrSnackbar('snackbar_validation_error_5', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -817,23 +799,15 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         //   colorText: Colors.white,
         // );
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update Place',
+        showTrSnackbar('snackbar_error_22', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_saveInlineEditedSubcategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to update Place: $e',
+      showTrSnackbar('snackbar_error_23', args: [e], 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1018,24 +992,16 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Validate that both name and emoji are provided
     if (name.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a place name',
+      showTrSnackbar('snackbar_validation_error_6', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
     if (emoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select an icon',
+      showTrSnackbar('snackbar_validation_error_7', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1051,33 +1017,21 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       );
 
       if (newCategory == null) {
-        Get.snackbar(
-          'Error',
-          'Failed to add Place',
+        showTrSnackbar('snackbar_error_24', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       } else if (newCategory.id == -1) {
         // Duplicate subcategory name
-        Get.snackbar(
-          'Duplicate Place',
-          'Place with this name already exists.',
+        showTrSnackbar('snackbar_duplicate_place', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       } else if (newCategory.id == -4) {
         // Subcategory name conflicts with parent category
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by the Place Category.',
+        showTrSnackbar('snackbar_name_conflict_13', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
 
@@ -1114,13 +1068,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   // /// Add a new custom category
   Future<void> _addNewCategory(String name, String emoji, int? parentId) async {
     if (name.isEmpty || emoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter both name and icon',
+      showTrSnackbar('snackbar_validation_error_8', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1161,23 +1111,15 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           '[CategoryPickerWidget][_addNewCategory] Successfully added category: ${newCategory.id}',
         );
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to add Place',
+        showTrSnackbar('snackbar_error_25', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_addNewCategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to add Place',
+      showTrSnackbar('snackbar_error_25', 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1212,13 +1154,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     String emoji,
   ) async {
     if (name.isEmpty || emoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter both name and icon',
+      showTrSnackbar('snackbar_validation_error_9', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1255,23 +1193,15 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         //   colorText: Colors.white,
         // );
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update Place',
+        showTrSnackbar('snackbar_error_27', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_updateCategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to update Place: $e',
+      showTrSnackbar('snackbar_error_28', args: [e], 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1372,23 +1302,15 @@ if (categoryToDelete != null) {
         _showCannotDeleteDialog(category?.name ?? 'Unknown', memoryCount, category?.parentId == null);
       } else {
         // Failed to delete
-        Get.snackbar(
-          'Error',
-          'Failed to delete Place',
+        showTrSnackbar('snackbar_error_29', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_deleteCategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to delete Place: $e',
+      showTrSnackbar('snackbar_error_30', args: [e], 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1461,7 +1383,7 @@ if (categoryToDelete != null) {
           TextButton(
             onPressed: () => Get.back(),
             child: Text(
-              'OK',
+              'text_ok_7'.tr,
               style: gfonts.GoogleFonts.kumbhSans(
                 color: uiController.currentMainColor,
                 fontWeight: FontWeight.bold,
@@ -1533,7 +1455,7 @@ if (categoryToDelete != null) {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '',
+                          'text_select_icon'.tr,
                           style: gfonts.GoogleFonts.kumbhSans(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -1611,7 +1533,7 @@ if (categoryToDelete != null) {
                                 !uiController.darkMode.value
                                     ? const Color(0xFF2E2E2E)
                                     : Colors.grey[100]!,
-                            hintText: 'Search icons...',
+                            hintText: 'hinttext_search_icons'.tr,
                           ),
                         ),
                       ),
@@ -1641,7 +1563,7 @@ if (categoryToDelete != null) {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              'Fixing Place inconsistencies...',
+              'text_fixing_place_inconsistencies'.tr,
               style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -1679,7 +1601,7 @@ if (categoryToDelete != null) {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Fix Complete',
+                  'text_fix_complete'.tr,
                   style: gfonts.GoogleFonts.kumbhSans(
                     color:
                         uiController.darkMode.value
@@ -1706,7 +1628,7 @@ if (categoryToDelete != null) {
             TextButton(
               onPressed: () => Get.back(),
               child: Text(
-                'OK',
+                'text_ok_9'.tr,
                 style: gfonts.GoogleFonts.kumbhSans(
                   color: uiController.currentMainColor,
                   fontWeight: FontWeight.bold,
@@ -1733,7 +1655,7 @@ if (categoryToDelete != null) {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Fix Failed',
+                  'text_fix_failed'.tr,
                   style: gfonts.GoogleFonts.kumbhSans(
                     color:
                         uiController.darkMode.value
@@ -1760,7 +1682,7 @@ if (categoryToDelete != null) {
             TextButton(
               onPressed: () => Get.back(),
               child: Text(
-                'OK',
+                'text_ok_8'.tr,
                 style: gfonts.GoogleFonts.kumbhSans(
                   color: uiController.currentMainColor,
                   fontWeight: FontWeight.bold,
@@ -1798,9 +1720,7 @@ if (categoryToDelete != null) {
                   : null,
           title: Obx(
             () => Text(
-              widget.allowMultipleSelection
-                  ? '📍 Places'
-                  : '📍 Places',
+              'title_text_places_picker'.tr,
               style: gfonts.GoogleFonts.kumbhSans(
                 color:
                     uiController.darkMode.value ? Colors.white : Colors.white,
@@ -1838,7 +1758,7 @@ if (categoryToDelete != null) {
                     height: 25,
                   ),
                 ),
-                tooltip: 'Add Place Category',
+                tooltip: 'tooltip_add_place_category'.tr,
               ),
           ],
         ),
@@ -1855,8 +1775,14 @@ if (categoryToDelete != null) {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
                       subcategoryCount == 0
-                          ? '0 selected'
-                          : '$subcategoryCount ${subcategoryCount == 1 ? 'Place' : 'Places'} selected',
+                          ? 'text_filter_places_selected_zero'.tr
+                          : subcategoryCount == 1
+                              ? trKey('text_filter_places_selected_one', [
+                                  subcategoryCount,
+                                ])
+                              : trKey('text_filter_places_selected_many', [
+                                  subcategoryCount,
+                                ]),
                       textAlign: TextAlign.center,
                       style: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.currentMainColor,
@@ -2009,7 +1935,7 @@ if (categoryToDelete != null) {
               ),
               const SizedBox(height: 16),
               Text(
-                'No Places match your search',
+                'text_no_places_match_your_search'.tr,
                 style: gfonts.GoogleFonts.kumbhSans(
                   color:
                       uiController.darkMode.value
@@ -2080,7 +2006,7 @@ if (categoryToDelete != null) {
               ),
               const SizedBox(height: 16),
               Text(
-                'No Place Categories found',
+                'text_no_place_categories_found'.tr,
                 style: gfonts.GoogleFonts.kumbhSans(
                   color:
                       uiController.darkMode.value
@@ -2152,7 +2078,7 @@ if (categoryToDelete != null) {
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Place Category',
+                  hintText: 'hinttext_category_name'.tr,
                   hintStyle: gfonts.GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value
                         ? Colors.white.withValues(alpha: 0.6)
@@ -2285,7 +2211,7 @@ if (categoryToDelete != null) {
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Place Name',
+                  hintText: 'hinttext_place_name_2'.tr,
                   hintStyle: gfonts.GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value
                         ? Colors.white.withValues(alpha: 0.6)
@@ -2422,7 +2348,7 @@ if (categoryToDelete != null) {
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Place Name',
+                  hintText: 'hinttext_place_name'.tr,
                   hintStyle: gfonts.GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value
                         ? Colors.white.withValues(alpha: 0.6)
@@ -2599,7 +2525,7 @@ if (categoryToDelete != null) {
                               // Show selection count when in filter mode
                               if (widget.allowMultipleSelection)
                                 TextSpan(
-                                  text: ' (',
+                                  text: 'text_span_3'.tr,
                                   style: gfonts.GoogleFonts.kumbhSans(
                                     color: uiController.darkMode.value
                                         ? Colors.white.withValues(alpha: 0.6)

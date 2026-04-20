@@ -26,6 +26,7 @@ import '../../../../../services/permission_service.dart';
 import 'internet_required_screen_location_picker.dart';
 
 import '../../../../config/app_colors.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 enum LocationPickerState {
   initial,
@@ -577,12 +578,12 @@ Future<bool> _checkOfflineTileCount() async {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '📍 Location permission needed to get current location. You can manually tap on the map to select a location.',
+                'dialog_content_location_permission_needed_to_get_current'.tr,
               ),
               backgroundColor: Colors.orange,
         duration: const Duration(seconds: 2),
               action: SnackBarAction(
-                label: 'Grant Permission',
+                label: 'title_text_grant_permission'.tr,
                 textColor: Colors.white,
                 onPressed: () async {
                   final newPermission = await Geolocator.requestPermission();
@@ -665,7 +666,7 @@ Future<bool> _checkOfflineTileCount() async {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('📍 Moved to current location'),
+            content: Text('dialog_content_moved_to_current_location'.tr),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -679,7 +680,7 @@ Future<bool> _checkOfflineTileCount() async {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Unable to get your current location. Please check your location settings or select a location manually on the map.'),
+            content: Text('dialog_content_unable_to_get_your_current_location_pleas'.tr),
             backgroundColor: Colors.red,
         duration: const Duration(seconds: 2),
           ),
@@ -1111,7 +1112,11 @@ Future<bool> _checkOfflineTileCount() async {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '📍 Moved to ${location['name'] ?? location['city'] ?? 'selected location'}',
+              trKey('dialog_content_moved_to_location', [
+                location['name'] ??
+                    location['city'] ??
+                    'l10n_selected_location'.tr,
+              ]),
             ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
@@ -1125,7 +1130,7 @@ Future<bool> _checkOfflineTileCount() async {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Unable to move to the selected location. Please try again.'),
+            content: Text('dialog_content_unable_to_move_to_the_selected_location_p'.tr),
             backgroundColor: Colors.red,
         duration: const Duration(seconds: 2),
           ),
@@ -1698,13 +1703,9 @@ Future<bool> _checkOfflineTileCount() async {
       debugPrint('❌ Error in _onDonePressed: $e');
 
       // Show error message
-      Get.snackbar(
-        'Unable to Get Location',
-        'Unable to get location details. Please try again.',
+      showTrSnackbar('snackbar_unable_to_get_location', 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1817,7 +1818,7 @@ Future<bool> _checkOfflineTileCount() async {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Offline Mode: Enabled',
+                'text_offline_mode_enabled'.tr,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
@@ -1875,28 +1876,30 @@ Future<bool> _checkOfflineTileCount() async {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Offline Mode'),
+            title: Text('title_text_offline_mode'.tr),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Current mode: $offlineModeReason'),
+                Text(
+                  trKey('text_offline_current_mode_reason', [offlineModeReason]),
+                ),
                 const SizedBox(height: 16),
-                const Text('Available offline features:'),
+                Text('text_available_offline_features'.tr),
                 const SizedBox(height: 8),
                 _buildFeatureList([
-                  '✅ Cached map tiles',
-                  '✅ Offline location search',
-                  '✅ Saved locations',
-                  '❌ Real-time updates',
-                  '❌ New place discovery',
+                  'text_offline_feature_cached_map_tiles'.tr,
+                  'text_offline_feature_offline_location_search'.tr,
+                  'text_offline_feature_saved_locations'.tr,
+                  'text_offline_feature_no_realtime_updates'.tr,
+                  'text_offline_feature_no_place_discovery'.tr,
                 ]),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Got it'),
+                child: Text('text_got_it'.tr),
               ),
             ],
           ),
@@ -2040,7 +2043,7 @@ Future<bool> _checkOfflineTileCount() async {
                     ),
                   ),
                   child: Text(
-                    'Done',
+                    'text_done_3'.tr,
                     style: TextStyle(
                       color:
                           controller.darkMode.value
@@ -2281,7 +2284,7 @@ Future<bool> _checkOfflineTileCount() async {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please wait...',
+                  'text_please_wait_2'.tr,
                   style: TextStyle(
                     fontSize: 14,
                     color:
@@ -2307,7 +2310,7 @@ Future<bool> _checkOfflineTileCount() async {
       case LocationPickerState.loadingMap:
         return 'Loading map...';
       default:
-        return 'Getting your location...';
+        return 'text_getting_your_location'.tr;
     }
   }
 }
@@ -2503,7 +2506,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
       case 'saved':
         return 'SAVED';
       case 'offline_search':
-        return 'OFFLINE';
+        return 'text_offline'.tr;
       case 'world_locations':
         return 'GLOBAL';
       case 'search_selection':
@@ -2605,7 +2608,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Search Locations',
+                              'text_search_locations_2'.tr,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -2637,7 +2640,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
                   TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: 'Search by city or country...',
+                      hintText: 'hinttext_search_by_city_or_country'.tr,
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -2664,15 +2667,15 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
                   Expanded(
                     child:
                         _isSearching
-                            ? const Center(
+                            ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  CircularProgressIndicator(),
-                                  SizedBox(height: 16),
+                                  const CircularProgressIndicator(),
+                                  const SizedBox(height: 16),
                                   Text(
-                                    'Searching locations...',
-                                    style: TextStyle(
+                                    'text_searching_locations'.tr,
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       color: Colors.grey,
                                     ),
@@ -2706,11 +2709,11 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
                                     ),
                                   ),
                                   if (widget.isOfflineMode)
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 8),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
                                       child: Text(
-                                        'Try downloading offline maps for this area',
-                                        style: TextStyle(
+                                        'text_try_downloading_offline_maps_for_this_area'.tr,
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey,
                                         ),
@@ -2877,15 +2880,18 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
                   color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Center(
+                child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(color: Colors.white),
-                      SizedBox(height: 16),
+                      const CircularProgressIndicator(color: Colors.white),
+                      const SizedBox(height: 16),
                       Text(
-                        'Moving to location...',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
+                        'text_moving_to_location'.tr,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                   ),

@@ -18,6 +18,7 @@ import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
 import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
 
 import '../../controllers/memory_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class TagMentionBottomSheet extends StatefulWidget {
   final Function(String) onItemSelected;
@@ -59,9 +60,8 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
       // Check if the new value contains a space that wasn't in the old value
       if (newValue.text.contains(' ')) {
         // Show popup message
-        Get.snackbar(
-          'Spaces Not Allowed',
-          '${widget.isTagMode ? 'Hashtags' : 'Mentions'} cannot contain spaces',
+        showTrSnackbar('snackbar_spaces_not_allowed',
+          args: [widget.isTagMode ? 'Hashtags' : 'Mentions'],
           backgroundColor: Colors.orange,
           colorText: Colors.white,
           duration: const Duration(seconds: 2),
@@ -139,6 +139,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   void _showAddGroupPopup(BuildContext context, String searchText) {
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return _AddGroupPopupDialog(
@@ -155,6 +156,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   void _showEditGroupPopup(BuildContext context, Map<String, dynamic> item) {
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return _AddGroupPopupDialog(
@@ -392,7 +394,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                           ),
                           decoration: InputDecoration(
                             
-                            hintText: 'Search...',
+                            hintText: 'hinttext_search'.tr,
                             hintStyle: GoogleFonts.kumbhSans(
                               color: uiController.darkMode.value
                                   ? Colors.grey
@@ -509,7 +511,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                     widget.onEditingComplete?.call();
                                   },
                                   child: Text(
-                                    'Cancel',
+                                    'text_cancel_8'.tr,
                                     style: GoogleFonts.kumbhSans(),
                                   ),
                                 ),
@@ -545,7 +547,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                     ),
                                   ),
                                   child: Text(
-                                    'Save',
+                                    'text_save'.tr,
                                     style: GoogleFonts.kumbhSans(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
@@ -581,7 +583,11 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                       trimmedSearchText.isEmpty
                                   ? Center(
                                     child: Text(
-                                      'No ${widget.isTagMode ? 'hashtag groups' : 'contact groups'} available',
+                                      trKey('text_no_widget_istagmode', [
+                                        widget.isTagMode
+                                            ? 'l10n_lc_hashtag'.tr
+                                            : 'l10n_lc_contact'.tr,
+                                      ]),
                                       style: GoogleFonts.kumbhSans(
                                         color: Colors.grey.shade600,
                                         fontSize: 16,
@@ -642,7 +648,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                     ),
                                               
                                                     child: Text(
-                                                      'add',
+                                                      'text_add'.tr,
                                                       style: GoogleFonts.kumbhSans(
                                                         color:
                                                             widget.isTagMode
@@ -738,7 +744,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                                                       borderRadius: BorderRadius.circular(8),
                                                     ),
                                                     child: Text(
-                                                      'Group',
+                                                      'text_group'.tr,
                                                       style: GoogleFonts.kumbhSans(
                                                         color: widget.isTagMode
                                                             ? AppColors.green
@@ -818,7 +824,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'See List',
+                      'text_see_list'.tr,
                       style: GoogleFonts.kumbhSans(
                         color: widget.isTagMode ? AppColors.green : AppColors.blue,
                         fontSize: 16,
@@ -913,16 +919,14 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
   Future<void> _addSubcategory() async {
     // Validation: Check if subcategory name is provided
     if (_nameController.text.trim().isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(        duration: const Duration(seconds: 2),
-
-            content: Text(
-              'Please enter a ${widget.isTagMode ? 'hashtag' : 'mention'} name',
-              style: GoogleFonts.kumbhSans(),
-            ),
-            backgroundColor: Colors.red,
-          ),
+      if (true) {
+        showOverlaySnackText(
+          widget.isTagMode
+              ? 'l10n_please_enter_name_h'.tr
+              : 'l10n_please_enter_name_m'.tr,
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
         );
       }
       return;
@@ -932,32 +936,28 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
     if (widget.editItemId != null) {
       // Validation: Check if category is selected when editing
       if (_selectedCategoryId == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(        duration: const Duration(seconds: 2),
-
-              content: Text(
-                'Please select a ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
-                style: GoogleFonts.kumbhSans(),
-              ),
-              backgroundColor: Colors.red,
-            ),
+        if (true) {
+          showOverlaySnackText(
+            widget.isTagMode
+                ? 'l10n_please_select_group_h'.tr
+                : 'l10n_please_select_group_c'.tr,
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
           );
         }
         return;
       }
 
       if (_selectedCategoryId == 'add_new_category' && _newCategoryController.text.trim().isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(        duration: const Duration(seconds: 2),
-
-              content: Text(
-                widget.isTagMode ? 'Please enter a new Hashtag Group name' : 'Please enter a new Contact Group name',
-                style: GoogleFonts.kumbhSans(),
-              ),
-              backgroundColor: Colors.red,
-            ),
+        if (true) {
+          showOverlaySnackText(
+            widget.isTagMode
+                ? 'l10n_enter_new_group_name_h'.tr
+                : 'l10n_enter_new_group_name_c'.tr,
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
           );
         }
         return;
@@ -979,11 +979,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               throw Exception('Failed to create new hashtag group');
             } else if (newGroup.id == -1) {
               // Duplicate hashtag group name
-              if (mounted) {
-                Get.snackbar(        duration: const Duration(seconds: 2),
-
-                  'Duplicate Hashtag',
-                  'Hashtag Group with this name already exists.',
+              if (true) {
+                showTrSnackbar('snackbar_duplicate_hashtag_3',
+                  duration: const Duration(seconds: 2),
                   backgroundColor: Colors.orange,
                   colorText: Colors.white,
                 );
@@ -991,11 +989,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               return;
             } else if (newGroup.id == -3) {
               // Main group name conflicts with existing subgroup
-              if (mounted) {
-                Get.snackbar(        duration: const Duration(seconds: 2),
-
-                  'Name Conflict',
-                  'This name is already used by a hashtag in another group.',
+              if (true) {
+                showTrSnackbar('snackbar_name_conflict_10',
+                  duration: const Duration(seconds: 2),
                   backgroundColor: Colors.orange,
                   colorText: Colors.white,
                 );
@@ -1010,11 +1006,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               throw Exception('Failed to create new contact group');
             } else if (newGroup.id == -1) {
               // Duplicate contact group name
-              if (mounted) {
-                Get.snackbar(        duration: const Duration(seconds: 2),
-
-                  'Duplicate Contact',
-                  'Contact Group with this name already exists.',
+              if (true) {
+                showTrSnackbar('snackbar_duplicate_contact_3',
+                  duration: const Duration(seconds: 2),
                   backgroundColor: Colors.orange,
                   colorText: Colors.white,
                 );
@@ -1022,11 +1016,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               return;
             } else if (newGroup.id == -3) {
               // Main group name conflicts with existing subgroup
-              if (mounted) {
-                Get.snackbar(        duration: const Duration(seconds: 2),
-
-                  'Name Conflict',
-                  'This name is already used by a contact in another group.',
+              if (true) {
+                showTrSnackbar('snackbar_name_conflict_15',
+                  duration: const Duration(seconds: 2),
                   backgroundColor: Colors.orange,
                   colorText: Colors.white,
                 );
@@ -1083,7 +1075,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
         widget.onItemSelected('$prefixChar$newName');
 
         // Close the dialog
-        if (mounted) {
+        if (true) {
           Navigator.of(context).pop();
         }
         widget.onComplete?.call();
@@ -1091,62 +1083,54 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
       } catch (e) {
         debugPrint('Error updating item: $e');
         if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
-          if (mounted) {
-            final message = widget.editParentId == null
-                ? 'Hashtag Group with this name already exists.'
-                : 'Hashtag with this name already exists.';
-            Get.snackbar(        duration: const Duration(seconds: 2),
-
-              'Duplicate Hashtag',
-              message,
+          if (true) {
+            showTrSnackbar(
+              widget.editParentId == null
+                  ? 'snackbar_duplicate_hashtag_3'
+                  : 'snackbar_duplicate_hashtag_5',
+              duration: const Duration(seconds: 2),
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
           }
         } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
-          if (mounted) {
-            Get.snackbar(        duration: const Duration(seconds: 2),
-
-              'Name Conflict',
-              'This name is already used by a hashtag in another group.',
-              backgroundColor: Colors.orange,
-              colorText: Colors.white,
-            );
+          if (true) {
+            showTrSnackbar('snackbar_name_conflict_11',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
           }
         } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
-          if (mounted) {
-            Get.snackbar(        duration: const Duration(seconds: 2),
-
-              'Name Conflict',
-              'This name is already used by the parent group.',
-              backgroundColor: Colors.orange,
-              colorText: Colors.white,
-            );
+          if (true) {
+            showTrSnackbar('snackbar_name_conflict',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
           }
         } else if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
-          if (mounted) {
-            final message = widget.editParentId == null
-                ? 'Contact Group with this name already exists.'
-                : 'Contact with this name already exists.';
-            Get.snackbar(        duration: const Duration(seconds: 2),
-
-              'Duplicate Contact',
-              message,
+          if (true) {
+            showTrSnackbar(
+              widget.editParentId == null
+                  ? 'snackbar_duplicate_contact_3'
+                  : 'snackbar_duplicate_contact',
+              duration: const Duration(seconds: 2),
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
           }
         } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(        duration: const Duration(seconds: 2),
-
-                content: Text(
-                  'Failed to update ${widget.isTagMode ? 'hashtag' : 'contact'}',
-                  style: GoogleFonts.kumbhSans(),
-                ),
-                backgroundColor: Colors.red,
-              ),
+          if (true) {
+            showOverlaySnackText(
+              trKey('dialog_content_failed_to_update_widget_istagmode', [
+                widget.isTagMode
+                    ? 'l10n_lc_hashtag'.tr
+                    : 'l10n_lc_contact'.tr,
+              ]),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.red,
+              colorText: Colors.white,
             );
           }
         }
@@ -1156,32 +1140,28 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
 
     // Validation: Check if category is selected or new category name is provided
     if (_selectedCategoryId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(        duration: const Duration(seconds: 2),
-
-            content: Text(
-              'Please select a ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group or add a new ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
-              style: GoogleFonts.kumbhSans(),
-            ),
-            backgroundColor: Colors.red,
-          ),
+      if (true) {
+        showOverlaySnackText(
+          widget.isTagMode
+              ? 'l10n_please_select_or_add_h'.tr
+              : 'l10n_please_select_or_add_c'.tr,
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
         );
       }
       return;
     }
 
     if (_selectedCategoryId == 'add_new_category' && _newCategoryController.text.trim().isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(        duration: const Duration(seconds: 2),
-
-            content: Text(
-              widget.isTagMode ? 'Please enter a new Hashtag Group name' : 'Please enter a new Contact Group name',
-              style: GoogleFonts.kumbhSans(),
-            ),
-            backgroundColor: Colors.red,
-          ),
+      if (true) {
+        showOverlaySnackText(
+          widget.isTagMode
+              ? 'l10n_enter_new_group_name_h'.tr
+              : 'l10n_enter_new_group_name_c'.tr,
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
         );
       }
       return;
@@ -1203,26 +1183,22 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             throw Exception('Failed to create new hashtag group');
           } else if (newGroup.id == -1) {
             // Duplicate hashtag group name
-            if (mounted) {
-              Get.snackbar(        duration: const Duration(seconds: 2),
-
-                'Duplicate Hashtag',
-                'Hashtag Group with this name already exists.',
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,
-              );
+            if (true) {
+              showTrSnackbar('snackbar_duplicate_hashtag_4',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
             }
             return;
           } else if (newGroup.id == -3) {
             // Main group name conflicts with existing subgroup
-            if (mounted) {
-              Get.snackbar(        duration: const Duration(seconds: 2),
-
-                'Name Conflict',
-                'This name is already used by a hashtag in another group.',
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,
-              );
+            if (true) {
+              showTrSnackbar('snackbar_name_conflict_14',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
             }
             return;
           }
@@ -1235,26 +1211,22 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
             throw Exception('Failed to create new contact group');
           } else if (newGroup.id == -1) {
             // Duplicate contact group name
-            if (mounted) {
-              Get.snackbar(        duration: const Duration(seconds: 2),
-
-                'Duplicate Contact',
-                'Contact Group with this name already exists.',
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,
-              );
+            if (true) {
+              showTrSnackbar('snackbar_duplicate_contact_4',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
             }
             return;
           } else if (newGroup.id == -3) {
             // Main group name conflicts with existing subgroup
-            if (mounted) {
-              Get.snackbar(        duration: const Duration(seconds: 2),
-
-                'Name Conflict',
-                'This name is already used by a contact in another group.',
-                backgroundColor: Colors.orange,
-                colorText: Colors.white,
-              );
+            if (true) {
+              showTrSnackbar('snackbar_name_conflict_19',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
             }
             return;
           }
@@ -1273,26 +1245,22 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           throw Exception('Failed to add hashtag subcategory');
         } else if (newSubgroup.id == -1) {
           // Duplicate hashtag subcategory name
-          if (mounted) {
-            Get.snackbar(        duration: const Duration(seconds: 2),
-
-              'Duplicate Hashtag',
-              'Hashtag with this name already exists.',
-              backgroundColor: Colors.orange,
-              colorText: Colors.white,
-            );
+          if (true) {
+            showTrSnackbar('snackbar_duplicate_hashtag',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
           }
           return;
         } else if (newSubgroup.id == -4) {
           // Subcategory name conflicts with parent group
-          if (mounted) {
-            Get.snackbar(        duration: const Duration(seconds: 2),
-
-              'Name Conflict',
-              'This name is already used by the parent group.',
-              backgroundColor: Colors.orange,
-              colorText: Colors.white,
-            );
+          if (true) {
+            showTrSnackbar('snackbar_name_conflict_12',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
           }
           return;
         }
@@ -1303,26 +1271,22 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
           throw Exception('Failed to add contact subcategory');
         } else if (newSubgroup.id == -1) {
           // Duplicate contact subcategory name
-          if (mounted) {
-            Get.snackbar(        duration: const Duration(seconds: 2),
-
-              'Duplicate Contact',
-              'Contact with this name already exists.',
-              backgroundColor: Colors.orange,
-              colorText: Colors.white,
-            );
+          if (true) {
+            showTrSnackbar('snackbar_duplicate_contact',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
           }
           return;
         } else if (newSubgroup.id == -4) {
           // Subcategory name conflicts with parent group
-          if (mounted) {
-            Get.snackbar(        duration: const Duration(seconds: 2),
-
-              'Name Conflict',
-              'This name is already used by the parent group.',
-              backgroundColor: Colors.orange,
-              colorText: Colors.white,
-            );
+          if (true) {
+            showTrSnackbar('snackbar_name_conflict_17',
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.orange,
+                  colorText: Colors.white,
+                );
           }
           return;
         }
@@ -1333,7 +1297,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
       widget.onItemSelected('$prefixChar$subcategoryName');
 
       // Close the dialog
-      if (mounted) {
+      if (true) {
         Navigator.of(context).pop();
       }
       widget.onComplete?.call();
@@ -1341,16 +1305,18 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
     } catch (e) {
       debugPrint('Error adding subcategory: $e');
       // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(        duration: const Duration(seconds: 2),
-
-            content: Text(
-              'Failed to add ${widget.isTagMode ? 'Hashtag' : 'Contact'} ${_selectedCategoryId == 'add_new_category' ? 'Group and ${widget.isTagMode ? 'Hashtag' : 'Contact'}' : ''}',
-              style: GoogleFonts.kumbhSans(),
-            ),
-            backgroundColor: Colors.red,
-          ),
+      if (true) {
+        showOverlaySnackText(
+          widget.isTagMode
+              ? (_selectedCategoryId == 'add_new_category'
+                  ? 'l10n_fail_add_h_full'.tr
+                  : 'l10n_fail_add_h'.tr)
+              : (_selectedCategoryId == 'add_new_category'
+                  ? 'l10n_fail_add_c_full'.tr
+                  : 'l10n_fail_add_c'.tr),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
         );
       }
     }
@@ -1394,8 +1360,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 // Title
                 Text(
                   widget.editItemId != null
-                      ? '$prefixChar edit ${widget.isTagMode ? 'Hashtag' : 'Mention'}'
-                      : '$prefixChar new ${widget.isTagMode ? 'Hashtag' : 'Mention'}',
+                      ? '$prefixChar ${widget.isTagMode ? 'l10n_title_edit_h'.tr : 'l10n_title_edit_m'.tr}'
+                      : '$prefixChar ${widget.isTagMode ? 'l10n_title_new_h'.tr : 'l10n_title_new_m'.tr}',
                   style: GoogleFonts.kumbhSans(
                     color: uiController.darkMode.value ? Colors.white : Colors.black,
                     fontSize: 18,
@@ -1423,7 +1389,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Text(
-                  '${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
+                  widget.isTagMode
+                      ? 'l10n_group_label_h'.tr
+                      : 'l10n_group_label_c'.tr,
                   style: GoogleFonts.kumbhSans(
                     fontSize: 15,
                     color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -1443,7 +1411,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               ),
               child: _isLoading
                   ? Text(
-                      'Loading ${widget.isTagMode ? 'Hashtag' : 'Contact'} Groups...',
+                      trKey('text_loading_widget_istagmode', [
+                        widget.isTagMode
+                            ? 'l10n_label_hashtag'.tr
+                            : 'l10n_label_contact'.tr,
+                      ]),
                       style: GoogleFonts.kumbhSans(
                         color: Colors.grey.shade600,
                         fontSize: 16,
@@ -1453,7 +1425,12 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                       child: DropdownButton<String>(
                         value: _selectedCategoryId,
                         hint: Text(
-                          'select $prefixChar ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
+                          trKey('text_select_prefixchar_widget_istagmode', [
+                            prefixChar,
+                            widget.isTagMode
+                                ? 'l10n_label_hashtag'.tr
+                                : 'l10n_label_contact'.tr,
+                          ]),
                           style: GoogleFonts.kumbhSans(
                             color: (uiController.darkMode.value) ?  Colors.white :  Colors.black,
                             fontSize: 16,
@@ -1481,7 +1458,11 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                           DropdownMenuItem<String>(
                             value: 'add_new_category',
                             child: Text(
-                              'Add New ${widget.isTagMode ? 'Hashtag' : 'Contact'} Group',
+                              trKey('text_add_new_widget_istagmode', [
+                                widget.isTagMode
+                                    ? 'l10n_label_hashtag'.tr
+                                    : 'l10n_label_contact'.tr,
+                              ]),
                               style: GoogleFonts.kumbhSans(
                                 color: widget.isTagMode ? Colors.green : Colors.blue,
                                 fontSize: 16,
@@ -1512,7 +1493,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 8, bottom: 4),
                   child: Text(
-                    '${widget.isTagMode ? 'Hashtag' : 'Contact'} Group Name',
+                    widget.isTagMode
+                        ? 'l10n_group_name_label_h'.tr
+                        : 'l10n_group_name_label_c'.tr,
                     style: GoogleFonts.kumbhSans(
                       fontSize: 15,
                       color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -1538,7 +1521,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                       FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
                     ],
                     decoration: InputDecoration(
-                      hintText: widget.isTagMode ? 'Enter new Hashtag Group name' : 'Enter new Contact Group name',
+                      hintText: widget.isTagMode
+                          ? 'l10n_hint_new_group_h'.tr
+                          : 'l10n_hint_new_group_c'.tr,
                       hintStyle: GoogleFonts.kumbhSans(
                         color: Colors.grey.shade600,
                         fontSize: 16,
@@ -1566,7 +1551,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Text(
-                  widget.isTagMode ? 'Hashtag' : 'Contact',
+                  widget.isTagMode
+                      ? 'l10n_label_hashtag'.tr
+                      : 'l10n_label_contact'.tr,
                   style: GoogleFonts.kumbhSans(
                     fontSize: 15,
                     color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -1600,7 +1587,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
-                    hintText: '$prefixChar Name',
+                    hintText: trKey('hinttext_prefixchar_name', [prefixChar]),
                     hintStyle: GoogleFonts.kumbhSans(
                       color: Colors.grey.shade400,
                       fontSize: 16,

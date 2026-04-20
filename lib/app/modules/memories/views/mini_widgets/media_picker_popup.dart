@@ -46,7 +46,7 @@ class MediaPickerPopup extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Select Media',
+                  'text_select_media'.tr,
                   style: GoogleFonts.kumbhSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -58,7 +58,7 @@ class MediaPickerPopup extends StatelessWidget {
               _buildOption(
                 context,
                 icon: Icons.camera_alt,
-                label: 'Camera (Photo)',
+                label: 'label_media_camera_photo'.tr,
                 onTap: () => _handleCameraPhoto(context),
                 isDark: isDark,
                 textColor: textColor,
@@ -67,7 +67,7 @@ class MediaPickerPopup extends StatelessWidget {
               _buildOption(
                 context,
                 icon: Icons.videocam,
-                label: 'Camera (Video)',
+                label: 'label_media_camera_video'.tr,
                 onTap: () => _handleCameraVideo(context),
                 isDark: isDark,
                 textColor: textColor,
@@ -76,7 +76,7 @@ class MediaPickerPopup extends StatelessWidget {
               _buildOption(
                 context,
                 icon: Icons.photo_library,
-                label: 'Gallery',
+                label: 'label_media_gallery'.tr,
                 onTap: () => _handleGallery(context),
                 isDark: isDark,
                 textColor: textColor,
@@ -87,7 +87,7 @@ class MediaPickerPopup extends StatelessWidget {
                 child: TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(
-                    'Cancel',
+                    'text_cancel_7'.tr,
                     style: GoogleFonts.kumbhSans(
                       fontSize: 16,
                       color: isDark ? Colors.grey.shade400 : Colors.grey,
@@ -161,9 +161,8 @@ class MediaPickerPopup extends StatelessWidget {
     if (!await _ensureCameraPermission()) {
       await showPermissionOpenSettingsDialog(
         context,
-        title: 'Camera access needed',
-        message:
-            'Camera access is turned off for this app. Turn it on in Settings to take photos.',
+        title: 'title_literal_camera_access_needed'.tr,
+        message: 'dialog_content_permission_camera_photos'.tr,
       );
       return;
     }
@@ -183,9 +182,8 @@ class MediaPickerPopup extends StatelessWidget {
     if (!cam.isGranted) {
       await showPermissionOpenSettingsDialog(
         context,
-        title: 'Camera access needed',
-        message:
-            'Camera access is turned off for this app. Turn it on in Settings to record video.',
+        title: 'title_literal_camera_access_needed_2'.tr,
+        message: 'dialog_content_permission_camera_video'.tr,
       );
       return;
     }
@@ -194,9 +192,8 @@ class MediaPickerPopup extends StatelessWidget {
     if (!mic.isGranted) {
       await showPermissionOpenSettingsDialog(
         context,
-        title: 'Microphone access needed',
-        message:
-            'Microphone access is turned off for this app. Turn it on in Settings to record video with sound.',
+        title: 'title_literal_microphone_access_needed_2'.tr,
+        message: 'dialog_content_permission_microphone_video'.tr,
       );
       return;
     }
@@ -237,9 +234,8 @@ class MediaPickerPopup extends StatelessWidget {
       if (!await _ensureAndroidGalleryPermission()) {
         await showPermissionOpenSettingsDialog(
           context,
-          title: 'Photos access needed',
-          message:
-              'Storage or photo access is turned off for this app. Turn it on in Settings to choose photos and videos.',
+          title: 'title_literal_photos_access_needed'.tr,
+          message: 'dialog_content_permission_storage_gallery'.tr,
         );
         return;
       }

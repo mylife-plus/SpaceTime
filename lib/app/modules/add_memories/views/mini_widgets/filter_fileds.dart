@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:spacetime/app/modules/map/controllers/memory_location_picker_with_radius_controller.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart';
 
 import '../../../ui/controllers/ui_controller.dart';
@@ -11,13 +10,17 @@ import '../../../map/controllers/map_controller_new.dart';
 
 class MemoriesFilterTextFieldRow extends StatefulWidget {
   final String imagePath;
+  /// Localized placeholder / empty label for the field.
   final String hint;
+  /// Canonical map key for filter state (e.g. `from date`, never translated).
+  final String filterStorageKey;
   final double? borderRadius;
 
-  const MemoriesFilterTextFieldRow({
+  MemoriesFilterTextFieldRow({
     super.key,
     required this.imagePath,
     required this.hint,
+    required this.filterStorageKey,
     this.borderRadius,
   });
 
@@ -45,18 +48,21 @@ class _MemoriesFilterTextFieldRowState
     super.dispose();
   }
 
-  bool get isDateField => widget.hint.toLowerCase().contains('date');
-  bool get isLocationField =>
-      widget.hint.toLowerCase().contains('location') &&
-      !widget.hint.toLowerCase().contains('radius');
-  bool get isRadiusField => widget.hint.toLowerCase().contains('radius');
+  String get _storageKey =>
+      widget.filterStorageKey.trim().toLowerCase();
+
+  bool get isDateField =>
+      _storageKey == 'from date' || _storageKey == 'to date';
+  bool get isLocationField => _storageKey == 'location';
+  bool get isRadiusField => _storageKey.contains('radius');
 
   void _handleTextChanged(String value, dynamic controller) {
-    if (value.contains('@') || value.contains('#')) {
-      controller.onTextChanged(widget.hint, value);
-    } else {
-      controller.onTextChanged(widget.hint, value);
+    if (value.contains('@')) {
+      debugPrint('Mention trigger from [${widget.filterStorageKey}]: $value');
+    } else if (value.contains('#')) {
+      debugPrint('Tag trigger from [${widget.filterStorageKey}]: $value');
     }
+    controller.onTextChanged(widget.filterStorageKey, value);
   }
 
   // void _pickDate(BuildContext context, MemoryController controller) async {
@@ -199,26 +205,18 @@ class _MemoriesFilterTextFieldRowState
     );
     if (picked != null) {
       final formatted = DateFormat('yyyy-MM-dd').format(picked);
-      controller.setFilterDate(widget.hint, formatted);
+      controller.setFilterDate(widget.filterStorageKey, formatted);
     }
   }
 
   Future<void> _pickLocation(BuildContext context, dynamic controller) async {
     debugPrint('🎯 [FilterFields] Opening MemoryLocationPickerWithRadius');
 
-    // Initialize controller if not already registered
-    // if (!Get.isRegistered<MemoryLocationPickerControllerWithRadius>()) {
-      // debugPrint('🎯 [FilterFields] Creating new MemoryLocationPickerControllerWithRadius');
-      Get.put(MemoryLocationPickerControllerWithRadius());
-    // } else {
-    //   debugPrint('🎯 [FilterFields] Using existing MemoryLocationPickerControllerWithRadius');
-    // }
-
-    // Small delay to ensure controller initialization completes
-    // await Future.delayed(const Duration(milliseconds: 100));
-
     debugPrint('🎯 [FilterFields] Navigating to MemoryLocationPickerWidgetWithRadius');
-    final result = await Get.to(() => const MemoryLocationPickerWidgetWithRadius());
+    final result = await Get.to(
+      () => const MemoryLocationPickerWidgetWithRadius(),
+      fullscreenDialog: true,
+    );
 
     debugPrint('🎯 [FilterFields] Location picker returned: $result');
 
@@ -279,10 +277,10 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Obx(() {
-        final normalizedHint = widget.hint.trim().toLowerCase();
+        final storageKey = _storageKey;
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
             color:
                 controller2.darkMode.value
@@ -293,14 +291,17 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
                 : null,
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Image.asset(
                 widget.imagePath,
-                width: 22,
-                height: 22,
-                color: controller2.darkMode.value ? Colors.white : Colors.grey,
+                width: 20,
+                height: 20,
+                color: controller2.darkMode.value
+                    ? Colors.white
+                    : Colors.grey[600],
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(
                   onTap:
@@ -333,7 +334,7 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
                         currentValue = controller.selectedRadius.value;
                       } else {
                         currentValue =
-                            controller.filterValues[normalizedHint] ?? '';
+                            controller.filterValues[storageKey] ?? '';
                       }
 
                       if (isLocationField) {
@@ -367,64 +368,70 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
                               : controller.selectedLocation.value;
                           String radiusValue = controller.selectedRadius.value;
 
-                          return Container(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            alignment: Alignment.centerLeft,
-                            child: RichText(
-                              text: TextSpan(
-                                text: '$locationValue + ',
-                                style: GoogleFonts.kumbhSans(
-                                  color:
-                                      controller2.darkMode.value
-                                          ? Colors.white
-                                          : Colors.black,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.2,
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text: '${radiusValue}km',
-                                    style: GoogleFonts.kumbhSans(
-                                      color: controller2.currentMainColor,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.2,
-                                    ),
+                          return SizedBox(
+                            height: 22,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: RichText(
+                                text: TextSpan(
+                                  text: '$locationValue + ',
+                                  style: GoogleFonts.kumbhSans(
+                                    color:
+                                        controller2.darkMode.value
+                                            ? Colors.white
+                                            : Colors.black,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.2,
                                   ),
-                                ],
+                                  children: [
+                                    TextSpan(
+                                      text: '${radiusValue}km',
+                                      style: GoogleFonts.kumbhSans(
+                                        color: controller2.currentMainColor,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w400,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           );
                         }
 
-                        return TextField(
-                          style: GoogleFonts.kumbhSans(
-                            color:
-                                controller2.darkMode.value
-                                    ? Colors.white
-                                    : Colors.black,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: widget.hint,
-                            hintStyle: GoogleFonts.kumbhSans(
+                        return SizedBox(
+                          height: 22,
+                          child: TextField(
+                            style: GoogleFonts.kumbhSans(
                               color:
                                   controller2.darkMode.value
-                                      ? Colors.white54
-                                      : Colors.grey[700],
+                                      ? Colors.white
+                                      : Colors.black,
                               fontSize: 16,
                               fontWeight: FontWeight.w400,
                             ),
-
-
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 2),
+                              hintText: widget.hint,
+                              hintStyle: GoogleFonts.kumbhSans(
+                                color:
+                                    controller2.darkMode.value
+                                        ? Colors.white54
+                                        : Colors.grey[700],
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            controller: _textController,
+                            onChanged:
+                                (val) => _handleTextChanged(val, controller),
+                            keyboardType: TextInputType.text,
                           ),
-                          controller: _textController,
-                          onChanged:
-                              (val) => _handleTextChanged(val, controller),
-                          keyboardType: TextInputType.text,
                         );
                       });
                     }),

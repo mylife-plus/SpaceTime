@@ -240,7 +240,7 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
 
                   // Title
                   Text(
-                    'No Internet Connection',
+                    'text_no_internet_connection'.tr,
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -264,7 +264,7 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: Text(
-                      'MapBox requires an active internet connection to load map tiles and location services.',
+                      'text_mapbox_requires_an_active_internet_connection_to_lo'.tr,
                       style: TextStyle(
                         fontSize: 16,
                         color: isDarkMode
@@ -282,7 +282,7 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: Text(
-                      'The app will automatically continue when your connection is restored.',
+                      'text_the_app_will_automatically_continue_when_your_conne'.tr,
                       style: TextStyle(
                         fontSize: 14,
                         color: isDarkMode
@@ -399,7 +399,7 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
 
                   // Help Text
                   Text(
-                    'Check your WiFi or mobile data connection',
+                    'text_check_your_wifi_or_mobile_data_connection'.tr,
                     style: TextStyle(
                       fontSize: 12,
                       color: isDarkMode

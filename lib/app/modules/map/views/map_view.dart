@@ -180,7 +180,7 @@ class MapView extends GetView<MapController> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please wait...',
+                  'text_please_wait'.tr,
                   style: TextStyle(
                     fontSize: 14,
                     color:
@@ -388,7 +388,7 @@ class MapView extends GetView<MapController> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Something went wrong',
+                  'text_something_went_wrong'.tr,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -402,7 +402,7 @@ class MapView extends GetView<MapController> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Please try again or restart the app.',
+                  'text_please_try_again_or_restart_the_app'.tr,
                   style: TextStyle(
                     fontSize: 16,
                     color:
@@ -445,8 +445,8 @@ class MapView extends GetView<MapController> {
                       await controller.retryCurrentState();
                     },
                     icon: const Icon(Icons.refresh_rounded, size: 20),
-                    label: const Text(
-                      'Retry',
+                    label: Text(
+                      'text_retry_2'.tr,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

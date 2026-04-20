@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../services/memory_db.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Repository class for handling all memory-related database operations
 class MemoryRepository extends GetxService {
@@ -84,14 +85,11 @@ class MemoryRepository extends GetxService {
     } catch (e) {
       debugPrint('[MemoryRepository] Error loading memories from database: $e');
       // Show error message to user
-      Get.snackbar(
-        'Unable to Load Memories',
-        'Unable to load your memories. Please try again.',
+      showTrSnackbar('snackbar_unable_to_load_memories', 
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     } finally {
       isLoadingMemories.value = false;
     }

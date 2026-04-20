@@ -66,14 +66,14 @@ class OfflineDownloadOverlay extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Download Offline Maps',
+                      'text_download_offline_maps'.tr,
                       style: Get.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Download maps for offline use',
+                      'text_download_maps_for_offline_use'.tr,
                       style: Get.textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade600,
                       ),
@@ -94,7 +94,7 @@ class OfflineDownloadOverlay extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: onClose,
-                  child: const Text('Later'),
+                  child: Text('text_later'.tr),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.grey.shade600,
                   ),
@@ -105,7 +105,7 @@ class OfflineDownloadOverlay extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onStartDownload,
                   icon: const Icon(Icons.download, size: 18),
-                  label: const Text('Download'),
+                  label: Text('label_download'.tr),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -151,7 +151,7 @@ class OfflineDownloadOverlay extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Downloading Maps...',
+                      'text_downloading_maps'.tr,
                       style: Get.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -187,7 +187,7 @@ class OfflineDownloadOverlay extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Style Pack',
+                      'text_style_pack'.tr,
                       style: Get.textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w500,
                       ),
@@ -224,7 +224,7 @@ class OfflineDownloadOverlay extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Map Tiles',
+                      'text_map_tiles'.tr,
                       style: Get.textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w500,
                       ),
@@ -280,7 +280,7 @@ class OfflineDownloadOverlay extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Offline Maps Ready',
+                  'text_offline_maps_ready'.tr,
                   style: Get.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: Colors.green.shade700,
@@ -301,7 +301,7 @@ class OfflineDownloadOverlay extends StatelessWidget {
           TextButton.icon(
             onPressed: onClose,
             icon: const Icon(Icons.check, size: 18),
-            label: const Text('OK'),
+            label: Text('text_ok_10'.tr),
             style: TextButton.styleFrom(foregroundColor: Colors.green.shade600),
           ),
         ],

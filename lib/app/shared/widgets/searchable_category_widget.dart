@@ -69,7 +69,7 @@ class SearchableCategoryWidget extends StatefulWidget {
 
   const SearchableCategoryWidget({
     super.key,
-    this.title = 'Place',
+    this.title = '',
     this.selectedCategory,
     required this.onCategorySelected,
     this.onMultipleCategoriesSelectedFromPicker,
@@ -712,6 +712,8 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
 
   /// Build display text when not searching
   Widget _buildDisplayText(UiController uiController) {
+    final placeholder =
+        widget.title.isEmpty ? 'apptexts_places'.tr : widget.title;
     final displayText = widget.selectedCategory?.isNotEmpty == true
         ? widget.selectedCategory!
             .split(' ')
@@ -719,7 +721,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                 ? word[0].toUpperCase() + word.substring(1)
                 : word)
             .join(' ')
-        : widget.title;
+        : placeholder;
 
     return GestureDetector(
       onTap: () {
@@ -755,7 +757,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         color: uiController.darkMode.value ? Colors.white : Colors.black87,
       ),
       decoration: InputDecoration(
-        hintText: widget.title,
+        hintText: widget.title.isEmpty ? 'apptexts_places'.tr : widget.title,
         hintStyle: AppFonts.medium(
           16,
           color: uiController.darkMode.value ? Colors.white54 : Colors.grey[700]!,
@@ -964,7 +966,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                         child: Container(
                           alignment: Alignment.center,
                           child: Text(
-                            'See List',
+                            'text_see_list_2'.tr,
                             style: AppFonts.medium(
                               18,
                               color: uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -984,7 +986,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                         child: Container(
                           alignment: Alignment.center,
                           child: Text(
-                            'Add new',
+                            'text_add_new'.tr,
                             style: AppFonts.medium(
                               18,
                               color: uiController.currentMainColor,
@@ -999,7 +1001,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                   onTap: () => _navigateToFullPicker(),
                   child: Center(
                     child: Text(
-                      'See List',
+                      'text_see_list_3'.tr,
                       style: AppFonts.medium(
                         18,
                         color: uiController.currentMainColor,

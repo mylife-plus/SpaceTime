@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/config/app_text.dart';
+import 'package:spacetime/app/config/supported_languages.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
+import 'package:spacetime/app/modules/settings/views/language_selection_view.dart';
 import '../../ui/controllers/ui_controller.dart';
 import '../../security/views/security_view.dart';
 import '../../ui/views/ui_view.dart';
@@ -22,7 +24,9 @@ class SettingsView extends GetView<SettingsController> {
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
     return Obx(
-      () => Scaffold(
+      () {
+        final _ = controller.selectedLanguage.value;
+        return Scaffold(
         backgroundColor:
             controller.darkMode.value
                 ? controller.darkBackgroundColor
@@ -45,6 +49,22 @@ class SettingsView extends GetView<SettingsController> {
                     showDivider: true,
                     onTap: () {
                       Get.to(() => SecurityView());
+                    },
+                  ),
+                  SettingsTile(
+                    icon: Icon(
+                      Icons.language,
+                      color: controller.darkMode.value
+                          ? Colors.white70
+                          : Colors.blueGrey,
+                    ),
+                    title: AppTexts.language,
+                    subtitle: displayLabelForLanguageCode(
+                      controller.selectedLanguage.value,
+                    ),
+                    showDivider: true,
+                    onTap: () {
+                      Get.to(() => const LanguageSelectionView());
                     },
                   ),
                   SettingsTile(
@@ -72,7 +92,7 @@ class SettingsView extends GetView<SettingsController> {
               child: Column(
                 children: [
                       SettingsTile(
-                    icon: const Text('📍', style: TextStyle(fontSize: 22)),
+                    icon: Text('text_4'.tr, style: TextStyle(fontSize: 22)),
                     title: AppTexts.places,
                                         showDivider: true,
 
@@ -121,7 +141,8 @@ class SettingsView extends GetView<SettingsController> {
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 }

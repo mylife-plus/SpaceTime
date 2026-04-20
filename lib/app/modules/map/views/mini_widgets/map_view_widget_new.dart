@@ -165,14 +165,14 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       return Scaffold(
         backgroundColor: Colors.black,
         body: SafeArea(
-          child: const Center(
+          child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 20),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 20),
                 Text(
-                  'Starting local tile server...',
+                  'text_starting_local_tile_server'.tr,
                   style: TextStyle(color: Colors.white),
                 ),
               ],
@@ -244,10 +244,10 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                   color: Colors.white.withOpacity(0.85),
                 ),
                 const SizedBox(height: 28),
-                Text('Preparing your map', style: titleStyle),
+                Text('text_preparing_your_map'.tr, style: titleStyle),
                 const SizedBox(height: 12),
                 Text(
-                  'Loading offline tiles and map style…',
+                  'text_loading_offline_tiles_and_map_style'.tr,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.72),
@@ -391,7 +391,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           });
           return Center(
             child: Text(
-              'Error loading map style',
+              'text_error_loading_map_style'.tr,
               style: TextStyle(color: Colors.red),
             ),
           );
@@ -628,7 +628,7 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Circle Layer Clustering Example'),
+        title: Text('title_text_circle_layer_clustering_example'.tr),
         backgroundColor: Colors.black,
         actions: [
           // Zoom in button
@@ -1029,11 +1029,11 @@ class _CircleLayerClusteringPageState extends State<CircleLayerClusteringPage> {
 
           try {
             ScaffoldMessenger.of(Get.context!).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Text(
-                  'Earthquake point tapped - zoom in to see details',
+                  'dialog_content_earthquake_point_tapped_zoom_in_to_see_de'.tr,
                 ),
-                duration: Duration(seconds: 2),
+                duration: const Duration(seconds: 2),
                 backgroundColor: Colors.blue,
               ),
             );

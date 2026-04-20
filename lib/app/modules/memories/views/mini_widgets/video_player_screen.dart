@@ -211,7 +211,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Error loading video',
+                              'text_error_loading_video'.tr,
                               style: const TextStyle(color: Colors.white, fontSize: 18),
                             ),
                             if (_errorMessage != null)

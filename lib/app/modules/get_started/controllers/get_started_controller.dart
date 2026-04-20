@@ -20,6 +20,7 @@ import '../../../services/path_migration_helper.dart';
 import '../../../helpers/mapbox_zoom_helper.dart';
 import '../../../../services/memory_geojson_service.dart';
 import '../../ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 const String PREFS_KEY_MBTILES_DOWNLOADED = 'mbtiles_downloaded';
 const String PREFS_KEY_MBTILES_PATH = 'mbtiles_path';
@@ -39,7 +40,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   final RxBool isDownloading = false.obs;
   final RxBool isCompleted = false.obs;
   final RxBool hasError = false.obs;
-  final RxString statusText = "Preparing to download...".obs;
+  final RxString statusText = ''.obs;
   final RxDouble downloadProgress = 0.0.obs;
   final RxInt downloadedTileCount = 0.obs;
   final RxString errorMessage = "".obs;
@@ -59,9 +60,6 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
   // State for zoom level selection (11 or 12)
   final RxInt selectedZoomLevel = 11.obs; // Default to zoom 11
-
-  // State for language selection
-  final RxString selectedLanguage = 'English'.obs; // Default to English
 
   // State for UI visibility
   final RxBool showDownloadUI = false.obs; // Controls visibility of download button and language dropdown
@@ -87,6 +85,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   void onInit() {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
+    statusText.value = 'get_started_status_preparing'.tr;
   }
 
   @override
@@ -272,8 +271,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
           isCheckingTiles.value = false;
           showDownloadUI.value = true;
           hasError.value = true;
-          errorMessage.value = 'Tile server failed to start. Please retry.';
-          statusText.value = 'Unable to start tile server.';
+          errorMessage.value = 'get_started_error_tile_server_failed'.tr;
+          statusText.value = 'get_started_status_tile_server_unavailable'.tr;
           return;
         }
         // Keep style recovery in background.
@@ -290,7 +289,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         isCompleted.value = false;
         hasError.value = false;
         isDownloading.value = false;
-        statusText.value = "Download 4.5GB of map tiles to use offline";
+        statusText.value = 'get_started_status_download_mbtiles_offline'.tr;
 
         _startWelcomeSequence();
         unawaited(refreshIosBackgroundRefreshBanner());
@@ -308,7 +307,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       showDownloadUI.value = true;
       hasError.value = false;
       isDownloading.value = false;
-      statusText.value = "Download 4.5GB of map tiles to use offline";
+      statusText.value = 'get_started_status_download_mbtiles_offline'.tr;
       _startWelcomeSequence();
       unawaited(refreshIosBackgroundRefreshBanner());
     }
@@ -376,15 +375,12 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   }
 
   void _showNoInternetSnackbar() {
-    Get.snackbar(
-      'No internet',
-      'Connect to the internet to download map tiles and style.',
+    showTrSnackbar('snackbar_no_internet', 
       snackPosition: SnackPosition.BOTTOM,
       margin: const EdgeInsets.all(16),
       backgroundColor: Colors.black87,
       colorText: Colors.white,
-      duration: const Duration(seconds: 4),
-    );
+      duration: const Duration(seconds: 4),);
   }
 
   /// Get current tile count from SharedPreferences
@@ -433,7 +429,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('[GetStartedController] ❌ Error initializing services: $e');
       hasError.value = true;
-      errorMessage.value = "Failed to initialize services";
+      errorMessage.value = 'get_started_error_init_services'.tr;
     }
   }
 
@@ -478,11 +474,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     debugPrint('[GetStartedController] Selected zoom level: $zoomLevel');
   }
 
-  /// Select language
-  void selectLanguage(String language) {
-    selectedLanguage.value = language;
-    debugPrint('[GetStartedController] Selected language: $language');
-    // TODO: Implement language change logic here
+  /// Applies app locale (same as Settings → Language).
+  void selectLanguage(String languageCode) {
+    Get.find<UiController>().setLanguage(languageCode);
+    debugPrint('[GetStartedController] Selected language: $languageCode');
   }
 
   /// Start the mbtiles download process from Cloudflare R2
@@ -529,7 +524,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
           title: SizedBox(
             width: double.infinity,
             child: Text(
-              'Background refresh deactivated',
+              'text_background_refresh_deactivated'.tr,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'KumbhSans',
@@ -542,8 +537,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
           content: SizedBox(
             width: double.infinity,
             child: Text(
-              'Activate background refresh in Settings → General → Background App Refresh\n\n'
-              'Otherwise the tile download may cancel after ~3 minutes in background.',
+              'text_activate_background_refresh_in_settings_general_bac'.tr,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'KumbhSans',
@@ -561,7 +555,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
                 if (!completer.isCompleted) completer.complete(false);
               },
               child: Text(
-                'Not now',
+                'text_not_now'.tr,
                 style: TextStyle(
                   fontFamily: 'KumbhSans',
                   color: ignoreColor,
@@ -583,7 +577,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
               child: Text(
-                'Activate',
+                'text_activate'.tr,
                 style: TextStyle(
                   fontFamily: 'KumbhSans',
                   fontWeight: FontWeight.w700,
@@ -693,7 +687,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       }
 
       debugPrint('[GetStartedController] 🔔 Checking notification permission...');
-      statusText.value = "Checking permissions...";
+      statusText.value = 'get_started_status_checking_permissions'.tr;
 
       final notificationStatus = await Permission.notification.status;
       debugPrint('[GetStartedController] 🔔 Notification status: $notificationStatus');
@@ -721,8 +715,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         if (_mbtilesDownloadService == null) {
           debugPrint('[GetStartedController] ❌ Failed to initialize MbtilesDownloadService');
           hasError.value = true;
-          errorMessage.value = "Failed to initialize download service";
-          statusText.value = "Initialization failed";
+          errorMessage.value = 'get_started_error_init_download_service'.tr;
+          statusText.value = 'get_started_status_init_failed'.tr;
           return;
         }
         debugPrint('[GetStartedController] ✅ MbtilesDownloadService initialized successfully');
@@ -733,7 +727,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       hasError.value = false;
       isCompleted.value = false;
       errorMessage.value = "";
-      statusText.value = "Preparing download for zoom level ${selectedZoomLevel.value}...";
+      statusText.value = trKey(
+        'get_started_status_preparing_zoom',
+        [selectedZoomLevel.value],
+      );
       downloadProgress.value = 0.0;
       unawaited(refreshIosBackgroundRefreshBanner());
 
@@ -774,8 +771,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('[GetStartedController] ❌ Error starting download: $e');
       hasError.value = true;
-      errorMessage.value = "Failed to start download: ${e.toString()}";
-      statusText.value = "Download error";
+      errorMessage.value = trKey('get_started_error_start_download', [e.toString()]);
+      statusText.value = 'text_download_failed'.tr;
       isDownloading.value = false;
       unawaited(refreshIosBackgroundRefreshBanner());
     }
@@ -790,7 +787,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     debugPrint('[GetStartedController] 📁 Saved to: $downloadedPath');
 
     // Ensure style.json is also complete before marking download state as done.
-    statusText.value = "Finishing map style...";
+    statusText.value = 'get_started_status_finishing_style'.tr;
     debugPrint('[GetStartedController] 📥 Ensuring style.json is downloaded...');
 
     String? styleJsonPath;
@@ -814,8 +811,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       isDownloading.value = false;
       isCompleted.value = false;
       tilesDownloadCompleted.value = false;
-      statusText.value = "Style download failed. Please retry.";
-      errorMessage.value = "Map style download failed";
+      statusText.value = 'get_started_status_style_failed'.tr;
+      errorMessage.value = 'get_started_error_style_failed'.tr;
       _isFinalizingDownload = false;
       return;
     }
@@ -823,7 +820,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     isCompleted.value = true;
     isDownloading.value = false;
     tilesDownloadCompleted.value = true;
-    statusText.value = "Map tiles ready!";
+    statusText.value = 'get_started_status_map_tiles_ready'.tr;
     downloadProgress.value = 1.0;
     unawaited(refreshIosBackgroundRefreshBanner());
 
@@ -922,7 +919,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     ever(_offlineMapService!.tileRegionProgress, (double progress) {
       downloadProgress.value = progress;
       if (progress > 0 && !isDownloadingZoom10.value) {
-        statusText.value = "Downloading maps... ${(progress * 100).toStringAsFixed(1)}%";
+        statusText.value = trKey(
+          'get_started_status_downloading_maps_pct',
+          [(progress * 100).toStringAsFixed(1)],
+        );
       }
     });
 
@@ -938,13 +938,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       }
 
       if (tileCount > 0 && !isDownloadingZoom10.value) {
-        statusText.value = "Downloaded $tileCount tiles";
+        statusText.value = trKey('get_started_status_downloaded_n_tiles', [tileCount]);
       }
     });
 
     // Listen to status text updates
     ever(_offlineMapService!.downloadStatusText, (String status) {
-      if (status.isNotEmpty && status != "Ready to download" && !isDownloadingZoom10.value) {
+      if (status.isNotEmpty && !isDownloadingZoom10.value) {
         statusText.value = status;
       }
     });
@@ -969,7 +969,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   Future<void> _startZoom10Download() async {
     try {
       isDownloadingZoom10.value = true;
-      statusText.value = "Downloading zoom level 14 tiles...";
+      statusText.value = 'get_started_status_downloading_zoom14'.tr;
 
       debugPrint('[GetStartedController] Starting zoom level 14 download...');
 
@@ -1000,7 +1000,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       await _offlineMapService?.downloadZoom10Tiles(
         regionGeometry: regionGeometry,
         onProgress: (int downloaded, int total) {
-          statusText.value = "Downloading zoom 14: $downloaded tiles";
+          statusText.value = trKey(
+            'get_started_status_zoom14_progress',
+            [downloaded],
+          );
           debugPrint('[GetStartedController] Zoom 14 progress: $downloaded tiles');
         },
         onComplete: () {
@@ -1040,7 +1043,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     isCompleted.value = true;
     isDownloading.value = false;
     tilesDownloadCompleted.value = true;
-    statusText.value = "Download completed! ${downloadedTileCount.value} tiles ready";
+    statusText.value = trKey(
+      'get_started_status_download_complete_n_tiles',
+      [downloadedTileCount.value],
+    );
     unawaited(refreshIosBackgroundRefreshBanner());
 
     // Don't save persistent download completion status - always download on app start

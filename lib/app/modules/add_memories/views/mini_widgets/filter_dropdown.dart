@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class FilterDropdown extends StatefulWidget {
   final String imagePath;
@@ -249,7 +250,9 @@ class _FilterDropdownState extends State<FilterDropdown> {
                     Padding(
                       padding: const EdgeInsets.all(20.0),
                       child: Text(
-                        'No ${widget.hint.replaceAll('Search ', '')} found',
+                        trKey('text_no_widget_hint_replaceall', [
+                          widget.hint.replaceAll(',', ''),
+                        ]),
                         style: GoogleFonts.kumbhSans(
                           color:
                               uiController.darkMode.value

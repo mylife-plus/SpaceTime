@@ -23,6 +23,7 @@ import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
 import '../controllers/memory_controller.dart';
 import '../../add_memories/controllers/add_memories_controller.dart';
 import '../../filter/controllers/filter_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MemoryView extends StatefulWidget {
   final bool editMode;
@@ -380,15 +381,11 @@ class _MemoryViewState extends State<MemoryView> {
       );
     } catch (e) {
       debugPrint('Error deleting audio: $e');
-      Get.snackbar(
-        'Unable to Delete',
-        'Unable to delete audio. Please try again.',
+      showTrSnackbar('snackbar_unable_to_delete_9', 
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
-
-      );
+        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -698,6 +695,7 @@ class _MemoryViewState extends State<MemoryView> {
   void _handleImageUpload() async {
     showDialog(
       context: context,
+      useRootNavigator: true,
       builder: (context) => MediaPickerPopup(
         onMediaSelected: (imagePaths, videoPaths) async {
           final newItems = <Map<String, dynamic>>[];
@@ -772,6 +770,7 @@ class _MemoryViewState extends State<MemoryView> {
     print('_handleCancel recordedAudioPaths $recordedAudioPaths ');
     showDialog(
       context: context,
+      useRootNavigator: true,
       builder: (BuildContext context) {
         final controller = Get.find<UiController>();
         return Dialog(
@@ -786,7 +785,7 @@ class _MemoryViewState extends State<MemoryView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Save new memory?',
+                  'text_save_new_memory'.tr,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -828,7 +827,7 @@ class _MemoryViewState extends State<MemoryView> {
                           ),
                         ),
                         child: Text(
-                          'No',
+                          'text_no'.tr,
                           style: TextStyle(
                             color: Colors.red,
                             fontWeight: FontWeight.w500,
@@ -845,14 +844,9 @@ class _MemoryViewState extends State<MemoryView> {
                         );
 
                         Navigator.pop(context);
-
-                        Navigator.pop(context);
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Draft saved successfully!'),        duration: const Duration(seconds: 2),
-
-                          ),
+                        showOverlaySnackText(
+                          'dialog_content_draft_saved_successfully'.tr,
+                          duration: const Duration(seconds: 2),
                         );
                       },
                       child: Container(
@@ -875,7 +869,7 @@ class _MemoryViewState extends State<MemoryView> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'Yes',
+                          'text_yes'.tr,
                           style: TextStyle(
                             color:
                                 controller.darkMode.value
@@ -1039,8 +1033,10 @@ class _MemoryViewState extends State<MemoryView> {
         );
         debugPrint('MemoryView: handleSave - EDIT MODE - Validation result: ${validationResult['isValid']}');
         if (!validationResult['isValid']) {
-          debugPrint('MemoryView: handleSave - EDIT MODE - Validation failed: ${validationResult['message']}');
-          _showValidationError(validationResult['message']);
+          debugPrint(
+            'MemoryView: handleSave - EDIT MODE - Validation failed: ${validationResult['messageKey']}',
+          );
+          _showValidationError(validationResult['messageKey'] as String);
           return;
         }
 
@@ -1160,14 +1156,11 @@ class _MemoryViewState extends State<MemoryView> {
         }
 
         debugPrint('MemoryView: handleSave - EDIT MODE - Showing success snackbar');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Memory updated successfully!'),
-            backgroundColor: Colors.blue.shade400,
-            margin: const EdgeInsets.all(12),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
+        showOverlaySnackText(
+          'dialog_content_memory_updated_successfully'.tr,
+          backgroundColor: Colors.blue.shade400,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
         debugPrint('MemoryView: handleSave - EDIT MODE - Snackbar shown');
         // Pop the view after showing snackbar
@@ -1186,8 +1179,10 @@ class _MemoryViewState extends State<MemoryView> {
         );
         debugPrint('MemoryView: handleSave - CREATE MODE - Validation result: ${validationResult['isValid']}');
         if (!validationResult['isValid']) {
-          debugPrint('MemoryView: handleSave - CREATE MODE - Validation failed: ${validationResult['message']}');
-          _showValidationError(validationResult['message']);
+          debugPrint(
+            'MemoryView: handleSave - CREATE MODE - Validation failed: ${validationResult['messageKey']}',
+          );
+          _showValidationError(validationResult['messageKey'] as String);
           return;
         }
 
@@ -1329,7 +1324,7 @@ class _MemoryViewState extends State<MemoryView> {
                   : Colors.white, // Light mode dialog background
           surfaceTintColor: Colors.transparent, // Remove surface tint
           title: Text(
-            'Delete Memory',
+            'title_text_delete_memory_2'.tr,
             style: TextStyle(
               color:
                   uiController.darkMode.value
@@ -1339,7 +1334,7 @@ class _MemoryViewState extends State<MemoryView> {
             ),
           ),
           content: Text(
-            'Are you sure you want to delete this memory? This action cannot be undone.',
+            'dialog_content_are_you_sure_you_want_to_delete_this_memo_2'.tr,
             style: TextStyle(
               color:
                   uiController.darkMode.value
@@ -1352,7 +1347,7 @@ class _MemoryViewState extends State<MemoryView> {
             TextButton(
               onPressed: () => Get.back(),
               child: Text(
-                'Cancel',
+                'text_cancel_6'.tr,
                 style: TextStyle(
                   color:
                       uiController.darkMode.value
@@ -1363,7 +1358,7 @@ class _MemoryViewState extends State<MemoryView> {
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop();
+                Get.back();
 
                 try {
                   debugPrint('[MemoryView] 🗑️ Deleting memory ID: $_editingMemoryId');
@@ -1397,28 +1392,21 @@ class _MemoryViewState extends State<MemoryView> {
                   }
 
                   // Show success message
-                  Get.snackbar(
-                    'Success',
-                    'Memory deleted successfully',
+                  showTrSnackbar('snackbar_success_21', 
                     backgroundColor: Colors.red.withValues(alpha: 0.8),
                     colorText: Colors.white,
-                    duration: const Duration(seconds: 2),
-                  );
+                    duration: const Duration(seconds: 2),);
+                  Get.back(result: true);
                 } catch (e) {
                   debugPrint('[MemoryView] ❌ Error deleting memory: $e');
-                  Get.snackbar(
-                    'Unable to Delete',
-                    'Unable to delete memory. Please try again.',
+                  showTrSnackbar('snackbar_unable_to_delete_10', 
                     backgroundColor: Colors.red,
                     colorText: Colors.white,
-                    duration: const Duration(seconds: 2),
-                  );
+                    duration: const Duration(seconds: 2),);
                 }
-
-                Navigator.of(context).pop();
               },
               child: Text(
-                'Delete',
+                'text_delete_4'.tr,
                 style: TextStyle(
                   color:
                       uiController.darkMode.value
@@ -1440,7 +1428,7 @@ class _MemoryViewState extends State<MemoryView> {
       final databaseHelper = DatabaseHelper.instance;
 
       Get.defaultDialog(
-        title: 'Database Contents',
+        title: 'title_literal_database_contents'.tr,
         content: SizedBox(
           width: double.maxFinite,
           height: Get.height * 0.7,
@@ -1457,16 +1445,18 @@ class _MemoryViewState extends State<MemoryView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Database Statistics',
+                      Text(
+                        'text_database_statistics'.tr,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
-                      Text('Total Memories: ${allMemories.length}'),
-                      const Text('Database Version: 4'),
-                      const Text('Database Name: memories.db'),
+                      Text(
+                        trKey('text_debug_total_memories', [allMemories.length]),
+                      ),
+                      Text('text_database_version_4'.tr),
+                      Text('text_database_name_memories_db'.tr),
                     ],
                   ),
                 ),
@@ -1487,25 +1477,35 @@ class _MemoryViewState extends State<MemoryView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'ID: ${memory['id']}',
+                            trKey('text_id_memory', [memory['id']]),
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.blue,
                             ),
                           ),
                           const Divider(),
-                          Text('📅 Date: ${memory['date'] ?? 'N/A'}'),
-                          Text('🕐 Time: ${memory['time'] ?? 'N/A'}'),
+                          Text(trKey('text_date_memory', [
+                            memory['date'] ?? 'N/A',
+                          ])),
+                          Text(trKey('text_time_memory', [
+                            memory['time'] ?? 'N/A',
+                          ])),
                           if (memory['location'] != null &&
                               memory['location'].toString().isNotEmpty)
-                            Text('📍 Location: ${memory['location']}'),
+                            Text(trKey('text_location_memory', [
+                              memory['location'],
+                            ])),
                           if (memory['category'] != null &&
                               memory['category'].toString().isNotEmpty)
-                            Text('🏷️ Category: ${memory['category']}'),
+                            Text(trKey('text_category_memory', [
+                              memory['category'],
+                            ])),
                           if (memory['description'] != null &&
                               memory['description'].toString().isNotEmpty)
                             Text(
-                              '📝 Description: ${memory['description']}',
+                              trKey('text_description_memory', [
+                                memory['description'],
+                              ]),
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1514,7 +1514,9 @@ class _MemoryViewState extends State<MemoryView> {
                           if (base64Images.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
-                              '🖼️ Images (Base64): ${base64Images.length} image(s)',
+                              trKey('text_debug_images_base64_header', [
+                                base64Images.length,
+                              ]),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1528,7 +1530,12 @@ class _MemoryViewState extends State<MemoryView> {
                                   top: 4,
                                 ),
                                 child: Text(
-                                  'Image ${index + 1}: ${base64.length} characters (${(base64.length * 0.75 / 1024).toStringAsFixed(1)} KB)',
+                                  trKey('text_debug_image_base64_entry', [
+                                    index + 1,
+                                    base64.length,
+                                    (base64.length * 0.75 / 1024)
+                                        .toStringAsFixed(1),
+                                  ]),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[600],
@@ -1542,7 +1549,9 @@ class _MemoryViewState extends State<MemoryView> {
                           if (audioPaths.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
-                              '🎵 Audio Files: ${audioPaths.length} file(s)',
+                              trKey('text_debug_audio_files_header', [
+                                audioPaths.length,
+                              ]),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1557,7 +1566,10 @@ class _MemoryViewState extends State<MemoryView> {
                                   top: 4,
                                 ),
                                 child: Text(
-                                  'Audio ${index + 1}: $fileName',
+                                  trKey('text_debug_audio_file_entry', [
+                                    index + 1,
+                                    fileName,
+                                  ]),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[600],
@@ -1569,14 +1581,18 @@ class _MemoryViewState extends State<MemoryView> {
 
                           if (memory['tags'] != null &&
                               memory['tags'].toString().isNotEmpty)
-                            Text('🏷️ Tags: ${memory['tags']}'),
+                            Text(trKey('text_tags_memory', [memory['tags']])),
                           if (memory['mentions'] != null &&
                               memory['mentions'].toString().isNotEmpty)
-                            Text('👥 Mentions: ${memory['mentions']}'),
+                            Text(trKey('text_mentions_memory', [
+                              memory['mentions'],
+                            ])),
 
                           const SizedBox(height: 8),
                           Text(
-                            '📅 Created: ${memory['created_at'] ?? 'N/A'}',
+                            trKey('text_created_memory', [
+                              memory['created_at'] ?? 'N/A',
+                            ]),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -1584,7 +1600,9 @@ class _MemoryViewState extends State<MemoryView> {
                           ),
                           if (memory['updated_at'] != null)
                             Text(
-                              '🔄 Updated: ${memory['updated_at']}',
+                              trKey('text_updated_memory', [
+                                memory['updated_at'],
+                              ]),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
@@ -1600,12 +1618,11 @@ class _MemoryViewState extends State<MemoryView> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Close')),
+          TextButton(onPressed: () => Get.back(), child: Text('text_close_4'.tr)),
         ],
       );
     } catch (e) {
-      Get.snackbar('Unable to Load', 'Unable to load data. Please try again.'  ,      duration: const Duration(seconds: 2),
-);
+      showTrSnackbar('snackbar_unable_to_load_3',       duration: const Duration(seconds: 2),);
     }
   }
 
@@ -2062,8 +2079,7 @@ class _MemoryViewState extends State<MemoryView> {
     if (selectedDateTime.isAfter(now)) {
       return {
         'isValid': false,
-        'message':
-            'Memory date and time cannot be in the future. Please select a past date and time.',
+        'messageKey': 'dialog_content_memory_date_cannot_be_future',
       };
     }
 
@@ -2081,44 +2097,42 @@ class _MemoryViewState extends State<MemoryView> {
     if (memoryController.selectedLocation.value.isEmpty) {
       return {
         'isValid': false,
-        'message':
-            'Location is required. Please tap on the map or search to select a location for your memory.',
+        'messageKey': 'dialog_content_memory_location_required_select',
       };
     }
 
     // Content is no longer mandatory - images, audio, and description are all optional
     // Note: Removed content requirement as per user request
 
-    return {'isValid': true, 'message': ''};
+    return {'isValid': true, 'messageKey': ''};
   }
 
   // Show validation error dialog
-  void _showValidationError(String message) {
+  void _showValidationError(String messageKey) {
     final controller = Get.find<UiController>();
 
-    // Determine appropriate icon and title based on message content
     IconData icon = Icons.warning_amber_rounded;
-    String title = 'Validation Error';
+    var titleKey = 'title_text_dialog_validation_error';
     Color iconColor = Colors.orange.shade600;
 
-    if (message.contains('future')) {
-      icon = Icons.access_time;
-      title = 'Invalid Date/Time';
-      iconColor = Colors.red.shade600;
-    } else if (message.contains('category')) {
-      icon = Icons.category;
-      title = 'Missing Category';
-      iconColor = Colors.blue.shade600;
-    } else if (message.contains('Location is required')) {
-      icon = Icons.location_on;
-      title = 'Location Required';
-      iconColor = Colors.green.shade600;
-    } else {
-      title = 'Missing Information';
+    switch (messageKey) {
+      case 'dialog_content_memory_date_cannot_be_future':
+        icon = Icons.access_time;
+        titleKey = 'title_text_dialog_invalid_date_time';
+        iconColor = Colors.red.shade600;
+        break;
+      case 'dialog_content_memory_location_required_select':
+        icon = Icons.location_on;
+        titleKey = 'title_text_dialog_location_required';
+        iconColor = Colors.green.shade600;
+        break;
+      default:
+        titleKey = 'title_text_dialog_missing_information';
     }
 
     showDialog(
       context: context,
+      useRootNavigator: true,
       builder:
           (context) => AlertDialog(
             title: Row(
@@ -2126,7 +2140,7 @@ class _MemoryViewState extends State<MemoryView> {
                 Icon(icon, color: iconColor, size: 28),
                 const SizedBox(width: 12),
                 Text(
-                  title,
+                  titleKey.tr,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -2135,7 +2149,7 @@ class _MemoryViewState extends State<MemoryView> {
               ],
             ),
             content: Text(
-              message,
+              messageKey.tr,
               style: const TextStyle(fontSize: 16, height: 1.4),
             ),
             backgroundColor:
@@ -2156,8 +2170,8 @@ class _MemoryViewState extends State<MemoryView> {
                     vertical: 12,
                   ),
                 ),
-                child: const Text(
-                  'OK',
+                child: Text(
+                  'text_ok_6'.tr,
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -2529,33 +2543,31 @@ class _MemoryViewState extends State<MemoryView> {
         debugPrint('Draft loaded successfully');
 
         // Force UI refresh to show restored images and audio
-        if (mounted) {
-          // Add a small delay to ensure all file operations are complete
-          await Future.delayed(const Duration(milliseconds: 100));
+        // Add a small delay to ensure all file operations are complete
+        await Future.delayed(const Duration(milliseconds: 100));
 
-          _orderedMedia.refresh();
-          debugPrint(
-            '🔄 Media refreshed. Count: ${_orderedMedia.length}',
-          );
+        _orderedMedia.refresh();
+        debugPrint(
+          '🔄 Media refreshed. Count: ${_orderedMedia.length}',
+        );
 
-          // Force memory controller refresh for audio
-          memoryController.recordedAudioPaths.refresh();
-          debugPrint(
-            '🔄 Audio refreshed. Count: ${memoryController.recordedAudioPaths.length}',
-          );
-          for (int i = 0; i < memoryController.recordedAudioPaths.length; i++) {
-            debugPrint('  Audio $i: ${memoryController.recordedAudioPaths[i]}');
-          }
-
-          setState(() {
-            // This will trigger a rebuild of the entire widget tree
-            // ensuring that MemoryImageWidget and MemoryAudioWidget
-            // pick up the restored image paths and audio paths
-          });
-          debugPrint('🔄 setState called for UI refresh');
-
-          // Show a snackbar to inform user that draft was restored
+        // Force memory controller refresh for audio
+        memoryController.recordedAudioPaths.refresh();
+        debugPrint(
+          '🔄 Audio refreshed. Count: ${memoryController.recordedAudioPaths.length}',
+        );
+        for (int i = 0; i < memoryController.recordedAudioPaths.length; i++) {
+          debugPrint('  Audio $i: ${memoryController.recordedAudioPaths[i]}');
         }
+
+        setState(() {
+          // This will trigger a rebuild of the entire widget tree
+          // ensuring that MemoryImageWidget and MemoryAudioWidget
+          // pick up the restored image paths and audio paths
+        });
+        debugPrint('🔄 setState called for UI refresh');
+
+        // Show a snackbar to inform user that draft was restored
       }
     } catch (e) {
       debugPrint('Error loading draft: $e');

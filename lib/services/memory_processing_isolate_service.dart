@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/services/memory_clustering_service.dart';
 
@@ -607,12 +608,12 @@ class MemoryProcessingIsolateService extends GetxService {
       '[MemoryProcessingIsolateService] Processing error: ${message['error']}',
     );
 
-    Get.snackbar(
-      'Memory Processing Error',
-      'Failed to process memories: ${message['error']}',
+    showTrSnackbar(
+      'snackbar_memory_processing_error',
+      args: [message['error']?.toString() ?? ''],
       backgroundColor: Colors.red,
       colorText: Colors.white,
-        duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 2),
     );
   }
 

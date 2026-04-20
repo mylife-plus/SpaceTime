@@ -72,7 +72,7 @@ class SearchOverlay extends StatelessWidget {
                             FocusScope.of(context).unfocus();
                           },
                           decoration: InputDecoration(
-                            hintText: 'search memories',
+                            hintText: 'hinttext_search_memories'.tr,
                             hintStyle: GoogleFonts.kumbhSans(
                               // color: Color(0xFF9A9A9A),
                               color:

@@ -26,31 +26,31 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
           child: Stack(
             children: [
             if (controller.isLoading.value)
-              const Center(
+              Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Getting your location...'),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text('text_getting_your_location'.tr),
                   ],
                 ),
               )
             else if (controller.currentPosition.value == null)
-              const Center(
+              Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.location_off, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
+                    const Icon(Icons.location_off, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
                     Text(
-                      'Unable to get location',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                      'text_unable_to_get_location'.tr,
+                      style: const TextStyle(fontSize: 18, color: Colors.grey),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      'Please check location permissions',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                      'text_please_check_location_permissions'.tr,
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -94,9 +94,9 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  child: const Text(
-                    'Done',
-                    style: TextStyle(
+                  child: Text(
+                    'text_done'.tr,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),

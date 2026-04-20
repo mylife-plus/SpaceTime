@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../../config/app_images.dart';
 import '../../../ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class AudioPlayerPopup extends StatefulWidget {
   final String audioPath;
@@ -130,15 +131,12 @@ class _AudioPlayerPopupState extends State<AudioPlayerPopup>
       final file = File(widget.audioPath);
       if (!await file.exists()) {
         debugPrint('❌ Audio file does not exist: ${widget.audioPath}');
-        Get.snackbar(
-          'Error',
-          'Audio file not found',
+        showTrSnackbar('snackbar_error_3', 
           backgroundColor: Colors.red.shade400,
           colorText: Colors.white,
           margin: const EdgeInsets.all(12),
           snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
 
@@ -191,15 +189,12 @@ class _AudioPlayerPopupState extends State<AudioPlayerPopup>
       debugPrint('❌ Audio path: ${widget.audioPath}');
       debugPrint('❌ Error type: ${e.runtimeType}');
 
-      Get.snackbar(
-        'Playback Error',
-        'Could not play audio file: ${e.toString()}',
+      showTrSnackbar('snackbar_playback_error', args: [e.toString()], 
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -270,7 +265,7 @@ class _AudioPlayerPopupState extends State<AudioPlayerPopup>
                     ),
                   ),
                   Text(
-                    'Audio Player',
+                    'text_audio_player'.tr,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

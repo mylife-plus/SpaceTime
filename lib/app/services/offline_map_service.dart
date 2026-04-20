@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,7 +39,7 @@ class OfflineMapService extends GetxService {
   final RxBool isOfflineReady = false.obs;
   final RxDouble stylePackProgress = 0.0.obs;
   final RxDouble tileRegionProgress = 0.0.obs;
-  final RxString downloadStatusText = "Ready to download".obs;
+  final RxString downloadStatusText = ''.obs;
   final RxInt downloadedTileCount = 0.obs;
 
   // Getters for streams
@@ -49,6 +50,7 @@ class OfflineMapService extends GetxService {
   @override
   Future<void> onInit() async {
     super.onInit();
+    downloadStatusText.value = 'mbtiles_status_ready_to_download'.tr;
     await _initializeOfflineComponents();
   }
 
@@ -82,7 +84,7 @@ class OfflineMapService extends GetxService {
       debugPrint(
         '[OfflineMapService] ❌ Failed to initialize offline components: $e',
       );
-      _updateDownloadStatus("Failed to initialize: $e");
+      _updateDownloadStatusTr('offline_map_error_init', [e]);
     }
   }
 
@@ -94,13 +96,15 @@ class OfflineMapService extends GetxService {
 
       if (downloadedTileCount.value >= _requiredTileThreshold) {
         isOfflineReady.value = true;
-        _updateDownloadStatus(
-          "Offline ready (${downloadedTileCount.value} tiles)",
+        _updateDownloadStatusTr(
+          'offline_map_status_offline_ready_n_tiles',
+          [downloadedTileCount.value],
         );
         debugPrint('[OfflineMapService] ✅ Sufficient tiles already downloaded: ${downloadedTileCount.value}');
       } else {
-        _updateDownloadStatus(
-          "Need to download tiles (${downloadedTileCount.value}/$_requiredTileThreshold)",
+        _updateDownloadStatusTr(
+          'offline_map_status_need_download_tiles',
+          [downloadedTileCount.value, _requiredTileThreshold],
         );
         debugPrint('[OfflineMapService] ⚠️ Insufficient tiles: ${downloadedTileCount.value}/$_requiredTileThreshold');
       }
@@ -126,7 +130,7 @@ class OfflineMapService extends GetxService {
 
     try {
       isDownloading.value = true;
-      _updateDownloadStatus("Starting download...");
+      _updateDownloadStatusTr('offline_map_status_starting_download');
 
       // Reset progress
       stylePackProgress.value = 0.0;
@@ -141,7 +145,7 @@ class OfflineMapService extends GetxService {
       debugPrint('[OfflineMapService] ✅ Offline map download completed');
     } catch (e) {
       debugPrint('[OfflineMapService] ❌ Download failed: $e');
-      _updateDownloadStatus("Download failed: $e");
+      _updateDownloadStatusTr('offline_map_error_download_failed', [e]);
     } finally {
       isDownloading.value = false;
     }
@@ -178,8 +182,9 @@ class OfflineMapService extends GetxService {
             debugPrint(
               '[OfflineMapService] 📦 Style pack progress: ${(percentage * 100).toStringAsFixed(1)}%',
             );
-            _updateDownloadStatus(
-              "Downloading style pack: ${(percentage * 100).toStringAsFixed(1)}%",
+            _updateDownloadStatusTr(
+              'offline_map_status_style_pack_pct',
+              [(percentage * 100).toStringAsFixed(1)],
             );
           })
           .then((value) {
@@ -249,8 +254,13 @@ class OfflineMapService extends GetxService {
             debugPrint(
               '[OfflineMapService] 🗺️ Tile region progress: ${(percentage * 100).toStringAsFixed(1)}% (${progress.completedResourceCount}/${progress.requiredResourceCount} tiles)',
             );
-            _updateDownloadStatus(
-              "Downloading tiles: ${progress.completedResourceCount}/${progress.requiredResourceCount} (${(percentage * 100).toStringAsFixed(1)}%)",
+            _updateDownloadStatusTr(
+              'offline_map_status_tiles_progress',
+              [
+                progress.completedResourceCount,
+                progress.requiredResourceCount,
+                (percentage * 100).toStringAsFixed(1),
+              ],
             );
           })
           .then((value) {
@@ -262,15 +272,17 @@ class OfflineMapService extends GetxService {
             // Check if we have enough tiles for offline use
             if (downloadedTileCount.value >= _requiredTileThreshold) {
               isOfflineReady.value = true;
-              _updateDownloadStatus(
-                "Offline ready! Downloaded ${downloadedTileCount.value} tiles",
+              _updateDownloadStatusTr(
+                'offline_map_status_offline_ready_downloaded',
+                [downloadedTileCount.value],
               );
               debugPrint(
                 '[OfflineMapService] ✅ Sufficient tiles downloaded for offline use',
               );
             } else {
-              _updateDownloadStatus(
-                "Download complete but insufficient tiles: ${downloadedTileCount.value}/$_requiredTileThreshold",
+              _updateDownloadStatusTr(
+                'offline_map_status_insufficient_tiles',
+                [downloadedTileCount.value, _requiredTileThreshold],
               );
               debugPrint(
                 '[OfflineMapService] ⚠️ Downloaded ${downloadedTileCount.value} tiles, need $_requiredTileThreshold for offline use',
@@ -312,7 +324,7 @@ class OfflineMapService extends GetxService {
     try {
       await OfflineSwitch.shared.setMapboxStackConnected(false);
       debugPrint('[OfflineMapService] 🔌 Offline mode enabled');
-      _updateDownloadStatus("Offline mode enabled");
+      _updateDownloadStatusTr('offline_map_status_offline_mode_enabled');
     } catch (e) {
       debugPrint('[OfflineMapService] ❌ Failed to enable offline mode: $e');
     }
@@ -323,7 +335,7 @@ class OfflineMapService extends GetxService {
     try {
       await OfflineSwitch.shared.setMapboxStackConnected(true);
       debugPrint('[OfflineMapService] 🌐 Online mode enabled');
-      _updateDownloadStatus("Online mode enabled");
+      _updateDownloadStatusTr('offline_map_status_online_mode_enabled');
     } catch (e) {
       debugPrint('[OfflineMapService] ❌ Failed to disable offline mode: $e');
     }
@@ -355,11 +367,11 @@ class OfflineMapService extends GetxService {
       // Save cleared state to SharedPreferences
       await _saveTileCountToPrefs();
 
-      _updateDownloadStatus("Offline data cleared");
+      _updateDownloadStatusTr('offline_map_status_data_cleared');
       debugPrint('[OfflineMapService] ✅ Offline data cleared successfully');
     } catch (e) {
       debugPrint('[OfflineMapService] ❌ Failed to clear offline data: $e');
-      _updateDownloadStatus("Failed to clear data: $e");
+      _updateDownloadStatusTr('offline_map_error_clear_failed', [e]);
     }
   }
 
@@ -369,6 +381,11 @@ class OfflineMapService extends GetxService {
     if (!_downloadStatus.isClosed) {
       _downloadStatus.sink.add(status);
     }
+  }
+
+  void _updateDownloadStatusTr(String key, [List<Object?> args = const []]) {
+    final text = args.isEmpty ? key.tr : trKey(key, args);
+    _updateDownloadStatus(text);
   }
 
   /// Load tile count from SharedPreferences

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import '../../../ui/controllers/ui_controller.dart';
 
 class MemoryClusterPopup extends StatelessWidget {
@@ -61,7 +62,9 @@ class MemoryClusterPopup extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      '${memories.length} Memories at this Location',
+                      trKey('text_memories_length_memories_at_this_location', [
+                        memories.length,
+                      ]),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -217,7 +220,9 @@ class MemoryClusterPopup extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(
-                '#${memory['tags'].toString().replaceAll(',', ' #')}',
+                trKey('text_memory', [
+                  memory['tags'].toString().replaceAll(',', ' #'),
+                ]),
                 style: TextStyle(
                   fontSize: 11,
                   color:

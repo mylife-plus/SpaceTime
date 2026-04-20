@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 
 import '../services/app_lock_controller.dart';
 
-/// Draws the app lock overlay when [AppLockController.isLocked] is true.
+/// Full-screen overlay when [AppLockController.isLocked] is true.
 class AppLockGate extends StatelessWidget {
   const AppLockGate({super.key, required this.child});
 
@@ -20,82 +20,85 @@ class AppLockGate extends StatelessWidget {
           child,
           Positioned.fill(
             child: Material(
-              color: Colors.black.withValues(alpha: 0.96),
+              color: Colors.black.withValues(alpha: 0.97),
               child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.lock_outline,
-                        size: 56,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'SpaceTime is locked',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'KumbhSans',
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white.withValues(alpha: 0.95),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.lock_outline,
+                          size: 48,
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Use Face ID, Touch ID, or your device PIN to continue.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'KumbhSans',
-                          fontSize: 15,
-                          height: 1.35,
-                          color: Colors.white.withValues(alpha: 0.72),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Obx(() {
-                        final err = lock.authError.value;
-                        if (err == null || err.isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Text(
-                            err,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'KumbhSans',
-                              fontSize: 13,
-                              color: Colors.red.shade200,
-                            ),
-                          ),
-                        );
-                      }),
-                      SizedBox(
-                        width: 220,
-                        child: ElevatedButton(
-                          onPressed: () => lock.authenticate(isColdStart: false),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF007AFF),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: const Text(
-                            'Unlock',
-                            style: TextStyle(
-                              fontFamily: 'KumbhSans',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'text_app_locked'.tr,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'KumbhSans',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withValues(alpha: 0.95),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          'text_pin_or_biometrics_required'.tr,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'KumbhSans',
+                            fontSize: 15,
+                            color: Colors.white.withValues(alpha: 0.65),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Obx(() {
+                          final err = lock.authError.value;
+                          if (err == null || err.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Text(
+                              err,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'KumbhSans',
+                                fontSize: 13,
+                                color: Colors.red.shade200,
+                              ),
+                            ),
+                          );
+                        }),
+                        SizedBox(
+                          width: 280,
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                lock.authenticate(isColdStart: false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF007AFF),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text(
+                              'text_unlock'.tr,
+                              style: TextStyle(
+                                fontFamily: 'KumbhSans',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

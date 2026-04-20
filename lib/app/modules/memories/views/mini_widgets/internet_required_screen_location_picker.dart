@@ -234,7 +234,7 @@ class _InternetRequiredScreenLocationPickerState extends State<InternetRequiredS
 
                   // Title
                   Text(
-                    'No Internet Connection',
+                    'text_no_internet_connection_2'.tr,
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -249,7 +249,7 @@ class _InternetRequiredScreenLocationPickerState extends State<InternetRequiredS
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Text(
-                      'Please check your internet connection and try again. The location picker requires an active internet connection to load map data.',
+                      'text_please_check_your_internet_connection_and_try_again'.tr,
                       style: TextStyle(
                         fontSize: 16,
                         color: textColor.withValues(alpha: 0.8),
@@ -265,7 +265,7 @@ class _InternetRequiredScreenLocationPickerState extends State<InternetRequiredS
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: Text(
-                      'The app will automatically continue when your connection is restored.',
+                      'text_the_app_will_automatically_continue_when_your_conne_2'.tr,
                       style: TextStyle(
                         fontSize: 14,
                         color: textColor.withValues(alpha: 0.6),

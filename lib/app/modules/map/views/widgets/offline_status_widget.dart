@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import '../../controllers/map_controller.dart';
 
 /// Widget to display offline mode status for maps
@@ -34,9 +35,9 @@ class OfflineStatusWidget extends StatelessWidget {
           children: [
             const Icon(Icons.offline_bolt, color: Colors.white, size: 16.0),
             const SizedBox(width: 6.0),
-            const Text(
-              'Offline Mode',
-              style: TextStyle(
+            Text(
+              'text_offline_mode'.tr,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12.0,
                 fontWeight: FontWeight.w500,
@@ -69,16 +70,19 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
               children: [
                 const Icon(Icons.info_outline, color: Colors.blue),
                 const SizedBox(width: 8.0),
-                const Text(
-                  'Map Status',
-                  style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+                Text(
+                  'text_map_status'.tr,
+                  style: const TextStyle(
+                    fontSize: 18.0,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16.0),
             Obx(
               () => _buildStatusRow(
-                'Offline Mode',
+                'text_offline_mode'.tr,
                 mapController.isOfflineMode.value,
                 mapController.isOfflineMode.value ? Colors.blue : Colors.grey,
               ),
@@ -92,14 +96,16 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
                 }
 
                 if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}');
+                  return Text(
+                    trKey('text_error_snapshot_error', ['${snapshot.error}']),
+                  );
                 }
 
                 final status = snapshot.data ?? {};
                 return Column(
                   children: [
                     _buildStatusRow(
-                      'Offline Components',
+                      'label_offline_components'.tr,
                       status['hasOfflineComponents'] ?? false,
                       (status['hasOfflineComponents'] ?? false)
                           ? Colors.green
@@ -107,7 +113,7 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 8.0),
                     _buildStatusRow(
-                      'Downloaded Tiles',
+                      'label_downloaded_tiles_offline'.tr,
                       status['hasDownloadedTiles'] ?? false,
                       (status['hasDownloadedTiles'] ?? false)
                           ? Colors.green
@@ -115,17 +121,17 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 8.0),
                     _buildInfoRow(
-                      'Tiles Downloaded',
+                      'label_tiles_downloaded_count'.tr,
                       '${status['totalTilesDownloaded'] ?? 0}',
                     ),
                     const SizedBox(height: 8.0),
                     _buildInfoRow(
-                      'Storage Usage',
+                      'label_storage_usage'.tr,
                       '${status['usagePercentage'] ?? 0}%',
                     ),
                     const SizedBox(height: 8.0),
                     _buildStatusRow(
-                      'Force Offline',
+                      'label_force_offline'.tr,
                       status['forceOfflineMode'] ?? false,
                       (status['forceOfflineMode'] ?? false)
                           ? Colors.orange
@@ -133,7 +139,7 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 8.0),
                     _buildStatusRow(
-                      'Currently Downloading',
+                      'label_currently_downloading'.tr,
                       status['isCurrentlyDownloading'] ?? false,
                       (status['isCurrentlyDownloading'] ?? false)
                           ? Colors.blue
@@ -149,7 +155,7 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
                 ElevatedButton.icon(
                   onPressed: () => mapController.updateOfflineStatus(),
                   icon: const Icon(Icons.refresh, size: 16.0),
-                  label: const Text('Refresh Status'),
+                  label: Text('label_refresh_status'.tr),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -159,7 +165,7 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () => _showDetailedInfo(context, mapController),
                   icon: const Icon(Icons.info, size: 16.0),
-                  label: const Text('Details'),
+                  label: Text('text_details_2'.tr),
                 ),
               ],
             ),
@@ -181,7 +187,7 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
         Text(label),
         const Spacer(),
         Text(
-          status ? 'Active' : 'Inactive',
+          status ? 'text_status_active'.tr : 'text_status_inactive'.tr,
           style: TextStyle(color: color, fontWeight: FontWeight.w500),
         ),
       ],
@@ -205,7 +211,7 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Offline Status Details'),
+            title: Text('title_text_offline_status_details'.tr),
             content: FutureBuilder<Map<String, dynamic>>(
               future: mapController.getOfflineStatus(),
               builder: (context, snapshot) {
@@ -217,7 +223,9 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
                 }
 
                 if (snapshot.hasError) {
-                  return Text('Error: ${snapshot.error}');
+                  return Text(
+                    trKey('text_error_snapshot_error', ['${snapshot.error}']),
+                  );
                 }
 
                 final status = snapshot.data ?? {};
@@ -253,7 +261,7 @@ class DetailedOfflineStatusWidget extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
+                child: Text('text_close_3'.tr),
               ),
             ],
           ),
@@ -283,14 +291,14 @@ class OfflineIndicator extends StatelessWidget {
             color: Colors.blue,
             borderRadius: BorderRadius.circular(12.0),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.offline_bolt, color: Colors.white, size: 14.0),
-              SizedBox(width: 4.0),
+              const Icon(Icons.offline_bolt, color: Colors.white, size: 14.0),
+              const SizedBox(width: 4.0),
               Text(
-                'OFFLINE',
-                style: TextStyle(
+                'text_offline'.tr,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10.0,
                   fontWeight: FontWeight.bold,

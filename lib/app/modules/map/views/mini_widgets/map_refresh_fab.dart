@@ -4,6 +4,7 @@ import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../controllers/map_controller.dart';
 import '../../../../config/app_colors.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MapRefreshFab extends StatelessWidget {
   const MapRefreshFab({super.key});
@@ -34,26 +35,20 @@ class MapRefreshFab extends StatelessWidget {
                       await controller.refreshMapView();
 
                       // Show success message
-                      Get.snackbar(
-                        'Refreshed',
-                        'Map view has been refreshed successfully',
+                      showTrSnackbar('snackbar_refreshed', 
                         snackPosition: SnackPosition.BOTTOM,
                         duration: const Duration(seconds: 2),
                         backgroundColor: Colors.green.withValues(alpha: 0.8),
                         colorText: Colors.white,
-                        margin: const EdgeInsets.all(16),
-                      );
+                        margin: const EdgeInsets.all(16),);
                     } catch (e) {
                       // Show error message
-                      Get.snackbar(
-                        'Error',
-                        'Failed to refresh map view: $e',
+                      showTrSnackbar('snackbar_error_19', args: [e], 
                         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 2),
                         backgroundColor: Colors.red.withValues(alpha: 0.8),
                         colorText: Colors.white,
-                        margin: const EdgeInsets.all(16),
-                      );
+                        margin: const EdgeInsets.all(16),);
                     }
                   },
           child: Container(

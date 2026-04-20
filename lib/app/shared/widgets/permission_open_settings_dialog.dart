@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/services/app_lock_controller.dart';
 
 /// Shown when the user has denied a permission; offers opening system Settings.
 Future<void> showPermissionOpenSettingsDialog(
@@ -39,7 +40,7 @@ Future<void> showPermissionOpenSettingsDialog(
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
-              'Cancel',
+              'text_cancel_9'.tr,
               style: TextStyle(
                 color: isDark ? Colors.grey : Colors.grey[800],
               ),
@@ -48,10 +49,13 @@ Future<void> showPermissionOpenSettingsDialog(
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
+              if (Get.isRegistered<AppLockController>()) {
+                Get.find<AppLockController>().skipLockOnNextResumeFromSettings();
+              }
               openAppSettings();
             },
             child: Text(
-              'Open Settings',
+              'text_open_settings_5'.tr,
               style: TextStyle(
                 color: accent,
                 fontWeight: FontWeight.w600,

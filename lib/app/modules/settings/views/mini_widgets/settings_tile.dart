@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 
 import '../../../ui/controllers/ui_controller.dart';
 
 class SettingsTile extends StatelessWidget {
   final Widget icon;
   final String title;
+  final String? subtitle;
   final VoidCallback? onTap;
   final bool showDivider;
+  /// When false, no trailing chevron; use [trailing] for custom content (e.g. selection check).
+  final bool showChevron;
+  final Widget? trailing;
 
   const SettingsTile({
     super.key,
     required this.icon,
     required this.title,
+    this.subtitle,
     this.onTap,
     this.showDivider = false,
+    this.showChevron = true,
+    this.trailing,
   });
 
   @override
@@ -41,11 +47,29 @@ class SettingsTile extends StatelessWidget {
                       controller.darkMode.value ? Colors.white : Colors.black,
                 ),
               ),
-              trailing: Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: controller.darkMode.value ? Colors.white70 : Colors.grey,
-              ),
+              subtitle: subtitle == null
+                  ? null
+                  : Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: controller.darkMode.value
+                            ? Colors.white70
+                            : Colors.black54,
+                      ),
+                    ),
+              trailing:
+                  showChevron
+                      ? (trailing ??
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color:
+                                controller.darkMode.value
+                                    ? Colors.white70
+                                    : Colors.grey,
+                          ))
+                      : (trailing ?? const SizedBox.shrink()),
               onTap: onTap,
             ),
             if (showDivider)

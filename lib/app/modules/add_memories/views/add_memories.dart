@@ -21,6 +21,7 @@ import 'mini_widgets/search_overly.dart';
 import 'mini_widgets/filter_overlay.dart';
 import 'mini_widgets/search_indicator.dart';
 import 'mini_widgets/filter_indicator.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 // App lifecycle is now handled in AddMemoriesController via WidgetsBindingObserver.
 // The controller registers/unregisters itself in onInit/onClose, so the view
@@ -70,12 +71,12 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
                   Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
-                    'No memories found',
+                    'text_no_memories_found'.tr,
                     style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Try adjusting your search or filters',
+                    'text_try_adjusting_your_search_or_filters'.tr,
                     style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                   ),
                 ],
@@ -194,12 +195,12 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No memories yet',
+                  'text_no_memories_yet'.tr,
                   style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Start creating your first memory!',
+                  'text_start_creating_your_first_memory'.tr,
                   style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                 ),
               ],
@@ -375,15 +376,12 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
           
                         // Show success message if memory was saved
                         if (result == true) {
-                          Get.snackbar(
-                            'Success',
-                            'Memory added successfully!',
+                          showTrSnackbar('snackbar_success', 
                             backgroundColor: Colors.green.withValues(
                               alpha: 0.8,
                             ),
                             colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-                          );
+        duration: const Duration(seconds: 2),);
                         }
                       },
                       child: Container(

@@ -33,9 +33,9 @@ class SearchableHashtagWidget extends StatefulWidget {
   /// Border radius for the container (optional)
   final double? borderRadius;
 
-  const SearchableHashtagWidget({
+  SearchableHashtagWidget({
     super.key,
-    this.title = 'Search Hashtags',
+    String? title,
     required this.onHashtagSelected,
     this.onGroupSelected,
     this.onMultipleGroupsSelectedFromPicker,
@@ -47,7 +47,7 @@ class SearchableHashtagWidget extends StatefulWidget {
     this.previouslySelectedHashtags,
     this.isInFilterMode = false,
     this.borderRadius,
-  });
+  }) : title = title ?? 'title_literal_search_hashtags'.tr;
 
   @override
   State<SearchableHashtagWidget> createState() => _SearchableHashtagWidgetState();
@@ -650,7 +650,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
     final allItems = <Widget>[];
 
     if (hasSearchQuery && !hasResults) {
-      // Show "No hashtags found" message
+      // Show 'text_no_hashtags_found'.tr message
       allItems.add(Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -660,12 +660,12 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         ),
       ));
     } else if (!hasSearchQuery && !hasRecent) {
-      // Show "No recent hashtags" message
+      // Show 'text_no_recent_hashtags'.tr message
       allItems.add(Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         child: Text(
-          'No recent hashtags',
+          'text_no_recent_hashtags'.tr,
           style: AppFonts.medium(
             14,
             color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
@@ -708,9 +708,9 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
           allItems.add(Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
-        child: const Text(
-          'No hashtags found',
-          style: TextStyle(color: Colors.grey),
+        child: Text(
+          'text_no_hashtags_found_2'.tr,
+          style: const TextStyle(color: Colors.grey),
         ),
       ));
          }
@@ -752,7 +752,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
               ),
             if (!isMainGroup)
               Text(
-                '#',
+                'text_7'.tr,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -797,7 +797,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
         child: Row(
           children: [
             Text(
-              '#',
+              'text_8'.tr,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -886,7 +886,7 @@ class _SearchableHashtagWidgetState extends State<SearchableHashtagWidget> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Center(
                   child: Text(
-                    'See List',
+                    'text_see_list_5'.tr,
                     style: AppFonts.medium(fontSize, color: uiController.currentMainColor),
                   ),
                 ),

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_text.dart';
+import 'package:spacetime/app/config/supported_languages.dart';
+import 'package:spacetime/app/modules/settings/views/language_selection_view.dart';
 import 'package:spacetime/app/modules/ui/views/screens/colors_view.dart';
-import 'package:spacetime/app/modules/ui/views/screens/languages.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 
 import '../../../config/app_images.dart';
@@ -34,12 +35,15 @@ class UiView extends GetView<UiController> {
               color: Colors.white,
               child: Column(
                 children: [
-                  UiTile(
-                    title: AppTexts.language,
-                    subtitle: AppTexts.eng,
-                    trailingIcon: Icons.arrow_forward_ios,
-                    onTap: () => Get.to(() => LanguageSelectionView()),
-                    showDivider: true,
+                  Obx(
+                    () => UiTile(
+                      title: AppTexts.language,
+                      subtitle:
+                          '(${displayLabelForLanguageCode(controller.selectedLanguage.value)})',
+                      trailingIcon: Icons.arrow_forward_ios,
+                      onTap: () => Get.to(() => const LanguageSelectionView()),
+                      showDivider: true,
+                    ),
                   ),
                   Obx(
                     () => UiTile(
@@ -55,7 +59,7 @@ class UiView extends GetView<UiController> {
                       title: AppTexts.mainColor,
 
                       subtitle:
-                          '(${controller.mainColor.value.capitalizeFirst})',
+                          '(${AppTexts.themeColorDisplayName(controller.mainColor.value)})',
                       trailingIcon: Icons.arrow_forward_ios,
                       onTap: () => Get.to(() => MainColorSelectionView()),
                       // showDivider: true,

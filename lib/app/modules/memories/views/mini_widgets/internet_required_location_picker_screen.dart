@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/connectivity_service.dart';
 import 'package:spacetime/services/background_tile_download_service.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class InternetRequiredLocationPickerScreen extends StatefulWidget {
   final VoidCallback? onRetryCallback;
@@ -209,7 +210,7 @@ class _InternetRequiredLocationPickerScreenState
 
                     // Title with theme colors
                     Text(
-                      'Internet Connection Required',
+                      'text_internet_connection_required_2'.tr,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
@@ -225,7 +226,7 @@ class _InternetRequiredLocationPickerScreenState
 
                     // Description with better typography - customized for location picker
                     Text(
-                      'Location picker needs internet connection or offline maps (30,000+ tiles) to function properly.',
+                      'text_location_picker_needs_internet_connection_or_offlin'.tr,
                       style: TextStyle(
                         fontSize: 16,
                         color:
@@ -349,7 +350,7 @@ class _InternetRequiredLocationPickerScreenState
                                       : 'Please check your internet connection and try again.';
 
                               Get.snackbar(
-                                'No Internet',
+                                'snackbar_no_internet_2'.tr,
                                 errorMessage,
                                 backgroundColor: Colors.red.withValues(
                                   alpha: 0.9,
@@ -373,9 +374,9 @@ class _InternetRequiredLocationPickerScreenState
                           }
                         },
                         icon: const Icon(Icons.refresh_rounded, size: 20),
-                        label: const Text(
-                          'Check Connection',
-                          style: TextStyle(
+                        label: Text(
+                          'text_check_connection_2'.tr,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -420,7 +421,20 @@ class _InternetRequiredLocationPickerScreenState
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Offline tiles: ${backgroundService.totalTilesDownloaded.value.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} / 30,000 required',
+                                trKey(
+                                  'text_offline_tiles_backgroundservice_totaltilesdownloade',
+                                  [
+                                    backgroundService
+                                        .totalTilesDownloaded.value
+                                        .toString()
+                                        .replaceAllMapped(
+                                          RegExp(
+                                            r'(\d{1,3})(?=(\d{3})+(?!\d))',
+                                          ),
+                                          (Match m) => '${m[1]},',
+                                        ),
+                                  ],
+                                ),
                                 style: TextStyle(
                                   fontSize: 14,
                                   color:

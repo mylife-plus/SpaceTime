@@ -7,6 +7,7 @@ import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Popup for adding/editing place categories with emoji selection
 class AddPlaceCategoryPopup extends StatefulWidget {
@@ -144,7 +145,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Select Icon',
+                'text_select_icon_2'.tr,
                 style: AppFonts.medium(18,
                   color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
@@ -241,13 +242,9 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
        if (_selectedParentId.value == 'add_new_main_category') {
       final categoryName = _nameController.text.trim();
       if (categoryName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Category name required',
+        showTrSnackbar('snackbar_validation_error_33', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
     }
@@ -260,13 +257,9 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
     if (_selectedParentId.value == 'add_new_main_category') {
       final categoryName = _nameController.text.trim();
       if (categoryName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Category name required',
+        showTrSnackbar('snackbar_validation_error_34', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
     }
@@ -276,13 +269,9 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
 
     // Validation
     if (placeName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a place name',
+      showTrSnackbar('snackbar_validation_error_35', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -291,13 +280,9 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
         _selectedParentId.value != 'add_new_main_category') ||
         widget.fromMemoryView) &&
         placeEmoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select an icon',
+      showTrSnackbar('snackbar_validation_error_36', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -327,13 +312,9 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
             : placeName;
 
         if (categoryName.isEmpty) {
-          Get.snackbar(
-            'Validation Error',
-            'Please enter a place category name',
+          showTrSnackbar('snackbar_validation_error_37', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -349,33 +330,21 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
 
 
         if (newCategory == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place category',
+          showTrSnackbar('snackbar_error_48', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
-          Get.snackbar(
-            'Duplicate Place category',
-            'Place category with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_category_3', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Place in another Place category.',
+          showTrSnackbar('snackbar_name_conflict_36', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -389,33 +358,21 @@ var newCategory1 = await _categoryService.addCustomCategory(
 
 
         if (newCategory1 == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place',
+          showTrSnackbar('snackbar_error_50', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory1.id == -1) {
-          Get.snackbar(
-            'Duplicate Place',
-            'Place with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_5', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory1.id == -4) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by the Place category.',
+          showTrSnackbar('snackbar_name_conflict_38', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -452,33 +409,21 @@ return;
         );
 
         if (newCategory == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place',
+          showTrSnackbar('snackbar_error_49', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
-          Get.snackbar(
-            'Duplicate Place',
-            'Place with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_4', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -4) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by the Place category.',
+          showTrSnackbar('snackbar_name_conflict_37', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -504,25 +449,17 @@ Navigator.of(context).pop();
         // );
       } else {
         // No parent selected
-        Get.snackbar(
-          'Validation Error',
-          'Please select a Place category',
+        showTrSnackbar('snackbar_validation_error_38', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         _isLoading.value = false;
         return;
       }
     } catch (e) {
       debugPrint('[AddPlaceCategoryPopup][_addCategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to add place: $e',
+      showTrSnackbar('snackbar_error_51', args: [e], 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     } finally {
       _isLoading.value = false;
     }
@@ -538,13 +475,9 @@ Navigator.of(context).pop();
 
     // Validation
     if (placeName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a place name',
+      showTrSnackbar('snackbar_validation_error_35', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -552,26 +485,18 @@ Navigator.of(context).pop();
     if (_selectedParentId.value == 'add_new_main_category') {
       final categoryName = _nameController.text.trim();
       if (categoryName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Category name required',
+        showTrSnackbar('snackbar_validation_error_33', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
     }
 
     // Validate emoji when editing from Memory View
     if (widget.fromMemoryView && placeEmoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select an icon',
+      showTrSnackbar('snackbar_validation_error_41', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -581,13 +506,9 @@ Navigator.of(context).pop();
         widget.editCategory == null &&
         _selectedParentId.value.isEmpty &&
         _mainCategories.isNotEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select a Place Category',
+      showTrSnackbar('snackbar_validation_error_42', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -608,33 +529,21 @@ Navigator.of(context).pop();
         );
 
         if (newCategory == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place category',
+          showTrSnackbar('snackbar_error_52', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
-          Get.snackbar(
-            'Duplicate Place category',
-            'Place category with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_category_4', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Place in another Place category.',
+          showTrSnackbar('snackbar_name_conflict_39', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -679,40 +588,24 @@ Navigator.of(context).pop();
 
       
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update Place',
+        showTrSnackbar('snackbar_error_53', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[AddPlaceCategoryPopup][_editCategory] Error: $e');
       if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
-        Get.snackbar(
-          'Duplicate Place',
-          'Place with this name already exists.',
+        showTrSnackbar('snackbar_duplicate_place_6', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by the Place category.',
+        showTrSnackbar('snackbar_name_conflict_40', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update Place',
+        showTrSnackbar('snackbar_error_53', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } finally {
       _isLoading.value = false;
@@ -768,10 +661,10 @@ Navigator.of(context).pop();
 
                       Text(
                         widget.editCategory != null
-                            ? '📍 edit Place'
+                            ? 'add_edit_popup_title_edit_place'.tr
                             : widget.isMainCategory
-                                ? '📍 new Place Category'
-                                : '📍 new Place',
+                                ? 'add_edit_popup_title_new_place_category'.tr
+                                : 'add_edit_popup_title_new_place'.tr,
                         style: GoogleFonts.kumbhSans(
                           fontSize: 18,
                           // fontWeight: FontWeight.,
@@ -822,7 +715,7 @@ Navigator.of(context).pop();
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          'Place Category',
+                          'text_place_category'.tr,
                           style: GoogleFonts.kumbhSans(
                             fontSize: 15,
                             color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -851,7 +744,7 @@ Navigator.of(context).pop();
                           child: DropdownButton<String>(
                             value: hasValidValue && selectedValue.isNotEmpty ? selectedValue : null,
                             hint: Text(
-                              'Select Place Category',
+                              'text_select_place_category'.tr,
                               style: GoogleFonts.kumbhSans(
                                 fontSize: 16,
                                 color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
@@ -868,7 +761,7 @@ Navigator.of(context).pop();
                               DropdownMenuItem<String>(
                                 value: 'add_new_main_category',
                                 child: Text(
-                                  '+ Add New Category',
+                                  'text_add_new_category_3'.tr,
                                   style: GoogleFonts.kumbhSans(
                                     fontSize: 16,
                                     color: uiController.currentMainColor,
@@ -914,7 +807,7 @@ Navigator.of(context).pop();
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
                                 child: Text(
-                                  'Category Name',
+                                  'hinttext_category_name'.tr,
                                   style: GoogleFonts.kumbhSans(
                                     fontSize: 15,
                                     color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -939,7 +832,7 @@ Navigator.of(context).pop();
                                   color: uiController.darkMode.value ? Colors.white : Colors.black87,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'Category Name',
+                                  hintText: 'text_category_name_4'.tr,
                                   hintStyle: GoogleFonts.kumbhSans(
                                     fontSize: 16,
                                     color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
@@ -980,7 +873,7 @@ Navigator.of(context).pop();
                             child: DropdownButton<String>(
                               value: hasValidValue && selectedValue.isNotEmpty ? selectedValue : null,
                               hint: Text(
-                                'select Places',
+                                'text_select_places_2'.tr,
                                 style: GoogleFonts.kumbhSans(
                                   fontSize: 16,
                                   color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
@@ -997,7 +890,7 @@ Navigator.of(context).pop();
                                 DropdownMenuItem<String>(
                                   value: 'add_new_main_category',
                                   child: Text(
-                                    '+ Add New Category',
+                                    'text_add_new_category_2'.tr,
                                     style: GoogleFonts.kumbhSans(
                                       fontSize: 16,
                                       color: uiController.currentMainColor,
@@ -1055,7 +948,7 @@ Navigator.of(context).pop();
                                     color: uiController.darkMode.value ? Colors.white : Colors.black87,
                                   ),
                                   decoration: InputDecoration(
-                                    hintText: 'Places Name',
+                                    hintText: 'hinttext_places_name_2'.tr,
                                     hintStyle: GoogleFonts.kumbhSans(
                                       fontSize: 16,
                                       color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
@@ -1079,7 +972,7 @@ Navigator.of(context).pop();
                       children: [
                         Center(
                           child: Text(
-                            'Place Name',
+                            'text_place_name'.tr,
                             style: GoogleFonts.kumbhSans(
                               fontSize: 15,
                               color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -1156,7 +1049,9 @@ Navigator.of(context).pop();
                               color: uiController.darkMode.value ? Colors.white : Colors.black87,
                             ),
                             decoration: InputDecoration(
-                              hintText: widget.isMainCategory ? 'Place Category' : 'Place Name',
+                              hintText: widget.isMainCategory
+                                  ? 'hinttext_place_category'.tr
+                                  : 'text_place_name'.tr,
                               hintStyle: GoogleFonts.kumbhSans(
                                 fontSize: 16,
                                 color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
@@ -1327,7 +1222,7 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Select Icon',
+                'text_select_icon_3'.tr,
                 style: AppFonts.medium(18,
                   color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
@@ -1433,13 +1328,9 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
     if (_selectedParentId.value == 'add_new_main_category') {
       final categoryName = _nameController.text.trim();
       if (categoryName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Category name required',
+        showTrSnackbar('snackbar_validation_error_34', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         _isLoading.value = false;
         return;
       }
@@ -1450,13 +1341,9 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
 
     // Validation
     if (placeName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a place name',
+      showTrSnackbar('snackbar_validation_error_39', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
                 _isLoading.value = false;
 
       return;
@@ -1467,13 +1354,9 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
         _selectedParentId.value != 'add_new_main_category') ||
         widget.fromMemoryView) &&
         placeEmoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select an icon',
+      showTrSnackbar('snackbar_validation_error_45', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
                 _isLoading.value = false;
 
       return;
@@ -1507,13 +1390,9 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
         if (categoryName.isEmpty) {
                     _isLoading.value = false;
 
-          Get.snackbar(
-            'Validation Error',
-            'Please enter a place category name',
+          showTrSnackbar('snackbar_validation_error_46', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -1527,37 +1406,25 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
         if (newCategory == null) {
                     _isLoading.value = false;
 
-          Get.snackbar(
-            'Error',
-            'Failed to add Place category',
+          showTrSnackbar('snackbar_error_58', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
                     _isLoading.value = false;
 
-          Get.snackbar(
-            'Duplicate Place category',
-            'Place category with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_category_6', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -3) {
                     _isLoading.value = false;
 
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Place in another Place category.',
+          showTrSnackbar('snackbar_name_conflict_43', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -1589,33 +1456,22 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
         );
 
         if (newCategory == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place',
+          showTrSnackbar('snackbar_error_56', 
             backgroundColor: Colors.red,        duration: const Duration(seconds: 2),
 
-            colorText: Colors.white,
-          );
+            colorText: Colors.white,);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
-          Get.snackbar(
-            'Duplicate Place',
-            'Place with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_8', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -4) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by the Place category.',
+          showTrSnackbar('snackbar_name_conflict_44', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -1643,25 +1499,17 @@ Navigator.of(context).pop();
                   _isLoading.value = false;
   
         // No parent selected
-        Get.snackbar(
-          'Validation Error',
-          'Please select a Place category',
+        showTrSnackbar('snackbar_validation_error_47', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         _isLoading.value = false;
         return;
       }
     } catch (e) {
       debugPrint('[AddPlaceCategoryPopup][_addCategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to add place: $e',
+      showTrSnackbar('snackbar_error_57', args: [e], 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     } finally {
       _isLoading.value = false;
     }
@@ -1677,13 +1525,9 @@ Navigator.of(context).pop();
 
     // Validation
     if (placeName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a place name',
+      showTrSnackbar('snackbar_validation_error_44', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1691,26 +1535,18 @@ Navigator.of(context).pop();
     if (_selectedParentId.value == 'add_new_main_category') {
       final categoryName = _nameController.text.trim();
       if (categoryName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Category name required',
+        showTrSnackbar('snackbar_validation_error_40', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
     }
 
     // Validate emoji when editing from Memory View
     if (widget.fromMemoryView && placeEmoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select an icon',
+      showTrSnackbar('snackbar_validation_error_50', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1721,13 +1557,9 @@ Navigator.of(context).pop();
         widget.parentCategoryId == null &&
         _selectedParentId.value.isEmpty &&
         _mainCategories.isNotEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select a Place Category',
+      showTrSnackbar('snackbar_validation_error_51', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1748,33 +1580,21 @@ Navigator.of(context).pop();
         );
 
         if (newCategory == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place category',
+          showTrSnackbar('snackbar_error_55', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
-          Get.snackbar(
-            'Duplicate Place category',
-            'Place category with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_category_5', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Place in another Place category.',
+          showTrSnackbar('snackbar_name_conflict_41', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -1819,40 +1639,25 @@ Navigator.of(context).pop();
 
       
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update Place',
+        showTrSnackbar('snackbar_error_54', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[AddPlaceCategoryPopup][_editCategory] Error: $e');
       if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
-        Get.snackbar(
-          'Duplicate Place',
-          'Place with this name already exists.',
+        showTrSnackbar('snackbar_duplicate_place_7', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by the Place category.',
+        showTrSnackbar('snackbar_name_conflict_42', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update Place',
+        showTrSnackbar('snackbar_error_59', 
           backgroundColor: Colors.red,        duration: const Duration(seconds: 2),
 
-          colorText: Colors.white,
-        );
+          colorText: Colors.white,);
       }
     } finally {
       _isLoading.value = false;
@@ -1908,10 +1713,12 @@ Navigator.of(context).pop();
 
                       Text(
                         widget.editCategory != null
-                            ? (widget.isEditingMainCategory ? '📍 edit Place Category': 'edit Place Name')
+                            ? (widget.isEditingMainCategory
+                                ? 'add_edit_popup_title_edit_place_category'.tr
+                                : 'add_edit_popup_title_edit_place_name'.tr)
                             : widget.isMainCategory
-                                ? '📍 new Place Category'
-                                : '📍 new Place Name',
+                                ? 'add_edit_popup_title_new_place_category'.tr
+                                : 'add_edit_popup_title_new_place_name'.tr,
                         style: GoogleFonts.kumbhSans(
                           fontSize: 18,
                           // fontWeight: FontWeight.,
@@ -2072,7 +1879,7 @@ Navigator.of(context).pop();
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
                                 child: Text(
-                                  'Category Name',
+                                  'text_category_name_7'.tr,
                                   style: GoogleFonts.kumbhSans(
                                     fontSize: 15,
                                     color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -2097,7 +1904,7 @@ Navigator.of(context).pop();
                                   color: uiController.darkMode.value ? Colors.white : Colors.black87,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'Category Name',
+                                  hintText: 'hinttext_category_name_2'.tr,
                                   hintStyle: GoogleFonts.kumbhSans(
                                     fontSize: 16,
                                     color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
@@ -2138,7 +1945,7 @@ Navigator.of(context).pop();
                             child: DropdownButton<String>(
                               value: hasValidValue && selectedValue.isNotEmpty ? selectedValue : null,
                               hint: Text(
-                                'select Places',
+                                'text_select_places_3'.tr,
                                 style: GoogleFonts.kumbhSans(
                                   fontSize: 16,
                                   color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
@@ -2155,7 +1962,7 @@ Navigator.of(context).pop();
                                 DropdownMenuItem<String>(
                                   value: 'add_new_main_category',
                                   child: Text(
-                                    '+ Add New Category',
+                                    'text_add_new_category_4'.tr,
                                     style: GoogleFonts.kumbhSans(
                                       fontSize: 16,
                                       color: uiController.currentMainColor,
@@ -2202,7 +2009,7 @@ Navigator.of(context).pop();
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 4),
                                   child: Text(
-                                    'Category Name',
+                                    'text_category_name_6'.tr,
                                     style: GoogleFonts.kumbhSans(
                                       fontSize: 15,
                                       color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -2227,7 +2034,7 @@ Navigator.of(context).pop();
                                     color: uiController.darkMode.value ? Colors.white : Colors.black87,
                                   ),
                                   decoration: InputDecoration(
-                                    hintText: 'Places Name',
+                                    hintText: 'hinttext_places_name_3'.tr,
                                     hintStyle: GoogleFonts.kumbhSans(
                                       fontSize: 16,
                                       color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
@@ -2255,7 +2062,7 @@ Navigator.of(context).pop();
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          'Place Name',
+                          'text_place_name'.tr,
                           style: GoogleFonts.kumbhSans(
                             fontSize: 15,
                             color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -2319,7 +2126,9 @@ Navigator.of(context).pop();
                               color: uiController.darkMode.value ? Colors.white : Colors.black87,
                             ),
                             decoration: InputDecoration(
-                              hintText: widget.isMainCategory ? 'Place Category' : 'Place Name',
+                              hintText: widget.isMainCategory
+                                  ? 'hinttext_place_category'.tr
+                                  : 'text_place_name_2'.tr,
                               hintStyle: GoogleFonts.kumbhSans(
                                 fontSize: 16,
                                 color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],

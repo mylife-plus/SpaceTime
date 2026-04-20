@@ -114,7 +114,7 @@ class _BottomPanelState extends State<BottomPanel> {
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'No memories found',
+                          'text_no_memories_found_2'.tr,
                           style: GoogleFonts.kumbhSans(
                             fontSize: 16,
                             decoration: TextDecoration.none,

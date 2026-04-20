@@ -148,14 +148,14 @@ class PermissionService extends GetxController {
         backgroundColor:
             uiController.darkMode.value ? Colors.grey[900] : Colors.white,
         title: Text(
-          'Location Service Disabled',
+          'title_text_location_service_disabled'.tr,
           style: TextStyle(
             color: uiController.darkMode.value ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
         content: Text(
-          'Location services are disabled. Please enable location services to use map features.',
+          'dialog_content_location_services_are_disabled_please_ena'.tr,
           style: TextStyle(
             color:
                 uiController.darkMode.value
@@ -167,7 +167,7 @@ class PermissionService extends GetxController {
           TextButton(
             onPressed: () => Get.back(),
             child: Text(
-              'Cancel',
+              'text_cancel_11'.tr,
               style: TextStyle(
                 color:
                     uiController.darkMode.value
@@ -182,7 +182,7 @@ class PermissionService extends GetxController {
               Get.back();
             },
             child: Text(
-              'Open Settings',
+              'text_open_settings_7'.tr,
               style: TextStyle(
                 color: uiController.currentMainColor,
                 fontWeight: FontWeight.w600,
@@ -204,14 +204,14 @@ class PermissionService extends GetxController {
         backgroundColor:
             uiController.darkMode.value ? Colors.grey[900] : Colors.white,
         title: Text(
-          'Location Permission Required',
+          'title_text_location_permission_required'.tr,
           style: TextStyle(
             color: uiController.darkMode.value ? Colors.white : Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
         content: Text(
-          'Location permission is permanently denied. Please enable it in app settings to use location features.',
+          'dialog_content_location_permission_is_permanently_denied_2'.tr,
           style: TextStyle(
             color:
                 uiController.darkMode.value
@@ -223,7 +223,7 @@ class PermissionService extends GetxController {
           TextButton(
             onPressed: () => Get.back(),
             child: Text(
-              'Cancel',
+              'text_cancel_12'.tr,
               style: TextStyle(
                 color:
                     uiController.darkMode.value
@@ -238,7 +238,7 @@ class PermissionService extends GetxController {
               Get.back();
             },
             child: Text(
-              'Open Settings',
+              'text_open_settings_8'.tr,
               style: TextStyle(
                 color: uiController.currentMainColor,
                 fontWeight: FontWeight.w600,
@@ -326,7 +326,7 @@ class PermissionService extends GetxController {
     }
 
     Get.snackbar(
-      'Location Permission',
+      'snackbar_location_permission'.tr,
       message,
       backgroundColor: color.withValues(alpha: 0.8),
       colorText: Colors.white,

@@ -1,3 +1,4 @@
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
@@ -37,7 +38,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         centerTitle: true,
         title: Row(
           children: [
-            // Back button (large tappable area)
             TappableBackArea(
               onTap: onBack ?? Get.back,
               child: Image.asset(
@@ -47,34 +47,30 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 fit: BoxFit.contain,
               ),
             ),
-
-            const Spacer(),
-
-            // Icon + Title
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: FittedBox(fit: BoxFit.contain, child: icon),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style:  AppFonts.bold(18, color: Colors.white),
-                  // style: const TextStyle(
-                  //   color: Colors.white,
-                  //   fontSize: 18,
-                  //   fontWeight: FontWeight.w500,
-                  // ),
-                ),
-              ],
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: FittedBox(fit: BoxFit.contain, child: icon),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: AutoSizeText(
+                      title,
+                      maxLines: 2,
+                      minFontSize: 10,
+                      style: AppFonts.bold(18, color: Colors.white),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-
-            const Spacer(),
-
-            const SizedBox(width: 24),
+            const SizedBox(width: 48),
           ],
         ),
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:get/get.dart';
+import 'package:spacetime/app/config/supported_languages.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../ui/controllers/ui_controller.dart';
 import '../controllers/get_started_controller.dart';
@@ -89,7 +91,7 @@ class GetStartedView extends GetView<GetStartedController> {
 
               // Welcome to text
               Text(
-                'Welcome to',
+                'text_welcome_to'.tr,
                 style: TextStyle(
                   fontFamily: 'KumbhSans',
                   fontSize: _responsiveFontSize(context, 32),
@@ -110,7 +112,7 @@ class GetStartedView extends GetView<GetStartedController> {
 
               // SpaceTime text
               Text(
-                'SpaceTime',
+                'text_spacetime'.tr,
                 style: TextStyle(
                   fontFamily: 'KumbhSans',
                   fontSize: _responsiveFontSize(context, 48),
@@ -140,9 +142,9 @@ class GetStartedView extends GetView<GetStartedController> {
 
             const SizedBox(height: 40),
 
-              // "your" text
+              // 'text_your'.tr text
               Text(
-                'your',
+                'text_your'.tr,
                 style: TextStyle(
                   fontFamily: 'KumbhSans',
                   fontSize: _responsiveFontSize(context, 34),
@@ -161,9 +163,9 @@ class GetStartedView extends GetView<GetStartedController> {
 
               const SizedBox(height: 8),
 
-              // "100% offline" text
+              // 'text_100_offline'.tr text
               Text(
-                '100% offline',
+                'text_100_offline'.tr,
                 style: GoogleFonts.lilitaOne(
                   fontSize: _responsiveFontSize(context, 50),
                   fontWeight: FontWeight.w400,
@@ -181,9 +183,9 @@ class GetStartedView extends GetView<GetStartedController> {
 
               const SizedBox(height: 4),
 
-              // "100% open source" text
+              // 'text_100_open_source'.tr text
               Text(
-                '100% open source',
+                'text_100_open_source'.tr,
                 style: GoogleFonts.lilitaOne(
                   fontSize: _responsiveFontSize(context, 50),
                   fontWeight: FontWeight.w400,
@@ -201,9 +203,9 @@ class GetStartedView extends GetView<GetStartedController> {
 
               const SizedBox(height: 8),
 
-              // "personal diary app" text
+              // 'text_personal_diary_app'.tr text
               Text(
-                'personal diary app',
+                'text_personal_diary_app'.tr,
                 style: TextStyle(
                   fontFamily: 'KumbhSans',
                   fontSize: _responsiveFontSize(context, 50),
@@ -255,7 +257,7 @@ class GetStartedView extends GetView<GetStartedController> {
 
                   // Welcome to text
                   Text(
-                    'Welcome to',
+                    'text_welcome_to_2'.tr,
                     style: TextStyle(
                       fontFamily: 'KumbhSans',
                       fontSize: _responsiveFontSize(context, 24),
@@ -276,7 +278,7 @@ class GetStartedView extends GetView<GetStartedController> {
 
                   // SpaceTime text
                   Text(
-                    'SpaceTime',
+                    'text_spacetime_2'.tr,
                     style: TextStyle(
                       fontFamily: 'KumbhSans',
                       fontSize: _responsiveFontSize(context, 40),
@@ -305,9 +307,9 @@ class GetStartedView extends GetView<GetStartedController> {
                 // ),
         
         
-                  // "your" text
+                  // 'text_your_2'.tr text
                   Text(
-                    'your',
+                    'text_your_2'.tr,
                     style: TextStyle(
                       fontFamily: 'KumbhSans',
                       fontSize: _responsiveFontSize(context, 20),
@@ -328,9 +330,9 @@ class GetStartedView extends GetView<GetStartedController> {
 
                   // const SizedBox(height: 8),
 
-                  // "100% offline" text
+                  // 'text_100_offline_2'.tr text
                   Text(
-                    '100% offline',
+                    'text_100_offline_2'.tr,
                     style: GoogleFonts.lilitaOne(
                       fontSize: _responsiveFontSize(context, 24),
                       fontWeight: FontWeight.w400,
@@ -350,9 +352,9 @@ class GetStartedView extends GetView<GetStartedController> {
 
                   // const SizedBox(height: 4),
 
-                  // "100% open source" text
+                  // 'text_100_open_source_2'.tr text
                   Text(
-                    '100% open source',
+                    'text_100_open_source_2'.tr,
                     style: GoogleFonts.lilitaOne(
                       fontSize: _responsiveFontSize(context, 24),
                       fontWeight: FontWeight.w400,
@@ -372,9 +374,9 @@ class GetStartedView extends GetView<GetStartedController> {
 
                   // const SizedBox(height: 8),
 
-                  // "personal diary app" text
+                  // 'text_personal_diary_app_2'.tr text
                   Text(
-                    'personal diary app',
+                    'text_personal_diary_app_2'.tr,
                     style: TextStyle(
                       fontFamily: 'KumbhSans',
                       fontSize: _responsiveFontSize(context, 20),
@@ -393,19 +395,13 @@ class GetStartedView extends GetView<GetStartedController> {
 
                 const SizedBox(height: 8),
 
-                  // Language dropdown (only show when download UI is visible)
-                  Obx(() => (controller.showDownloadUI.value || controller.isCheckingTiles.value)
-                      ? _buildLanguageDropdown()
-                      : const SizedBox.shrink()),
+                  _buildLanguageDropdown(uiController),
 
-                  Obx(() => (controller.showDownloadUI.value || controller.isCheckingTiles.value)
-                      ? const SizedBox(height: 8)
-                      : const SizedBox.shrink()),
-const SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   // Download text (only show when download UI is visible)
                   Obx(() => (controller.showDownloadUI.value || controller.isCheckingTiles.value)
                       ? Text(
-                          'download 4.5GB of map tiles',
+                          'text_download_4_5gb_of_map_tiles'.tr,
                           style: TextStyle(
                             fontFamily: 'KumbhSans',
                             fontSize: _responsiveFontSize(context, 12),
@@ -438,7 +434,7 @@ const SizedBox(height: 8),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Checking tiles...',
+                            'text_checking_tiles'.tr,
                             style: TextStyle(
                               fontFamily: 'KumbhSans',
                               fontSize: _responsiveFontSize(context, 12),
@@ -660,7 +656,10 @@ const SizedBox(height: 8),
         const SizedBox(height: 8),
 
         Text(
-          '${(controller.downloadProgress.value * 100).toStringAsFixed(1)}%',
+          trKey(
+            'text_controller_downloadprogress_value_100_tostringasfix',
+            [(controller.downloadProgress.value * 100).toStringAsFixed(1)],
+          ),
           style: TextStyle(
             fontFamily: 'KumbhSans',
               fontSize: _responsiveFontSize(Get.context!, 12),
@@ -692,7 +691,7 @@ const SizedBox(height: 8),
         const SizedBox(height: 8),
 
         Text(
-          'Download completed!',
+          'text_download_completed'.tr,
           style: TextStyle(
             fontFamily: 'KumbhSans',
               fontSize: _responsiveFontSize(Get.context!, 14),
@@ -724,7 +723,7 @@ const SizedBox(height: 8),
         const SizedBox(height: 8),
 
         Text(
-          'Download failed',
+          'text_download_failed'.tr,
           style: TextStyle(
             fontFamily: 'KumbhSans',
             fontSize: 14,
@@ -782,7 +781,7 @@ const SizedBox(height: 8),
           ),
         ),
         child: Text(
-          'Background App Refresh is off. Turn it on in Settings → General → Background App Refresh.',
+          'text_background_app_refresh_is_off_turn_it_on_in_setting'.tr,
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'KumbhSans',
@@ -826,7 +825,7 @@ const SizedBox(height: 8),
               onTap: controller.navigateToMainApp,
               child: Center(
                 child: Text(
-                  'Start',
+                  'text_start'.tr,
                   style: TextStyle(
                     fontFamily: 'KumbhSans',
                     fontSize: 18,
@@ -868,7 +867,7 @@ const SizedBox(height: 8),
                   onTap: controller.retryDownload,
                   child: Center(
                     child: Text(
-                      'Start',
+                      'text_start_2'.tr,
                       style: TextStyle(
                         fontFamily: 'KumbhSans',
                         fontSize: 18,
@@ -917,7 +916,7 @@ const SizedBox(height: 8),
                   onTap: controller.startDownload,
                   child: Center(
                     child: Text(
-                      'Start',
+                      'text_start_3'.tr,
                       style: TextStyle(
                         fontFamily: 'KumbhSans',
                         fontSize: 18,
@@ -1022,19 +1021,18 @@ const SizedBox(height: 8),
     );
   }
 
-  /// Build language dropdown
-  Widget _buildLanguageDropdown() {
+  /// Build language dropdown (same locales as Settings → Language).
+  Widget _buildLanguageDropdown(UiController uiController) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Builder(
         builder: (context) => Container(
-          height: 40,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(4),
             boxShadow: [
-      
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 10,
@@ -1042,30 +1040,39 @@ const SizedBox(height: 8),
               ),
             ],
           ),
-          child: Obx(() => DropdownButton<String>(
-            value: controller.selectedLanguage.value,
-            underline: const SizedBox.shrink(),
-            icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-            dropdownColor: Colors.white,
-            // borderRadius: BorderRadius.circular(4),
-            style: TextStyle(
-              fontFamily: 'KumbhSans',
-              fontSize: _responsiveFontSize(context, 12),
-              fontWeight: FontWeight.w700,
-              color: Colors.black,
-            ),
-            items: const [
-              DropdownMenuItem(
-                value: 'English',
-                child: Text('choose your 🇺🇳 Language'),
+          child: Obx(() {
+            final code = uiController.selectedLanguage.value;
+            final valid = kSupportedLanguages.any((l) => l.code == code);
+            final value = valid ? code : kSupportedLanguages.first.code;
+            return DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              underline: const SizedBox.shrink(),
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+              dropdownColor: Colors.white,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontSize: _responsiveFontSize(context, 12),
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
               ),
-            ],
-            onChanged: (String? newValue) {
-              if (newValue != null) {
-                controller.selectLanguage(newValue);
-              }
-            },
-          )),
+              items: [
+                for (final lang in kSupportedLanguages)
+                  DropdownMenuItem<String>(
+                    value: lang.code,
+                    child: Text(
+                      displayLabelForLanguageCode(lang.code),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  controller.selectLanguage(newValue);
+                }
+              },
+            );
+          }),
         ),
       ),
     );

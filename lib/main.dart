@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_input_theme.dart';
+import 'package:spacetime/app/config/app_locale.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/helpers/offline_water_service.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/app_lock_controller.dart';
 import 'package:spacetime/widgets/app_lock_gate.dart';
@@ -39,6 +42,7 @@ import 'app/modules/get_started/controllers/get_started_controller.dart';
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: binding);
+  await L10nLoader.init();
 
   // Only what MyApp needs for the first frame — everything else runs after paint
   // so the engine reaches runApp quickly and the native splash can dismiss.
@@ -191,7 +195,21 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(
       () => GetMaterialApp(
-        title: "Application",
+        title: 'title_literal_application'.tr,
+        translations: SpaceTimeTranslations(),
+        locale: appLocaleFromLanguageCode(uiController.selectedLanguage.value),
+        fallbackLocale: const Locale('en'),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('en'),
+          Locale('es'),
+          Locale('fr'),
+          Locale('de'),
+        ],
         initialRoute: AppPages.INITIAL,
         getPages: AppPages.routes,
         debugShowCheckedModeBanner: false,

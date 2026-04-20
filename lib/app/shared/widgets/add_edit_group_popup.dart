@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Popup dialog for adding or editing hashtag/contact groups and subgroups
 class AddEditGroupPopup extends StatefulWidget {
@@ -61,13 +62,9 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
     final name = _nameController.text.trim();
     
     if (name.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a name',
+      showTrSnackbar('snackbar_validation_error_32', 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -83,19 +80,28 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
   @override
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
-    final prefixChar = widget.isHashtagMode ? '#' : '@';
-    
-    String title;
+
+    final String title;
     if (widget.editItemId != null) {
-      // Editing mode
-      title = widget.isMainGroup
-          ? '$prefixChar Edit ${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Group'
-          : '$prefixChar Edit ${widget.isHashtagMode ? 'Hashtag' : 'Contact'}';
+      if (widget.isMainGroup) {
+        title = widget.isHashtagMode
+            ? 'add_edit_popup_title_edit_hashtag_group'.tr
+            : 'add_edit_popup_title_edit_contact_group'.tr;
+      } else {
+        title = widget.isHashtagMode
+            ? 'add_edit_popup_title_edit_hashtag'.tr
+            : 'add_edit_popup_title_edit_contact'.tr;
+      }
     } else {
-      // Adding mode
-      title = widget.isMainGroup
-          ? '$prefixChar New ${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Group'
-          : '$prefixChar New ${widget.isHashtagMode ? 'Hashtag' : 'Contact'}';
+      if (widget.isMainGroup) {
+        title = widget.isHashtagMode
+            ? 'add_edit_popup_title_new_hashtag_group'.tr
+            : 'add_edit_popup_title_new_contact_group'.tr;
+      } else {
+        title = widget.isHashtagMode
+            ? 'add_edit_popup_title_new_hashtag'.tr
+            : 'add_edit_popup_title_new_contact'.tr;
+      }
     }
 
     return Dialog(
@@ -159,7 +165,9 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                           Padding(
                             padding: const EdgeInsets.only(top: 4, right: 12),
                             child: Text(
-                              '📁 ${widget.parentGroupName}',
+                              trKey('add_edit_popup_folder_breadcrumb', [
+                                widget.parentGroupName!,
+                              ]),
                               style: GoogleFonts.kumbhSans(
                                 color: uiController.darkMode.value ? Colors.white : Colors.black,
                                 fontSize: 16,
@@ -178,8 +186,16 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   widget.isMainGroup
-                      ? '${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Group'
-                      : widget.isHashtagMode ? 'Hashtag Name' : 'Contact Name',
+                      ? (widget.isHashtagMode
+                          ? 'l10n_group_label_h'.tr
+                          : 'l10n_group_label_c'.tr)
+                      : (widget.isHashtagMode
+                          ? trKey('hinttext_isplacemode_category_group_name', [
+                              'l10n_label_hashtag'.tr,
+                            ])
+                          : trKey('hinttext_isplacemode_category_group_name', [
+                              'l10n_label_contact'.tr,
+                            ])),
                   style: GoogleFonts.kumbhSans(
                     fontSize: 15,
                     color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -214,8 +230,16 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                   ),
                   decoration: InputDecoration(
                     hintText: widget.isMainGroup
-                        ? '${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Group Name'
-                        : '${widget.isHashtagMode ? 'Hashtag' : 'Contact'} Name',
+                        ? (widget.isHashtagMode
+                            ? 'l10n_group_name_label_h'.tr
+                            : 'l10n_group_name_label_c'.tr)
+                        : (widget.isHashtagMode
+                            ? trKey('hinttext_isplacemode_category_group_name', [
+                                'l10n_label_hashtag'.tr,
+                              ])
+                            : trKey('hinttext_isplacemode_category_group_name', [
+                                'l10n_label_contact'.tr,
+                              ])),
                     hintStyle: GoogleFonts.kumbhSans(
                       color: Colors.grey.shade400,
                       fontSize: 16,

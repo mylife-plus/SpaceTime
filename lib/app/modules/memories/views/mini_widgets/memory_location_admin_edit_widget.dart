@@ -9,6 +9,7 @@ import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/services/world_locations_service.dart';
 import 'package:spacetime/app/modules/memories/utils/memory_location_line_format.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MemoryLocationAdminEditWidget extends StatefulWidget {
   const MemoryLocationAdminEditWidget({super.key});
@@ -234,12 +235,12 @@ class _MemoryLocationAdminEditWidgetState
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       maxWidth: 420,
       titleText: Text(
-        'Copied',
+        'text_copied'.tr,
         textAlign: TextAlign.left,
         style: AppFonts.bold(17, color: fg),
       ),
       messageText: Text(
-        'GPS coordinates are on the clipboard.',
+        'text_gps_coordinates_are_on_the_clipboard'.tr,
         textAlign: TextAlign.left,
         style: AppFonts.medium(14, color: sub).copyWith(height: 1.35),
       ),
@@ -364,7 +365,7 @@ class _MemoryLocationAdminEditWidgetState
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'GPS Location',
+                        'text_gps_location'.tr,
                         style: AppFonts.medium(12, color: labelColor),
                       ),
                       const SizedBox(height: 2),
@@ -454,12 +455,9 @@ class _MemoryLocationAdminEditWidgetState
         (_selectedCountry?.name ?? _memoryController.locationCountry.value)
             .trim();
     if (countryName.isEmpty) {
-      Get.snackbar(
-        'Country required',
-        'Please select a country.',
+      showTrSnackbar('snackbar_country_required', 
         backgroundColor: Colors.red.withValues(alpha: 0.85),
-        colorText: Colors.white,
-      );
+        colorText: Colors.white,);
       return;
     }
 
@@ -509,10 +507,9 @@ class _MemoryLocationAdminEditWidgetState
               : _uiController.getLightModeBackgroundColor(
                 _uiController.mainColor.value,
               ),
-      appBar: const CustomAppBar(
-        
-        title: 'edit Location',
-        icon: Image(
+      appBar: CustomAppBar(
+        title: 'title_literal_edit_location'.tr,
+        icon: const Image(
           image: AssetImage('assets/images/location_1.png'),
           width: 22,
           height: 22,
@@ -585,7 +582,7 @@ class _MemoryLocationAdminEditWidgetState
                                             link: _countryFieldLayerLink,
                                             child: _buildRowField(
                                               isDark: isDark,
-                                              label: 'Country',
+                                              label: 'label_edit_location_country'.tr,
                                               onRowTap: () {
                                                 _countryFocusNode.requestFocus();
                                                 setState(() {
@@ -647,7 +644,7 @@ class _MemoryLocationAdminEditWidgetState
                                           ),
                                           _buildRowField(
                                             isDark: isDark,
-                                            label: 'City/Town',
+                                            label: 'label_edit_location_city_town'.tr,
                                             focusNode: _cityFocusNode,
                                             child: plainValueField(
                                               _cityTownController,
@@ -658,7 +655,7 @@ class _MemoryLocationAdminEditWidgetState
                                           ),
                                           _buildRowField(
                                             isDark: isDark,
-                                            label: 'State/Province/Region',
+                                            label: 'label_edit_location_state_region'.tr,
                                             focusNode: _stateFocusNode,
                                             child: plainValueField(
                                               _stateProvinceController,

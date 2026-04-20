@@ -12,6 +12,7 @@ import 'package:spacetime/app/widgets/filter_section.dart';
 
 import '../../controllers/add_memories_controller.dart';
 import '../../../filter/controllers/filter_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MemoriesFilterOverlay extends StatefulWidget {
   final bool isOpenedFromMap;
@@ -155,15 +156,12 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
         final fromDateOnly = DateTime(from.year, from.month, from.day);
         final toDateOnly = DateTime(to.year, to.month, to.day);
         if (toDateOnly.isBefore(fromDateOnly)) {
-          Get.snackbar(
-            'Invalid Date Range',
-            'To Date cannot be earlier than From Date',
+          showTrSnackbar('snackbar_invalid_date_range_2', 
             backgroundColor: Colors.red.shade400,
             colorText: Colors.white,
             margin: const EdgeInsets.all(12),
             snackPosition: SnackPosition.TOP,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           return false;
         }
       } catch (e) {
@@ -281,12 +279,13 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                         () =>
                             _focusedSearchField.value.isNotEmpty
                                 ? const SizedBox.shrink()
-                                : const Row(
+                                : Row(
                                   children: [
                                     Expanded(
                                       child: MemoriesFilterTextFieldRow(
                                         imagePath: AppImages.calendar,
-                                        hint: 'From Date',
+                                        hint: 'memories_filter_label_from_date'.tr,
+                                        filterStorageKey: 'from date',
                                         borderRadius: 5,
                                       ),
                                     ),
@@ -294,7 +293,8 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                     Expanded(
                                       child: MemoriesFilterTextFieldRow(
                                         imagePath: AppImages.calendar,
-                                        hint: 'To Date',
+                                        hint: 'memories_filter_label_to_date'.tr,
+                                        filterStorageKey: 'to date',
                                         borderRadius: 5,
                                       ),
                                     ),
@@ -307,9 +307,10 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                         () =>
                             _focusedSearchField.value.isNotEmpty
                                 ? const SizedBox.shrink()
-                                : const MemoriesFilterTextFieldRow(
+                                : MemoriesFilterTextFieldRow(
                                   imagePath: AppImages.location,
-                                  hint: 'Location',
+                                  hint: 'memories_filter_label_location'.tr,
+                                  filterStorageKey: 'location',
                                   borderRadius: 5,
                                 ),
                       ),
@@ -332,7 +333,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                       CrossAxisAlignment.start,
                                   children: [
                                     SearchableCategoryWidget(
-                                      title: 'Search Places Categories',
+                                      title: 'title_literal_search_places_categories'.tr,
                                       onCategorySelected: (category) {
                                         // Use addCategoryGroup to handle both main categories and subcategories properly
                                         controller.addCategoryGroup(category);
@@ -479,7 +480,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                       CrossAxisAlignment.start,
                                   children: [
                                     SearchableHashtagWidget(
-                                      title: 'Search Hashtags',
+                                      title: 'title_literal_search_hashtags'.tr,
                                       onHashtagSelected: (hashtag) {
                                         controller.addHashtag(hashtag);
                                         debugPrint(
@@ -538,7 +539,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                               ) {
                                                 return Chip(
                                                   label: Text(
-                                                    '#$hashtag',
+                                                    trKey('label_hashtag', [hashtag]),
                                                     style:
                                                         GoogleFonts.kumbhSans(
                                                           fontSize: 12,
@@ -588,7 +589,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                         children: [
                           Obx(
                             () => SearchableContactWidget(
-                              title: 'Search Contacts',
+                              title: 'title_literal_search_contacts'.tr,
                               onContactSelected: (contact) {
                                 controller.addContact(contact);
                                 debugPrint(
@@ -638,7 +639,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                     controller.displayContacts.map((contact) {
                                       return Chip(
                                         label: Text(
-                                          '@$contact',
+                                          trKey('label_contact', [contact]),
                                           style: const TextStyle(
                                             fontSize: 12,
                                           ),

@@ -17,6 +17,7 @@ import '../../../memories/controllers/memory_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../filter/controllers/filter_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MemoryCard extends StatefulWidget {
   final Map<String, dynamic> memoryData;
@@ -831,7 +832,7 @@ class _MemoryCardState extends State<MemoryCard> {
                         _formatInlineDuration(vc.value.position),
                         style: const TextStyle(color: Colors.white, fontSize: 11),
                       ),
-                      const Text(' / ', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                      Text('text'.tr, style: TextStyle(color: Colors.white54, fontSize: 11)),
                       Text(
                         _formatInlineDuration(vc.value.duration),
                         style: const TextStyle(color: Colors.white54, fontSize: 11),
@@ -968,7 +969,7 @@ class _MemoryCardState extends State<MemoryCard> {
                   : Colors.white, // Light mode dialog background
           surfaceTintColor: Colors.transparent, // Remove surface tint
           title: Text(
-            'Delete Memory',
+            'title_text_delete_memory'.tr,
             style: TextStyle(
               color:
                   uiController.darkMode.value
@@ -978,7 +979,7 @@ class _MemoryCardState extends State<MemoryCard> {
             ),
           ),
           content: Text(
-            'Are you sure you want to delete this memory? This action cannot be undone.',
+            'dialog_content_are_you_sure_you_want_to_delete_this_memo'.tr,
             style: TextStyle(
               color:
                   uiController.darkMode.value
@@ -991,7 +992,7 @@ class _MemoryCardState extends State<MemoryCard> {
             TextButton(
               onPressed: () => Get.back(),
               child: Text(
-                'Cancel',
+                'text_cancel'.tr,
                 style: TextStyle(
                   color:
                       uiController.darkMode.value
@@ -1037,26 +1038,20 @@ class _MemoryCardState extends State<MemoryCard> {
                     debugPrint('[MemoryCard] ✅ Map view reloaded');
                   }
 
-                  Get.snackbar(
-                    'Success',
-                    'Memory deleted successfully',
+                  showTrSnackbar('snackbar_success_2', 
                     backgroundColor: Colors.red.withValues(alpha: 0.8),
                     colorText: Colors.white,
-                    duration: const Duration(seconds: 2),
-                  );
+                    duration: const Duration(seconds: 2),);
                 } catch (e) {
                   debugPrint('[MemoryCard] ❌ Error deleting memory: $e');
-                  Get.snackbar(
-                    'Error',
-                    'Failed to delete memory: $e',
+                  showTrSnackbar('snackbar_error_4', args: [e], 
                     backgroundColor: Colors.red,
                     colorText: Colors.white,
-                    duration: const Duration(seconds: 2),
-                  );
+                    duration: const Duration(seconds: 2),);
                 }
               },
               child: Text(
-                'Delete',
+                'text_delete'.tr,
                 style: TextStyle(
                   color:
                       uiController.darkMode.value
@@ -1474,7 +1469,7 @@ class SafeMemoryImage extends StatelessWidget {
           Icon(Icons.broken_image, size: 44, color: Colors.grey[600]),
           const SizedBox(height: 8),
           Text(
-            'Image failed to load',
+            'text_image_failed_to_load'.tr,
             style: TextStyle(color: Colors.grey[600], fontSize: 12),
           ),
         ],

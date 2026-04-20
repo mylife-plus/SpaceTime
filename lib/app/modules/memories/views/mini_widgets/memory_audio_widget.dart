@@ -181,8 +181,8 @@ class MemoryAudioWidget extends StatelessWidget {
                             GestureDetector(
                               onLongPress: () {
                                 showDeleteConfirmationDialog(
-                                  title: 'Delete Audio',
-                                  message: 'Do you want to delete this audio?',
+                                  title: 'title_literal_delete_audio'.tr,
+                                  message: 'dialog_content_delete_this_audio'.tr,
                                   onConfirm: () {
                                     if (onAudioDelete != null) {
                                       // Use custom deletion handler if provided (for edit mode)
@@ -289,8 +289,8 @@ class MemoryAudioWidget extends StatelessWidget {
                               child: GestureDetector(
                                 onTap: () {
                                   showDeleteConfirmationDialog(
-                                    title: 'Delete Audio',
-                                    message: 'Do you want to delete this audio?',
+                                    title: 'title_literal_delete_audio_2'.tr,
+                                    message: 'dialog_content_delete_this_audio'.tr,
                                     onConfirm: () {
                                       if (onAudioDelete != null) {
                                         // Use custom deletion handler if provided (for edit mode)

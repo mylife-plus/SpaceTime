@@ -3553,8 +3553,8 @@ class MapController extends GetxController with WidgetsBindingObserver {
       debugPrint('🔍 PERMISSIONS - Location service disabled, showing dialog');
       Get.dialog(
         AlertDialog(
-          title: const Text('Location is Off'),
-          content: const Text('Please enable location services to continue.'),
+          title: Text('title_text_location_is_off'.tr),
+          content: Text('dialog_content_please_enable_location_services_to_contin'.tr),
           actions: [
             TextButton(
               onPressed: () {
@@ -3586,12 +3586,13 @@ class MapController extends GetxController with WidgetsBindingObserver {
 
     if (permission == geolocator.LocationPermission.deniedForever) {
       debugPrint('🔍 PERMISSIONS - Permission denied forever, showing dialog');
+      final permTitle = 'title_text_permission_denied'.tr;
+      final permBody =
+          'dialog_content_location_permission_is_permanently_denied'.tr;
       Get.dialog(
         AlertDialog(
-          title: const Text('Permission Denied'),
-          content: const Text(
-            'Location permission is permanently denied. Open app settings to enable.',
-          ),
+          title: Text(permTitle),
+          content: Text(permBody),
           actions: [
             TextButton(
               onPressed: () {

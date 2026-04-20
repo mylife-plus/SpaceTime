@@ -48,7 +48,7 @@ void showDeleteConfirmationDialog({
                   ),
                 ),
                 child: Text(
-                  "No",
+                  'text_no_2'.tr,
                   style: TextStyle(color: uiController.currentMainColor),
                 ),
               ),
@@ -67,7 +67,7 @@ void showDeleteConfirmationDialog({
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text("Yes"),
+                child: Text('text_yes_2'.tr),
               ),
             ),
           ],

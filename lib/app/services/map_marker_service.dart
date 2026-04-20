@@ -8,6 +8,7 @@ import '../../services/memory_clustering_service.dart' as clustering;
 import '../repositories/memory_repository.dart';
 import '../modules/map/views/mini_widgets/click_listener.dart';
 import 'map_marker_creation_service.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Service for managing map markers and annotations
 class MapMarkerService extends GetxService {
@@ -364,38 +365,32 @@ class MapMarkerService extends GetxService {
       );
 
       // Show cluster details in a snackbar
-      final categoryText =
-          cluster.categories.isNotEmpty ? cluster.categories.first : 'Mixed';
-      Get.snackbar(
-        '📍 Memory Cluster',
-        '${cluster.count} memories in $categoryText\nTap to zoom or view details',
+      final categoryText = cluster.categories.isNotEmpty
+          ? cluster.categories.first
+          : 'text_cluster_category_mixed'.tr;
+      showTrSnackbar('snackbar_memory_cluster', args: [cluster.count, categoryText], 
         backgroundColor: Colors.blue.withValues(alpha: 0.9),
         colorText: Colors.white,
         duration: const Duration(seconds: 2),
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
         borderRadius: 8,
-        isDismissible: true,
         mainButton: TextButton(
           onPressed: () {
             Get.back(); // Close snackbar
             _showClusterDetails(cluster);
           },
-          child: const Text(
-            'Details',
+          child: Text(
+            'text_details_3'.tr,
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-        ),
-      );
+        ),);
     } catch (e) {
       debugPrint('[MapMarkerService] ❌ Error handling cluster tap: $e');
-      Get.snackbar(
-        'Error',
-        'Could not load cluster details',
+      showTrSnackbar('snackbar_error_31', 
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -408,10 +403,19 @@ class MapMarkerService extends GetxService {
     // Create a detailed description
     final details = StringBuffer();
     details.writeln(
-      '📍 Location: ${cluster.latitude.toStringAsFixed(4)}, ${cluster.longitude.toStringAsFixed(4)}',
+      trKey('text_cluster_popup_location', [
+        cluster.latitude.toStringAsFixed(4),
+        cluster.longitude.toStringAsFixed(4),
+      ]),
     );
-    details.writeln('🏷️  Categories: ${cluster.categories.join(', ')}');
-    details.writeln('📊 Memories: ${cluster.count}');
+    details.writeln(
+      trKey('text_cluster_popup_categories', [
+        cluster.categories.join(', '),
+      ]),
+    );
+    details.writeln(
+      trKey('text_cluster_popup_memories_count', [cluster.count]),
+    );
 
     // Format date range
     if (cluster.earliestDate != null && cluster.latestDate != null) {
@@ -421,27 +425,36 @@ class MapMarkerService extends GetxService {
           startDate.month == endDate.month &&
           startDate.day == endDate.day) {
         details.writeln(
-          '📅 Date: ${startDate.day}/${startDate.month}/${startDate.year}',
+          trKey('text_cluster_popup_date', [
+            '${startDate.day}/${startDate.month}/${startDate.year}',
+          ]),
         );
       } else {
         details.writeln(
-          '📅 Date Range: ${startDate.day}/${startDate.month}/${startDate.year} - ${endDate.day}/${endDate.month}/${endDate.year}',
+          trKey('text_cluster_popup_date_range', [
+            '${startDate.day}/${startDate.month}/${startDate.year}',
+            '${endDate.day}/${endDate.month}/${endDate.year}',
+          ]),
         );
       }
     }
 
     if (cluster.summary.isNotEmpty) {
-      details.writeln('📝 Summary: ${cluster.summary}');
+      details.writeln(
+        trKey('text_cluster_popup_summary', [cluster.summary]),
+      );
     }
 
     // Show tags if any
     if (cluster.tags.isNotEmpty) {
-      details.writeln('🏷️  Tags: ${cluster.tags.join(', ')}');
+      details.writeln(
+        trKey('text_cluster_popup_tags', [cluster.tags.join(', ')]),
+      );
     }
 
     Get.dialog(
       AlertDialog(
-        title: const Text('📍 Memory Cluster Details'),
+        title: Text('title_text_memory_cluster_details'.tr),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,30 +463,40 @@ class MapMarkerService extends GetxService {
               Text(details.toString()),
               const SizedBox(height: 16),
               Text(
-                'Memories in this cluster:',
+                'text_memories_in_this_cluster'.tr,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               ...cluster.memories.map(
-                (memory) => Padding(
-                  padding: const EdgeInsets.only(left: 16, bottom: 4),
-                  child: Text(
-                    '• ${memory['description'] ?? memory['category'] ?? 'Memory ${memory['id']}'}',
-                  ),
-                ),
+                (memory) {
+                  final desc = memory['description']?.toString() ?? '';
+                  final cat = memory['category']?.toString() ?? '';
+                  final line =
+                      desc.isNotEmpty
+                          ? desc
+                          : cat.isNotEmpty
+                          ? cat
+                          : trKey('text_memory_fallback_id', [
+                            '${memory['id']}',
+                          ]);
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 16, bottom: 4),
+                    child: Text(line),
+                  );
+                },
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Close')),
+          TextButton(onPressed: () => Get.back(), child: Text('text_close_5'.tr)),
           ElevatedButton(
             onPressed: () {
               Get.back();
               // TODO: Implement zoom to cluster bounds
               debugPrint('[MapMarkerService] 🔍 Would zoom to cluster bounds');
             },
-            child: const Text('Zoom to Cluster'),
+            child: Text('text_zoom_to_cluster'.tr),
           ),
         ],
       ),
@@ -578,16 +601,17 @@ class MapMarkerService extends GetxService {
     final locationName = memory['location_name'] ?? 'Unknown location';
     final date = memory['date'] ?? '';
 
-    Get.snackbar(
-      '📝 Memory',
-      '$category${description.isNotEmpty ? ': $description' : ''}\n📍 $locationName\n📅 $date',
+    showTrSnackbar(
+      'snackbar_memory',
+      args: [
+        '$category${description.isNotEmpty ? ': $description' : ''}\n📍 $locationName\n📅 $date',
+      ],
       backgroundColor: Colors.green.withValues(alpha: 0.9),
       colorText: Colors.white,
-        duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 2),
       snackPosition: SnackPosition.BOTTOM,
       margin: const EdgeInsets.all(16),
       borderRadius: 8,
-      isDismissible: true,
       mainButton: TextButton(
         onPressed: () {
           Get.back(); // Close snackbar
@@ -596,9 +620,12 @@ class MapMarkerService extends GetxService {
             '[MapMarkerService] 📝 Would navigate to memory details: ${memory['id']}',
           );
         },
-        child: const Text(
-          'View',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        child: Text(
+          'text_view'.tr,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -623,13 +650,10 @@ class MapMarkerService extends GetxService {
     if (markerId.startsWith('cluster_')) {
       // For now, just show a simple message since we don't have the clusters list here
       debugPrint('[MapMarkerService] Cluster marker tapped: $markerId');
-      Get.snackbar(
-        '📍 Cluster Tapped',
-        'Cluster marker tapped: $markerId',
+      showTrSnackbar('snackbar_cluster_tapped', args: [markerId], 
         backgroundColor: Colors.blue.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     } else if (markerId.startsWith('memory_')) {
       _handleMemoryTapById(markerId);
     }

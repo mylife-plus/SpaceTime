@@ -90,7 +90,7 @@
 //           ),
 //           const SizedBox(height: 16),
 //           Text(
-//             'Download Offline Maps',
+//             'text_download_offline_maps'.tr,
 //             style: Get.textTheme.headlineSmall?.copyWith(
 //               fontWeight: FontWeight.bold,
 //             ),
@@ -162,7 +162,7 @@
 //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
 //                 children: [
 //                   Text(
-//                     'Style Pack',
+//                     'text_style_pack'.tr,
 //                     style: Get.textTheme.bodySmall,
 //                   ),
 //                   Text(
@@ -191,7 +191,7 @@
 //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
 //                 children: [
 //                   Text(
-//                     'Map Tiles',
+//                     'text_map_tiles'.tr,
 //                     style: Get.textTheme.bodySmall,
 //                   ),
 //                   Text(

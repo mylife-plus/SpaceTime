@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/permission_service.dart';
 import '../../controllers/map_controller_new.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class PermissionRequiredScreen extends StatelessWidget {
   const PermissionRequiredScreen({super.key});
@@ -120,7 +121,7 @@ class PermissionRequiredScreen extends StatelessWidget {
 
                     // Title with theme colors
                     Text(
-                      'Location Permission Required',
+                      'text_location_permission_required'.tr,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
@@ -136,7 +137,7 @@ class PermissionRequiredScreen extends StatelessWidget {
 
                     // Description with better typography
                     Text(
-                      'Location permission is required to show your position on the map and provide location-based features.',
+                      'text_location_permission_is_required_to_show_your_positi'.tr,
                       style: TextStyle(
                         fontSize: 16,
                         color:
@@ -220,7 +221,7 @@ class PermissionRequiredScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Permission Status',
+                                  'text_permission_status'.tr,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
@@ -233,8 +234,8 @@ class PermissionRequiredScreen extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   permissionService.hasLocationPermission.value
-                                      ? 'Permission Granted'
-                                      : 'Permission Required',
+                                      ? 'title_text_permission_granted_label'.tr
+                                      : 'title_text_permission_required_label'.tr,
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -366,18 +367,14 @@ class PermissionRequiredScreen extends StatelessWidget {
                                       );
                                     }
                                   } else {
-                                    Get.snackbar(
-                                      'Permission Denied',
-                                      'Location permission is required for map functionality.',
+                                    showTrSnackbar('snackbar_permission_denied', 
                                       backgroundColor: Colors.red.withValues(
                                         alpha: 0.9,
                                       ),
                                       colorText: Colors.white,
                                       snackPosition: SnackPosition.BOTTOM,
                                       margin: const EdgeInsets.all(16),
-                                      borderRadius: 12,        duration: const Duration(seconds: 2),
-
-                                    );
+                                      borderRadius: 12,        duration: const Duration(seconds: 2),);
                                   }
                                 },
                         icon: Icon(
@@ -388,8 +385,8 @@ class PermissionRequiredScreen extends StatelessWidget {
                         ),
                         label: Text(
                           permissionService.hasLocationPermission.value
-                              ? 'Permission Granted'
-                              : 'Grant Permission',
+                              ? 'title_text_permission_granted_label'.tr
+                              : 'title_text_grant_permission'.tr,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -430,7 +427,7 @@ class PermissionRequiredScreen extends StatelessWidget {
                           color: uiController.currentMainColor,
                         ),
                         label: Text(
-                          'Open Settings',
+                          'text_open_settings_3'.tr,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -475,7 +472,7 @@ class PermissionRequiredScreen extends StatelessWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'You can change location permissions anytime in your device settings.',
+                              'text_you_can_change_location_permissions_anytime_in_your'.tr,
                               style: TextStyle(
                                 fontSize: 14,
                                 color:
@@ -563,7 +560,7 @@ class PermissionRequiredScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Location Permission',
+                      'text_location_permission'.tr,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -584,7 +581,7 @@ class PermissionRequiredScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Location permission is used for:',
+                      'text_location_permission_is_used_for'.tr,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -596,15 +593,15 @@ class PermissionRequiredScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     _buildPermissionItem(
-                      'Show your current location on the map',
+                      'text_location_benefit_show_on_map'.tr,
                       uiController,
                     ),
                     _buildPermissionItem(
-                      'Center the map on your position',
+                      'text_location_benefit_center_map'.tr,
                       uiController,
                     ),
                     _buildPermissionItem(
-                      'Provide location-based memory features',
+                      'text_location_benefit_memory_features'.tr,
                       uiController,
                     ),
                     const SizedBox(height: 20),
@@ -623,7 +620,7 @@ class PermissionRequiredScreen extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        'You can grant permission now or open app settings to enable it manually.',
+                        'text_you_can_grant_permission_now_or_open_app_settings_t'.tr,
                         style: TextStyle(
                           fontSize: 14,
                           color:
@@ -659,7 +656,7 @@ class PermissionRequiredScreen extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                'Cancel',
+                                'text_cancel_4'.tr,
                                 style: TextStyle(
                                   color: uiController.currentMainColor,
                                   fontSize: 12,
@@ -706,8 +703,8 @@ class PermissionRequiredScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: const Text(
-                                'Open Settings',
+                              child: Text(
+                                'text_open_settings_4'.tr,
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,

@@ -28,7 +28,7 @@ class FeedbackView extends GetView<FeedbackController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Feedback',
+        title: 'title_literal_feedback'.tr,
         icon: Image.asset(AppImages.feedback),
       ),
       body: Stack(

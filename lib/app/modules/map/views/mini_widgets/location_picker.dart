@@ -291,31 +291,31 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
           child: Stack(
             children: [
             if (isLoading)
-              const Center(
+              Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Getting your location...'),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text('text_getting_your_location_2'.tr),
                   ],
                 ),
               )
             else if (currentPosition == null)
-              const Center(
+              Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.location_off, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
+                    const Icon(Icons.location_off, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
                     Text(
-                      'Unable to get location',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                      'text_unable_to_get_location_2'.tr,
+                      style: const TextStyle(fontSize: 18, color: Colors.grey),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      'Please check location permissions',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                      'text_please_check_location_permissions_2'.tr,
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -377,7 +377,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                     ),
                   ),
                   child: Text(
-                    'Done',
+                    'text_done_2'.tr,
                     style: TextStyle(
                       color:
                           controller.darkMode.value

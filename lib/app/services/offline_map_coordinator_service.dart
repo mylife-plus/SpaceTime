@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import '../repositories/offline_map_repository.dart';
 import 'offline_map_service.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Service that coordinates offline map downloading, UI state, and user interactions
 /// This service acts as a bridge between the MapController and the core OfflineMapService
@@ -307,14 +308,10 @@ class OfflineMapCoordinatorService extends GetxService {
       debugPrint('[OfflineMapCoordinator] ✅ Download initiated');
     } catch (e) {
       debugPrint('[OfflineMapCoordinator] ❌ Download failed: $e');
-      Get.snackbar(
-        'Download Failed',
-        'Failed to download offline maps: $e',
+      showTrSnackbar('snackbar_download_failed', args: [e], 
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -328,14 +325,10 @@ class OfflineMapCoordinatorService extends GetxService {
         isOfflineMode.value = false;
         debugPrint('[OfflineMapCoordinator] 🌐 Disabled offline mode');
 
-        Get.snackbar(
-          'Online Mode',
-          'Map is now using online tiles',
+        showTrSnackbar('snackbar_online_mode', 
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green.withValues(alpha: 0.8),
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else {
         final tileCount = _offlineMapService!.downloadedTileCount.value;
         if (tileCount > 0) {
@@ -343,23 +336,15 @@ class OfflineMapCoordinatorService extends GetxService {
           isOfflineMode.value = true;
           debugPrint('[OfflineMapCoordinator] 🔌 Enabled offline mode');
 
-          Get.snackbar(
-            'Offline Mode',
-            'Map is now using offline tiles ($tileCount tiles)',
+          showTrSnackbar('snackbar_offline_mode', args: [tileCount], 
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.blue.withValues(alpha: 0.8),
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
         } else {
-          Get.snackbar(
-            'No Offline Tiles',
-            'No offline tiles available. Please download tiles first.',
+          showTrSnackbar('snackbar_no_offline_tiles', 
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.orange.withValues(alpha: 0.8),
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
         }
       }
     } catch (e) {
@@ -376,14 +361,10 @@ class OfflineMapCoordinatorService extends GetxService {
       isOfflineMode.value = false;
       // // // showOfflineDownloadOverlay.value = false;
 
-      Get.snackbar(
-        'Data Cleared',
-        'All offline map data has been cleared',
+      showTrSnackbar('snackbar_data_cleared', 
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.withValues(alpha: 0.8),
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
 
       debugPrint('[OfflineMapCoordinator] ✅ Offline data cleared');
     } catch (e) {

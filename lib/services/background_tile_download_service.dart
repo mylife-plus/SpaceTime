@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Background tile download service using isolates for non-blocking downloads
 class BackgroundTileDownloadService extends GetxService {
@@ -970,13 +971,10 @@ class BackgroundTileDownloadService extends GetxService {
     _updateOfflineSettings();
 
     // Notify user
-    Get.snackbar(
-      'Offline Mode Activated',
-      'Maximum tiles downloaded (${totalTilesDownloaded.value}). App now running in offline mode.',
+    showTrSnackbar('snackbar_offline_mode_activated', args: [totalTilesDownloaded.value], 
       backgroundColor: Colors.blue,
       colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-    );
+        duration: const Duration(seconds: 2),);
 
     debugPrint(
       '[BackgroundTileDownloadService] Offline mode enforced - quota reached',

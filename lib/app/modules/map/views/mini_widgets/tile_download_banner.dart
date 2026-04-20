@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/background_tile_download_service.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class TileDownloadBanner extends StatelessWidget {
   const TileDownloadBanner({super.key});
@@ -152,7 +153,10 @@ class TileDownloadBanner extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${totalTiles.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} tiles',
+                          trKey(
+                            'text_totaltiles_tostring_replaceallmapped_regexp_r',
+                            [_formatTileCount(totalTiles)],
+                          ),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -166,7 +170,7 @@ class TileDownloadBanner extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Progress to 50,000 tiles',
+                          'text_progress_to_50_000_tiles'.tr,
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.white.withValues(alpha: 0.7),
@@ -210,7 +214,14 @@ class TileDownloadBanner extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              'Downloading: ${currentRegion.length > 20 ? '${currentRegion.substring(0, 20)}...' : currentRegion}',
+                              trKey(
+                                'text_downloading_currentregion_length_20',
+                                [
+                                  currentRegion.length > 20
+                                      ? '${currentRegion.substring(0, 20)}...'
+                                      : currentRegion,
+                                ],
+                              ),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.white.withValues(alpha: 0.7),
@@ -291,7 +302,7 @@ class TileDownloadBanner extends StatelessWidget {
     bool isComplete,
   ) {
     if (isComplete) {
-      return 'Offline Maps Ready';
+      return 'text_offline_maps_ready'.tr;
     }
 
     if (isDownloading) {

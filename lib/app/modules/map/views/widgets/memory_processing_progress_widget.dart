@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/services/memory_processing_isolate_service.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Widget to display memory processing progress from isolate
 class MemoryProcessingProgressWidget extends StatelessWidget {
@@ -46,7 +47,7 @@ class MemoryProcessingProgressWidget extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Processing Memories',
+                    'text_processing_memories'.tr,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -113,11 +114,11 @@ class MemoryProcessingProgressWidget extends StatelessWidget {
   void _showProcessingDetails(MemoryProcessingIsolateService service) {
     Get.dialog(
       AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.memory, color: Colors.green),
-            SizedBox(width: 8),
-            Text('Memory Processing'),
+            const Icon(Icons.memory, color: Colors.green),
+            const SizedBox(width: 8),
+            Text('text_memory_processing'.tr),
           ],
         ),
         content: Column(
@@ -126,36 +127,52 @@ class MemoryProcessingProgressWidget extends StatelessWidget {
           children: [
             Obx(
               () => Text(
-                'Progress: ${(service.processingProgress.value * 100).toStringAsFixed(1)}%',
-              ),
-            ),
-            const SizedBox(height: 8),
-            Obx(() => Text('Status: ${service.processingStatus.value}')),
-            const SizedBox(height: 8),
-            Obx(
-              () => Text(
-                'Processed Memories: ${service.processedMemories.length}',
+                trKey('text_progress_service_processingprogress_value_100_tostr', [
+                  (service.processingProgress.value * 100).toStringAsFixed(1),
+                ]),
               ),
             ),
             const SizedBox(height: 8),
             Obx(
               () => Text(
-                'Generated Clusters: ${service.processedClusters.length}',
+                trKey('text_status_service_processingstatus_value', [
+                  service.processingStatus.value,
+                ]),
               ),
             ),
             const SizedBox(height: 8),
             Obx(
-              () => Text('Generated Arrows: ${service.processedArrows.length}'),
+              () => Text(
+                trKey('text_processed_memories_service_processedmemories_length', [
+                  service.processedMemories.length,
+                ]),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Obx(
+              () => Text(
+                trKey('text_generated_clusters_service_processedclusters_length', [
+                  service.processedClusters.length,
+                ]),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Obx(
+              () => Text(
+                trKey('text_generated_arrows_service_processedarrows_length', [
+                  service.processedArrows.length,
+                ]),
+              ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Memories are being processed in a background isolate for better performance. This won\'t affect app responsiveness.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+            Text(
+              'text_memories_are_being_processed_in_a_background_isolat'.tr,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('OK')),
+          TextButton(onPressed: () => Get.back(), child: Text('text_ok_5'.tr)),
         ],
       ),
     );
@@ -177,9 +194,9 @@ class MemoryProcessingStatusWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Memory Processing Status',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              'text_memory_processing_status'.tr,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             if (status.isProcessing) ...[
@@ -190,21 +207,34 @@ class MemoryProcessingStatusWidget extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${(status.progress * 100).toStringAsFixed(1)}% - ${status.status}',
+                trKey('text_status_progress_100_tostringasfixed_1_status_status', [
+                  (status.progress * 100).toStringAsFixed(1),
+                  status.status,
+                ]),
               ),
             ] else ...[
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 20),
-                  SizedBox(width: 8),
-                  Text('Processing Complete'),
+                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
+                  Text('text_processing_complete'.tr),
                 ],
               ),
             ],
             const SizedBox(height: 12),
-            Text('Memories: ${status.memoriesCount}'),
-            Text('Clusters: ${status.clustersCount}'),
-            Text('Arrows: ${status.arrowsCount}'),
+            Text(
+              trKey('text_memories_status_memoriescount', [
+                status.memoriesCount,
+              ]),
+            ),
+            Text(
+              trKey('text_clusters_status_clusterscount', [
+                status.clustersCount,
+              ]),
+            ),
+            Text(
+              trKey('text_arrows_status_arrowscount', [status.arrowsCount]),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -215,14 +245,14 @@ class MemoryProcessingStatusWidget extends StatelessWidget {
                             ? null
                             : () => _reprocessMemories(service),
                     icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('Reprocess Memories'),
+                    label: Text('label_reprocess_memories'.tr),
                   ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () => _showProcessingDetails(service),
                   icon: const Icon(Icons.info, size: 16),
-                  label: const Text('Details'),
+                  label: Text('text_details'.tr),
                 ),
               ],
             ),
@@ -236,13 +266,9 @@ class MemoryProcessingStatusWidget extends StatelessWidget {
   void _reprocessMemories(MemoryProcessingIsolateService service) {
     service.loadAndProcessMemories(
       onCompleted: (memories, clusters, arrows) {
-        Get.snackbar(
-          'Processing Complete',
-          'Processed ${memories.length} memories into ${clusters.length} clusters',
+        showTrSnackbar('snackbar_processing_complete', args: [memories.length, clusters.length], 
           backgroundColor: Colors.green,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       },
     );
   }

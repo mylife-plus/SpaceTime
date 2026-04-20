@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
 import '../../../map/controllers/map_controller_new.dart';
@@ -54,7 +55,9 @@ class SearchIndicator extends StatelessWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Search: "${controller.searchQuery.value}"',
+                trKey('text_search_controller_searchquery_value', [
+                  controller.searchQuery.value,
+                ]),
                 style: TextStyle(
                   fontSize: 12,
                   color:
@@ -68,7 +71,9 @@ class SearchIndicator extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              '(${controller.filteredMemories.length} results)',
+              trKey('text_controller_filteredmemories_length_results', [
+                controller.filteredMemories.length,
+              ]),
               style: TextStyle(
                 fontSize: 11,
                 color:

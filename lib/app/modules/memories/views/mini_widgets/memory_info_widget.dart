@@ -7,6 +7,7 @@ import 'package:spacetime/app/modules/memories/controllers/memory_location_picke
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart';
 import 'package:spacetime/app/modules/memories/utils/memory_location_line_format.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
+import 'package:spacetime/app/config/app_locale.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 class MemoryInfoWidget extends StatelessWidget {
@@ -41,7 +42,8 @@ class MemoryInfoWidget extends StatelessWidget {
                 Expanded(
                   child: Obx(
                     () {
-                      String dateText = "Pick Date";
+                      controller2.selectedLanguage.value;
+                      String dateText = 'text_memory_pick_date'.tr;
                       if (controller.selectedDate.value != null) {
                         final selectedDate = controller.selectedDate.value!;
 
@@ -73,19 +75,22 @@ class MemoryInfoWidget extends StatelessWidget {
                 const SizedBox(width: 5),
                 Expanded(
                   child: Obx(
-                    () => _InfoContainer(
+                    () {
+                      controller2.selectedLanguage.value;
+                      return _InfoContainer(
                       imagePath: AppImages.clock,
                       text:
                           controller.selectedTime.value != null
                               ? controller.selectedTime.value!.format(context)
-                              : "Pick Time",
+                              : 'text_memory_pick_time'.tr,
                       onTap: () {
                         if (onAnyWidgetTapped != null) {
                           onAnyWidgetTapped!();
                         }
                         _pickTime(context, controller);
                       },
-                    ),
+                    );
+                    },
                   ),
                 ),
               ],
@@ -95,6 +100,7 @@ class MemoryInfoWidget extends StatelessWidget {
             // Location (Required)
             Obx(
               () {
+                controller2.selectedLanguage.value;
                 final hasLocation = controller.selectedLocation.value.isNotEmpty;
                 final text = hasLocation
                     ? MemoryLocationLineFormat.displayLine(
@@ -106,7 +112,7 @@ class MemoryInfoWidget extends StatelessWidget {
                         lng: controller.locationLongitude.value,
                       )
                     : controller.isFetchingLocation.value
-                        ? 'Searching for location'
+                        ? 'text_memory_searching_location'.tr
                         : controller.locationFieldPlaceholderText;
 
                 return _LocationInfoContainer(
@@ -182,6 +188,7 @@ class MemoryInfoWidget extends StatelessWidget {
 
     final picked = await showDatePicker(
       context: context,
+      locale: appLocaleFromLanguageCode(uiController.selectedLanguage.value),
       initialDate: controller.selectedDate.value ?? DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
@@ -574,7 +581,7 @@ class _LocationInfoContainer extends StatelessWidget {
                   ),
                   if (isRequired)
                     Text(
-                      ' *',
+                      'text_3'.tr,
                       style: TextStyle(
                         fontSize: 18,
                         color: Colors.red.shade600,

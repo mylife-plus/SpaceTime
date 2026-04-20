@@ -68,6 +68,7 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   bool _radiusPickerAnnotationsInitialized = false;
   Timer? _searchDebounce;
   int _searchRequestId = 0;
+  StreamSubscription<double>? _radiusSliderSubscription;
 
   // Server state for local tiles
   final Rxn<String> serverUrl = Rxn<String>();
@@ -92,7 +93,7 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     MapboxZoomHelper().currentLocationZoom.value = 1;
     searchFocusNode.addListener(onSearchFocusChanged);
     searchController.addListener(onSearchChanged);
-    radiusSliderValue.listen(_onRadiusSliderChanged);
+    _radiusSliderSubscription = radiusSliderValue.listen(_onRadiusSliderChanged);
     debugPrint('[MemoryLocationPicker] 🚀 About to call initializeLocationPicker()');
 
    initializeLocationPicker();
@@ -168,6 +169,9 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   @override
   void onClose() {
     _searchDebounce?.cancel();
+    _radiusSliderSubscription?.cancel();
+    searchFocusNode.removeListener(onSearchFocusChanged);
+    searchController.removeListener(onSearchChanged);
     searchController.dispose();
     searchFocusNode.dispose();
     super.onClose();

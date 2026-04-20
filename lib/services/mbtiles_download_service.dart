@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -59,7 +60,7 @@ class MbtilesDownloadService extends GetxController {
   final RxBool isCompleted = false.obs;
   final RxBool hasError = false.obs;
   final RxDouble downloadProgress = 0.0.obs;
-  final RxString statusText = "Ready to download".obs;
+  final RxString statusText = ''.obs;
   final RxString errorMessage = "".obs;
   final RxInt downloadedBytes = 0.obs;
   final RxInt totalBytes = 0.obs;
@@ -70,6 +71,7 @@ class MbtilesDownloadService extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    statusText.value = 'mbtiles_status_ready_to_download'.tr;
     _initializeBackgroundDownloader();
     _checkForResumedDownloads();
   }
@@ -93,11 +95,14 @@ class MbtilesDownloadService extends GetxController {
           if (record.status == TaskStatus.running || record.status == TaskStatus.enqueued) {
             isDownloading.value = true;
             downloadProgress.value = record.progress;
-            statusText.value = "Resuming download...";
+            statusText.value = 'mbtiles_status_resuming'.tr;
             debugPrint('[MbtilesDownload] ▶️ Resuming download from ${(record.progress * 100).toStringAsFixed(1)}%');
           } else if (record.status == TaskStatus.paused) {
             downloadProgress.value = record.progress;
-            statusText.value = "Download paused at ${(record.progress * 100).toStringAsFixed(1)}%";
+            statusText.value = trKey(
+              'mbtiles_status_paused_at_pct',
+              [(record.progress * 100).toStringAsFixed(1)],
+            );
           }
         }
       }
@@ -139,12 +144,15 @@ class MbtilesDownloadService extends GetxController {
             final receivedGB = (received / (1024 * 1024 * 1024)).toStringAsFixed(2);
             final totalGB = (update.expectedFileSize / (1024 * 1024 * 1024)).toStringAsFixed(2);
 
-            statusText.value = "Downloading: $receivedGB GB / $totalGB GB";
+            statusText.value = trKey(
+              'mbtiles_status_downloading_gb_pair',
+              [receivedGB, totalGB],
+            );
             debugPrint('[MbtilesDownload] 📊 Downloaded: $receivedGB GB / $totalGB GB');
           } else {
             final received = (update.progress * 1024 * 1024 * 1024).toInt();
             final receivedGB = (received / (1024 * 1024 * 1024)).toStringAsFixed(2);
-            statusText.value = "Downloading: $receivedGB GB";
+            statusText.value = trKey('mbtiles_status_downloading_gb_only', [receivedGB]);
             debugPrint('[MbtilesDownload] 📊 Downloaded: $receivedGB GB (size unknown)');
           }
         } else if (update is TaskStatusUpdate) {
@@ -152,19 +160,19 @@ class MbtilesDownloadService extends GetxController {
 
           if (update.status == TaskStatus.running) {
             isDownloading.value = true;
-            statusText.value = "Downloading...";
+            statusText.value = 'mbtiles_status_downloading'.tr;
           } else if (update.status == TaskStatus.complete) {
             isDownloading.value = false;
             isCompleted.value = true;
-            statusText.value = "Download complete!";
+            statusText.value = 'text_download_completed'.tr;
 
             await _markDownloadAsCompleted();
           } else if (update.status == TaskStatus.failed) {
             isDownloading.value = false;
-            statusText.value = "Download failed";
+            statusText.value = 'text_download_failed'.tr;
             hasError.value = true;
           } else if (update.status == TaskStatus.paused) {
-            statusText.value = "Download paused";
+            statusText.value = 'mbtiles_status_download_paused'.tr;
           }
         }
       }
@@ -260,7 +268,7 @@ class MbtilesDownloadService extends GetxController {
           isCompleted.value = false;
           isDownloading.value = false;
           downloadProgress.value = 0.0;
-          statusText.value = "Ready to download";
+          statusText.value = 'mbtiles_status_ready_to_download'.tr;
         }
       } else {
         debugPrint('[MbtilesDownload] ❌ MBTiles not marked as downloaded in preferences');
@@ -271,7 +279,7 @@ class MbtilesDownloadService extends GetxController {
         isCompleted.value = false;
         isDownloading.value = false;
         downloadProgress.value = 0.0;
-        statusText.value = "Ready to download";
+        statusText.value = 'mbtiles_status_ready_to_download'.tr;
       }
 
       return false;
@@ -317,7 +325,7 @@ class MbtilesDownloadService extends GetxController {
         // If permission is not granted, request it
         // Note: On Android 13+, this might not be needed, but it won't hurt to ask
         debugPrint('[MbtilesDownload] 🔐 Requesting storage permission...');
-        statusText.value = "Requesting storage permission...";
+        statusText.value = 'mbtiles_status_requesting_storage_permission'.tr;
 
         status = await Permission.storage.request();
         debugPrint('[MbtilesDownload] 🔐 Storage permission after request: $status');
@@ -326,8 +334,8 @@ class MbtilesDownloadService extends GetxController {
           if (status.isPermanentlyDenied) {
             debugPrint('[MbtilesDownload] ❌ Storage permission permanently denied');
             hasError.value = true;
-            errorMessage.value = "Storage permission is required to download offline maps. Please enable it in app settings.";
-            statusText.value = "Permission denied";
+            errorMessage.value = 'dialog_content_storage_permission_is_required_to_downloa'.tr;
+            statusText.value = 'mbtiles_status_permission_denied'.tr;
 
             // Show dialog to open settings
             await _showPermissionDeniedDialog();
@@ -363,15 +371,15 @@ class MbtilesDownloadService extends GetxController {
     return Get.dialog(
       AlertDialog(
         backgroundColor: Colors.grey[900],
-        title: const Text(
-          'Storage Permission Required',
+        title: Text(
+          'title_text_storage_permission_required'.tr,
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
         ),
-        content: const Text(
-          'Storage permission is required to download offline maps. Please enable it in app settings.',
+        content: Text(
+          'dialog_content_storage_permission_is_required_to_downloa'.tr,
           style: TextStyle(
             color: Colors.white70,
           ),
@@ -380,7 +388,7 @@ class MbtilesDownloadService extends GetxController {
           TextButton(
             onPressed: () => Get.back(),
             child: Text(
-              'Cancel',
+              'text_cancel_10'.tr,
               style: TextStyle(
                 color: Colors.grey[400],
               ),
@@ -391,8 +399,8 @@ class MbtilesDownloadService extends GetxController {
               openAppSettings();
               Get.back();
             },
-            child: const Text(
-              'Open Settings',
+            child: Text(
+              'text_open_settings_6'.tr,
               style: TextStyle(
                 color: Colors.blue,
                 fontWeight: FontWeight.w600,
@@ -431,7 +439,7 @@ class MbtilesDownloadService extends GetxController {
       // Validate zoom level
       if (!AVAILABLE_ZOOM_LEVELS.contains(selectedZoom)) {
         debugPrint('[MbtilesDownload] ❌ Invalid zoom level: $selectedZoom');
-        errorMessage.value = "Invalid zoom level selected";
+        errorMessage.value = 'mbtiles_error_invalid_zoom'.tr;
         hasError.value = true;
         return null;
       }
@@ -442,7 +450,7 @@ class MbtilesDownloadService extends GetxController {
       hasError.value = false;
       isCompleted.value = false;
       downloadProgress.value = 0.0;
-      statusText.value = "Preparing download...";
+      statusText.value = 'mbtiles_status_preparing_download'.tr;
 
       // Save selected zoom level to preferences
       final prefs = await SharedPreferences.getInstance();
@@ -526,7 +534,7 @@ class MbtilesDownloadService extends GetxController {
       }
 
       debugPrint('[MbtilesDownload] 📡 Preparing to download mbtiles from Cloudflare R2...');
-      statusText.value = "Connecting to Cloudflare...";
+      statusText.value = 'mbtiles_status_connecting_cloudflare'.tr;
 
       final downloadUrl = getDownloadUrl(selectedZoom);
 
@@ -540,7 +548,7 @@ class MbtilesDownloadService extends GetxController {
       debugPrint('[MbtilesDownload] 🔢 Zoom level: $selectedZoom');
       debugPrint('[MbtilesDownload] 💾 Saving to: $localFilePath');
       debugPrint('[MbtilesDownload] 📁 Directory: ${tilesDir.path}');
-      statusText.value = "Starting download...";
+      statusText.value = 'mbtiles_status_starting_download'.tr;
 
       // Check and request notification permission first
       debugPrint('[MbtilesDownload] 🔔 Checking notification permission...');
@@ -566,21 +574,21 @@ class MbtilesDownloadService extends GetxController {
       // Configure notifications with more visible settings
       FileDownloader().configureNotificationForGroup(
         FileDownloader.defaultGroup,
-        running: const TaskNotification(
-          'Downloading Map Tiles',
-          'Download in progress',
+        running: TaskNotification(
+          'mbtiles_notif_running_title'.tr,
+          'mbtiles_notif_running_body'.tr,
         ),
-        complete: const TaskNotification(
-          'Download Complete!',
-          'Map tiles are ready to use',
+        complete: TaskNotification(
+          'mbtiles_notif_complete_title'.tr,
+          'mbtiles_notif_complete_body'.tr,
         ),
-        error: const TaskNotification(
-          'Download Failed',
-          'Please try again',
+        error: TaskNotification(
+          'mbtiles_notif_error_title'.tr,
+          'mbtiles_notif_error_body'.tr,
         ),
-        paused: const TaskNotification(
-          'Download Paused',
-          'Tap to resume',
+        paused: TaskNotification(
+          'mbtiles_notif_paused_title'.tr,
+          'mbtiles_notif_paused_body'.tr,
         ),
         progressBar: true,
       );
@@ -607,18 +615,18 @@ await downloader.configure(
 
           if (status == TaskStatus.complete) {
             debugPrint('[MbtilesDownload] ✅ Download completed successfully');
-            statusText.value = "Download completed!";
+            statusText.value = 'text_download_completed'.tr;
           } else if (status == TaskStatus.failed) {
             debugPrint('[MbtilesDownload] ❌ Download failed');
             hasError.value = true;
-            errorMessage.value = "Download failed";
-            statusText.value = "Download failed";
+            errorMessage.value = 'text_download_failed'.tr;
+            statusText.value = 'text_download_failed'.tr;
           } else if (status == TaskStatus.running) {
             debugPrint('[MbtilesDownload] 🏃 Download running');
-            statusText.value = "Downloading...";
+            statusText.value = 'mbtiles_status_downloading'.tr;
           } else if (status == TaskStatus.enqueued) {
             debugPrint('[MbtilesDownload] 📋 Download enqueued');
-            statusText.value = "Preparing...";
+            statusText.value = 'mbtiles_status_preparing'.tr;
           }
         },
       );
@@ -652,20 +660,11 @@ await downloader.configure(
           debugPrint('[MbtilesDownload] 📄 Full header: $header');
           await localFile.delete();
           hasError.value = true;
-          errorMessage.value = """
-Download Error
-
-The server returned an HTML error page instead of the mbtiles file.
-
-Possible reasons:
-1. File not found on Cloudflare R2
-2. Server access denied
-3. Incorrect download URL
-
-Download URL: $downloadUrl
-Zoom Level: $selectedZoom
-""";
-          statusText.value = "Download failed - server error";
+          errorMessage.value = trKey(
+            'dialog_content_mbtiles_server_returned_html',
+            [downloadUrl, selectedZoom],
+          );
+          statusText.value = 'mbtiles_status_download_failed_server_error'.tr;
           return null;
         }
 
@@ -677,8 +676,8 @@ Zoom Level: $selectedZoom
           debugPrint('[MbtilesDownload] ⚠️ This might be an error response from Google Drive');
 
           hasError.value = true;
-          errorMessage.value = "Downloaded file is too small ($fileSizeGB GB). Expected at least 4GB. Please ensure the Google Drive file is publicly accessible.";
-          statusText.value = "Download failed - file too small";
+          errorMessage.value = trKey('mbtiles_error_file_too_small', [fileSizeGB]);
+          statusText.value = 'mbtiles_status_download_failed_file_small'.tr;
           return null;
         }
 
@@ -696,21 +695,21 @@ Zoom Level: $selectedZoom
 
         _localMbtilesPath = localFilePath;
         isCompleted.value = true;
-        statusText.value = "Download completed! $fileSizeGB GB";
+        statusText.value = trKey('mbtiles_status_download_completed_gb', [fileSizeGB]);
 
         return localFilePath;
       } else {
         debugPrint('[MbtilesDownload] ❌ Failed to verify downloaded file - file does not exist');
         hasError.value = true;
-        errorMessage.value = "Failed to verify downloaded file";
-        statusText.value = "Download failed";
+        errorMessage.value = 'mbtiles_error_verify_file_failed'.tr;
+        statusText.value = 'text_download_failed'.tr;
         return null;
       }
     } catch (e) {
       debugPrint('[MbtilesDownload] ❌ Error downloading mbtiles: $e');
       hasError.value = true;
       errorMessage.value = e.toString();
-      statusText.value = "Download failed: ${e.toString()}";
+      statusText.value = trKey('mbtiles_error_download_with_message', [e.toString()]);
       return null;
     } finally {
       isDownloading.value = false;
@@ -724,7 +723,7 @@ Zoom Level: $selectedZoom
     if (_backgroundTask != null) {
       await FileDownloader().cancelTaskWithId(_backgroundTask!.taskId);
       debugPrint('[MbtilesDownload] ❌ Download cancelled');
-      statusText.value = "Download cancelled";
+      statusText.value = 'mbtiles_status_download_cancelled'.tr;
       isDownloading.value = false;
       _backgroundTask = null;
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
 
 /// Simple indicator widget to show when geocoding is active
@@ -42,7 +43,9 @@ class GeocodingIndicatorWidget extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Geocoding (${service.activeRequests.value})',
+                trKey('text_geocoding_service_activerequests_value', [
+                  service.activeRequests.value,
+                ]),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
@@ -82,7 +85,9 @@ class GeocodingStatusBadge extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              service.isInitialized.value ? 'Ready' : 'Error',
+              service.isInitialized.value
+                  ? 'text_geocoding_ready'.tr
+                  : 'text_error'.tr,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 10,
@@ -134,11 +139,11 @@ class GeocodingInfoButton extends StatelessWidget {
 
     Get.dialog(
       AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.location_on, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('Geocoding Service'),
+            const Icon(Icons.location_on, color: Colors.blue),
+            const SizedBox(width: 8),
+            Text('text_geocoding_service'.tr),
           ],
         ),
         content: Column(
@@ -146,38 +151,49 @@ class GeocodingInfoButton extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInfoRow(
-              'Status',
-              service.isInitialized.value ? 'Ready' : 'Not Ready',
+              'label_geocoding_status'.tr,
+              service.isInitialized.value
+                  ? 'text_geocoding_ready'.tr
+                  : 'text_geocoding_not_ready'.tr,
             ),
-            _buildInfoRow('Active Requests', '${service.activeRequests.value}'),
-            _buildInfoRow('Has Isolate', status['hasIsolate'] ? 'Yes' : 'No'),
-            _buildInfoRow('Has SendPort', status['hasSendPort'] ? 'Yes' : 'No'),
+            _buildInfoRow(
+              'label_geocoding_active_requests'.tr,
+              '${service.activeRequests.value}',
+            ),
+            _buildInfoRow(
+              'label_geocoding_has_isolate'.tr,
+              status['hasIsolate'] ? 'text_yes'.tr : 'text_no'.tr,
+            ),
+            _buildInfoRow(
+              'label_geocoding_has_sendport'.tr,
+              status['hasSendPort'] ? 'text_yes'.tr : 'text_no'.tr,
+            ),
             const SizedBox(height: 16),
-            const Text(
-              'This service handles reverse geocoding in background isolates to prevent UI blocking.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+            Text(
+              'text_this_service_handles_reverse_geocoding_in_backgroun'.tr,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('OK')),
+          TextButton(onPressed: () => Get.back(), child: Text('text_ok_4'.tr)),
           if (!service.isInitialized.value)
             TextButton(
               onPressed: () async {
                 Get.back();
                 await service.ensureInitialized();
                 Get.snackbar(
-                  'Service',
+                  'snackbar_service'.tr,
                   service.isInitialized.value
-                      ? 'Initialized successfully'
-                      : 'Failed to initialize',
+                      ? 'text_initialized_successfully'.tr
+                      : 'text_failed_to_initialize'.tr,
                   backgroundColor:
                       service.isInitialized.value ? Colors.green : Colors.red,
                   colorText: Colors.white,        duration: const Duration(seconds: 2),
 
                 );
               },
-              child: const Text('Retry Init'),
+              child: Text('text_retry_init'.tr),
             ),
         ],
       ),

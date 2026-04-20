@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/connectivity_service.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class InternetRequiredScreen extends StatefulWidget {
   const InternetRequiredScreen({super.key});
@@ -200,7 +201,7 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
 
                     // Title with theme colors
                     Text(
-                      'Internet Connection Required',
+                      'text_internet_connection_required'.tr,
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
@@ -216,7 +217,7 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
 
                     // Description with better typography
                     Text(
-                      'Internet connection is required to download map tiles. Once tiles are downloaded, you can use the app fully in offline mode.',
+                      'text_internet_connection_is_required_to_download_map_til'.tr,
                       style: TextStyle(
                         fontSize: 16,
                         color:
@@ -385,8 +386,8 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                           }
                         },
                         icon: const Icon(Icons.refresh_rounded, size: 20),
-                        label: const Text(
-                          'Check Connection',
+                        label: Text(
+                          'text_check_connection'.tr,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -431,7 +432,7 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Once map tiles are downloaded, you can use the app without internet connection.',
+                              'text_once_map_tiles_are_downloaded_you_can_use_the_app_w'.tr,
                               style: TextStyle(
                                 fontSize: 14,
                                 color:
@@ -519,7 +520,7 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Connection Options',
+                      'text_connection_options'.tr,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -541,22 +542,18 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                     // WiFi Option
                     _buildOptionTile(
                       icon: Icons.wifi_rounded,
-                      title: 'WiFi Settings',
-                      subtitle: 'Open device WiFi settings',
+                      title: 'title_literal_wifi_settings'.tr,
+                      subtitle: 'subtitle_literal_open_device_wifi_settings'.tr,
                       uiController: uiController,
                       onTap: () {
                         Get.back();
-                        Get.snackbar(
-                          'WiFi Settings',
-                          'Please open WiFi settings from your device settings',
+                        showTrSnackbar('snackbar_wifi_settings', 
                           snackPosition: SnackPosition.BOTTOM,
                           backgroundColor: uiController.currentMainColor
                               .withValues(alpha: 0.9),
                           colorText: Colors.white,
                           borderRadius: 12,
-                          margin: const EdgeInsets.all(16),        duration: const Duration(seconds: 2),
-
-                        );
+                          margin: const EdgeInsets.all(16),        duration: const Duration(seconds: 2),);
                       },
                     ),
                     const SizedBox(height: 12),
@@ -564,22 +561,18 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                     // Mobile Data Option
                     _buildOptionTile(
                       icon: Icons.signal_cellular_alt_rounded,
-                      title: 'Mobile Data',
-                      subtitle: 'Check mobile data connection',
+                      title: 'title_literal_mobile_data'.tr,
+                      subtitle: 'subtitle_literal_check_mobile_data_connection'.tr,
                       uiController: uiController,
                       onTap: () {
                         Get.back();
-                        Get.snackbar(
-                          'Mobile Data',
-                          'Please check your mobile data connection in device settings',
+                        showTrSnackbar('snackbar_mobile_data', 
                           snackPosition: SnackPosition.BOTTOM,
                           backgroundColor: uiController.currentMainColor
                               .withValues(alpha: 0.9),
                           colorText: Colors.white,
                           borderRadius: 12,
-                          margin: const EdgeInsets.all(16),        duration: const Duration(seconds: 2),
-
-                        );
+                          margin: const EdgeInsets.all(16),        duration: const Duration(seconds: 2),);
                       },
                     ),
                     const SizedBox(height: 24),
@@ -605,7 +598,7 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                           ),
                         ),
                         child: Text(
-                          'Close',
+                          'text_close'.tr,
                           style: TextStyle(
                             color: uiController.currentMainColor,
                             fontSize: 16,

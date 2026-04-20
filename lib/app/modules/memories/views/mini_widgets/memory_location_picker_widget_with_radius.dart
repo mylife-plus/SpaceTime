@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
@@ -14,12 +16,41 @@ class MemoryLocationPickerWidgetWithRadius extends StatefulWidget {
 }
 
 class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetWithRadius> {
-  final MemoryLocationPickerControllerWithRadius controller =
-      Get.put(MemoryLocationPickerControllerWithRadius());
+  static const String _pickerGetxTag = 'memory_location_picker_with_radius';
+
+  late final MemoryLocationPickerControllerWithRadius controller;
 
   /// Avoid restarting style load when Obx rebuilds (e.g. error message text).
   String? _styleFutureServerKey;
   Future<String>? _memoizedStyleFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<MemoryLocationPickerControllerWithRadius>(
+        tag: _pickerGetxTag)) {
+      Get.delete<MemoryLocationPickerControllerWithRadius>(
+        tag: _pickerGetxTag,
+        force: true,
+      );
+    }
+    controller = Get.put(
+      MemoryLocationPickerControllerWithRadius(),
+      tag: _pickerGetxTag,
+    );
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<MemoryLocationPickerControllerWithRadius>(
+        tag: _pickerGetxTag)) {
+      Get.delete<MemoryLocationPickerControllerWithRadius>(
+        tag: _pickerGetxTag,
+        force: true,
+      );
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +77,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
           ),
           const SizedBox(height: 16),
           Text(
-            'Error',
+            'text_error_3'.tr,
             style: AppFonts.medium(18, color: Colors.red),
           ),
           const SizedBox(height: 8),
@@ -58,7 +89,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: controller.initializeLocationPicker,
-            child: const Text('Retry'),
+            child: Text('text_retry_4'.tr),
           ),
         ],
       ),
@@ -113,7 +144,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
                 Text(
-                  'Loading map style...',
+                  'text_loading_map_style_2'.tr,
                   style: TextStyle(color: Colors.white),
                 ),
               ],
@@ -139,10 +170,10 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
         }
 
         if (!snapshot.hasData || snapshot.data == null) {
-          return const Center(
+          return Center(
             child: Text(
-              'Map style unavailable',
-              style: TextStyle(color: Colors.white70),
+              'text_map_style_unavailable'.tr,
+              style: const TextStyle(color: Colors.white70),
             ),
           );
         }
@@ -152,7 +183,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
                 child: mapbox.MapWidget(
             key: const ValueKey('memory_location_picker_map'),
             cameraOptions: controller.getCameraOptions(),
-            textureView: true,
+            textureView: Platform.isAndroid,
             
             onMapCreated: (mapboxMap) async {
               debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
@@ -233,7 +264,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
         color: isDark ? Colors.white : Colors.black87,
       ),
       decoration: InputDecoration(
-        hintText: 'Search locations...',
+        hintText: 'hinttext_search_locations_3'.tr,
         hintStyle: AppFonts.regular(
           16,
           color: isDark ? Colors.white54 : Colors.grey[600]!,
@@ -467,7 +498,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
                       color: controller.uiController.currentMainColor,
                     ),
                   ),Text(
-                    'radius',
+                    'text_radius'.tr,
                     style: AppFonts.bold(
                       14,
                       color: isDark ? Colors.white70 : Colors.grey[700]!,

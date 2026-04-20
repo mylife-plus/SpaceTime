@@ -33,9 +33,9 @@ class SearchableContactWidget extends StatefulWidget {
   /// Border radius for the container (optional)
   final double? borderRadius;
 
-  const SearchableContactWidget({
+  SearchableContactWidget({
     super.key,
-    this.title = 'Search Contacts',
+    String? title,
     required this.onContactSelected,
     this.onGroupSelected,
     this.onMultipleGroupsSelectedFromPicker,
@@ -47,7 +47,7 @@ class SearchableContactWidget extends StatefulWidget {
     this.previouslySelectedContacts,
     this.isInFilterMode = false,
     this.borderRadius,
-  });
+  }) : title = title ?? 'title_literal_search_contacts'.tr;
 
   @override
   State<SearchableContactWidget> createState() => _SearchableContactWidgetState();
@@ -645,7 +645,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
     final allItems = <Widget>[];
 
     if (hasSearchQuery && !hasResults) {
-      // Show "No contacts found" message
+      // Show 'text_no_contacts_found'.tr message
       allItems.add(Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -655,12 +655,12 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         ),
       ));
     } else if (!hasSearchQuery && !hasRecent) {
-      // Show "No recent contacts" message
+      // Show 'text_no_recent_contacts'.tr message
       allItems.add(Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         child: Text(
-          'No recent contacts',
+          'text_no_recent_contacts'.tr,
           style: AppFonts.medium(
             14,
             color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
@@ -698,9 +698,9 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
         allItems.add(Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
-              child: const Text(
-                'No contacts found',
-                style: TextStyle(color: Colors.grey),
+              child: Text(
+                'text_no_contacts_found_2'.tr,
+                style: const TextStyle(color: Colors.grey),
               ),
             ));
       }
@@ -746,7 +746,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
               ),
             if (!isMainGroup)
               Text(
-                '@',
+                'text_5'.tr,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -792,7 +792,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
               ),
             if (!group.isMainGroup)
               Text(
-                '@',
+                'text_6'.tr,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -881,7 +881,7 @@ class _SearchableContactWidgetState extends State<SearchableContactWidget> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Center(
                   child: Text(
-                    'See List',
+                    'text_see_list_4'.tr,
                     style: AppFonts.medium(fontSize, color: uiController.currentMainColor),
                   ),
                 ),

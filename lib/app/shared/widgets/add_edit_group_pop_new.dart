@@ -13,6 +13,7 @@ import 'package:spacetime/app/services/hashtag_group_service.dart';
 import 'package:spacetime/app/services/contact_group_service.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Popup for adding/editing groups (place categories, hashtag groups, or contact groups)
 class AddEditGroupPopupNew extends StatefulWidget {
@@ -194,7 +195,7 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Select Icon',
+                'text_select_icon'.tr,
                 style: AppFonts.medium(18,
                   color: uiController.darkMode.value ? Colors.white : Colors.black87),
               ),
@@ -375,13 +376,10 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
     if (_selectedParentId.value == 'add_new_main_category') {
       final groupName = _nameController.text.trim();
       if (groupName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Hashtag Group name required',
+        showTrSnackbar('snackbar_validation_error_10', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
     }
@@ -390,13 +388,10 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
 
     // Validation
     if (hashtagName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a hashtag name',
+      showTrSnackbar('snackbar_validation_error_11', 
         backgroundColor: Colors.orange,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -425,13 +420,10 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
             : hashtagName;
 
         if (groupName.isEmpty) {
-          Get.snackbar(
-            'Validation Error',
-            'Please enter a hashtag group name',
+          showTrSnackbar('snackbar_validation_error_12', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -439,33 +431,24 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         newGroup = await _hashtagGroupService.addCustomGroup(groupName);
 
         if (newGroup == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Hashtag Group',
+          showTrSnackbar('snackbar_error_32', 
             backgroundColor: Colors.red,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -1) {
-          Get.snackbar(
-            'Duplicate Hashtag Group',
-            'Hashtag Group with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_hashtag_group', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Hashtag in another group.',
+          showTrSnackbar('snackbar_name_conflict_22', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -478,33 +461,24 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         newGroup = await _hashtagGroupService.addCustomGroup(hashtagName, parentId: parentId);
 
         if (newGroup == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Hashtag',
+          showTrSnackbar('snackbar_error_33', 
             backgroundColor: Colors.red,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -1) {
-          Get.snackbar(
-            'Duplicate Hashtag',
-            'Hashtag with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_hashtag_10', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -4) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by the Hashtag Group.',
+          showTrSnackbar('snackbar_name_conflict_23', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -512,25 +486,19 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         Get.back();
         widget.onHashtagGroupAdded?.call(newGroup);
       } else {
-        Get.snackbar(
-          'Validation Error',
-          'Please select a Hashtag Group',
+        showTrSnackbar('snackbar_validation_error_13', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         _isLoading.value = false;
         return;
       }
     } catch (e) {
       debugPrint('[AddEditGroupPopupNew][_addOrEditHashtagGroup] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to add hashtag: $e',
+      showTrSnackbar('snackbar_error_34', args: [e], 
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     } finally {
       _isLoading.value = false;
     }
@@ -548,13 +516,10 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
     if (_selectedParentId.value == 'add_new_main_category') {
       final groupName = _nameController.text.trim();
       if (groupName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Contact Group name required',
+        showTrSnackbar('snackbar_validation_error_14', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
     }
@@ -563,13 +528,10 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
 
     // Validation
     if (contactName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a contact name',
+      showTrSnackbar('snackbar_validation_error_15', 
         backgroundColor: Colors.orange,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -598,13 +560,10 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
             : contactName;
 
         if (groupName.isEmpty) {
-          Get.snackbar(
-            'Validation Error',
-            'Please enter a contact group name',
+          showTrSnackbar('snackbar_validation_error_16', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -612,33 +571,24 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         newGroup = await _contactGroupService.addCustomGroup(groupName);
 
         if (newGroup == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Contact Group',
+          showTrSnackbar('snackbar_error_35', 
             backgroundColor: Colors.red,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -1) {
-          Get.snackbar(
-            'Duplicate Contact Group',
-            'Contact Group with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_contact_group', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Contact in another group.',
+          showTrSnackbar('snackbar_name_conflict_24', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -651,33 +601,24 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         newGroup = await _contactGroupService.addCustomGroup(contactName, parentId: parentId);
 
         if (newGroup == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Contact',
+          showTrSnackbar('snackbar_error_36', 
             backgroundColor: Colors.red,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -1) {
-          Get.snackbar(
-            'Duplicate Contact',
-            'Contact with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_contact_10', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -4) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by the Contact Group.',
+          showTrSnackbar('snackbar_name_conflict_25', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -685,25 +626,19 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         Get.back();
         widget.onContactGroupAdded?.call(newGroup);
       } else {
-        Get.snackbar(
-          'Validation Error',
-          'Please select a Contact Group',
+        showTrSnackbar('snackbar_validation_error_17', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         _isLoading.value = false;
         return;
       }
     } catch (e) {
       debugPrint('[AddEditGroupPopupNew][_addOrEditContactGroup] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to add contact: $e',
+      showTrSnackbar('snackbar_error_37', args: [e], 
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     } finally {
       _isLoading.value = false;
     }
@@ -716,13 +651,9 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
        if (_selectedParentId.value == 'add_new_main_category') {
       final categoryName = _nameController.text.trim();
       if (categoryName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Category name required',
+        showTrSnackbar('snackbar_validation_error_18', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
     }
@@ -735,13 +666,9 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
     if (_selectedParentId.value == 'add_new_main_category') {
       final categoryName = _nameController.text.trim();
       if (categoryName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Category name required',
+        showTrSnackbar('snackbar_validation_error_18', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
     }
@@ -751,13 +678,9 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
 
     // Validation
     if (placeName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a place name',
+      showTrSnackbar('snackbar_validation_error_20', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -766,13 +689,9 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         _selectedParentId.value != 'add_new_main_category') ||
         widget.fromMemoryView) &&
         placeEmoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select an icon',
+      showTrSnackbar('snackbar_validation_error_21', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -802,13 +721,9 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
             : placeName;
 
         if (categoryName.isEmpty) {
-          Get.snackbar(
-            'Validation Error',
-            'Please enter a place category name',
+          showTrSnackbar('snackbar_validation_error_22', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -820,33 +735,21 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         );
 
         if (newCategory == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place category',
+          showTrSnackbar('snackbar_error_38', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
-          Get.snackbar(
-            'Duplicate Place category',
-            'Place category with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_category', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Place in another Place category.',
+          showTrSnackbar('snackbar_name_conflict_26', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -876,33 +779,21 @@ class _AddEditGroupPopupNewState extends State<AddEditGroupPopupNew> {
         );
 
         if (newCategory == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place',
+          showTrSnackbar('snackbar_error_39', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
-          Get.snackbar(
-            'Duplicate Place',
-            'Place with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_2', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -4) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by the Place category.',
+          showTrSnackbar('snackbar_name_conflict_27', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -928,25 +819,17 @@ Navigator.of(context).pop();
         // );
       } else {
         // No parent selected
-        Get.snackbar(
-          'Validation Error',
-          'Please select a Place category',
+        showTrSnackbar('snackbar_validation_error_23', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         _isLoading.value = false;
         return;
       }
     } catch (e) {
       debugPrint('[AddPlaceCategoryPopup][_addCategory] Error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to add place: $e',
+      showTrSnackbar('snackbar_error_40', args: [e], 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     } finally {
       _isLoading.value = false;
     }
@@ -962,13 +845,9 @@ Navigator.of(context).pop();
 
     // Validation
     if (placeName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a place name',
+      showTrSnackbar('snackbar_validation_error_24', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -976,26 +855,18 @@ Navigator.of(context).pop();
     if (_selectedParentId.value == 'add_new_main_category') {
       final categoryName = _nameController.text.trim();
       if (categoryName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Category name required',
+        showTrSnackbar('snackbar_validation_error_19', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
     }
 
     // Validate emoji when editing from Memory View
     if (widget.fromMemoryView && placeEmoji.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select an icon',
+      showTrSnackbar('snackbar_validation_error_26', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1005,13 +876,9 @@ Navigator.of(context).pop();
         widget.editCategory == null &&
         _selectedParentId.value.isEmpty &&
         _mainCategories.isNotEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please select a Place Category',
+      showTrSnackbar('snackbar_validation_error_27', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1032,33 +899,21 @@ Navigator.of(context).pop();
         );
 
         if (newCategory == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Place category',
+          showTrSnackbar('snackbar_error_41', 
             backgroundColor: Colors.red,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -1) {
-          Get.snackbar(
-            'Duplicate Place category',
-            'Place category with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_place_category_2', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newCategory.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Place in another Place category.',
+          showTrSnackbar('snackbar_name_conflict_28', 
             backgroundColor: Colors.orange,
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -1103,40 +958,24 @@ Navigator.of(context).pop();
 
       
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update Place',
+        showTrSnackbar('snackbar_error_42', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[AddPlaceCategoryPopup][_editCategory] Error: $e');
       if (e.toString().contains('DUPLICATE_CATEGORY_NAME')) {
-        Get.snackbar(
-          'Duplicate Place',
-          'Place with this name already exists.',
+        showTrSnackbar('snackbar_duplicate_place_3', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else if (e.toString().contains('SUBCATEGORY_CONFLICTS_WITH_PARENT')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by the Place category.',
+        showTrSnackbar('snackbar_name_conflict_29', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update Place',
+        showTrSnackbar('snackbar_error_42', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     } finally {
       _isLoading.value = false;
@@ -1149,13 +988,10 @@ Navigator.of(context).pop();
 
     // Validation
     if (hashtagName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a hashtag name',
+      showTrSnackbar('snackbar_validation_error_11', 
         backgroundColor: Colors.orange,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1163,13 +999,10 @@ Navigator.of(context).pop();
     if (_selectedParentId.value == 'add_new_main_category') {
       final groupName = _nameController.text.trim();
       if (groupName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Hashtag Group name required',
+        showTrSnackbar('snackbar_validation_error_10', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
     }
@@ -1187,33 +1020,24 @@ Navigator.of(context).pop();
         final newGroup = await _hashtagGroupService.addCustomGroup(groupName);
 
         if (newGroup == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Hashtag Group',
+          showTrSnackbar('snackbar_error_32', 
             backgroundColor: Colors.red,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -1) {
-          Get.snackbar(
-            'Duplicate Hashtag Group',
-            'Hashtag Group with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_hashtag_group_2', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Hashtag in another group.',
+          showTrSnackbar('snackbar_name_conflict_30', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -1259,40 +1083,29 @@ Navigator.of(context).pop();
     } catch (e) {
       debugPrint('[AddEditGroupPopupNew][_editHashtagGroup] Error: $e');
       if (e.toString().contains('DUPLICATE_HASHTAG_NAME')) {
-        final message = widget.editHashtagGroup!.parentId == null
-            ? 'Hashtag Group with this name already exists.'
-            : 'Hashtag with this name already exists.';
-        Get.snackbar(
-          'Duplicate Hashtag',
-          message,
+        showTrSnackbar(
+          widget.editHashtagGroup!.parentId == null
+              ? 'snackbar_duplicate_hashtag_group'
+              : 'snackbar_duplicate_hashtag',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
           duration: const Duration(seconds: 2),
         );
       } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by a hashtag in another group.',
+        showTrSnackbar('snackbar_name_conflict_31', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
       } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by the parent group.',
+        showTrSnackbar('snackbar_name_conflict_35', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update hashtag: $e',
+        showTrSnackbar('snackbar_error_45', args: [e], 
           backgroundColor: Colors.red,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
       }
     } finally {
       _isLoading.value = false;
@@ -1305,13 +1118,10 @@ Navigator.of(context).pop();
 
     // Validation
     if (contactName.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a contact name',
+      showTrSnackbar('snackbar_validation_error_30', 
         backgroundColor: Colors.orange,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1319,13 +1129,10 @@ Navigator.of(context).pop();
     if (_selectedParentId.value == 'add_new_main_category') {
       final groupName = _nameController.text.trim();
       if (groupName.isEmpty) {
-        Get.snackbar(
-          'Validation Error',
-          'Contact Group name required',
+        showTrSnackbar('snackbar_validation_error_31', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
     }
@@ -1343,33 +1150,24 @@ Navigator.of(context).pop();
         final newGroup = await _contactGroupService.addCustomGroup(groupName);
 
         if (newGroup == null) {
-          Get.snackbar(
-            'Error',
-            'Failed to add Contact Group',
+          showTrSnackbar('snackbar_error_46', 
             backgroundColor: Colors.red,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -1) {
-          Get.snackbar(
-            'Duplicate Contact Group',
-            'Contact Group with this name already exists.',
+          showTrSnackbar('snackbar_duplicate_contact_group_2', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         } else if (newGroup.id == -3) {
-          Get.snackbar(
-            'Name Conflict',
-            'This name is already used by a Contact in another group.',
+          showTrSnackbar('snackbar_name_conflict_33', 
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           _isLoading.value = false;
           return;
         }
@@ -1415,40 +1213,29 @@ Navigator.of(context).pop();
     } catch (e) {
       debugPrint('[AddEditGroupPopupNew][_editContactGroup] Error: $e');
       if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
-        final message = widget.editContactGroup!.parentId == null
-            ? 'Contact Group with this name already exists.'
-            : 'Contact with this name already exists.';
-        Get.snackbar(
-          'Duplicate Contact',
-          message,
+        showTrSnackbar(
+          widget.editContactGroup!.parentId == null
+              ? 'snackbar_duplicate_contact_group'
+              : 'snackbar_duplicate_contact',
           backgroundColor: Colors.orange,
           colorText: Colors.white,
           duration: const Duration(seconds: 2),
         );
       } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by a contact in another group.',
+        showTrSnackbar('snackbar_name_conflict_34', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
       } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by the parent group.',
+        showTrSnackbar('snackbar_name_conflict_32', 
           backgroundColor: Colors.orange,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
       } else {
-        Get.snackbar(
-          'Error',
-          'Failed to update contact: $e',
+        showTrSnackbar('snackbar_error_47', args: [e], 
           backgroundColor: Colors.red,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
       }
     } finally {
       _isLoading.value = false;
@@ -1459,28 +1246,28 @@ Navigator.of(context).pop();
   String _getTitleText() {
     if (_isHashtagMode) {
       if (widget.editHashtagGroup != null) {
-        return '# edit Hashtag';
+        return 'add_edit_popup_title_edit_hashtag'.tr;
       } else if (widget.isMainCategory) {
-        return '# new Hashtag Group';
+        return 'add_edit_popup_title_new_hashtag_group'.tr;
       } else {
-        return '# new Hashtag';
+        return 'add_edit_popup_title_new_hashtag'.tr;
       }
     } else if (_isContactMode) {
       if (widget.editContactGroup != null) {
-        return '@ edit Contact';
+        return 'add_edit_popup_title_edit_contact'.tr;
       } else if (widget.isMainCategory) {
-        return '@ new Contact Group';
+        return 'add_edit_popup_title_new_contact_group'.tr;
       } else {
-        return '@ new Contact';
+        return 'add_edit_popup_title_new_contact'.tr;
       }
     } else {
       // Place mode
       if (widget.editCategory != null) {
-        return '📍 edit Place';
+        return 'add_edit_popup_title_edit_place'.tr;
       } else if (widget.isMainCategory) {
-        return '📍 new Place Category';
+        return 'add_edit_popup_title_new_place_category'.tr;
       } else {
-        return '📍 new Place';
+        return 'add_edit_popup_title_new_place'.tr;
       }
     }
   }
@@ -1488,22 +1275,22 @@ Navigator.of(context).pop();
   /// Get category/group label text
   String _getCategoryLabelText() {
     if (_isHashtagMode) {
-      return 'Hashtag Group';
+      return 'l10n_group_label_h'.tr;
     } else if (_isContactMode) {
-      return 'Contact Group';
+      return 'l10n_group_label_c'.tr;
     } else {
-      return 'Place Category';
+      return 'hinttext_place_category'.tr;
     }
   }
 
   /// Get item name label text
   String _getItemNameLabelText() {
     if (_isHashtagMode) {
-      return 'Hashtag Name';
+      return trKey('hinttext_isplacemode_category_group_name', ['l10n_label_hashtag'.tr]);
     } else if (_isContactMode) {
-      return 'Contact Name';
+      return trKey('hinttext_isplacemode_category_group_name', ['l10n_label_contact'.tr]);
     } else {
-      return 'Place Name';
+      return 'hinttext_place_name'.tr;
     }
   }
 
@@ -1645,7 +1432,9 @@ Navigator.of(context).pop();
                           child: DropdownButton<String>(
                             value: hasValidValue && selectedValue.isNotEmpty ? selectedValue : null,
                             hint: Text(
-                              'Select ${_getCategoryLabelText()}',
+                              trKey('text_select_getcategorylabeltext', [
+                                _getCategoryLabelText(),
+                              ]),
                               style: GoogleFonts.kumbhSans(
                                 fontSize: 16,
                                 color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
@@ -1662,7 +1451,11 @@ Navigator.of(context).pop();
                               DropdownMenuItem<String>(
                                 value: 'add_new_main_category',
                                 child: Text(
-                                  '+ Add New ${_isPlaceMode ? "Category" : "Group"}',
+                                  trKey('text_add_new_isplacemode_category_group', [
+                                    _isPlaceMode
+                                        ? 'l10n_word_category'.tr
+                                        : 'text_group'.tr,
+                                  ]),
                                   style: GoogleFonts.kumbhSans(
                                     fontSize: 16,
                                     color: uiController.currentMainColor,
@@ -1749,7 +1542,19 @@ Navigator.of(context).pop();
                                   color: uiController.darkMode.value ? Colors.white : Colors.black87,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: '${_isPlaceMode ? "Category" : "Group"} Name',
+                                  hintText: _isPlaceMode
+                                      ? trKey(
+                                          'hinttext_isplacemode_category_group_name',
+                                          ['l10n_word_category'.tr],
+                                        )
+                                      : (_isHashtagMode
+                                          ? 'l10n_group_name_label_h'.tr
+                                          : _isContactMode
+                                              ? 'l10n_group_name_label_c'.tr
+                                              : trKey(
+                                                  'hinttext_isplacemode_category_group_name',
+                                                  ['text_group'.tr],
+                                                )),
                                   hintStyle: GoogleFonts.kumbhSans(
                                     fontSize: 16,
                                     color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
@@ -1790,7 +1595,7 @@ Navigator.of(context).pop();
                             child: DropdownButton<String>(
                               value: hasValidValue && selectedValue.isNotEmpty ? selectedValue : null,
                               hint: Text(
-                                'select Places',
+                                'text_select_places'.tr,
                                 style: GoogleFonts.kumbhSans(
                                   fontSize: 16,
                                   color: uiController.darkMode.value ? Colors.white70 : Colors.black87,
@@ -1807,7 +1612,7 @@ Navigator.of(context).pop();
                                 DropdownMenuItem<String>(
                                   value: 'add_new_main_category',
                                   child: Text(
-                                    '+ Add New Category',
+                                    'text_add_new_category'.tr,
                                     style: GoogleFonts.kumbhSans(
                                       fontSize: 16,
                                       color: uiController.currentMainColor,
@@ -1868,7 +1673,7 @@ Navigator.of(context).pop();
                                     color: uiController.darkMode.value ? Colors.white : Colors.black87,
                                   ),
                                   decoration: InputDecoration(
-                                    hintText: 'Places Name',
+                                    hintText: 'hinttext_places_name'.tr,
                                     hintStyle: GoogleFonts.kumbhSans(
                                       fontSize: 16,
                                       color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
@@ -1974,7 +1779,11 @@ Navigator.of(context).pop();
                             ),
                             decoration: InputDecoration(
                               hintText: widget.isMainCategory
-                                  ? _getCategoryLabelText()
+                                  ? (_isHashtagMode
+                                      ? 'l10n_group_name_label_h'.tr
+                                      : _isContactMode
+                                          ? 'l10n_group_name_label_c'.tr
+                                          : 'hinttext_category_name'.tr)
                                   : _getItemNameLabelText(),
                               hintStyle: GoogleFonts.kumbhSans(
                                 fontSize: 16,

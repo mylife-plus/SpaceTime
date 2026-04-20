@@ -373,7 +373,7 @@ class _FilterPanelState extends State<FilterPanel>
             ),
             onPressed: widget.onReset,
             child: Text(
-              'reset',
+              'text_reset'.tr,
               style: GoogleFonts.kumbhSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -395,7 +395,7 @@ class _FilterPanelState extends State<FilterPanel>
             ),
             onPressed: widget.onApply,
             child: Text(
-              'filter',
+              'text_filter'.tr,
               style: GoogleFonts.kumbhSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,

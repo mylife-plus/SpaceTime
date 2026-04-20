@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../config/app_locale.dart';
+import '../../../config/supported_languages.dart';
 import '../../../../services/app_lock_controller.dart';
 
 class UiController extends GetxController {
@@ -24,6 +26,19 @@ class UiController extends GetxController {
   void setMainColor(String color) {
     mainColor.value = color;
     _saveMainColor(color);
+  }
+
+  Future<void> setLanguage(String code) async {
+    final normalized =
+        kSupportedLanguages.any((l) => l.code == code) ? code : 'en';
+    selectedLanguage.value = normalized;
+    Get.updateLocale(appLocaleFromLanguageCode(normalized));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selected_language', normalized);
+    } catch (e) {
+      debugPrint('[UiController] Error saving language: $e');
+    }
   }
 
   void setDarkMode(bool isDark) {
@@ -83,6 +98,14 @@ class UiController extends GetxController {
 
       phoneVerificationEnabled.value =
           prefs.getBool('app_lock_enabled') ?? false;
+
+      final savedLang = prefs.getString('selected_language') ?? 'en';
+      if (kSupportedLanguages.any((l) => l.code == savedLang)) {
+        selectedLanguage.value = savedLang;
+      } else {
+        selectedLanguage.value = 'en';
+      }
+      Get.updateLocale(appLocaleFromLanguageCode(selectedLanguage.value));
 
       debugPrint('[UiController] Preferences loaded - Dark mode: $savedDarkMode, Main color: $savedMainColor');
     } catch (e) {

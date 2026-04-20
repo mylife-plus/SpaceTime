@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import '../../controllers/memory_controller.dart';
@@ -447,9 +448,9 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
         final lastChar = cursorPos > 0 ? text[cursorPos - 1] : '';
 
         if (lastChar == ' ' || lastChar == '\n') {
-          Get.snackbar(
-            'Space Not Allowed',
-            'Spaces are not allowed in ${triggerChar == '#' ? 'hashtags' : 'mentions'}',
+          showTrSnackbar(
+            'snackbar_space_not_allowed',
+            args: [triggerChar == '#' ? 'hashtags' : 'mentions'],
             backgroundColor: Colors.orange,
             colorText: Colors.white,
             duration: const Duration(seconds: 2),
@@ -525,6 +526,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: 0.3),
       builder: (BuildContext context) {
@@ -620,6 +622,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       barrierColor: Colors.black.withValues(alpha: 0.3),
       builder: (BuildContext context) {
@@ -917,7 +920,7 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               border: InputBorder.none,
               isDense: true,
               contentPadding: EdgeInsets.zero,
-              hintText: 'my memory... ',
+              hintText: 'hinttext_my_memory'.tr,
               hintStyle: GoogleFonts.kumbhSans(
                 fontWeight: FontWeight.w500,
                 color: controller.darkMode.value ? Colors.white : Colors.grey,

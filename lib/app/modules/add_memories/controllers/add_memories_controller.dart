@@ -15,6 +15,7 @@ import '../../../services/place_category_service.dart';
 import 'dart:math';
 import 'package:spacetime/app/utils/search_utils.dart';
 import '../../filter/controllers/filter_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   // ============================================================================
@@ -1064,15 +1065,12 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
     // Show hint if location is set but radius is empty
     if (location.isNotEmpty && selectedRadius.value.isEmpty) {
-      Get.snackbar(
-        'Hint',
-        'Don\'t forget to set the radius for location-based filtering',
+      showTrSnackbar('snackbar_hint', 
         backgroundColor: Colors.orange.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1082,15 +1080,12 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
     // Show hint if radius is set but location is empty
     if (radius.isNotEmpty && selectedLocation.value.isEmpty) {
-      Get.snackbar(
-        'Hint',
-        'Please select a location to use with the radius filter',
+      showTrSnackbar('snackbar_hint_2', 
         backgroundColor: Colors.orange.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1815,28 +1810,22 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     final hasRadius = selectedRadius.value.isNotEmpty;
 
     if (hasLocation && !hasRadius) {
-      Get.snackbar(
-        'Radius Required',
-        'Radius is required when location is selected',
+      showTrSnackbar('snackbar_radius_required', 
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
       return;
     }
 
     if (hasRadius && !hasLocation) {
-      Get.snackbar(
-        'Location Required',
-        'Location is required when radius is specified',
+      showTrSnackbar('snackbar_location_required', 
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -1851,15 +1840,12 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
         final toDateOnly = DateTime(to.year, to.month, to.day);
 
         if (toDateOnly.isBefore(fromDateOnly)) {
-          Get.snackbar(
-            'Invalid Date Range',
-            'To Date cannot be earlier than From Date',
+          showTrSnackbar('snackbar_invalid_date_range', 
             backgroundColor: Colors.red.shade400,
             colorText: Colors.white,
             margin: const EdgeInsets.all(12),
             snackPosition: SnackPosition.TOP,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
           return;
         }
       } catch (e) {

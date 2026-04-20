@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/custom_dialogue_box.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MemoryImageWidget extends StatelessWidget {
   final String? imagePath;
@@ -79,18 +80,14 @@ class MemoryImageWidget extends StatelessWidget {
                 child: GestureDetector(
                   onLongPress: () {
                     showDeleteConfirmationDialog(
-                      title: 'Delete Image',
-                      message: 'Do you want to delete this image?',
+                      title: 'title_literal_delete_image'.tr,
+                      message: 'dialog_content_delete_this_image'.tr,
                       onConfirm: () {
-                        Get.snackbar(
-                          'Deleted',
-                          'Your image has been successfully deleted.',
+                        showTrSnackbar('snackbar_deleted', 
                           snackPosition: SnackPosition.BOTTOM,
                           backgroundColor: Colors.red.shade400,
                           colorText: Colors.white,
-                          margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),
-
-                        );
+                          margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),);
                       },
                     );
                   },
@@ -130,7 +127,7 @@ class MemoryImageWidget extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Add Photo',
+                              'text_add_photo'.tr,
                               style: TextStyle(
                                 fontSize: 12,
                                 color:

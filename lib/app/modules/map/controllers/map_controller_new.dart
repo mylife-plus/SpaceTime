@@ -33,6 +33,7 @@ import '../../../routes/app_pages.dart';
 import '../views/mini_widgets/bottom_info.dart';
 import '../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MapControllerNew extends GetxController {
   // Constructor with logging
@@ -966,13 +967,10 @@ class MapControllerNew extends GetxController {
 
         // For MapBox native clustering, we might have a count but empty memories list
         // In this case, try to show a fallback error or handle it differently
-        Get.snackbar(
-          'Error',
-          'No memory data available for this location. This might be a clustering issue.',
+        showTrSnackbar('snackbar_error_6', 
           backgroundColor: Colors.orange.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
 
@@ -1010,13 +1008,10 @@ class MapControllerNew extends GetxController {
           debugPrint(
             '[MapControllerNew] Memory data that failed: ${cluster.memories.first}',
           );
-          Get.snackbar(
-            'Error',
-            'Failed to load memory data: ${memoryError.toString()}',
+          showTrSnackbar('snackbar_error_7', args: [memoryError.toString()], 
             backgroundColor: Colors.red.withValues(alpha: 0.8),
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
         }
       } else if (cluster.count > 1) {
         // Cluster marker with multiple memories - drill down
@@ -1029,13 +1024,10 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] ⚠️ Unexpected cluster state - count: ${cluster.count}, memories: ${cluster.memories.length}',
         );
-        Get.snackbar(
-          'Info',
-          'This location doesn\'t have accessible memory data (count: ${cluster.count})',
+        showTrSnackbar('snackbar_info', args: [cluster.count], 
           backgroundColor: Colors.blue.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[MapControllerNew] Error handling cluster tap: $e');
@@ -1045,13 +1037,10 @@ class MapControllerNew extends GetxController {
       );
 
       // Show user-friendly error
-      Get.snackbar(
-        'Error',
-        'Failed to open memory details. Please try again.',
+      showTrSnackbar('snackbar_error_8', 
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1067,13 +1056,10 @@ class MapControllerNew extends GetxController {
       // Validate we have memories to process
       if (clusterMemories.isEmpty) {
         debugPrint('[MapControllerNew] ⚠️ No memories to drill down into');
-        Get.snackbar(
-          'Error',
-          'No memories found in this cluster',
+        showTrSnackbar('snackbar_error_9', 
           backgroundColor: Colors.red.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
 
@@ -1106,13 +1092,10 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] ⚠️ No valid coordinates found in cluster memories',
         );
-        Get.snackbar(
-          'Error',
-          'No valid location data found for these memories',
+        showTrSnackbar('snackbar_error_10', 
           backgroundColor: Colors.red.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
 
@@ -1137,13 +1120,10 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] ⚠️ No valid MemoryLocation objects created',
         );
-        Get.snackbar(
-          'Error',
-          'Failed to process memory data',
+        showTrSnackbar('snackbar_error_11', 
           backgroundColor: Colors.red.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
 
@@ -1170,13 +1150,10 @@ class MapControllerNew extends GetxController {
       );
 
       // Show user-friendly error
-      Get.snackbar(
-        'Error',
-        'Failed to show cluster details: ${e.toString()}',
+      showTrSnackbar('snackbar_error_12', args: [e.toString()], 
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1231,13 +1208,10 @@ class MapControllerNew extends GetxController {
       // Validate memory data
       if (memory.isEmpty) {
         debugPrint('[MapControllerNew] ⚠️ Empty memory data received');
-        Get.snackbar(
-          'Error',
-          'Invalid memory data',
+        showTrSnackbar('snackbar_error_13', 
           backgroundColor: Colors.red.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
 
@@ -1277,13 +1251,10 @@ class MapControllerNew extends GetxController {
       debugPrint('[MapControllerNew] Memory data: ${memory.toString()}');
 
       // Show user-friendly error
-      Get.snackbar(
-        'Error',
-        'Failed to open memory: ${e.toString()}',
+      showTrSnackbar('snackbar_error_14', args: [e.toString()], 
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1374,15 +1345,12 @@ class MapControllerNew extends GetxController {
 
     // Show hint if location is set but radius is empty
     if (location.isNotEmpty && selectedRadius.value.isEmpty) {
-      Get.snackbar(
-        'Hint',
-        'Don\'t forget to set the radius for location-based filtering',
+      showTrSnackbar('snackbar_hint_3', 
         backgroundColor: Colors.orange.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -2907,12 +2875,9 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] ⚠️ No leaves data returned from cluster',
         );
-        Get.snackbar(
-          'Error',
-          'Could not load cluster memories',
+        showTrSnackbar('snackbar_error_15', 
           snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 2),
-        );
+          duration: const Duration(seconds: 2),);
         return;
       }
 
@@ -3062,7 +3027,7 @@ class MapControllerNew extends GetxController {
                         Get.back(); // Close bottom sheet
                         // TODO: Navigate to memory detail page
                         Get.snackbar(
-                          'Memory Selected',
+                          'snackbar_memory_selected'.tr,
                           title,
                           snackPosition: SnackPosition.BOTTOM,
                           duration: const Duration(seconds: 2),
@@ -3081,12 +3046,9 @@ class MapControllerNew extends GetxController {
     } catch (e, stackTrace) {
       debugPrint('[MapControllerNew] ❌ Error showing cluster memories: $e');
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
-      Get.snackbar(
-        'Error',
-        'Could not load cluster memories',
+      showTrSnackbar('snackbar_error_16', 
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -3753,12 +3715,9 @@ class MapControllerNew extends GetxController {
           debugPrint(
             '[MapControllerNew] ⚠️ No memory IDs found, showing snackbar',
           );
-          Get.snackbar(
-            'Cluster',
-            '$pointCount memories at this location',
+          showTrSnackbar('snackbar_cluster', args: [pointCount], 
             snackPosition: SnackPosition.BOTTOM,
-            duration: const Duration(seconds: 2),
-          );
+            duration: const Duration(seconds: 2),);
         }
       } else {
         // Zoom in smoothly
@@ -3861,13 +3820,10 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] 📋 Available IDs: ${_currentMemories.map((m) => m['id']).take(10).join(", ")}',
         );
-        Get.snackbar(
-          '⚠️ Error',
-          'Memory not found',
+        showTrSnackbar('snackbar_error_17', 
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
+          colorText: Colors.white,);
         return;
       }
 
@@ -3877,13 +3833,10 @@ class MapControllerNew extends GetxController {
         memoryLocation = clustering.MemoryLocation.fromMap(foundMemory);
       } catch (e) {
         debugPrint('[MapControllerNew] ❌ Failed to create MemoryLocation: $e');
-        Get.snackbar(
-          '⚠️ Error',
-          'Failed to load memory details',
+        showTrSnackbar('snackbar_error_18', 
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
+          colorText: Colors.white,);
         return;
       }
 
@@ -4856,7 +4809,7 @@ class MapControllerNew extends GetxController {
 
       // Example: Show a simple snackbar for now
       Get.snackbar(
-        'Memory Tapped',
+        'snackbar_memory_tapped'.tr,
         memoryTitle,
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 2),

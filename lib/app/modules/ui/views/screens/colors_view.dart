@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/config/app_text.dart';
 
 import '../../../../widgets/appbar.dart';
 import '../../controllers/ui_controller.dart';
@@ -8,18 +9,21 @@ import '../mini_widgets/ui_tile.dart';
 class MainColorSelectionView extends StatelessWidget {
   MainColorSelectionView({super.key});
 
-  final List<Map<String, dynamic>> colors = [
-    {'name': 'Blue', 'value': 'blue', 'color': Colors.blue},
-    {'name': 'Red', 'value': 'red', 'color': Colors.red},
-    {'name': 'Green', 'value': 'green', 'color': Colors.green},
-    {'name': 'Purple', 'value': 'purple', 'color': Colors.purple},
+  static const List<Map<String, dynamic>> _colors = [
+    {'value': 'blue', 'color': Colors.blue},
+    {'value': 'red', 'color': Colors.red},
+    {'value': 'green', 'color': Colors.green},
+    {'value': 'purple', 'color': Colors.purple},
   ];
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
 
-    return Scaffold(
+    return Obx(
+      () {
+        final _ = controller.selectedLanguage.value;
+        return Scaffold(
       backgroundColor:
           controller.darkMode.value
               ? controller.darkBackgroundColor
@@ -27,7 +31,7 @@ class MainColorSelectionView extends StatelessWidget {
                 controller.mainColor.value,
               ),
       appBar: CustomAppBar(
-        title: 'Select Theme Color',
+        title: AppTexts.selectThemeColor,
         icon: ShaderMask(
           shaderCallback: (Rect bounds) {
             return const LinearGradient(
@@ -41,13 +45,13 @@ class MainColorSelectionView extends StatelessWidget {
       ),
 
       body: ListView.builder(
-        itemCount: colors.length,
+        itemCount: _colors.length,
         itemBuilder: (context, index) {
-          final colorItem = colors[index];
+          final colorItem = _colors[index];
           final isSelected = controller.mainColor.value == colorItem['value'];
 
           return UiTile(
-            title: colorItem['name'],
+            title: AppTexts.themeColorDisplayName(colorItem['value'] as String),
             leading: Container(
               width: 14,
               height: 14,
@@ -61,10 +65,12 @@ class MainColorSelectionView extends StatelessWidget {
               controller.setMainColor(colorItem['value']);
               Get.back();
             },
-            showDivider: index < colors.length - 1,
+            showDivider: index < _colors.length - 1,
           );
         },
       ),
+    );
+      },
     );
   }
 }

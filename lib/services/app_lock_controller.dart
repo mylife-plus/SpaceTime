@@ -8,12 +8,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Locks the app with device biometrics / PIN when enabled in Security settings.
 /// Persists [app_lock_enabled] (same key as [UiController.phoneVerificationEnabled]).
+///
+/// After a cold start, requires auth immediately if lock is enabled.
+/// After [paused] → [resumed], requires auth only if the app was in background
+/// for at least [_lockAfterBackgroundDuration].
 class AppLockController extends GetxController with WidgetsBindingObserver {
   final isLocked = false.obs;
   final authError = RxnString();
 
   bool _wentToBackground = false;
+  DateTime? _lastPausedAt;
   bool _bootstrapDone = false;
+
+  /// Next resume after opening system Settings (e.g. permission flow) skips lock once.
+  bool _skipLockOnceAfterExternalSettings = false;
+
+  static const Duration _lockAfterBackgroundDuration = Duration(minutes: 10);
 
   final LocalAuthentication _localAuth = LocalAuthentication();
 
@@ -47,10 +57,17 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   static const _prefsKey = 'app_lock_enabled';
 
+  /// Call immediately before [openAppSettings] from permission flows so returning
+  /// from Settings does not require unlock unless the 10‑minute rule applies later.
+  void skipLockOnNextResumeFromSettings() {
+    _skipLockOnceAfterExternalSettings = true;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       _wentToBackground = true;
+      _lastPausedAt = DateTime.now();
       return;
     }
     if (state == AppLifecycleState.resumed) {
@@ -60,17 +77,43 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _onAppResumed() async {
     if (!_bootstrapDone) return;
+
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_prefsKey) ?? false;
     if (!enabled) {
       _wentToBackground = false;
+      _lastPausedAt = null;
       return;
     }
-    if (_wentToBackground) {
-      _wentToBackground = false;
-      isLocked.value = true;
-      unawaited(authenticate(isColdStart: false));
+
+    if (!_wentToBackground) return;
+
+    _wentToBackground = false;
+
+    if (_skipLockOnceAfterExternalSettings) {
+      _skipLockOnceAfterExternalSettings = false;
+      _lastPausedAt = null;
+      return;
     }
+
+    final pausedAt = _lastPausedAt;
+    _lastPausedAt = null;
+
+    if (pausedAt == null) return;
+
+    final inBackground = DateTime.now().difference(pausedAt);
+    if (inBackground < _lockAfterBackgroundDuration) {
+      debugPrint(
+        '[AppLockController] resume after ${inBackground.inSeconds}s — skip lock (< 10 min)',
+      );
+      return;
+    }
+
+    debugPrint(
+      '[AppLockController] resume after ${inBackground.inMinutes}m — showing lock',
+    );
+    isLocked.value = true;
+    unawaited(authenticate(isColdStart: false));
   }
 
   /// Call when user taps Unlock on the overlay.
@@ -90,7 +133,7 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       }
 
       final ok = await _localAuth.authenticate(
-        localizedReason: 'Unlock SpaceTime to continue',
+        localizedReason: 'Unlock SpaceTime',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,
@@ -106,7 +149,7 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('[AppLockController] authenticate: $e');
-      authError.value = 'Could not unlock. Try again or check device security settings.';
+      authError.value = 'Could not unlock. Try again.';
     }
   }
 

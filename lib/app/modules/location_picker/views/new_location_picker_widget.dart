@@ -64,13 +64,13 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
 
   /// Build loading view
   Widget _buildLoadingView() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text('Loading map...'),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text('text_loading_map'.tr),
         ],
       ),
     );
@@ -89,7 +89,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Error',
+            'text_error'.tr,
             style: AppFonts.medium(18, color: Colors.red),
           ),
           const SizedBox(height: 8),
@@ -101,7 +101,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () => controller.initializeController(),
-            child: const Text('Retry'),
+            child: Text('text_retry'.tr),
           ),
         ],
       ),
@@ -354,7 +354,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
         color: uiController.darkMode.value ? Colors.white : Colors.black87,
       ),
       decoration: InputDecoration(
-        hintText: 'Search locations...',
+        hintText: 'hinttext_search_locations'.tr,
         hintStyle: AppFonts.regular(
           16,
           color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
@@ -597,7 +597,7 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Selected Location',
+            'text_selected_location'.tr,
             style: AppFonts.medium(
               14,
               color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600]!,

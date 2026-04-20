@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import '../../../services/memory_db.dart';
 
 class DebugDatabaseViewer extends StatelessWidget {
@@ -26,7 +27,7 @@ class DebugDatabaseViewer extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No memories found'));
+            return Center(child: Text('text_no_memories_found'.tr));
           }
 
           return ListView.builder(
@@ -41,7 +42,7 @@ class DebugDatabaseViewer extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ID: ${memory['id']}',
+                        trKey('text_id_memory', [memory['id']]),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text('Date: ${memory['date']}'),

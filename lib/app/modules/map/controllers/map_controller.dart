@@ -22,6 +22,8 @@ import '../../../../services/background_tile_download_service.dart';
 import '../../../../services/connectivity_service.dart';
 import '../../../../services/permission_service.dart';
 import '../../../services/memory_db.dart';
+import 'package:spacetime/app/config/app_text.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 /// Map initialization states for sequential flow
 enum MapInitializationState {
@@ -4689,7 +4691,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
             Expanded(
               child: _buildDetailItem(
                 icon: Icons.location_on,
-                label: 'Location',
+                label: 'label_map_detail_location'.tr,
                 value:
                     '${memory.latitude.toStringAsFixed(6)}, ${memory.longitude.toStringAsFixed(6)}',
                 color: Colors.red,
@@ -4699,7 +4701,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
             Expanded(
               child: _buildDetailItem(
                 icon: Icons.calendar_today,
-                label: 'Date',
+                label: 'label_map_detail_date'.tr,
                 value: _formatDate(memory.memoryDate),
                 color: Colors.blue,
               ),
@@ -4713,8 +4715,8 @@ class MapController extends GetxController with WidgetsBindingObserver {
             Expanded(
               child: _buildDetailItem(
                 icon: Icons.category,
-                label: 'Category',
-                value: metadata['category']?.toString() ?? 'None',
+                label: 'label_map_detail_category'.tr,
+                value: metadata['category']?.toString() ?? 'l10n_literal_none'.tr,
                 color: Colors.orange,
               ),
             ),
@@ -4722,7 +4724,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
             Expanded(
               child: _buildDetailItem(
                 icon: Icons.tag,
-                label: 'ID',
+                label: 'label_map_detail_id'.tr,
                 value: memory.id.toString(),
                 color: Colors.purple,
               ),
@@ -5427,13 +5429,9 @@ class MapController extends GetxController with WidgetsBindingObserver {
       currentAnnotationManager!.addOnPointAnnotationClickListener(
         AnnotationClickListener((annotation) async {
           debugPrint('🔄 DUMMY MARKERS - Test marker clicked');
-          Get.snackbar(
-            'Test Marker',
-            'This is a test marker. Add memories with location data to see real clustering.',
+          showTrSnackbar('snackbar_test_marker', 
             backgroundColor: Colors.blue.withValues(alpha: 0.8),
-            colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-          );
+            colorText: Colors.white,        duration: const Duration(seconds: 2),);
         }),
       );
 
@@ -6019,8 +6017,6 @@ class MapController extends GetxController with WidgetsBindingObserver {
         // Shadow
 
         final currentColor = getColorForYear(arrow.toDate.year);
-        final currentColorName = getColorNameForYear(arrow.toDate.year);
-        final currentColorIndex = getColorIndexForYear(arrow.toDate.year);
         await lineManager.create(
           mapbox.PolylineAnnotationOptions(
             geometry: mapbox.LineString(coordinates: points),
@@ -6458,15 +6454,15 @@ class MapController extends GetxController with WidgetsBindingObserver {
       debugPrint('🔍 PERMISSIONS - Location service disabled, showing dialog');
       Get.dialog(
         AlertDialog(
-          title: const Text('Location is Off'),
-          content: const Text('Please enable location services to continue.'),
+          title: Text('title_text_location_is_off'.tr),
+          content: Text('dialog_content_please_enable_location_services_to_contin'.tr),
           actions: [
             TextButton(
               onPressed: () {
                 geolocator.Geolocator.openLocationSettings();
                 Get.back();
               },
-              child: const Text('Open Settings'),
+              child: Text('text_open_settings'.tr),
             ),
           ],
         ),
@@ -6493,9 +6489,9 @@ class MapController extends GetxController with WidgetsBindingObserver {
       debugPrint('🔍 PERMISSIONS - Permission denied forever, showing dialog');
       Get.dialog(
         AlertDialog(
-          title: const Text('Permission Denied'),
-          content: const Text(
-            'Location permission is permanently denied. Open app settings to enable.',
+          title: Text('title_text_permission_denied'.tr),
+          content: Text(
+            'dialog_content_location_permission_is_permanently_denied'.tr,
           ),
           actions: [
             TextButton(
@@ -6503,7 +6499,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
                 geolocator.Geolocator.openAppSettings();
                 Get.back();
               },
-              child: const Text('Open Settings'),
+              child: Text('text_open_settings_2'.tr),
             ),
           ],
         ),
@@ -7416,31 +7412,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
 
   // Get color name for a year (for debugging/display)
   String getColorNameForYear(int year) {
-    final colorNames = [
-      'Blue',
-      'Green',
-      'Orange',
-      'Purple',
-      'Red',
-      'Cyan',
-      'Yellow',
-      'Brown',
-      'Blue Grey',
-      'Pink',
-      'Indigo',
-      'Teal',
-      'Deep Orange',
-      'Light Green',
-      'Lime',
-      'Amber',
-      'Deep Purple',
-      'Green Accent',
-      'Red Accent',
-      'Blue Accent',
-    ];
-
-    final colorIndex = getColorIndexForYear(year);
-    return colorNames[colorIndex];
+    return AppTexts.paletteColorNameForYear(year, baseYear);
   }
 
   /// Print year-color mapping for debugging and demonstration
@@ -7456,29 +7428,7 @@ class MapController extends GetxController with WidgetsBindingObserver {
     // Print color palette
     debugPrint('🎨 COLOR PALETTE:');
     for (int i = 0; i < markerColors.length; i++) {
-      final colorName =
-          [
-            'Blue',
-            'Green',
-            'Orange',
-            'Purple',
-            'Red',
-            'Cyan',
-            'Yellow',
-            'Brown',
-            'Blue Grey',
-            'Pink',
-            'Indigo',
-            'Teal',
-            'Deep Orange',
-            'Light Green',
-            'Lime',
-            'Amber',
-            'Deep Purple',
-            'Green Accent',
-            'Red Accent',
-            'Blue Accent',
-          ][i];
+      final colorName = AppTexts.paletteColorNameByIndex(i);
       debugPrint('  $i: $colorName (${markerColors[i].toString()})');
     }
     debugPrint('');

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/modules/location_picker/controllers/location_picker_controller.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class LocationSearchDialog extends StatefulWidget {
   final LocationPickerController controller;
@@ -63,7 +64,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
         children: [
           Expanded(
             child: Text(
-              'Search Locations',
+              'text_search_locations'.tr,
               style: AppFonts.medium(
                 18,
                 color: uiController.darkMode.value ? Colors.white : Colors.black,
@@ -94,7 +95,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
           color: uiController.darkMode.value ? Colors.white : Colors.black,
         ),
         decoration: InputDecoration(
-          hintText: 'Search for a location...',
+          hintText: 'hinttext_search_for_a_location'.tr,
           hintStyle: AppFonts.regular(
             16,
             color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
@@ -184,7 +185,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
         padding: const EdgeInsets.all(32),
         child: Center(
           child: Text(
-            'No recent locations',
+            'text_no_recent_locations'.tr,
             style: AppFonts.regular(
               16,
               color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
@@ -226,7 +227,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
       itemBuilder: (context, index) {
         final result = widget.controller.searchResults[index];
         return _buildLocationTile(
-          title: result['name'] ?? 'Unknown Location',
+          title: result['name'] ?? 'text_unknown_location'.tr,
           subtitle: result['address'] ?? '',
           onTap: () {
             widget.controller.selectSearchResult(result);
@@ -252,7 +253,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No locations found',
+              'text_no_locations_found'.tr,
               style: AppFonts.medium(
                 16,
                 color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,
@@ -260,7 +261,7 @@ class _LocationSearchDialogState extends State<LocationSearchDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Try searching with different keywords',
+              'text_try_searching_with_different_keywords'.tr,
               style: AppFonts.regular(
                 14,
                 color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,

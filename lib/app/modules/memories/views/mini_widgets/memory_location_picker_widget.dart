@@ -81,13 +81,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   /// Build loading view
   Widget _buildLoadingView() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text('Loading map...'),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text('text_loading_map_2'.tr),
         ],
       ),
     );
@@ -106,7 +106,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           ),
           const SizedBox(height: 16),
           Text(
-            'Error',
+            'text_error_2'.tr,
             style: AppFonts.medium(18, color: Colors.red),
           ),
           const SizedBox(height: 8),
@@ -118,7 +118,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: controller.initializeLocationPicker,
-            child: const Text('Retry'),
+            child: Text('text_retry_3'.tr),
           ),
         ],
       ),
@@ -298,7 +298,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
                 Text(
-                  'Loading map style...',
+                  'text_loading_map_style'.tr,
                   style: TextStyle(color: Colors.white),
                 ),
               ],
@@ -311,7 +311,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           debugPrint('[MemoryLocationPicker] ❌ Error in FutureBuilder: ${snapshot.error}');
           return Center(
             child: Text(
-              'Error loading map style',
+              'text_error_loading_map_style_2'.tr,
               style: TextStyle(color: Colors.red),
             ),
           );
@@ -387,7 +387,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
         color: isDark ? Colors.white : Colors.black87,
       ),
       decoration: InputDecoration(
-        hintText: 'search locations',
+        hintText: 'hinttext_search_locations_2'.tr,
         hintStyle: AppFonts.regular(
           16,
           color: isDark ? Colors.white54 : Colors.grey[600]!,

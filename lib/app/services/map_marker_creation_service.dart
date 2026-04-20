@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Uint8List;
 import 'package:get/get.dart';
+import 'package:spacetime/app/config/app_text.dart';
 
 /// Service for creating styled map markers with consistent design patterns
 /// Based on the styling from MapController with enhanced reusability
@@ -59,30 +60,7 @@ class MapMarkerCreationService extends GetxService {
 
   /// Get color name for a year (for debugging/display)
   String getColorNameForYear(int year) {
-    final colorNames = [
-      'Blue',
-      'Green',
-      'Orange',
-      'Purple',
-      'Red',
-      'Cyan',
-      'Yellow',
-      'Brown',
-      'Blue Grey',
-      'Pink',
-      'Indigo',
-      'Teal',
-      'Deep Orange',
-      'Light Green',
-      'Lime',
-      'Amber',
-      'Deep Purple',
-      'Green Accent',
-      'Red Accent',
-      'Blue Accent',
-    ];
-    final colorIndex = getColorIndexForYear(year);
-    return colorNames[colorIndex];
+    return AppTexts.paletteColorNameForYear(year, baseYear);
   }
 
   /// Create a cluster marker image with consistent styling

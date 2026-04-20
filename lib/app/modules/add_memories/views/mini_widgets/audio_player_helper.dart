@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'audio_player_popup.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class AudioPlayerHelper {
   /// Resolve the full audio file path from filename or partial path
@@ -50,9 +51,9 @@ class AudioPlayerHelper {
     final resolvedPath = await _resolveAudioPath(audioPath);
 
     if (resolvedPath == null) {
-      Get.snackbar(
-        'Error',
-        'Audio file not found: ${audioPath.split('/').last}',
+      showTrSnackbar(
+        'snackbar_error',
+        args: [audioPath.split('/').last],
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
@@ -83,15 +84,12 @@ class AudioPlayerHelper {
     List<String>? fileNames,
   }) async {
     if (index < 0 || index >= audioPaths.length) {
-      Get.snackbar(
-        'Error',
-        'Invalid audio file index',
+      showTrSnackbar('snackbar_error_2', 
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -112,14 +110,11 @@ class AudioPlayerHelper {
 
   /// Show error message when audio is not available
   static void showAudioNotAvailable() {
-    Get.snackbar(
-      'Audio Player',
-      'Audio file not available for playback',
+    showTrSnackbar('snackbar_audio_player', 
       backgroundColor: Colors.orange.shade400,
       colorText: Colors.white,
       margin: const EdgeInsets.all(12),
       snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-    );
+        duration: const Duration(seconds: 2),);
   }
 }

@@ -16,6 +16,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import '../../../services/memory_db.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MemoryController extends GetxController {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
@@ -62,15 +63,15 @@ class MemoryController extends GetxController {
   /// Placeholder for the location row when no address/coords are shown yet.
   String get locationFieldPlaceholderText {
     final p = lastResolvedLocationPermission.value;
-    if (p == null) return 'Searching for location';
+    if (p == null) return 'text_memory_searching_location'.tr;
     if (p == LocationPermission.whileInUse || p == LocationPermission.always) {
-      return 'Pick Location';
+      return 'text_memory_pick_location'.tr;
     }
     if (p == LocationPermission.denied ||
         p == LocationPermission.deniedForever) {
-      return 'Location';
+      return 'text_memory_location_placeholder'.tr;
     }
-    return 'Searching for location';
+    return 'text_memory_searching_location'.tr;
   }
 
   // Popup controls
@@ -946,9 +947,8 @@ class MemoryController extends GetxController {
         if (ctx != null && ctx.mounted) {
           await showPermissionOpenSettingsDialog(
             ctx,
-            title: 'Microphone access needed',
-            message:
-                'Microphone access is turned off for this app. Turn it on in Settings to record audio.',
+            title: 'title_literal_microphone_access_needed'.tr,
+            message: 'dialog_content_permission_microphone_record'.tr,
           );
         }
         return;
@@ -1011,15 +1011,12 @@ class MemoryController extends GetxController {
       debugPrint('❌ Error starting recording: $e');
       debugPrint('❌ Error type: ${e.runtimeType}');
 
-      Get.snackbar(
-        'Recording Error',
-        'Failed to start audio recording: ${e.toString()}',
+      showTrSnackbar('snackbar_recording_error', args: [e.toString()], 
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -1068,15 +1065,12 @@ class MemoryController extends GetxController {
               _recordingSeconds = 0;
               debugPrint('🔄 Recording duration reset to 0:00 (too short)');
 
-              Get.snackbar(
-                'Recording Too Short',
-                'Recording must be at least 1 second long. Please try again.',
+              showTrSnackbar('snackbar_recording_too_short', 
                 backgroundColor: Colors.orange.shade400,
                 colorText: Colors.white,
                 margin: const EdgeInsets.all(12),
                 snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-              );
+        duration: const Duration(seconds: 2),);
             } else {
               // Convert absolute path to relative path for storage
               final appDir = await getApplicationDocumentsDirectory();
@@ -1129,15 +1123,12 @@ class MemoryController extends GetxController {
             _recordingSeconds = 0;
             debugPrint('🔄 Recording duration reset to 0:00 (empty file)');
 
-            Get.snackbar(
-              'Recording Failed',
-              'Audio recording is empty. Please try again.',
+            showTrSnackbar('snackbar_recording_failed', 
               backgroundColor: Colors.orange.shade400,
               colorText: Colors.white,
               margin: const EdgeInsets.all(12),
               snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-            );
+        duration: const Duration(seconds: 2),);
           }
         } else {
           debugPrint('❌ Audio file does not exist after recording');
@@ -1147,15 +1138,12 @@ class MemoryController extends GetxController {
           _recordingSeconds = 0;
           debugPrint('🔄 Recording duration reset to 0:00 (file not found)');
 
-          Get.snackbar(
-            'Recording Failed',
-            'Audio file was not created. Please try again.',
+          showTrSnackbar('snackbar_recording_failed_2', 
             backgroundColor: Colors.red.shade400,
             colorText: Colors.white,
             margin: const EdgeInsets.all(12),
             snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-          );
+        duration: const Duration(seconds: 2),);
         }
       } else {
         debugPrint('❌ Recording path is null');
@@ -1165,15 +1153,12 @@ class MemoryController extends GetxController {
         _recordingSeconds = 0;
         debugPrint('🔄 Recording duration reset to 0:00 (path is null)');
 
-        Get.snackbar(
-          'Recording Failed',
-          'Failed to save audio recording. Please try again.',
+        showTrSnackbar('snackbar_recording_failed_3', 
           backgroundColor: Colors.red.shade400,
           colorText: Colors.white,
           margin: const EdgeInsets.all(12),
           snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-        );
+        duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('❌ Error stopping recording: $e');
@@ -1182,15 +1167,12 @@ class MemoryController extends GetxController {
       isRecording.value = false;
       _recordingTimer?.cancel();
 
-      Get.snackbar(
-        'Recording Error',
-        'Failed to stop recording: ${e.toString()}',
+      showTrSnackbar('snackbar_recording_error_2', args: [e.toString()], 
         backgroundColor: Colors.red.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
     }
   }
 

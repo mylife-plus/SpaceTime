@@ -498,7 +498,7 @@ class ConnectivityService extends GetxController {
     if (isConnected.value) return;
    
     Get.snackbar(
-     'Connection Status',
+     'snackbar_connection_status'.tr,
       status,
       backgroundColor: color.withValues(alpha: 0.8),
       colorText: Colors.white,

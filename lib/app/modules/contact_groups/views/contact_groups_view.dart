@@ -12,6 +12,7 @@ import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_pop_new.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
 import '../../../config/app_text.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class ContactGroupsView extends StatefulWidget {
   final Function(ContactGroup)? onContactGroupSelected;
@@ -211,13 +212,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         '[ContactGroupsView][_loadContactGroups] Stack trace: ${StackTrace.current}',
       );
 
-      Get.snackbar(
-        'Unable to Load',
-        'Unable to load contact groups. Please try again.',
+      showTrSnackbar('snackbar_unable_to_load', 
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+        duration: const Duration(seconds: 2),);
 
       // Set empty contact groups to prevent UI errors
       _mainContactGroups.value = [];
@@ -255,14 +253,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] ❌ Error refreshing contact groups: $e');
       debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] Exception type: ${e.runtimeType}');
 
-      Get.snackbar(
-        'Unable to Refresh',
-        'Unable to refresh contact groups. Please try again.',
+      showTrSnackbar('snackbar_unable_to_refresh', 
         backgroundColor: Colors.orange,
         colorText: Colors.white,
-                duration: const Duration(seconds: 2),
-
-      );
+                duration: const Duration(seconds: 2),);
     }
     debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] ===== REFRESH COMPLETED =====');
   }
@@ -295,7 +289,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             children: [
               // Title
               Text(
-                'Delete Contact Group',
+                'text_delete_contact_group'.tr,
                 style: gfonts.GoogleFonts.kumbhSans(
                   color: uiController.darkMode.value ? Colors.white : Colors.black,
                   fontWeight: FontWeight.bold,
@@ -306,7 +300,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
               // Message
               Text(
-                'Are you sure you want to delete "${contactGroup.name}"?',
+                trKey('text_are_you_sure_you_want_to_delete_contactgroup_name', [
+                  contactGroup.name,
+                ]),
                 style: gfonts.GoogleFonts.kumbhSans(
                   color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
                   fontSize: 16,
@@ -328,7 +324,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This action cannot be undone.',
+                        'text_this_action_cannot_be_undone'.tr,
                         style: gfonts.GoogleFonts.kumbhSans(
                           color: Colors.orange[700],
                           fontSize: 14,
@@ -350,7 +346,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                     child: Text(
-                      'Cancel',
+                      'text_cancel_2'.tr,
                       style: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
                         fontSize: 16,
@@ -369,7 +365,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       ),
                     ),
                     child: Text(
-                      'Delete',
+                      'text_delete_2'.tr,
                       style: gfonts.GoogleFonts.kumbhSans(fontSize: 16),
                     ),
                   ),
@@ -421,14 +417,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         );
         await _refreshContactGroupsFromDatabase();
 
-        Get.snackbar(
-          'Success',
-          'Contact group deleted successfully!',
+        showTrSnackbar('snackbar_success_3', 
           backgroundColor: Colors.green,
           colorText: Colors.white,
-                  duration: const Duration(seconds: 2),
-
-        );
+                  duration: const Duration(seconds: 2),);
       } else if (result == null) {
         // Cannot delete due to memories
         // Get.back(); // Close confirmation dialog
@@ -442,25 +434,17 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         _showCannotDeleteDialog(group?.name ?? 'Unknown', memoryCount);
       } else {
         // Failed to delete
-        Get.snackbar(
-          'Unable to Delete',
-          'Unable to delete contact group. Please try again.',
+        showTrSnackbar('snackbar_unable_to_delete', 
           backgroundColor: Colors.red,
           colorText: Colors.white,
-                  duration: const Duration(seconds: 2),
-
-        );
+                  duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[ContactGroupsView][_deleteContactGroup] Error: $e');
-      Get.snackbar(
-        'Unable to Delete',
-        'Unable to delete contact group. Please try again.',
+      showTrSnackbar('snackbar_unable_to_delete', 
         backgroundColor: Colors.red,
         colorText: Colors.white,
-                duration: const Duration(seconds: 2),
-
-      );
+                duration: const Duration(seconds: 2),);
     }
   }
 
@@ -497,7 +481,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Cannot Delete The Contact',
+                      'text_cannot_delete_the_contact'.tr,
                       style: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.darkMode.value ? Colors.white : Colors.black,
                         fontWeight: FontWeight.bold,
@@ -511,7 +495,13 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
               // Message
               Text(
-                'The contact "$groupName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
+                trKey('text_the_contact_groupname_cannot_be_deleted_because_it', [
+                  groupName,
+                  memoryCount.toString(),
+                  memoryCount == 1
+                      ? 'l10n_word_memory'.tr
+                      : 'l10n_word_memories'.tr,
+                ]),
                 style: gfonts.GoogleFonts.kumbhSans(
                   color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
                   fontSize: 16,
@@ -533,7 +523,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'To delete this contact group, first remove the mentions from all memories that use them, or delete those memories.',
+                        'text_to_delete_this_contact_group_first_remove_the_menti'.tr,
                         style: gfonts.GoogleFonts.kumbhSans(
                           color: Colors.orange[700],
                           fontSize: 14,
@@ -554,7 +544,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
                   child: Text(
-                    'OK',
+                    'text_ok'.tr,
                     style: gfonts.GoogleFonts.kumbhSans(
                       color: uiController.currentMainColor,
                       fontWeight: FontWeight.bold,
@@ -595,13 +585,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           onSave: (newName, parentId) async {
             // Validate that name is provided
             if (newName.isEmpty) {
-              Get.snackbar(
-                'Validation Error',
-                'Please enter a contact group name',
+              showTrSnackbar('snackbar_validation_error', 
                 backgroundColor: Colors.orange,        duration: const Duration(seconds: 2),
 
-                colorText: Colors.white,
-              );
+                colorText: Colors.white,);
               return;
             }
 
@@ -621,34 +608,22 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 Navigator.of(context).pop(); // Close dialog
                 await _refreshContactGroupsFromDatabase();
 
-                Get.snackbar(
-                  'Success',
-                  'Contact group "$newName" updated successfully!',
+                showTrSnackbar('snackbar_success_4', args: [newName], 
                   backgroundColor: Colors.green,
                   colorText: Colors.white,
-                          duration: const Duration(seconds: 2),
-
-                );
+                          duration: const Duration(seconds: 2),);
               } else {
-                Get.snackbar(
-                  'Unable to Update',
-                  'Unable to update contact group. Please try again.',
+                showTrSnackbar('snackbar_unable_to_update', 
                   backgroundColor: Colors.red,
                   colorText: Colors.white,
-                          duration: const Duration(seconds: 2),
-
-                );
+                          duration: const Duration(seconds: 2),);
               }
             } catch (e) {
               debugPrint('[ContactGroupsView][EditDialog] Exception occurred: $e');
-              Get.snackbar(
-                'Unable to Update',
-                'Unable to update contact group. Please try again.',
+              showTrSnackbar('snackbar_unable_to_update', 
                 backgroundColor: Colors.red,
                 colorText: Colors.white,
-                        duration: const Duration(seconds: 2),
-
-              );
+                        duration: const Duration(seconds: 2),);
             }
           },
         );
@@ -679,39 +654,27 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         );
         await _refreshContactGroupsFromDatabase();
 
-        Get.snackbar(
-          'Success',
-          'Contact deleted successfully!',
+        showTrSnackbar('snackbar_success_5', 
           backgroundColor: Colors.green,
           colorText: Colors.white,
-                  duration: const Duration(seconds: 2),
-
-        );
+                  duration: const Duration(seconds: 2),);
       } else if (result == null) {
         // Cannot delete due to memories
         final memoryCount = await _contactGroupService.getMemoryCountForGroup(subgroup.name);
         _showCannotDeleteDialog(subgroup.name, memoryCount);
       } else {
         // Failed to delete
-        Get.snackbar(
-          'Unable to Delete',
-          'Unable to delete contact. Please try again.',
+        showTrSnackbar('snackbar_unable_to_delete_3', 
           backgroundColor: Colors.red,
           colorText: Colors.white,
-                  duration: const Duration(seconds: 2),
-
-        );
+                  duration: const Duration(seconds: 2),);
       }
     } catch (e) {
       debugPrint('[ContactGroupsView][_deleteSubgroup] Error: $e');
-      Get.snackbar(
-        'Unable to Delete',
-        'Unable to delete contact. Please try again.',
+      showTrSnackbar('snackbar_unable_to_delete_3', 
         backgroundColor: Colors.red,
         colorText: Colors.white,
-                duration: const Duration(seconds: 2),
-
-      );
+                duration: const Duration(seconds: 2),);
     }
   }
 
@@ -911,13 +874,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           onSave: (name, parentId) async {
             // Use the existing save logic
             if (name.isEmpty) {
-              Get.snackbar(
-                'Invalid Name',
-                'Contact name cannot be empty',
+              showTrSnackbar('snackbar_invalid_name', 
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-              );
+                colorText: Colors.white,        duration: const Duration(seconds: 2),);
               return;
             }
 
@@ -928,54 +887,34 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               );
 
               if (newSubgroup == null) {
-                Get.snackbar(
-                  'Unable to Add',
-                  'Unable to add contact. Please try again.',
+                showTrSnackbar('snackbar_unable_to_add', 
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
                 return;
               } else if (newSubgroup.id == -1) {
                 // Duplicate subgroup contact name
-                Get.snackbar(
-                  'Duplicate Contact',
-                  'Contact with this name already exists.',
+                showTrSnackbar('snackbar_duplicate_contact', 
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
                 return;
               } else if (newSubgroup.id == -4) {
                 // Subgroup name conflicts with parent group
-                Get.snackbar(
-                  'Name Conflict',
-                  'This name is already used by the parent group.',
+                showTrSnackbar('snackbar_name_conflict', 
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
                 return;
               }
 
               await _refreshContactGroupsFromDatabase();
 
-              Get.snackbar(
-                'Success',
-                'Contact added successfully',
+              showTrSnackbar('snackbar_success_6', 
                 backgroundColor: Colors.green,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-              );
+                colorText: Colors.white,        duration: const Duration(seconds: 2),);
             } catch (e) {
               debugPrint('[ContactGroupsView] Error adding subgroup: $e');
-              Get.snackbar(
-                'Unable to Add',
-                'Unable to add contact. Please try again.',
+              showTrSnackbar('snackbar_unable_to_add', 
                 backgroundColor: Colors.red,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-              );
+                colorText: Colors.white,        duration: const Duration(seconds: 2),);
             }
           },
         );
@@ -1319,7 +1258,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     padding: const EdgeInsets.all(40),
                     child: Center(
                       child: Text(
-                        'No contact groups found.\nTap + to add a new group.',
+                        'text_no_contact_groups_found_ntap_to_add_a_new_group'.tr,
                         textAlign: TextAlign.center,
                         style: gfonts.GoogleFonts.kumbhSans(
                           fontSize: 16,
@@ -1473,7 +1412,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                               // Show selection count when in filter mode
                               if (widget.allowMultipleSelection)
                                 TextSpan(
-                                  text: ' (',
+                                  text: 'text_span'.tr,
                                   style: gfonts.GoogleFonts.kumbhSans(
                                     color: uiController.darkMode.value
                                         ? Colors.white.withValues(alpha: 0.6)
@@ -1790,7 +1729,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     controller: _mainContactGroupNameController,
                     autofocus: true,
                     decoration: InputDecoration(
-                      hintText: 'add Contact Name',
+                      hintText: 'hinttext_add_contact_name'.tr,
                       // hintText: 'Contact group name',
                       hintStyle: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.darkMode.value
@@ -1891,13 +1830,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
             await _refreshContactGroupsFromDatabase();
 
-            Get.snackbar(
-              'Success',
-              'Contact updated successfully',
+            showTrSnackbar('snackbar_success_7', 
               backgroundColor: Colors.green,
               colorText: Colors.white,
-              duration: const Duration(seconds: 2),
-            );
+              duration: const Duration(seconds: 2),);
           },
         );
       },
@@ -1942,7 +1878,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     controller: nameController,
                     autofocus: true,
                     decoration: InputDecoration(
-                      hintText: 'edit Contact',
+                      hintText: 'hinttext_edit_contact'.tr,
                       hintStyle: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.darkMode.value
                             ? Colors.white.withValues(alpha: 0.5)
@@ -2025,13 +1961,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final newName = nameController.text.trim();
 
     if (newName.isEmpty) {
-      Get.snackbar(
-        'Invalid Name',
-        'Contact group name cannot be empty',
+      showTrSnackbar('snackbar_invalid_name_4', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -2048,50 +1980,32 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       _cancelInlineEdit(contactGroup.id!);
       await _refreshContactGroupsFromDatabase();
 
-      Get.snackbar(
-        'Success',
-        'Contact updated successfully',
+      showTrSnackbar('snackbar_success_8', 
         backgroundColor: Colors.green,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     } catch (e) {
       debugPrint('[ContactGroupsView] Error updating contact group: $e');
       if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
-        final message = contactGroup.parentId == null
-            ? 'Contact Group with this name already exists.'
-            : 'Contact with this name already exists.';
-        Get.snackbar(
-          'Duplicate Contact',
-          message,
+        showTrSnackbar(
+          contactGroup.parentId == null
+              ? 'snackbar_duplicate_contact_3'
+              : 'snackbar_duplicate_contact',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
       } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by a contact in another group.',
+        showTrSnackbar('snackbar_name_conflict_5', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by the parent group.',
+        showTrSnackbar('snackbar_name_conflict_3', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       } else {
-        Get.snackbar(
-          'Unable to Update',
-          'Unable to update contact group. Please try again.',
+        showTrSnackbar('snackbar_unable_to_update_2', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
       }
     }
   }
@@ -2115,13 +2029,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           onSave: (name, parentId) async {
             // Use the existing save logic
             if (name.isEmpty) {
-              Get.snackbar(
-                'Invalid Name',
-                'Contact group name cannot be empty',
+              showTrSnackbar('snackbar_invalid_name_2', 
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-              );
+                colorText: Colors.white,        duration: const Duration(seconds: 2),);
               return;
             }
 
@@ -2129,54 +2039,34 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               final newGroup = await _contactGroupService.addCustomGroup(name);
 
               if (newGroup == null) {
-                Get.snackbar(
-                  'Unable to Add',
-                  'Unable to add contact group. Please try again.',
+                showTrSnackbar('snackbar_unable_to_add_3', 
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
                 return;
               } else if (newGroup.id == -1) {
                 // Duplicate main contact group name
-                Get.snackbar(
-                  'Duplicate Contact',
-                  'Contact Group with this name already exists.',
+                showTrSnackbar('snackbar_duplicate_contact_4', 
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
                 return;
               } else if (newGroup.id == -3) {
                 // Main group name conflicts with existing subgroup
-                Get.snackbar(
-                  'Name Conflict',
-                  'This name is already used by a contact in another group.',
+                showTrSnackbar('snackbar_name_conflict_2', 
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-                );
+                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
                 return;
               }
 
               await _refreshContactGroupsFromDatabase();
 
-              Get.snackbar(
-                'Success',
-                'Contact group "$name" added successfully!',
+              showTrSnackbar('snackbar_success_10', args: [name], 
                 backgroundColor: Colors.green,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-              );
+                colorText: Colors.white,        duration: const Duration(seconds: 2),);
             } catch (e) {
               debugPrint('[ContactGroupsView] Error adding main contact group: $e');
-              Get.snackbar(
-                'Unable to Add',
-                'Unable to add contact group. Please try again.',
+              showTrSnackbar('snackbar_unable_to_add_3', 
                 backgroundColor: Colors.red,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-              );
+                colorText: Colors.white,        duration: const Duration(seconds: 2),);
             }
           },
         );
@@ -2195,13 +2085,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final name = _mainContactGroupNameController.text.trim();
 
     if (name.isEmpty) {
-      Get.snackbar(
-        'Invalid Name',
-        'Contact group name cannot be empty',
+      showTrSnackbar('snackbar_invalid_name_3', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -2209,55 +2095,35 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       final newGroup = await _contactGroupService.addCustomGroup(name);
 
       if (newGroup == null) {
-        Get.snackbar(
-          'Unable to Add',
-          'Unable to add contact group. Please try again.',
+        showTrSnackbar('snackbar_unable_to_add_4', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       } else if (newGroup.id == -1) {
         // Duplicate main contact group name
-        Get.snackbar(
-          'Duplicate Contact',
-          'Contact Group with this name already exists.',
+        showTrSnackbar('snackbar_duplicate_contact_3', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       } else if (newGroup.id == -3) {
         // Main group name conflicts with existing subgroup
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by a contact in another group.',
+        showTrSnackbar('snackbar_name_conflict_4', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
 
       _cancelInlineAddingMainContactGroup();
       await _refreshContactGroupsFromDatabase();
 
-      Get.snackbar(
-        'Success',
-        'Contact group "$name" added successfully!',
+      showTrSnackbar('snackbar_success_9', args: [name], 
         backgroundColor: Colors.green,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding main contact group: $e');
-      Get.snackbar(
-        'Unable to Add',
-        'Unable to add contact group. Please try again.',
+      showTrSnackbar('snackbar_unable_to_add_5', 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
@@ -2298,7 +2164,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   controller: nameController,
                   autofocus: true,
                   decoration: InputDecoration(
-                    hintText: 'add Contact',
+                    hintText: 'hinttext_add_contact'.tr,
                     hintStyle: gfonts.GoogleFonts.kumbhSans(
                       color: uiController.darkMode.value
                           ? Colors.white.withValues(alpha: 0.5)
@@ -2375,13 +2241,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final name = nameController.text.trim();
 
     if (name.isEmpty) {
-      Get.snackbar(
-        'Invalid Name',
-        'Contact name cannot be empty',
+      showTrSnackbar('snackbar_invalid_name', 
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
       return;
     }
 
@@ -2392,55 +2254,35 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       );
 
       if (newSubgroup == null) {
-        Get.snackbar(
-          'Unable to Add',
-          'Unable to add contact. Please try again.',
+        showTrSnackbar('snackbar_unable_to_add_2', 
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       } else if (newSubgroup.id == -1) {
         // Duplicate subgroup contact name
-        Get.snackbar(
-          'Duplicate Contact',
-          'Contact with this name already exists.',
+        showTrSnackbar('snackbar_duplicate_contact', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       } else if (newSubgroup.id == -4) {
         // Subgroup name conflicts with parent group
-        Get.snackbar(
-          'Name Conflict',
-          'This name is already used by the parent group.',
+        showTrSnackbar('snackbar_name_conflict', 
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-        );
+          colorText: Colors.white,        duration: const Duration(seconds: 2),);
         return;
       }
 
       _cancelInlineAdding(parentContactGroupId);
       await _refreshContactGroupsFromDatabase();
 
-      Get.snackbar(
-        'Success',
-        'Contact added successfully',
+      showTrSnackbar('snackbar_success_6', 
         backgroundColor: Colors.green,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding subgroup: $e');
-      Get.snackbar(
-        'Unable to Add',
-        'Unable to add contact. Please try again.',
+      showTrSnackbar('snackbar_unable_to_add_7', 
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),
-
-      );
+        colorText: Colors.white,        duration: const Duration(seconds: 2),);
     }
   }
 
