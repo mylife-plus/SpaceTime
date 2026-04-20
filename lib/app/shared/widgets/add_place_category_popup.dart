@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' as emoji_picker;
 import 'package:spacetime/app/config/app_fonts.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
@@ -773,7 +774,7 @@ Navigator.of(context).pop();
                                 return DropdownMenuItem<String>(
                                   value: category.id.toString(),
                                   child: Text(
-                                    '${category.name}',
+                                    category.displayText,
                                     style: GoogleFonts.kumbhSans(
                                       fontSize: 16,
                                       color: uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -903,7 +904,7 @@ Navigator.of(context).pop();
                                   return DropdownMenuItem<String>(
                                     value: category.id.toString(),
                                     child: Text(
-                                      '${category.name}',
+                                      category.displayText,
                                       style: GoogleFonts.kumbhSans(
                                         fontSize: 16,
                                         color: uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -1975,7 +1976,7 @@ Navigator.of(context).pop();
                                   return DropdownMenuItem<String>(
                                     value: category.id.toString(),
                                     child: Text(
-                                      '${category.emoji} ${category.name}',
+                                      category.displayText,
                                       style: GoogleFonts.kumbhSans(
                                         fontSize: 16,
                                         color: uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -2165,7 +2166,12 @@ Navigator.of(context).pop();
     final category = _mainCategories.firstWhereOrNull((cat) => cat.id == parentCategoryId);
 
     if (category != null) {
-      return '📁 ${category.name}';
+      return '📁 ${localizedPlaceCategoryName(
+        name: category.name,
+        emoji: category.emoji,
+        isCustom: category.isCustom,
+        isMainCategory: true,
+      )}';
     }
 
     return '';

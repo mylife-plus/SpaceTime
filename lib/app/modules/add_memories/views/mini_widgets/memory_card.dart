@@ -18,6 +18,7 @@ import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 
 class MemoryCard extends StatefulWidget {
   final Map<String, dynamic> memoryData;
@@ -443,16 +444,17 @@ class _MemoryCardState extends State<MemoryCard> {
                 final path = item['path'] as String;
 
                 if (isImage) {
-                  if (!_imageCache.containsKey(index)) {
-                    _imageCache[index] = GestureDetector(
-                      onTap: () {
-                        _openMediaViewer(images, videos, index, orderedMedia: orderedMedia);
-                      },
-                      behavior: HitTestBehavior.opaque,
-                      child: ClipRRect(child: _buildImageWidget(path)),
-                    );
-                  }
-                  return _imageCache[index]!;
+                  final cached = _imageCache[index];
+                  if (cached != null) return cached;
+                  final built = GestureDetector(
+                    onTap: () {
+                      _openMediaViewer(images, videos, index, orderedMedia: orderedMedia);
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: ClipRRect(child: _buildImageWidget(path)),
+                  );
+                  _imageCache[index] = built;
+                  return built;
                 } else {
                   return _buildInlineVideoPlayer(path, index, images, videos, orderedMedia: orderedMedia);
                 }
@@ -759,7 +761,10 @@ class _MemoryCardState extends State<MemoryCard> {
         }
       });
     }
-    final vc = _inlineVideoControllers[index]!;
+    final vc = _inlineVideoControllers[index];
+    if (vc == null) {
+      return Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Colors.white)));
+    }
     final initialized = vc.value.isInitialized;
 
     return Stack(
@@ -1230,33 +1235,20 @@ class _MemoryCardState extends State<MemoryCard> {
                     ),
 
                     if (widget.category != null && widget.category!.isNotEmpty)
-                      Row(
-                        children: [
-                          Text(
-                            widget.category!.split(' ').first,
-                            style: TextStyle(
-                              color:
-                                  controller.darkMode.value
-                                      ? Colors.white.withValues(alpha: 0.8)
-                                      : Colors.grey[700],
-                              fontSize: 22,
-                            ),
+                      Flexible(
+                        child: Text(
+                          localizedPlaceCategoryStoredLabel(widget.category!),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            color:
+                                controller.darkMode.value
+                                    ? Colors.white.withValues(alpha: 0.8)
+                                    : Colors.grey[700],
+                            fontSize: 16,
                           ),
-                          const SizedBox(width: 3),
-                          Text(
-                            widget.category!.replaceAll(
-                              widget.category!.split(' ').first,
-                              '',
-                            ),
-                            style: TextStyle(
-                              color:
-                                  controller.darkMode.value
-                                      ? Colors.white.withValues(alpha: 0.8)
-                                      : Colors.grey[700],
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                   ],
                 ),

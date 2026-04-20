@@ -13,6 +13,7 @@ import 'package:spacetime/app/widgets/filter_section.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 
 class MemoriesFilterOverlay extends StatefulWidget {
   final bool isOpenedFromMap;
@@ -174,29 +175,6 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
   @override
   void dispose() {
     super.dispose();
-  }
-
-  // Helper method to check if a string contains emoji
-  bool _isEmoji(String text) {
-    if (text.isEmpty) return false;
-
-    final emojiRegex = RegExp(
-      r'[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]',
-      unicode: true,
-    );
-    return emojiRegex.hasMatch(text);
-  }
-
-  // Helper method to extract the name part from a category (removing emoji if present)
-  String _extractNamePart(String categoryName) {
-    if (categoryName.contains(' ') && categoryName.length > 2) {
-      final parts = categoryName.split(' ');
-      if (parts.length > 1 && _isEmoji(parts[0])) {
-        return parts.skip(1).join(' ');
-      }
-    }
-    // Return original name if no emoji found
-    return categoryName;
   }
 
   @override
@@ -380,6 +358,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                 
                                     // Selected categories chips
                                     Obx(() {
+                                      final _ = uiController.selectedLanguage.value;
                                       if (controller
                                           .selectedCategories
                                           .isEmpty) {
@@ -395,36 +374,11 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                               controller.displayCategories.map((
                                                 categoryName,
                                               ) {
-                                                // Extract emoji and name from categoryName using helper method
-                                                String emoji = '';
-                                                String displayName =
-                                                    _extractNamePart(
-                                                      categoryName,
-                                                    );
-                
-                                                // Get emoji if present
-                                                if (categoryName.contains(
-                                                      ' ',
-                                                    ) &&
-                                                    categoryName.length > 2) {
-                                                  final parts = categoryName
-                                                      .split(' ');
-                                                  if (parts.isNotEmpty &&
-                                                      _isEmoji(parts[0])) {
-                                                    emoji = parts[0];
-                                                  }
-                                                }
-                
-                                                // If no name part extracted, use full category name
-                                                if (displayName.isEmpty) {
-                                                  displayName = categoryName;
-                                                }
-                
                                                 return Chip(
                                                   label: Text(
-                                                    displayName.isNotEmpty
-                                                        ? '$emoji $displayName'
-                                                        : '$categoryName',
+                                                    localizedPlaceCategoryStoredLabel(
+                                                      categoryName,
+                                                    ),
                                                     style: const TextStyle(
                                                       fontSize: 12,
                                                     ),

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/place_category_service.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/shared/widgets/add_place_category_popup.dart';
 import 'package:spacetime/app/shared/widgets/searchable_category_widget.dart';
@@ -1232,7 +1233,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (memoryCount > 0) {
       // Show cannot delete dialog
       _showCannotDeleteDialog(
-        category.name,
+        localizedPlaceCategoryName(
+          name: category.name,
+          emoji: category.emoji,
+          isCustom: category.isCustom,
+          isMainCategory: category.isMainCategory,
+        ),
         memoryCount,
         category.parentId == null,
       );
@@ -1299,7 +1305,18 @@ if (categoryToDelete != null) {
                     )
                 : 0;
 
-        _showCannotDeleteDialog(category?.name ?? 'Unknown', memoryCount, category?.parentId == null);
+        _showCannotDeleteDialog(
+          category == null
+              ? 'Unknown'
+              : localizedPlaceCategoryName(
+                  name: category.name,
+                  emoji: category.emoji,
+                  isCustom: category.isCustom,
+                  isMainCategory: category.isMainCategory,
+                ),
+          memoryCount,
+          category?.parentId == null,
+        );
       } else {
         // Failed to delete
         showTrSnackbar('snackbar_error_29', 
@@ -2515,7 +2532,7 @@ if (categoryToDelete != null) {
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: mainCategory.name,
+                                text: mainCategory.displayText,
                                 style: gfonts.GoogleFonts.kumbhSans(
                                   color: uiController.darkMode.value ? Colors.white : Colors.black,
                                   fontWeight: FontWeight.w500,
@@ -2740,23 +2757,12 @@ if (categoryToDelete != null) {
         child: ListTile(
           contentPadding: EdgeInsets.symmetric(horizontal: 5),
           dense: true,
-          title: RichText(
-            text: TextSpan(
-              children: [
-                if (isSubcategory)
-                  TextSpan(
-                    text: '${category.emoji} ',
-                    style: gfonts.GoogleFonts.kumbhSans(fontSize: 18),
-                  ),
-                TextSpan(
-                  text: category.name,
-                  style: gfonts.GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    fontSize: 18,
-                  ),
-                ),
-              ],
+          title: Text(
+            category.displayText,
+            style: gfonts.GoogleFonts.kumbhSans(
+              color: uiController.darkMode.value ? Colors.white : Colors.black,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              fontSize: 18,
             ),
           ),
           subtitle: isSearchResult && category.isSubcategory
@@ -2836,7 +2842,7 @@ if (categoryToDelete != null) {
   String _getParentCategoryName(int parentId) {
     for (final mainCategory in _mainCategories) {
       if (mainCategory.id == parentId) {
-        return mainCategory.name;
+        return mainCategory.displayText;
       }
     }
     return 'Unknown';

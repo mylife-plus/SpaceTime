@@ -24,6 +24,7 @@ import '../controllers/memory_controller.dart';
 import '../../add_memories/controllers/add_memories_controller.dart';
 import '../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 
 class MemoryView extends StatefulWidget {
   final bool editMode;
@@ -1498,7 +1499,9 @@ class _MemoryViewState extends State<MemoryView> {
                           if (memory['category'] != null &&
                               memory['category'].toString().isNotEmpty)
                             Text(trKey('text_category_memory', [
-                              memory['category'],
+                              localizedPlaceCategoryStoredLabel(
+                                memory['category'].toString(),
+                              ),
                             ])),
                           if (memory['description'] != null &&
                               memory['description'].toString().isNotEmpty)

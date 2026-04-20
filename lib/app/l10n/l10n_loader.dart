@@ -19,6 +19,16 @@ class L10nLoader {
       final decoded = json.decode(raw) as Map<String, dynamic>;
       maps[code] = decoded.map((k, v) => MapEntry(k, v.toString()));
     }
+    final bundleRaw =
+        await rootBundle.loadString('assets/l10n/place_category_bundle.json');
+    final bundle = json.decode(bundleRaw) as Map<String, dynamic>;
+    for (final code in const ['en', 'es', 'fr', 'de']) {
+      final perLang = bundle[code] as Map<String, dynamic>?;
+      if (perLang == null) continue;
+      for (final e in perLang.entries) {
+        maps[code]![e.key] = e.value.toString();
+      }
+    }
   }
 }
 

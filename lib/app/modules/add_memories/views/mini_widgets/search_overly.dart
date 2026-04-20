@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../filter/controllers/filter_controller.dart';
@@ -157,6 +158,8 @@ class SearchOverlay extends StatelessWidget {
                 );
               }
 
+              final _ = controller2.selectedLanguage.value;
+
               // Calculate max height to prevent keyboard overlap
               final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
               final screenHeight = MediaQuery.of(context).size.height;
@@ -239,7 +242,8 @@ class SearchOverlay extends StatelessWidget {
                               final date = suggestionData['date'] ?? '';
                               final year = suggestionData['year'] ?? '';
                               final time = suggestionData['time'] ?? '';
-                              final category = suggestionData['category'] ?? '';
+                              final category =
+                                  '${suggestionData['category'] ?? ''}';
                               final locationCity =
                                   suggestionData['location_city'] ?? '';
                               final locationCountry =
@@ -312,7 +316,11 @@ class SearchOverlay extends StatelessWidget {
                                       children: [
                                         Flexible(
                                           child: Text(
-                                            category,
+                                            category.isEmpty
+                                                ? ''
+                                                : localizedPlaceCategoryStoredLabel(
+                                                    category,
+                                                  ),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: GoogleFonts.kumbhSans(

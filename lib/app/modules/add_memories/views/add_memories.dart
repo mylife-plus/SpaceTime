@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart';
+import 'package:spacetime/app/app_bootstrap.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -44,6 +45,7 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
         return false;
       },
       child: Obx(() {
+        final _ = uiController.selectedLanguage.value;
         debugPrint(
           'AddMemoriesView rebuild - isLoading: ${controller.isLoading.value}, isSearching: ${controller.isSearching.value}, allMemories: ${controller.allMemories.length}, filteredMemories: ${controller.filteredMemories.length}',
         );
@@ -310,16 +312,14 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
 
   @override
   Widget build(BuildContext context) {
-    // Ensure controller is available
-    if (!Get.isRegistered<AddMemoriesController>()) {
-      Get.find<AddMemoriesController>();
-    }
+    ensureHeavyAppControllersRegistered();
 
     // NOTE: Lifecycle observer registration was intentionally removed from here.
     // It now lives in AddMemoriesController.onInit() so it is registered exactly
     // once and cleaned up in onClose(), preventing duplicate observer callbacks
     // on every widget rebuild.
     return Obx(() {
+      final _ = uiController.selectedLanguage.value;
       final mainColor = uiController.mainColor.value;
       final useOriginalImage = mainColor == 'blue';
 

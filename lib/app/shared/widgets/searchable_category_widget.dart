@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 import 'package:spacetime/app/models/place_category_model.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/category_picker_widget.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -399,9 +400,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
   /// Select a category
   void _selectCategory(PlaceCategory category) {
     // Format category with emoji
-    final categoryWithEmoji = category.emoji.isNotEmpty
-        ? '${category.emoji} ${category.name}'
-        : category.name;
+    final categoryWithEmoji = category.displayText;
 
     debugPrint('[SearchableCategoryWidget] Selected category: $categoryWithEmoji');
 
@@ -660,7 +659,10 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
 
-    return Obx(() => GestureDetector(
+    return Obx(() {
+      // Rebuild when language changes so place category labels re-resolve.
+      final _ = uiController.selectedLanguage.value;
+      return GestureDetector(
       onTap: () {
         _showResults.value = true;
         _focusNode.requestFocus();
@@ -707,7 +709,8 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
           ],
         ),
       ),
-    ));
+    );
+    });
   }
 
   /// Build display text when not searching
@@ -715,12 +718,7 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     final placeholder =
         widget.title.isEmpty ? 'apptexts_places'.tr : widget.title;
     final displayText = widget.selectedCategory?.isNotEmpty == true
-        ? widget.selectedCategory!
-            .split(' ')
-            .map((word) => word.isNotEmpty
-                ? word[0].toUpperCase() + word.substring(1)
-                : word)
-            .join(' ')
+        ? localizedPlaceCategoryStoredLabel(widget.selectedCategory!)
         : placeholder;
 
     return GestureDetector(
@@ -875,8 +873,14 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
-                children: [ AutoSizeText(
-                  category.name,
+                children: [
+                  AutoSizeText(
+                  localizedPlaceCategoryName(
+                    name: category.name,
+                    emoji: category.emoji,
+                    isCustom: category.isCustom,
+                    isMainCategory: category.isMainCategory,
+                  ),
                   style: AppFonts.medium(
                     14, // Default font size
                     color: uiController.darkMode.value ? Colors.white : Colors.black87,
@@ -895,7 +899,12 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
                       builder: (context, snapshot) {
                         if (snapshot.hasData && snapshot.data != null) {
                           return AutoSizeText(
-                            snapshot.data!.name,
+                            localizedPlaceCategoryName(
+                              name: snapshot.data!.name,
+                              emoji: snapshot.data!.emoji,
+                              isCustom: snapshot.data!.isCustom,
+                              isMainCategory: true,
+                            ),
                             textAlign: TextAlign.right,
                             style: AppFonts.regular(
                               14, // Smaller base font size for category name (secondary)

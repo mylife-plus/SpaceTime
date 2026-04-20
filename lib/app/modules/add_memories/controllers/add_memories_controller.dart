@@ -12,6 +12,7 @@ import '../../../models/place_category_model.dart';
 import '../../../services/hashtag_group_service.dart';
 import '../../../services/contact_group_service.dart';
 import '../../../services/place_category_service.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 import 'dart:math';
 import 'package:spacetime/app/utils/search_utils.dart';
 import '../../filter/controllers/filter_controller.dart';
@@ -753,7 +754,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
             }
           } else if (matchesCategory) {
             matchType = 'category';
-            displayText = category;
+            displayText = localizedPlaceCategoryStoredLabel(category);
           }
 
           suggestionsWithMetadata.add({

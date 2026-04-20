@@ -1,3 +1,5 @@
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
+
 class PlaceCategory {
   final int? id;
   final String name;
@@ -88,8 +90,9 @@ class PlaceCategory {
   /// Check if this is a subcategory (has a parent)
   bool get isSubcategory => parentId != null;
 
-  /// Get display text with emoji
-  String get displayText => '$emoji $name';
+  /// Get display text with emoji (predefined categories use l10n; DB [name] stays English).
+  String get displayText =>
+      '$emoji ${localizedPlaceCategoryName(name: name, emoji: emoji, isCustom: isCustom, isMainCategory: isMainCategory)}';
 
   /// Check if this category has subcategories
   bool get hasSubcategories =>

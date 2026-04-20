@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../controllers/add_memories_controller.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 import '../../../ui/controllers/ui_controller.dart';
 
 class CategoryFilterDropdown extends StatefulWidget {
@@ -143,7 +143,7 @@ class _CategoryFilterDropdownState extends State<CategoryFilterDropdown> {
                       widget.selectedCategories.map((category) {
                         return Chip(
                           label: Text(
-                            category,
+                            localizedPlaceCategoryStoredLabel(category),
                             style: GoogleFonts.kumbhSans(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
@@ -211,7 +211,7 @@ class _CategoryFilterDropdownState extends State<CategoryFilterDropdown> {
                         return ListTile(
                           dense: true,
                           title: Text(
-                            category,
+                            localizedPlaceCategoryStoredLabel(category),
                             style: GoogleFonts.kumbhSans(
                               color:
                                   isSelected
