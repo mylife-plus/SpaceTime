@@ -31,8 +31,11 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
   @override
   void initState() {
     super.initState();
-    // Always sync filters bidirectionally when opening filter overlay
-    _syncFiltersBidirectionally();
+    // Defer: sync updates Rx / Obx parents and must not run during mount/build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncFiltersBidirectionally();
+    });
   }
 
   /// Handle focus changes from category search field

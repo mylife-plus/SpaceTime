@@ -68,8 +68,9 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
       return;
     }
 
+    // Do not pop here: onSave is often async; an immediate pop closes the dialog
+    // before onSave finishes, then onSave's own pop() removes the screen below.
     widget.onSave?.call(name, widget.parentId);
-    Navigator.of(context).pop();
   }
 
   void _handleCancel() {
@@ -81,37 +82,41 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
 
-    final String title;
-    if (widget.editItemId != null) {
-      if (widget.isMainGroup) {
-        title = widget.isHashtagMode
-            ? 'add_edit_popup_title_edit_hashtag_group'.tr
-            : 'add_edit_popup_title_edit_contact_group'.tr;
-      } else {
-        title = widget.isHashtagMode
-            ? 'add_edit_popup_title_edit_hashtag'.tr
-            : 'add_edit_popup_title_edit_contact'.tr;
-      }
-    } else {
-      if (widget.isMainGroup) {
-        title = widget.isHashtagMode
-            ? 'add_edit_popup_title_new_hashtag_group'.tr
-            : 'add_edit_popup_title_new_contact_group'.tr;
-      } else {
-        title = widget.isHashtagMode
-            ? 'add_edit_popup_title_new_hashtag'.tr
-            : 'add_edit_popup_title_new_contact'.tr;
-      }
-    }
+    return Obx(() {
+      uiController.selectedLanguage.value;
+      final dark = uiController.darkMode.value;
 
-    return Dialog(
+      final String title;
+      if (widget.editItemId != null) {
+        if (widget.isMainGroup) {
+          title = widget.isHashtagMode
+              ? 'add_edit_popup_title_edit_hashtag_group'.tr
+              : 'add_edit_popup_title_edit_contact_group'.tr;
+        } else {
+          title = widget.isHashtagMode
+              ? 'add_edit_popup_title_edit_hashtag'.tr
+              : 'add_edit_popup_title_edit_contact'.tr;
+        }
+      } else {
+        if (widget.isMainGroup) {
+          title = widget.isHashtagMode
+              ? 'add_edit_popup_title_new_hashtag_group'.tr
+              : 'add_edit_popup_title_new_contact_group'.tr;
+        } else {
+          title = widget.isHashtagMode
+              ? 'add_edit_popup_title_new_hashtag'.tr
+              : 'add_edit_popup_title_new_contact'.tr;
+        }
+      }
+
+      return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 10),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+          color: dark ? Colors.grey[900] : Colors.white,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
@@ -137,7 +142,7 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                     Text(
                       title,
                       style: GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value ? Colors.white : Colors.black,
+                        color: dark ? Colors.white : Colors.black,
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
                       ),
@@ -169,7 +174,7 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                                 widget.parentGroupName!,
                               ]),
                               style: GoogleFonts.kumbhSans(
-                                color: uiController.darkMode.value ? Colors.white : Colors.black,
+                                color: dark ? Colors.white : Colors.black,
                                 fontSize: 16,
                               ),
                             ),
@@ -190,15 +195,17 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                           ? 'l10n_group_label_h'.tr
                           : 'l10n_group_label_c'.tr)
                       : (widget.isHashtagMode
-                          ? trKey('hinttext_isplacemode_category_group_name', [
-                              'l10n_label_hashtag'.tr,
-                            ])
-                          : trKey('hinttext_isplacemode_category_group_name', [
-                              'l10n_label_contact'.tr,
-                            ])),
+                          ? trForLang(
+                              'l10n_item_name_label_h',
+                              uiController.selectedLanguage.value,
+                            )
+                          : trForLang(
+                              'l10n_item_name_label_c',
+                              uiController.selectedLanguage.value,
+                            )),
                   style: GoogleFonts.kumbhSans(
                     fontSize: 15,
-                    color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                    color: dark ? Colors.white70 : Colors.grey[700],
                   ),
                 ),
               ),
@@ -225,7 +232,7 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                     FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
                   ],
                   style: GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                    color: dark ? Colors.white : Colors.black,
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
@@ -234,12 +241,14 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
                             ? 'l10n_group_name_label_h'.tr
                             : 'l10n_group_name_label_c'.tr)
                         : (widget.isHashtagMode
-                            ? trKey('hinttext_isplacemode_category_group_name', [
-                                'l10n_label_hashtag'.tr,
-                              ])
-                            : trKey('hinttext_isplacemode_category_group_name', [
-                                'l10n_label_contact'.tr,
-                              ])),
+                            ? trForLang(
+                                'l10n_item_name_label_h',
+                                uiController.selectedLanguage.value,
+                              )
+                            : trForLang(
+                                'l10n_item_name_label_c',
+                                uiController.selectedLanguage.value,
+                              )),
                     hintStyle: GoogleFonts.kumbhSans(
                       color: Colors.grey.shade400,
                       fontSize: 16,
@@ -254,6 +263,7 @@ class _AddEditGroupPopupState extends State<AddEditGroupPopup> {
         ),
       ),
     );
+    });
   }
 }
 

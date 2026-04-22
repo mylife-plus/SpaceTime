@@ -55,6 +55,18 @@ String trKey(String key, [List<Object?> args = const []]) {
   return trSubst(key.tr, args);
 }
 
+/// Looks up [key] in [L10nLoader.maps] for [languageCode] (e.g. settings language code),
+/// with English fallback. Prefer over `.tr` when [Get.locale] can lag behind settings.
+String trForLang(String key, String languageCode) {
+  final code =
+      L10nLoader.maps.containsKey(languageCode) ? languageCode : 'en';
+  final localized = L10nLoader.maps[code]?[key];
+  if (localized != null && localized.isNotEmpty) {
+    return localized;
+  }
+  return L10nLoader.maps['en']?[key] ?? key;
+}
+
 OverlayState? _appRootOverlay() {
   final ctx = Get.key.currentContext ?? Get.context;
   if (ctx == null) return null;

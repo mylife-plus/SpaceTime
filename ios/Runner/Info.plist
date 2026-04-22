@@ -24,6 +24,13 @@
 		<string>????</string>
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>CFBundleLocalizations</key>
+		<array>
+			<string>en</string>
+			<string>de</string>
+			<string>es</string>
+			<string>fr</string>
+		</array>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>ITSAppUsesNonExemptEncryption</key>
@@ -49,8 +56,6 @@
 		<string>Unlock SpaceTime with Face ID when app lock is enabled.</string>
 		<key>NSAppleMusicUsageDescription</key>
 		<string>SpaceTime does not use Apple Music. This key is required by Apple because an included SDK references media APIs. Photo and video picking uses the photo library descriptions above.</string>
-		<key>NSPhotoLibraryUsageDescription</key>
-		<string>This app needs access to photo library to allow you to select and upload images.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>This app needs access to your photo library to select and save photos and videos.</string>
 		<key>NSLocalNetworkUsageDescription</key>

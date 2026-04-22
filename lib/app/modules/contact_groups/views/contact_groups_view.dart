@@ -907,6 +907,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
               await _refreshContactGroupsFromDatabase();
 
+              if (context.mounted) Navigator.of(context).pop();
               showTrSnackbar('snackbar_success_6', 
                 backgroundColor: Colors.green,
                 colorText: Colors.white,        duration: const Duration(seconds: 2),);
@@ -2059,6 +2060,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
               await _refreshContactGroupsFromDatabase();
 
+              if (context.mounted) Navigator.of(context).pop();
               showTrSnackbar('snackbar_success_10', args: [name], 
                 backgroundColor: Colors.green,
                 colorText: Colors.white,        duration: const Duration(seconds: 2),);

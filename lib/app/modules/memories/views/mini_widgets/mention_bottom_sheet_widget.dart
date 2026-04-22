@@ -1325,6 +1325,7 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
   @override
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
+    final lang = uiController.selectedLanguage.value;
     final prefixChar = widget.isTagMode ? '#' : '@';
 
     return Dialog(
@@ -1552,8 +1553,8 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: Text(
                   widget.isTagMode
-                      ? 'l10n_label_hashtag'.tr
-                      : 'l10n_label_contact'.tr,
+                      ? trForLang('l10n_item_name_label_h', lang)
+                      : trForLang('l10n_item_name_label_c', lang),
                   style: GoogleFonts.kumbhSans(
                     fontSize: 15,
                     color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
@@ -1587,7 +1588,9 @@ class _AddGroupPopupDialogState extends State<_AddGroupPopupDialog> {
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
-                    hintText: trKey('hinttext_prefixchar_name', [prefixChar]),
+                    hintText: widget.isTagMode
+                        ? trForLang('l10n_item_name_label_h', lang)
+                        : trForLang('l10n_item_name_label_c', lang),
                     hintStyle: GoogleFonts.kumbhSans(
                       color: Colors.grey.shade400,
                       fontSize: 16,

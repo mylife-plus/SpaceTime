@@ -1242,6 +1242,16 @@ Navigator.of(context).pop();
     }
   }
 
+  /// Same horizontal lead as the place name row when the emoji picker is shown.
+  bool _placeNameRowShowsEmojiPicker() {
+    if (!_isPlaceMode) return false;
+    return (!widget.isMainCategory &&
+            _selectedParentId.value != 'add_new_main_category' &&
+            widget.editCategory == null) ||
+        widget.fromMemoryView ||
+        widget.shouldOnlyShowEditSubCategory;
+  }
+
   /// Get title text based on mode and state
   String _getTitleText() {
     if (_isHashtagMode) {
@@ -1285,10 +1295,13 @@ Navigator.of(context).pop();
 
   /// Get item name label text
   String _getItemNameLabelText() {
+    final lang = Get.isRegistered<UiController>()
+        ? Get.find<UiController>().selectedLanguage.value
+        : (Get.locale?.languageCode ?? 'en');
     if (_isHashtagMode) {
-      return trKey('hinttext_isplacemode_category_group_name', ['l10n_label_hashtag'.tr]);
+      return trForLang('l10n_item_name_label_h', lang);
     } else if (_isContactMode) {
-      return trKey('hinttext_isplacemode_category_group_name', ['l10n_label_contact'.tr]);
+      return trForLang('l10n_item_name_label_c', lang);
     } else {
       return 'hinttext_place_name'.tr;
     }
@@ -1301,7 +1314,9 @@ Navigator.of(context).pop();
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
-      child: Container(
+      child: Obx(() {
+        uiController.selectedLanguage.value;
+        return Container(
         width: double.infinity,
         margin: const EdgeInsets.all(0),
         padding: const EdgeInsets.all(0),
@@ -1524,45 +1539,87 @@ Navigator.of(context).pop();
                           children: [
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
                                 ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: TextField(
-                                controller: _nameController,
-                                focusNode: _nameFocusNode,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
-                                ],
-                                style: GoogleFonts.kumbhSans(
-                                  fontSize: 16,
-                                  color: uiController.darkMode.value ? Colors.white : Colors.black87,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: _isPlaceMode
-                                      ? trKey(
-                                          'hinttext_isplacemode_category_group_name',
-                                          ['l10n_word_category'.tr],
-                                        )
-                                      : (_isHashtagMode
-                                          ? 'l10n_group_name_label_h'.tr
-                                          : _isContactMode
-                                              ? 'l10n_group_name_label_c'.tr
-                                              : trKey(
-                                                  'hinttext_isplacemode_category_group_name',
-                                                  ['text_group'.tr],
-                                                )),
-                                  hintStyle: GoogleFonts.kumbhSans(
-                                    fontSize: 16,
-                                    color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
-                                  ),
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
+                              child: _placeNameRowShowsEmojiPicker()
+                                  ? Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        const SizedBox(width: 40, height: 40),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _nameController,
+                                            focusNode: _nameFocusNode,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                                            ],
+                                            style: GoogleFonts.kumbhSans(
+                                              fontSize: 16,
+                                              color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                                            ),
+                                            decoration: InputDecoration(
+                                              hintText: _isPlaceMode
+                                                  ? trKey(
+                                                      'hinttext_isplacemode_category_group_name',
+                                                      ['l10n_word_category'.tr],
+                                                    )
+                                                  : (_isHashtagMode
+                                                      ? 'l10n_group_name_label_h'.tr
+                                                      : _isContactMode
+                                                          ? 'l10n_group_name_label_c'.tr
+                                                          : trKey(
+                                                              'hinttext_isplacemode_category_group_name',
+                                                              ['text_group'.tr],
+                                                            )),
+                                              hintStyle: GoogleFonts.kumbhSans(
+                                                fontSize: 16,
+                                                color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
+                                              ),
+                                              border: InputBorder.none,
+                                              contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : TextField(
+                                      controller: _nameController,
+                                      focusNode: _nameFocusNode,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.deny(RegExp(r'\s')), // Deny all whitespace
+                                      ],
+                                      style: GoogleFonts.kumbhSans(
+                                        fontSize: 16,
+                                        color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: _isPlaceMode
+                                            ? trKey(
+                                                'hinttext_isplacemode_category_group_name',
+                                                ['l10n_word_category'.tr],
+                                              )
+                                            : (_isHashtagMode
+                                                ? 'l10n_group_name_label_h'.tr
+                                                : _isContactMode
+                                                    ? 'l10n_group_name_label_c'.tr
+                                                    : trKey(
+                                                        'hinttext_isplacemode_category_group_name',
+                                                        ['text_group'.tr],
+                                                      )),
+                                        hintStyle: GoogleFonts.kumbhSans(
+                                          fontSize: 16,
+                                          color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                                      ),
+                                    ),
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -1654,8 +1711,9 @@ Navigator.of(context).pop();
                           return Column(
                             children: [
                               Container(
+                                height: 50,
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   border: Border.all(
                                     color: uiController.darkMode.value ? Colors.grey[600]! : Colors.grey[300]!,
@@ -1679,7 +1737,7 @@ Navigator.of(context).pop();
                                       color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
                                     ),
                                     border: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 6),
                                   ),
                                 ),
                               ),
@@ -1808,7 +1866,8 @@ Navigator.of(context).pop();
             ),
           ],
         ),
-      ),
+      );
+      }),
     );
   }
 }

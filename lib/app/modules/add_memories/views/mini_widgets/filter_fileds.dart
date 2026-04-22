@@ -70,12 +70,36 @@ class _MemoriesFilterTextFieldRowState
 
   //   if (picked != null) controller.setDate(picked);
   // }
+  DateTime? _parsedStoredDate(dynamic controller) {
+    final raw = controller.filterValues[_storageKey];
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty) return null;
+    try {
+      return DateTime.parse(s);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  DateTime _initialDateForPicker(dynamic controller) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final first = DateTime(1900);
+    final parsed = _parsedStoredDate(controller);
+    if (parsed == null) return today;
+    var d = DateTime(parsed.year, parsed.month, parsed.day);
+    if (d.isBefore(first)) return first;
+    if (d.isAfter(today)) return today;
+    return d;
+  }
+
   Future<void> _pickDate(BuildContext context, dynamic controller) async {
     var uiController = Get.find<UiController>();
 
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _initialDateForPicker(controller),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
       builder: (context, child) {

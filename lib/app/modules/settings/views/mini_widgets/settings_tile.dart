@@ -5,7 +5,10 @@ import '../../../ui/controllers/ui_controller.dart';
 
 class SettingsTile extends StatelessWidget {
   final Widget icon;
+  /// Plain title when [titleL10nKey] is null.
   final String title;
+  /// When set, title is resolved with `.tr` inside [Obx] so it updates on language change.
+  final String? titleL10nKey;
   final String? subtitle;
   final VoidCallback? onTap;
   final bool showDivider;
@@ -13,22 +16,32 @@ class SettingsTile extends StatelessWidget {
   final bool showChevron;
   final Widget? trailing;
 
-  const SettingsTile({
+  SettingsTile({
     super.key,
     required this.icon,
-    required this.title,
+    this.title = '',
+    this.titleL10nKey,
     this.subtitle,
     this.onTap,
     this.showDivider = false,
     this.showChevron = true,
     this.trailing,
-  });
+  }) : assert(
+          titleL10nKey != null || title.isNotEmpty,
+          'Provide titleL10nKey or a non-empty title',
+        );
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
     return Obx(
-      () => Container(
+      () {
+        if (titleL10nKey != null) {
+          controller.selectedLanguage.value;
+        }
+        final titleText =
+            titleL10nKey != null ? titleL10nKey!.tr : title;
+        return Container(
         color:
             controller.darkMode.value ? controller.darkSurfaceColor : Colors.white,
         child: Column(
@@ -40,7 +53,7 @@ class SettingsTile extends StatelessWidget {
                 child: Center(child: icon),
               ),
               title: Text(
-                title,
+                titleText,
                 style: TextStyle(
                   fontSize: 16,
                   color:
@@ -85,7 +98,8 @@ class SettingsTile extends StatelessWidget {
               ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 }

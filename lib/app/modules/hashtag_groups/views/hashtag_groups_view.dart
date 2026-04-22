@@ -899,6 +899,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
               await _refreshHashtagGroupsFromDatabase();
 
+              if (context.mounted) Navigator.of(context).pop();
               showTrSnackbar('snackbar_success_15', 
                 backgroundColor: Colors.green,
                 colorText: Colors.white,        duration: const Duration(seconds: 2),);
@@ -2013,6 +2014,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
 
               await _refreshHashtagGroupsFromDatabase();
 
+              if (context.mounted) Navigator.of(context).pop();
               showTrSnackbar('snackbar_success_19', args: [name], 
                 backgroundColor: Colors.green,
                 colorText: Colors.white,        duration: const Duration(seconds: 2),);
@@ -2120,9 +2122,10 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   controller: nameController,
                   autofocus: true,
                   decoration: InputDecoration(
-                    hintText: trKey('hinttext_isplacemode_category_group_name', [
-                      'l10n_label_hashtag'.tr,
-                    ]),
+                    hintText: trForLang(
+                      'l10n_item_name_label_h',
+                      uiController.selectedLanguage.value,
+                    ),
                     hintStyle: gfonts.GoogleFonts.kumbhSans(
                       color: uiController.darkMode.value
                           ? Colors.white.withValues(alpha: 0.5)

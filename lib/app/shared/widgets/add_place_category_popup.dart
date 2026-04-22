@@ -817,6 +817,7 @@ Navigator.of(context).pop();
                               ),
                             ),
                             Container(
+                              height: 40,
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                               decoration: BoxDecoration(
@@ -825,22 +826,28 @@ Navigator.of(context).pop();
                                 ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: TextField(
-                                controller: _nameController,
-                                focusNode: _nameFocusNode,
-                                style: GoogleFonts.kumbhSans(
-                                  fontSize: 16,
-                                  color: uiController.darkMode.value ? Colors.white : Colors.black87,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'text_category_name_4'.tr,
-                                  hintStyle: GoogleFonts.kumbhSans(
-                                    fontSize: 16,
-                                    color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  TextField(
+                                    // textAlign: TextAlign.,
+                                    controller: _nameController,
+                                    focusNode: _nameFocusNode,
+                                    style: GoogleFonts.kumbhSans(
+                                      fontSize: 16,
+                                      color: uiController.darkMode.value ? Colors.white : Colors.black87,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: 'text_category_name_4'.tr,
+                                      hintStyle: GoogleFonts.kumbhSans(
+                                        fontSize: 16,
+                                        color: uiController.darkMode.value ? Colors.white54 : Colors.grey[500],
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
                                   ),
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -1927,6 +1934,8 @@ Navigator.of(context).pop();
                   if (!widget.fromMemoryView && !widget.isMainCategory && widget.parentCategoryId == null && widget.editCategory == null)
                     ...[
                       Container(
+                                                        // height: 50,
+// 
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
@@ -2019,6 +2028,8 @@ Navigator.of(context).pop();
                                 ),
                               ),
                               Container(
+                                                                // height: 50,
+// 
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                                 decoration: BoxDecoration(

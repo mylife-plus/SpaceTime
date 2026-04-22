@@ -21,6 +21,10 @@ class CategoryPickerWidget extends StatefulWidget {
   final Function(PlaceCategory)? onCategoryDeleted;
   final PlaceCategory? selectedCategory;
 
+  /// When true (e.g. opened from Settings → Places), selecting a place updates
+  /// [MemoryController] but does not [Get.back] so the user stays on this screen.
+  final bool openedFromSettings;
+
   // Multiple selection mode parameters
   final bool allowMultipleSelection;
   final List<PlaceCategory>? selectedCategories;
@@ -30,6 +34,7 @@ class CategoryPickerWidget extends StatefulWidget {
     super.key,
     this.onCategorySelected,
     this.selectedCategory,
+    this.openedFromSettings = false,
     this.allowMultipleSelection = false,
     this.selectedCategories,
     this.onMultipleCategoriesSelected, this.onCategoryDeleted,
@@ -445,11 +450,13 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
             '${category.emoji} ${category.name}';
       }
 
-      // Return both selected category and deleted categories
-      Get.back(result: {
-        'selected': category,
-        'deleted': _deletedCategories,
-      });
+      if (!widget.openedFromSettings) {
+        // Return both selected category and deleted categories
+        Get.back(result: {
+          'selected': category,
+          'deleted': _deletedCategories,
+        });
+      }
     }
   }
 
@@ -583,11 +590,13 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       widget.onMultipleCategoriesSelected!(subcategoriesOnly);
     }
 
-    // Return both selected and deleted categories
-    Get.back(result: {
-      'selected': subcategoriesOnly,
-      'deleted': _deletedCategories,
-    });
+    if (!widget.openedFromSettings) {
+      // Return both selected and deleted categories
+      Get.back(result: {
+        'selected': subcategoriesOnly,
+        'deleted': _deletedCategories,
+      });
+    }
   }
 
   /// Toggle expansion state of a main category
@@ -1307,7 +1316,7 @@ if (categoryToDelete != null) {
 
         _showCannotDeleteDialog(
           category == null
-              ? 'Unknown'
+              ? 'l10n_word_unknown'.tr
               : localizedPlaceCategoryName(
                   name: category.name,
                   emoji: category.emoji,
@@ -1334,80 +1343,105 @@ if (categoryToDelete != null) {
   /// Show dialog when category cannot be deleted due to existing memories
   void _showCannotDeleteDialog(String categoryName, int memoryCount, bool isMainCategory) {
     final uiController = Get.find<UiController>();
-    final categoryType = isMainCategory ? 'Place Category' : 'Place';
+    final titleKey = isMainCategory
+        ? 'dialog_title_cannot_delete_place_category'
+        : 'dialog_title_cannot_delete_place_sub';
+    final bodyKey = isMainCategory
+        ? 'dialog_body_place_category_delete_blocked'
+        : 'dialog_body_place_sub_delete_blocked';
+    final hintKey = isMainCategory
+        ? 'dialog_hint_change_place_before_delete_category'
+        : 'dialog_hint_change_place_before_delete_place';
 
     Get.dialog(
-      AlertDialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-        ),
-        backgroundColor:
-            uiController.darkMode.value ? Colors.grey[900] : Colors.white,
-        title: Row(
-          children: [
-            Icon(Icons.warning, color: Colors.orange, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'Cannot Delete $categoryType',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value ? Colors.white : Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+      Obx(
+        () {
+          uiController.selectedLanguage.value;
+          uiController.darkMode.value;
+          final memWord =
+              memoryCount == 1 ? 'l10n_word_memory'.tr : 'l10n_word_memories'.tr;
+          return AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
             ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'The $categoryType "$categoryName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 'memory' : 'memories'}.',
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value
-                        ? Colors.white70
-                        : Colors.grey[700],
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'To delete this $categoryType, first change the Place of all memories that use it, or delete those memories.',
-                      style: gfonts.GoogleFonts.kumbhSans(color: Colors.orange[700], fontSize: 14),
+            backgroundColor:
+                uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+            title: Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange, size: 24),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    titleKey.tr,
+                    style: gfonts.GoogleFonts.kumbhSans(
+                      color:
+                          uiController.darkMode.value ? Colors.white : Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(
-              'text_ok_7'.tr,
-              style: gfonts.GoogleFonts.kumbhSans(
-                color: uiController.currentMainColor,
-                fontWeight: FontWeight.bold,
-              ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trKey(bodyKey, [
+                    categoryName,
+                    memoryCount.toString(),
+                    memWord,
+                  ]),
+                  style: gfonts.GoogleFonts.kumbhSans(
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.white70
+                            : Colors.grey[700],
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          hintKey.tr,
+                          style: gfonts.GoogleFonts.kumbhSans(
+                            color: Colors.orange[700],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(),
+                child: Text(
+                  'text_ok_7'.tr,
+                  style: gfonts.GoogleFonts.kumbhSans(
+                    color: uiController.currentMainColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -1,0 +1,11 @@
+/* Localized Info.plist usage descriptions — French. */
+"NSCameraUsageDescription" = "L’app a besoin de l’accès à l’appareil photo pour prendre des photos et enregistrer des vidéos.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "L’app a besoin de votre position pour l’afficher sur la carte et proposer des fonctions liées à la localisation.";
+"NSLocationAlwaysUsageDescription" = "L’app a besoin de votre position pour l’afficher sur la carte et proposer des fonctions liées à la localisation.";
+"NSLocationWhenInUseUsageDescription" = "L’app a besoin de votre position pour l’afficher sur la carte et proposer des fonctions liées à la localisation.";
+"NSMicrophoneUsageDescription" = "L’app a besoin de l’accès au micro pour enregistrer l’audio dans les vidéos.";
+"NSFaceIDUsageDescription" = "Déverrouillez SpaceTime avec Face ID lorsque le verrouillage de l’app est activé.";
+"NSAppleMusicUsageDescription" = "SpaceTime n’utilise pas Apple Music. Cette clé est requise car un SDK inclus référence des API multimédias. Le choix des photos et vidéos utilise les descriptions de la photothèque ci-dessus.";
+"NSPhotoLibraryUsageDescription" = "L’app a besoin d’accéder à votre photothèque pour sélectionner et enregistrer des photos et vidéos.";
+"NSLocalNetworkUsageDescription" = "L’app a besoin d’accéder au réseau local pour la découverte des appareils.";
+"NSUserNotificationUsageDescription" = "L’app a besoin de l’autorisation de notification pour afficher la progression du téléchargement.";

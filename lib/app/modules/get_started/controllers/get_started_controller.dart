@@ -160,7 +160,17 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     if (completer != null) {
       _waitingForBackgroundRefreshCompleter = null;
       unawaited(() async {
-        final status = await _getBackgroundRefreshStatus();
+        // iOS can report a stale `.denied` for a short time after enabling BAR in Settings.
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+        var status = await _getBackgroundRefreshStatus();
+        if (status != 'available') {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+          status = await _getBackgroundRefreshStatus();
+        }
+        if (status != 'available') {
+          await Future<void>.delayed(const Duration(milliseconds: 600));
+          status = await _getBackgroundRefreshStatus();
+        }
         final enabled = status == 'available';
         if (!completer.isCompleted) completer.complete(enabled);
         await refreshIosBackgroundRefreshBanner();
@@ -726,7 +736,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       }
 
       if (Platform.isIOS) {
-        final bgStatus = await _getBackgroundRefreshStatus();
+        var bgStatus = await _getBackgroundRefreshStatus();
         debugPrint('[GetStartedController] Background refresh status: $bgStatus');
         if (bgStatus != 'available') {
           final alreadyShown = await _readIosBarPopupShownPref();
@@ -737,6 +747,12 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
           }
           if (userOpenedSettings) {
             await _waitForBackgroundRefreshToBecomeAvailable();
+          }
+          // iOS can lag updating status after toggling BAR in Settings.
+          for (var i = 0; i < 4 && bgStatus != 'available'; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 400));
+            bgStatus = await _getBackgroundRefreshStatus();
+            debugPrint('[GetStartedController] Background refresh re-check ($i): $bgStatus');
           }
         }
         await refreshIosBackgroundRefreshBanner();

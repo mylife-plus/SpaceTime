@@ -1,0 +1,11 @@
+/* Localized Info.plist usage descriptions — Spanish. */
+"NSCameraUsageDescription" = "La app necesita acceso a la cámara para que puedas tomar fotos y grabar vídeos.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "La app necesita tu ubicación para mostrarla en el mapa y ofrecer funciones basadas en la ubicación.";
+"NSLocationAlwaysUsageDescription" = "La app necesita tu ubicación para mostrarla en el mapa y ofrecer funciones basadas en la ubicación.";
+"NSLocationWhenInUseUsageDescription" = "La app necesita tu ubicación para mostrarla en el mapa y ofrecer funciones basadas en la ubicación.";
+"NSMicrophoneUsageDescription" = "La app necesita acceso al micrófono para grabar audio en los vídeos.";
+"NSFaceIDUsageDescription" = "Desbloquea SpaceTime con Face ID cuando el bloqueo de la app esté activado.";
+"NSAppleMusicUsageDescription" = "SpaceTime no usa Apple Music. Esta clave es obligatoria porque un SDK incluido referencia APIs multimedia. La selección de fotos y vídeos usa las descripciones de la fototeca anteriores.";
+"NSPhotoLibraryUsageDescription" = "La app necesita acceso a tu fototeca para seleccionar y guardar fotos y vídeos.";
+"NSLocalNetworkUsageDescription" = "La app necesita acceso a la red local para el descubrimiento de dispositivos.";
+"NSUserNotificationUsageDescription" = "La app necesita permiso de notificaciones para mostrar el progreso de la descarga.";

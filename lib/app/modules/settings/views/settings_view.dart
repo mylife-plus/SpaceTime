@@ -45,7 +45,7 @@ class SettingsView extends GetView<SettingsController> {
                 children: [
                   SettingsTile(
                     icon: Image.asset(AppImages.security),
-                    title: AppTexts.security,
+                    titleL10nKey: 'apptexts_security',
                     showDivider: true,
                     onTap: () {
                       Get.to(() => SecurityView());
@@ -58,7 +58,7 @@ class SettingsView extends GetView<SettingsController> {
                           ? Colors.white70
                           : Colors.blueGrey,
                     ),
-                    title: AppTexts.language,
+                    titleL10nKey: 'apptexts_language',
                     subtitle: displayLabelForLanguageCode(
                       controller.selectedLanguage.value,
                     ),
@@ -69,7 +69,7 @@ class SettingsView extends GetView<SettingsController> {
                   ),
                   SettingsTile(
                     icon: Image.asset(AppImages.ui),
-                    title: AppTexts.ui,
+                    titleL10nKey: 'apptexts_ui',
                     showDivider: true,
                     onTap: () {
                       Get.to(() => UiView());
@@ -77,7 +77,7 @@ class SettingsView extends GetView<SettingsController> {
                   ),
                   SettingsTile(
                     icon: Image.asset(AppImages.data),
-                    title: AppTexts.data,
+                    titleL10nKey: 'apptexts_data',
                     onTap: () {
                       Get.to(() => DataView());
                     },
@@ -93,11 +93,15 @@ class SettingsView extends GetView<SettingsController> {
                 children: [
                       SettingsTile(
                     icon: Text('text_4'.tr, style: TextStyle(fontSize: 22)),
-                    title: AppTexts.places,
+                    titleL10nKey: 'apptexts_places',
                                         showDivider: true,
 
                     onTap: () {
-                      Get.to(() => const CategoryPickerWidget());
+                      Get.to(
+                        () => const CategoryPickerWidget(
+                          openedFromSettings: true,
+                        ),
+                      );
                     },
                   ),
                   SettingsTile(
@@ -106,7 +110,7 @@ class SettingsView extends GetView<SettingsController> {
                       // show
                       color: controller.darkMode.value ? Colors.white : null,
                     ),
-                    title: AppTexts.hashTagGroups,
+                    titleL10nKey: 'apptexts_hashtag_groups',
                     showDivider: true,
                     onTap: () {
                       Get.to(() => HashtagGroupsView());
@@ -117,7 +121,7 @@ class SettingsView extends GetView<SettingsController> {
                       AppImages.contact,
                       color: controller.darkMode.value ? Colors.white : null,
                     ),
-                    title: AppTexts.contactGroups,
+                    titleL10nKey: 'apptexts_contact_groups',
                     showDivider: false,
                     onTap: () {
                       Get.to(() => ContactGroupsView());
@@ -133,7 +137,7 @@ class SettingsView extends GetView<SettingsController> {
 
               child: SettingsTile(
                 icon: Image.asset(AppImages.feedback),
-                title: AppTexts.feedBack,
+                titleL10nKey: 'apptexts_feedback',
                 onTap: () {
                   Get.to(() => FeedbackView());
                 },
