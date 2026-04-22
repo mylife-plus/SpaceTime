@@ -1,3 +1,4 @@
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:get/get.dart';
@@ -111,22 +112,28 @@ class GetStartedView extends GetView<GetStartedController> {
               // const SizedBox(height: 8),
 
               // SpaceTime text
-              Text(
-                'text_spacetime'.tr,
-                style: TextStyle(
-                  fontFamily: 'KumbhSans',
-                  fontSize: _responsiveFontSize(context, 48),
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.8),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+              SizedBox(
+                width: double.infinity,
+                child: AutoSizeText(
+                  'text_spacetime'.tr,
+                  maxLines: 1,
+                  minFontSize: 12,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'KumbhSans',
+                    fontSize: _responsiveFontSize(context, 48),
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
                 ),
-                textAlign: TextAlign.center,
               ),
 
             const SizedBox(height: 40),
@@ -233,7 +240,9 @@ class GetStartedView extends GetView<GetStartedController> {
   /// Build the download section
   Widget _buildDownloadSection(UiController uiController) {
     return Builder(
-      builder: (context) => Container(
+      builder: (context) => Obx(() {
+        uiController.selectedLanguage.value;
+        return Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -277,22 +286,28 @@ class GetStartedView extends GetView<GetStartedController> {
                   const SizedBox(height: 4),
 
                   // SpaceTime text
-                  Text(
-                    'text_spacetime_2'.tr,
-                    style: TextStyle(
-                      fontFamily: 'KumbhSans',
-                      fontSize: _responsiveFontSize(context, 40),
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: AutoSizeText(
+                      'text_spacetime_2'.tr,
+                      maxLines: 1,
+                      minFontSize: 12,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'KumbhSans',
+                        fontSize: _responsiveFontSize(context, 40),
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withValues(alpha: 0.8),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
         
                           const SizedBox(height: 4),
@@ -569,7 +584,9 @@ const SizedBox(height: 8),
           ),
         ),
       ),
-    ));
+    );
+      }),
+    );
   }
 
   /// Build the progress card
@@ -798,6 +815,7 @@ const SizedBox(height: 8),
   /// Build the blue start button
   Widget _buildStartButton(UiController uiController) {
     return Obx(() {
+      uiController.selectedLanguage.value;
       if (controller.isCompleted.value) {
         // Show "Get Started" button when download is complete
         return Container(

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,6 +43,9 @@ class OfflineMapService extends GetxService {
   final RxString downloadStatusText = ''.obs;
   final RxInt downloadedTileCount = 0.obs;
 
+  String _downloadStatusL10nKey = '';
+  List<Object?> _downloadStatusL10nArgs = const [];
+
   // Getters for streams
   Stream<double> get stylePackProgressStream => _stylePackProgress.stream;
   Stream<double> get tileRegionProgressStream => _tileRegionLoadProgress.stream;
@@ -50,7 +54,12 @@ class OfflineMapService extends GetxService {
   @override
   Future<void> onInit() async {
     super.onInit();
-    downloadStatusText.value = 'mbtiles_status_ready_to_download'.tr;
+    if (Get.isRegistered<UiController>()) {
+      ever(Get.find<UiController>().selectedLanguage, (_) {
+        _refreshDownloadStatusForLocale();
+      });
+    }
+    _updateDownloadStatusTr('mbtiles_status_ready_to_download');
     await _initializeOfflineComponents();
   }
 
@@ -375,17 +384,32 @@ class OfflineMapService extends GetxService {
     }
   }
 
-  /// Update download status and broadcast to listeners
-  void _updateDownloadStatus(String status) {
-    downloadStatusText.value = status;
+  void _emitDownloadStatus(String text) {
+    downloadStatusText.value = text;
     if (!_downloadStatus.isClosed) {
-      _downloadStatus.sink.add(status);
+      _downloadStatus.sink.add(text);
     }
   }
 
+  void _refreshDownloadStatusForLocale() {
+    if (_downloadStatusL10nKey.isEmpty) return;
+    final text = _downloadStatusL10nArgs.isEmpty
+        ? _downloadStatusL10nKey.tr
+        : trKey(
+            _downloadStatusL10nKey,
+            List<Object?>.from(_downloadStatusL10nArgs),
+          );
+    _emitDownloadStatus(text);
+  }
+
   void _updateDownloadStatusTr(String key, [List<Object?> args = const []]) {
-    final text = args.isEmpty ? key.tr : trKey(key, args);
-    _updateDownloadStatus(text);
+    _downloadStatusL10nKey = key;
+    _downloadStatusL10nArgs =
+        args.isEmpty ? const [] : List<Object?>.from(args);
+    final text = _downloadStatusL10nArgs.isEmpty
+        ? key.tr
+        : trKey(key, _downloadStatusL10nArgs);
+    _emitDownloadStatus(text);
   }
 
   /// Load tile count from SharedPreferences
