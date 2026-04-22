@@ -19,6 +19,7 @@ import '../../controllers/add_memories_controller.dart';
 import '../../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
+import 'package:spacetime/app/utils/search_utils.dart';
 
 class MemoryCard extends StatefulWidget {
   final Map<String, dynamic> memoryData;
@@ -272,10 +273,18 @@ class MemoryCard extends StatefulWidget {
     if (query.isEmpty) return true;
 
     final lowerQuery = query.toLowerCase();
+    final cat = category;
+    final catMatches = cat != null &&
+        cat.isNotEmpty &&
+        (cat.toLowerCase().contains(lowerQuery) ||
+            SearchUtils.matchesSearchInAny(query, [
+              cat,
+              placeCategorySearchHaystack(cat),
+            ]));
     return (text?.toLowerCase().contains(lowerQuery) ?? false) ||
         location.toLowerCase().contains(lowerQuery) ||
         date.toLowerCase().contains(lowerQuery) ||
-        (category?.toLowerCase().contains(lowerQuery) ?? false) ||
+        catMatches ||
         (tags?.toLowerCase().contains(lowerQuery) ?? false) ||
         (mentions?.toLowerCase().contains(lowerQuery) ?? false);
   }
@@ -316,8 +325,12 @@ class MemoryCard extends StatefulWidget {
     // Filter by category
     final categoryFilter = filters['category'];
     if (categoryFilter != null && categoryFilter.isNotEmpty) {
-      if (category == null ||
-          !category!.toLowerCase().contains(categoryFilter.toLowerCase())) {
+      if (category == null || category!.isEmpty) return false;
+      if (!category!.toLowerCase().contains(categoryFilter.toLowerCase()) &&
+          !SearchUtils.matchesSearchInAny(categoryFilter, [
+            category!,
+            placeCategorySearchHaystack(category!),
+          ])) {
         return false;
       }
     }
@@ -1076,7 +1089,10 @@ class _MemoryCardState extends State<MemoryCard> {
     final controller = Get.find<UiController>();
 
     debugPrint('Memory Data: ${widget.memoryData}');
-    return Container(
+    return Obx(() {
+      final _ = controller.selectedLanguage.value;
+      controller.darkMode.value;
+      return Container(
       color: (!controller.darkMode.value ? Colors.white : Colors.transparent),
 
       child: GestureDetector(
@@ -1300,6 +1316,7 @@ class _MemoryCardState extends State<MemoryCard> {
         ),
       ),
     );
+    });
   }
 
   /// Helper method to style text with color

@@ -1765,7 +1765,9 @@ if (categoryToDelete != null) {
                   ? Obx(
                     () => TappableBackButton(
                       onPressed: _onDonePressed,
-                      tooltip: _selectedCategories.isNotEmpty ? 'Done' : 'Back',
+                      tooltip: _selectedCategories.isNotEmpty
+                          ? 'tooltip_done'.tr
+                          : 'tooltip_back'.tr,
                     ),
                   )
                   : null,
@@ -2646,8 +2648,8 @@ if (categoryToDelete != null) {
                         onPressed: () => _showEditCategoryDialog(mainCategory),
                         tooltip:
                             mainCategory.isCustom
-                                ? 'Edit Places'
-                                : 'Edit',
+                                ? 'tooltip_edit_places_group'.tr
+                                : 'tooltip_edit_short'.tr,
                       ),
                       // Show delete button only when category has no subcategories
                       if (mainCategory.subcategories == null ||

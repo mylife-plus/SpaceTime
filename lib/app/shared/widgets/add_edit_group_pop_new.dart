@@ -1711,7 +1711,6 @@ Navigator.of(context).pop();
                           return Column(
                             children: [
                               Container(
-                                height: 50,
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(

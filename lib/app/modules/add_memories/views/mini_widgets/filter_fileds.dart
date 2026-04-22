@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart';
+import 'package:spacetime/app/config/app_locale.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
@@ -56,6 +58,12 @@ class _MemoriesFilterTextFieldRowState
   bool get isLocationField => _storageKey == 'location';
   bool get isRadiusField => _storageKey.contains('radius');
 
+  String _formatRadiusForFilterDisplay(String radiusValue, String lang) {
+    final d = double.tryParse(radiusValue.replaceAll(',', '.'));
+    if (d == null) return radiusValue;
+    return formatLocaleOneDecimal(d, lang);
+  }
+
   void _handleTextChanged(String value, dynamic controller) {
     if (value.contains('@')) {
       debugPrint('Mention trigger from [${widget.filterStorageKey}]: $value');
@@ -99,6 +107,7 @@ class _MemoriesFilterTextFieldRowState
 
     final picked = await showDatePicker(
       context: context,
+      locale: appLocaleFromLanguageCode(uiController.selectedLanguage.value),
       initialDate: _initialDateForPicker(controller),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
@@ -337,6 +346,7 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
                   child: AbsorbPointer(
                     absorbing: isDateField || isLocationField,
                     child: Obx(() {
+                      final lang = controller2.selectedLanguage.value;
                       // Determine the display value based on field type
                       // Update controller text when value changes
                       String currentValue;
@@ -346,9 +356,11 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
                             ? controller.selectedLocationDisplayName.value
                             : controller.selectedLocation.value;
                         String radiusValue = controller.selectedRadius.value;
+                        final kmUnit = trForLang('text_distance_unit_km', lang);
 
                         if (locationValue.isNotEmpty && radiusValue.isNotEmpty) {
-                          currentValue = '$locationValue + ${radiusValue}km';
+                          currentValue =
+                              '$locationValue + ${_formatRadiusForFilterDisplay(radiusValue, lang)}$kmUnit';
                         } else if (locationValue.isNotEmpty) {
                           currentValue = locationValue;
                         } else {
@@ -384,6 +396,8 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
                       // Only update controller text if it's different to avoid cursor issues
 
                       return Obx(() {
+                        final lang = controller2.selectedLanguage.value;
+                        final kmUnit = trForLang('text_distance_unit_km', lang);
                         // For location field with radius, use RichText for colored radius
                         if (isLocationField && (controller.selectedLocationDisplayName.value.isNotEmpty || controller.selectedLocation.value.isNotEmpty) && controller.selectedRadius.value.isNotEmpty) {
                           // Use display name if available, otherwise use coordinates
@@ -391,6 +405,8 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
                               ? controller.selectedLocationDisplayName.value
                               : controller.selectedLocation.value;
                           String radiusValue = controller.selectedRadius.value;
+                          final radiusFormatted =
+                              _formatRadiusForFilterDisplay(radiusValue, lang);
 
                           return SizedBox(
                             height: 22,
@@ -410,7 +426,7 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
                                   ),
                                   children: [
                                     TextSpan(
-                                      text: '${radiusValue}km',
+                                      text: '$radiusFormatted$kmUnit',
                                       style: GoogleFonts.kumbhSans(
                                         color: controller2.currentMainColor,
                                         fontSize: 16,

@@ -11,7 +11,6 @@ import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_pop_new.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
-import '../../../config/app_text.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class ContactGroupsView extends StatefulWidget {
@@ -1119,25 +1118,30 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   ? Obx(
                     () => TappableBackButton(
                       onPressed: _onDonePressed,
-                      tooltip: _selectedContactGroups.isNotEmpty ? 'Done' : 'Back',
+                      tooltip: _selectedContactGroups.isNotEmpty
+                          ? 'tooltip_done'.tr
+                          : 'tooltip_back'.tr,
                     ),
                   )
                   : null,
           title: Obx(
-            () => Text(
-              widget.allowMultipleSelection
-                  ? 'Contacts'
-                  : AppTexts.contactGroups,
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value ? Colors.white : Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: null, // Allow unlimited lines
-              overflow: TextOverflow.visible, // Show all text
-              textAlign: TextAlign.center, // Keep centered
-            ),
+            () {
+              final lang = uiController.selectedLanguage.value;
+              final isDark = uiController.darkMode.value;
+              return Text(
+                widget.allowMultipleSelection
+                    ? trForLang('title_filter_contacts_picker', lang)
+                    : trForLang('apptexts_contact_groups', lang),
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: isDark ? Colors.white : Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: null, // Allow unlimited lines
+                overflow: TextOverflow.visible, // Show all text
+                textAlign: TextAlign.center, // Keep centered
+              );
+            },
           ),
           centerTitle: true,
           backgroundColor: uiController.currentMainColor,
@@ -1163,7 +1167,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     height: 25,
                   ),
                 ),
-                tooltip: 'Add New Contact Group',
+                tooltip: 'tooltip_add_new_contact_group'.tr,
               ),
           ],
         ),
@@ -1193,7 +1197,11 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       children: [
                         Center(
                           child: Text(
-                            '${_selectedContactGroups.where((g) => g.isSubgroup).length} selected',
+                            trKey('text_filter_n_selected', [
+                              _selectedContactGroups
+                                  .where((g) => g.isSubgroup)
+                                  .length,
+                            ]),
                             style: gfonts.GoogleFonts.kumbhSans(
                               color: uiController.currentMainColor,
                               fontSize: 16,

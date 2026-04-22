@@ -5,6 +5,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 /// Loads [assets/l10n/{en,es,fr,de}.json] before [runApp].
 class L10nLoader {
@@ -55,16 +56,53 @@ String trKey(String key, [List<Object?> args = const []]) {
   return trSubst(key.tr, args);
 }
 
+/// Like [trKey] but resolves [key] for [languageCode] (e.g. settings) via [trForLang].
+String trKeyForLang(
+  String key,
+  String languageCode, [
+  List<Object?> args = const [],
+]) {
+  return trSubst(trForLang(key, languageCode), args);
+}
+
+/// Resolves app language: [preferredCode] (e.g. settings), then [Get.locale], then `en`.
+String effectiveLanguageCode([String? preferredCode]) {
+  if (L10nLoader.maps.isEmpty) return 'en';
+  String norm(String? s) => (s ?? '').trim().toLowerCase();
+  final p = norm(preferredCode);
+  if (p.isNotEmpty && L10nLoader.maps.containsKey(p)) return p;
+  final g = norm(Get.locale?.languageCode);
+  if (g.isNotEmpty && L10nLoader.maps.containsKey(g)) return g;
+  return 'en';
+}
+
 /// Looks up [key] in [L10nLoader.maps] for [languageCode] (e.g. settings language code),
 /// with English fallback. Prefer over `.tr` when [Get.locale] can lag behind settings.
-String trForLang(String key, String languageCode) {
-  final code =
-      L10nLoader.maps.containsKey(languageCode) ? languageCode : 'en';
+String trForLang(String key, [String? languageCode]) {
+  final code = effectiveLanguageCode(languageCode);
   final localized = L10nLoader.maps[code]?[key];
   if (localized != null && localized.isNotEmpty) {
     return localized;
   }
   return L10nLoader.maps['en']?[key] ?? key;
+}
+
+/// One fractional digit, locale-aware (e.g. `4.5` → `4,5` in `de`).
+String formatLocaleOneDecimal(double value, [String? languageCode]) {
+  final code = effectiveLanguageCode(languageCode);
+  return NumberFormat.decimalPatternDigits(
+    locale: code,
+    decimalDigits: 1,
+  ).format(value);
+}
+
+/// Integer formatting with grouping rules for [languageCode].
+String formatLocaleInteger(num value, [String? languageCode]) {
+  final code = effectiveLanguageCode(languageCode);
+  return NumberFormat.decimalPatternDigits(
+    locale: code,
+    decimalDigits: 0,
+  ).format(value);
 }
 
 OverlayState? _appRootOverlay() {

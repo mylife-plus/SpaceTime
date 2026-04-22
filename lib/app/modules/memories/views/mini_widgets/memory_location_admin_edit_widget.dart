@@ -494,7 +494,9 @@ class _MemoryLocationAdminEditWidgetState
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return Obx(() {
+      final _ = _uiController.selectedLanguage.value;
+      return PopScope(
       onPopInvokedWithResult: (didPop, result) {
         if (didPop && !_didSubmit) {
           _restoreOriginalLocationTextIfCancelled();
@@ -736,6 +738,7 @@ class _MemoryLocationAdminEditWidgetState
         );
       }),
     ));
+    });
   }
 }
 

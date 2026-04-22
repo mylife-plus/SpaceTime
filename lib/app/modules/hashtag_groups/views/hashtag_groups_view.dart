@@ -11,7 +11,6 @@ import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_pop_new.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
-import '../../../config/app_text.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class HashtagGroupsView extends StatefulWidget {
@@ -1076,25 +1075,30 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                   ? Obx(
                     () => TappableBackButton(
                       onPressed: _onDonePressed,
-                      tooltip: _selectedHashtagGroups.isNotEmpty ? 'Done' : 'Back',
+                      tooltip: _selectedHashtagGroups.isNotEmpty
+                          ? 'tooltip_done'.tr
+                          : 'tooltip_back'.tr,
                     ),
                   )
                   : null,
           title: Obx(
-            () => Text(
-              widget.allowMultipleSelection
-                  ? 'Hashtags'
-                  : AppTexts.hashTagGroups,
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value ? Colors.white : Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: null, // Allow unlimited lines
-              overflow: TextOverflow.visible, // Show all text
-              textAlign: TextAlign.center, // Keep centered
-            ),
+            () {
+              final lang = uiController.selectedLanguage.value;
+              final isDark = uiController.darkMode.value;
+              return Text(
+                widget.allowMultipleSelection
+                    ? trForLang('title_filter_hashtags_picker', lang)
+                    : trForLang('apptexts_hashtag_groups', lang),
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: isDark ? Colors.white : Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: null, // Allow unlimited lines
+                overflow: TextOverflow.visible, // Show all text
+                textAlign: TextAlign.center, // Keep centered
+              );
+            },
           ),
           centerTitle: true,
           backgroundColor: uiController.currentMainColor,
@@ -1120,7 +1124,7 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                     height: 25,
                   ),
                 ),
-                tooltip: 'Add New Hashtag Group',
+                tooltip: 'tooltip_add_new_hashtag_group'.tr,
               ),
           ],
         ),
@@ -1149,7 +1153,11 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          '${_selectedHashtagGroups.where((g) => g.isSubgroup).length} selected',
+                          trKey('text_filter_n_selected', [
+                            _selectedHashtagGroups
+                                .where((g) => g.isSubgroup)
+                                .length,
+                          ]),
                           style: gfonts.GoogleFonts.kumbhSans(
                             color: uiController.currentMainColor,
                             fontSize: 16,

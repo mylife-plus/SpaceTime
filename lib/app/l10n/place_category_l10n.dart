@@ -1,5 +1,8 @@
 import 'package:get/get.dart';
 import 'package:spacetime/app/constants/place_categories_data.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/utils/search_utils.dart';
 
 /// Slugs must match [assets/l10n/place_category_bundle.json] (see tool that generated it).
 String placeCategorySlug(String input) {
@@ -36,10 +39,47 @@ String? predefinedParentMainNameForSub(String subName, String emoji) {
   return found;
 }
 
-String _trOrOriginal(String key, String fallback) {
-  final t = key.tr;
+/// Prefer settings language over [Get.locale], which can lag after in-app language changes.
+String _languageCodeForPlaceCategoryStrings() {
+  if (Get.isRegistered<UiController>()) {
+    try {
+      return effectiveLanguageCode(
+        Get.find<UiController>().selectedLanguage.value,
+      );
+    } catch (_) {}
+  }
+  return effectiveLanguageCode(null);
+}
+
+String _trForLangKey(String key, String fallback, String languageCode) {
+  final t = trForLang(key, languageCode);
   if (t == key || t.isEmpty) return fallback;
   return t;
+}
+
+String _trOrOriginal(String key, String fallback) {
+  return _trForLangKey(key, fallback, _languageCodeForPlaceCategoryStrings());
+}
+
+/// Same as [localizedPlaceCategoryName] for a fixed [languageCode] (e.g. search indexing).
+String localizedPlaceCategoryNameForLang({
+  required String name,
+  required String emoji,
+  required bool isCustom,
+  required bool isMainCategory,
+  required String languageCode,
+}) {
+  if (isCustom) return name;
+  if (isMainCategory) {
+    final k = _l10nKeyForMain(name);
+    if (k == null) return name;
+    return _trForLangKey(k, name, languageCode);
+  }
+  final parent = predefinedParentMainNameForSub(name, emoji);
+  if (parent == null) return name;
+  final k = _l10nKeyForSub(parent, name);
+  if (k == null) return name;
+  return _trForLangKey(k, name, languageCode);
 }
 
 /// Localized display name for a place category row (DB keeps English [name]).
@@ -49,17 +89,54 @@ String localizedPlaceCategoryName({
   required bool isCustom,
   required bool isMainCategory,
 }) {
-  if (isCustom) return name;
-  if (isMainCategory) {
-    final k = _l10nKeyForMain(name);
-    if (k == null) return name;
-    return _trOrOriginal(k, name);
+  return localizedPlaceCategoryNameForLang(
+    name: name,
+    emoji: emoji,
+    isCustom: isCustom,
+    isMainCategory: isMainCategory,
+    languageCode: _languageCodeForPlaceCategoryStrings(),
+  );
+}
+
+/// Normalized text including [storedCategory] plus all known translations (en/es/fr/de)
+/// so keyword search matches regardless of UI language used when saving the memory.
+String placeCategorySearchHaystack(String? storedCategory) {
+  if (storedCategory == null || storedCategory.trim().isEmpty) {
+    return '';
   }
-  final parent = predefinedParentMainNameForSub(name, emoji);
-  if (parent == null) return name;
-  final k = _l10nKeyForSub(parent, name);
-  if (k == null) return name;
-  return _trOrOriginal(k, name);
+  final raw = storedCategory.trim();
+  final spaceIdx = raw.indexOf(' ');
+  if (spaceIdx <= 0 || spaceIdx >= raw.length - 1) {
+    return SearchUtils.normalizeText(raw);
+  }
+  final emoji = raw.substring(0, spaceIdx);
+  final name = raw.substring(spaceIdx + 1);
+  if (name.isEmpty) {
+    return SearchUtils.normalizeText(raw);
+  }
+
+  final isPredefinedSub = predefinedParentMainNameForSub(name, emoji) != null;
+  final isPredefinedMain =
+      !isPredefinedSub && kPlaceCategoriesSeed.containsKey(name);
+
+  if (!isPredefinedSub && !isPredefinedMain) {
+    return SearchUtils.normalizeText('$raw $name');
+  }
+
+  final isMain = isPredefinedMain;
+  final variants = <String>{raw, name};
+  for (final code in L10nLoader.maps.keys) {
+    final localized = localizedPlaceCategoryNameForLang(
+      name: name,
+      emoji: emoji,
+      isCustom: false,
+      isMainCategory: isMain,
+      languageCode: code,
+    );
+    variants.add(localized);
+    variants.add('$emoji $localized');
+  }
+  return SearchUtils.normalizeText(variants.join(' '));
 }
 
 /// Localized display for stored canonical `emoji englishName` (memories / filters); custom unchanged.

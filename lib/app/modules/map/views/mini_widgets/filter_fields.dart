@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:spacetime/app/config/app_locale.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import '../../controllers/map_controller.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/location_picker_widget.dart';
@@ -26,9 +27,11 @@ class FilterTextFieldRow extends StatelessWidget {
   }
 
   Future<void> _pickDate(BuildContext context, MapController controller) async {
+    final uiController = Get.find<UiController>();
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
+      locale: appLocaleFromLanguageCode(uiController.selectedLanguage.value),
       initialDate: now,
       firstDate: DateTime(now.year - 10),
       lastDate: DateTime(now.year + 10),

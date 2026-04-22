@@ -323,7 +323,12 @@ class MemoryInfoWidget extends StatelessWidget {
       context: context,
       initialTime: controller.selectedTime.value ?? TimeOfDay.now(),
       builder: (context, child) {
-        return Theme(
+        final dialogLocale =
+            appLocaleFromLanguageCode(uiController.selectedLanguage.value);
+        return Localizations.override(
+          context: context,
+          locale: dialogLocale,
+          child: Theme(
           data: Theme.of(context).copyWith(
             colorScheme:
                 uiController.darkMode.value
@@ -455,6 +460,7 @@ class MemoryInfoWidget extends StatelessWidget {
             ),
           ),
           child: child!,
+        ),
         );
       },
     );

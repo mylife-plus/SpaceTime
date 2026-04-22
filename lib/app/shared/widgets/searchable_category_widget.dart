@@ -826,8 +826,8 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
         padding: const EdgeInsets.all(20),
         child: Text(
           _isSearching.value && _searchController.text.isNotEmpty
-              ? 'No Places found'
-              : 'No recent Places',
+              ? 'text_no_places_match_your_search'.tr
+              : 'text_places_no_recent_selections'.tr,
           style: AppFonts.medium(
             14,
             color: uiController.darkMode.value ? Colors.white54 : Colors.grey[600]!,

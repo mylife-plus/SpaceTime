@@ -702,19 +702,21 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
           location,
         ]);
 
-        // Check category match
+        // Check category match (stored English + all l10n variants)
         bool matchesCategory = false;
-        if (category.isNotEmpty) {
-          String categoryName = category;
-          if (category.contains(' ')) {
-            final parts = category.split(' ');
+        final categoryStr = category.toString().trim();
+        if (categoryStr.isNotEmpty) {
+          String categoryName = categoryStr;
+          if (categoryStr.contains(' ')) {
+            final parts = categoryStr.split(' ');
             if (parts.length > 1) {
               categoryName = parts.sublist(1).join(' ');
             }
           }
           matchesCategory = SearchUtils.matchesSearchInAny(query, [
             categoryName,
-            category,
+            categoryStr,
+            placeCategorySearchHaystack(categoryStr),
           ]);
         }
 
@@ -2734,8 +2736,12 @@ class _MemoryFilterHelper {
     // Filter by category
     final categoryFilter = filters['category'];
     if (categoryFilter != null && categoryFilter.isNotEmpty) {
-      if (category == null ||
-          !category!.toLowerCase().contains(categoryFilter.toLowerCase())) {
+      if (category == null || category!.isEmpty) return false;
+      if (!category!.toLowerCase().contains(categoryFilter.toLowerCase()) &&
+          !SearchUtils.matchesSearchInAny(categoryFilter, [
+            category!,
+            placeCategorySearchHaystack(category!),
+          ])) {
         return false;
       }
     }
@@ -2837,7 +2843,11 @@ class _MemoryFilterHelper {
 
       bool hasMatchingCategory = false;
       for (final filterCategory in categoryFilters) {
-        if (category!.toLowerCase().contains(filterCategory.toLowerCase())) {
+        if (category!.toLowerCase().contains(filterCategory.toLowerCase()) ||
+            SearchUtils.matchesSearchInAny(filterCategory, [
+              category!,
+              placeCategorySearchHaystack(category!),
+            ])) {
           hasMatchingCategory = true;
           break;
         }

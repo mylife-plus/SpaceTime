@@ -7,6 +7,7 @@ import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/map/controllers/memory_location_picker_with_radius_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 
 class MemoryLocationPickerWidgetWithRadius extends StatefulWidget {
   const MemoryLocationPickerWidgetWithRadius({super.key});
@@ -461,6 +462,7 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
   Widget _buildRadiusSeekbar() {
     return Obx(() {
       final isDark = controller.uiController.darkMode.value;
+      final lang = controller.uiController.selectedLanguage.value;
 
       return Positioned(
         top: 56, // Below search bar (50 + 44 + 8)
@@ -491,14 +493,15 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
                   
                   Text(
                     controller.radiusInKm.value < 1
-                        ? '${(controller.radiusInKm.value * 1000).toStringAsFixed(0)} m '
-                        : '${controller.radiusInKm.value.toStringAsFixed(1)} km ',
+                        ? '${formatLocaleInteger((controller.radiusInKm.value * 1000).round(), lang)}${trForLang('text_distance_unit_m', lang)} '
+                        : '${formatLocaleOneDecimal(controller.radiusInKm.value, lang)}${trForLang('text_distance_unit_km', lang)} ',
                     style: AppFonts.bold(
                       14,
                       color: controller.uiController.currentMainColor,
                     ),
-                  ),Text(
-                    'text_radius'.tr,
+                  ),
+                  Text(
+                    trForLang('text_radius', lang),
                     style: AppFonts.bold(
                       14,
                       color: isDark ? Colors.white70 : Colors.grey[700]!,

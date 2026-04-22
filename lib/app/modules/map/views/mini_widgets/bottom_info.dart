@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/routes/app_pages.dart';
@@ -54,112 +55,117 @@ class _BottomPanelState extends State<BottomPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final ui = Get.find<UiController>();
     final screenHeight = MediaQuery.of(context).size.height;
 
-    return GestureDetector(
-      onVerticalDragEnd: (details) {
-        if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Material(
-          color: Colors.transparent,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: screenHeight * 0.7, // ⬅️ MAX HEIGHT
-            ),
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: ui.darkMode.value ? Colors.black : Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: ui.darkMode.value
-                        ? Colors.white30
-                        : Colors.black26,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min, // 🔑 content-driven height
-                  children: [
-                    // Drag handle
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: Container(
-                        margin: const EdgeInsets.only(top: 4, bottom: 12),
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: ui.darkMode.value
-                              ? Colors.white30
-                              : Colors.black26,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
+    return Obx(() {
+      final ui = Get.find<UiController>();
+      final _ = ui.selectedLanguage.value;
 
-                    if (_isLoading)
-                      const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: CircularProgressIndicator(),
-                      )
-                    else if (_memories.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'text_no_memories_found_2'.tr,
-                          style: GoogleFonts.kumbhSans(
-                            fontSize: 16,
-                            decoration: TextDecoration.none,
+      return GestureDetector(
+        onVerticalDragEnd: (details) {
+          if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+            Navigator.of(context).pop();
+          }
+        },
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            color: Colors.transparent,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: screenHeight * 0.7, // ⬅️ MAX HEIGHT
+              ),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: ui.darkMode.value ? Colors.black : Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: ui.darkMode.value
+                          ? Colors.white30
+                          : Colors.black26,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min, // 🔑 content-driven height
+                    children: [
+                      // Drag handle
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 4, bottom: 12),
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
                             color: ui.darkMode.value
-                                ? Colors.white
-                                : Colors.black,
+                                ? Colors.white30
+                                : Colors.black26,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                           
-                            // const SizedBox(height: 8),
+                      ),
 
-                            GestureDetector(
-                              onTap: () => _viewAllMemories(context),
-                              child: Text(
-                                'All ${_memories.length} Memories',
-                                style: GoogleFonts.kumbhSans(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  decoration: TextDecoration.none,
-                                  color: const Color(0xFF0071FF),
+                      if (_isLoading)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(),
+                        )
+                      else if (_memories.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'text_no_memories_found_2'.tr,
+                            style: GoogleFonts.kumbhSans(
+                              fontSize: 16,
+                              decoration: TextDecoration.none,
+                              color: ui.darkMode.value
+                                  ? Colors.white
+                                  : Colors.black,
+                            ),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GestureDetector(
+                                onTap: () => _viewAllMemories(context),
+                                child: Text(
+                                  trKeyForLang(
+                                    'text_all_memories_length_memories',
+                                    ui.selectedLanguage.value,
+                                    [_memories.length],
+                                  ),
+                                  style: GoogleFonts.kumbhSans(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    decoration: TextDecoration.none,
+                                    color: const Color(0xFF0071FF),
+                                  ),
                                 ),
                               ),
-                            ),
 
-                            const Divider(height: 10),
+                              const Divider(height: 10),
 
-                            ..._buildYearGroups(ui, context),
-                          ],
+                              ..._buildYearGroups(ui, context),
+                            ],
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   List<Widget> _buildYearGroups(UiController ui, BuildContext context) {
@@ -181,7 +187,11 @@ class _BottomPanelState extends State<BottomPanel> {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 0),
               child: Text(
-                '${yearMemories.length} from $year',
+                trKeyForLang(
+                  'text_yearmemories_length_from_year',
+                  ui.selectedLanguage.value,
+                  [yearMemories.length, year],
+                ),
                 style: GoogleFonts.kumbhSans(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,

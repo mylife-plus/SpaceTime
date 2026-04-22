@@ -1,0 +1,881 @@
+proposed_key	source_kind	file:line	english_label	note
+apptexts_settings	AppTexts	app/config/app_text.dart:3	Settings	key=settings
+apptexts_security	AppTexts	app/config/app_text.dart:4	Security	key=security
+apptexts_ui	AppTexts	app/config/app_text.dart:5	Ui	key=ui
+apptexts_data	AppTexts	app/config/app_text.dart:6	Data	key=data
+apptexts_hashtag_groups	AppTexts	app/config/app_text.dart:7	Hashtag Groups	key=hashTagGroups
+apptexts_contact_groups	AppTexts	app/config/app_text.dart:8	Contact Groups	key=contactGroups
+apptexts_places	AppTexts	app/config/app_text.dart:9	Places	key=places
+apptexts_feedback	AppTexts	app/config/app_text.dart:10	Feedback	key=feedBack
+apptexts_active_phone_verification_pin	AppTexts	app/config/app_text.dart:13	Active phone verification pin	key=activePhoneVerification
+apptexts_language	AppTexts	app/config/app_text.dart:16	Language	key=language
+apptexts_english	AppTexts	app/config/app_text.dart:17	(English)	key=eng
+apptexts_dark_mode	AppTexts	app/config/app_text.dart:18	Dark Mode	key=darkMode
+apptexts_main_color	AppTexts	app/config/app_text.dart:19	Main Color	key=mainColor
+apptexts_blue	AppTexts	app/config/app_text.dart:20	(blue)	key=blue
+apptexts_upload_gps_points	AppTexts	app/config/app_text.dart:23	Upload GPS Points	key=uploadGPS
+apptexts_upload_media_with_gps	AppTexts	app/config/app_text.dart:24	Upload Media with GPS	key=uploadMedia
+apptexts_backup_memories	AppTexts	app/config/app_text.dart:25	Backup Memories	key=backupMemories
+apptexts_upload_memories	AppTexts	app/config/app_text.dart:26	Upload Memories	key=uploadMemories
+apptexts_erase_all_data	AppTexts	app/config/app_text.dart:27	Erase All Data	key=eraseAllData
+apptexts_sport	AppTexts	app/config/app_text.dart:30	Sport	key=sport
+apptexts_exercise	AppTexts	app/config/app_text.dart:31	Exercise	key=exercise
+apptexts_family	AppTexts	app/config/app_text.dart:34	Family	key=family
+apptexts_homes	AppTexts	app/config/app_text.dart:35	Homes	key=homes
+apptexts_discourse_integration_webview	AppTexts	app/config/app_text.dart:38	Discourse integration (webview)	key=discoverIntegration
+apptexts_https_discourse_org	AppTexts	app/config/app_text.dart:39	https://discourse.org/	key=web
+supported_language_english	supported_language	app/config/supported_languages.dart:14	English	code=en
+supported_language_espa_ol	supported_language	app/config/supported_languages.dart:15	Español	code=es
+supported_language_fran_ais	supported_language	app/config/supported_languages.dart:16	Français	code=fr
+supported_language_deutsch	supported_language	app/config/supported_languages.dart:17	Deutsch	code=de
+supported_language	supported_language	app/config/supported_languages.dart:18	中文	code=zh
+supported_language_2	supported_language	app/config/supported_languages.dart:19	اردو	code=ur
+snackbar_hint	snackbar	app/modules/add_memories/controllers/add_memories_controller.dart:1067	Hint	Don\'t forget to set the radius for location-based filtering
+snackbar_hint_2	snackbar	app/modules/add_memories/controllers/add_memories_controller.dart:1085	Hint	Please select a location to use with the radius filter
+snackbar_radius_required	snackbar	app/modules/add_memories/controllers/add_memories_controller.dart:1818	Radius Required	Radius is required when location is selected
+snackbar_location_required	snackbar	app/modules/add_memories/controllers/add_memories_controller.dart:1831	Location Required	Location is required when radius is specified
+snackbar_invalid_date_range	snackbar	app/modules/add_memories/controllers/add_memories_controller.dart:1854	Invalid Date Range	To Date cannot be earlier than From Date
+text_no_memories_found	Text	app/modules/add_memories/views/add_memories.dart:72	No memories found	
+text_try_adjusting_your_search_or_filters	Text	app/modules/add_memories/views/add_memories.dart:77	Try adjusting your search or filters	
+text_no_memories_yet	Text	app/modules/add_memories/views/add_memories.dart:196	No memories yet	
+text_start_creating_your_first_memory	Text	app/modules/add_memories/views/add_memories.dart:201	Start creating your first memory!	
+snackbar_success	snackbar	app/modules/add_memories/views/add_memories.dart:378	Success	Memory added successfully!
+snackbar_error	snackbar	app/modules/add_memories/views/mini_widgets/audio_player_helper.dart:53	Error	Audio file not found: ${audioPath.split('/').last}
+snackbar_error_2	snackbar	app/modules/add_memories/views/mini_widgets/audio_player_helper.dart:86	Error	Invalid audio file index
+snackbar_audio_player	snackbar	app/modules/add_memories/views/mini_widgets/audio_player_helper.dart:115	Audio Player	Audio file not available for playback
+snackbar_error_3	snackbar	app/modules/add_memories/views/mini_widgets/audio_player_popup.dart:133	Error	Audio file not found
+snackbar_playback_error	snackbar	app/modules/add_memories/views/mini_widgets/audio_player_popup.dart:194	Playback Error	Could not play audio file: ${e.toString()}
+text_audio_player	Text	app/modules/add_memories/views/mini_widgets/audio_player_popup.dart:272	Audio Player	
+hinttext_search_place_categories	hintText	app/modules/add_memories/views/mini_widgets/category_filter_dropdown.dart:187	Search Place Categories...	
+hinttext_widget_hint	hintText	app/modules/add_memories/views/mini_widgets/filter_dropdown.dart:212	${widget.hint}	
+hint_dynamic_hinttext_widget_hint	hint_dynamic	app/modules/add_memories/views/mini_widgets/filter_dropdown.dart:212	hintText ← widget.hint	From filter config
+text_no_widget_hint_replaceall	Text	app/modules/add_memories/views/mini_widgets/filter_dropdown.dart:251	No ${widget.hint.replaceAll(	
+hint_dynamic_hinttext_widget_hint_2	hint_dynamic	app/modules/add_memories/views/mini_widgets/filter_fileds.dart:412	hintText ← widget.hint	Per-field hint
+text_activefiltercount_filter_activefiltercount_1	Text	app/modules/add_memories/views/mini_widgets/filter_indicator.dart:73	$activeFilterCount filter${activeFilterCount > 1 ? 	
+text_controller_filteredmemories_length_results	Text	app/modules/add_memories/views/mini_widgets/filter_indicator.dart:85	(${controller.filteredMemories.length} results)	
+snackbar_invalid_date_range_2	snackbar	app/modules/add_memories/views/mini_widgets/filter_overlay.dart:158	Invalid Date Range	To Date cannot be earlier than From Date
+title_literal_search_places_categories	title_literal	app/modules/add_memories/views/mini_widgets/filter_overlay.dart:335	Search Places Categories	
+title_literal_search_hashtags	title_literal	app/modules/add_memories/views/mini_widgets/filter_overlay.dart:482	Search Hashtags	
+text_hashtag	Text	app/modules/add_memories/views/mini_widgets/filter_overlay.dart:540	#$hashtag	
+label_hashtag	label	app/modules/add_memories/views/mini_widgets/filter_overlay.dart:540	#$hashtag	
+title_literal_search_contacts	title_literal	app/modules/add_memories/views/mini_widgets/filter_overlay.dart:591	Search Contacts	
+text_contact	Text	app/modules/add_memories/views/mini_widgets/filter_overlay.dart:640	@$contact	
+label_contact	label	app/modules/add_memories/views/mini_widgets/filter_overlay.dart:640	@$contact	
+text_currentindex_1_of_totalcount	Text	app/modules/add_memories/views/mini_widgets/image_viewer_screen.dart:556	${_currentIndex + 1} of $_totalCount	
+text_getting_your_location	Text	app/modules/add_memories/views/mini_widgets/location_picker_mapview.dart:35	Getting your location...	
+text_unable_to_get_location	Text	app/modules/add_memories/views/mini_widgets/location_picker_mapview.dart:46	Unable to get location	
+text_please_check_location_permissions	Text	app/modules/add_memories/views/mini_widgets/location_picker_mapview.dart:51	Please check location permissions	
+text_done	Text	app/modules/add_memories/views/mini_widgets/location_picker_mapview.dart:97	Done	
+text	Text	app/modules/add_memories/views/mini_widgets/memory_card.dart:834	 / 	
+title_text_delete_memory	title_text	app/modules/add_memories/views/mini_widgets/memory_card.dart:970	Delete Memory	
+dialog_content_are_you_sure_you_want_to_delete_this_memo	dialog_content	app/modules/add_memories/views/mini_widgets/memory_card.dart:980	Are you sure you want to delete this memory? This action cannot be undone.	
+text_cancel	Text	app/modules/add_memories/views/mini_widgets/memory_card.dart:993	Cancel	
+snackbar_success_2	snackbar	app/modules/add_memories/views/mini_widgets/memory_card.dart:1040	Success	Memory deleted successfully
+snackbar_error_4	snackbar	app/modules/add_memories/views/mini_widgets/memory_card.dart:1049	Error	Failed to delete memory: $e
+text_delete	Text	app/modules/add_memories/views/mini_widgets/memory_card.dart:1058	Delete	
+text_widget_time	Text	app/modules/add_memories/views/mini_widgets/memory_card.dart:1111	 ${widget.time}	
+text_getdayordate_widget_date_widget_year	Text	app/modules/add_memories/views/mini_widgets/memory_card.dart:1126	${getDayOrDate(widget.date, widget.year)} 	
+text_widget_time_substring_3	Text	app/modules/add_memories/views/mini_widgets/memory_card.dart:1163	 ${widget.time.substring(3)}	
+text_image_failed_to_load	Text	app/modules/add_memories/views/mini_widgets/memory_card.dart:1476	Image failed to load	
+text_memories_length_memories_at_this_location	Text	app/modules/add_memories/views/mini_widgets/memory_cluster_popup.dart:63	${memories.length} Memories at this Location	
+text_memory	Text	app/modules/add_memories/views/mini_widgets/memory_cluster_popup.dart:219	#${memory[	
+text_search_controller_searchquery_value	Text	app/modules/add_memories/views/mini_widgets/search_indicator.dart:56	Search: "${controller.searchQuery.value}"	
+text_controller_filteredmemories_length_results_2	Text	app/modules/add_memories/views/mini_widgets/search_indicator.dart:70	(${controller.filteredMemories.length} results)	
+hinttext_search_memories	hintText	app/modules/add_memories/views/mini_widgets/search_overly.dart:75	search memories	
+text_date_year	Text	app/modules/add_memories/views/mini_widgets/search_overly.dart:284	$date $year	
+snackbar_unable_to_load	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:214	Unable to Load	Unable to load contact groups. Please try again.
+snackbar_unable_to_refresh	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:258	Unable to Refresh	Unable to refresh contact groups. Please try again.
+text_delete_contact_group	Text	app/modules/contact_groups/views/contact_groups_view.dart:297	Delete Contact Group	
+text_are_you_sure_you_want_to_delete_contactgroup_name	Text	app/modules/contact_groups/views/contact_groups_view.dart:308	Are you sure you want to delete "${contactGroup.name}"?	
+text_this_action_cannot_be_undone	Text	app/modules/contact_groups/views/contact_groups_view.dart:330	This action cannot be undone.	
+text_cancel_2	Text	app/modules/contact_groups/views/contact_groups_view.dart:352	Cancel	
+text_delete_2	Text	app/modules/contact_groups/views/contact_groups_view.dart:371	Delete	
+snackbar_success_3	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:424	Success	Contact group deleted successfully!
+snackbar_unable_to_delete	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:445	Unable to Delete	Unable to delete contact group. Please try again.
+snackbar_unable_to_delete_2	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:456	Unable to Delete	Unable to delete contact group. Please try again.
+text_cannot_delete_the_contact	Text	app/modules/contact_groups/views/contact_groups_view.dart:499	Cannot Delete The Contact	
+text_the_contact_groupname_cannot_be_deleted_because_it	Text	app/modules/contact_groups/views/contact_groups_view.dart:513	The contact "$groupName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 	
+text_to_delete_this_contact_group_first_remove_the_menti	Text	app/modules/contact_groups/views/contact_groups_view.dart:535	To delete this contact group, first remove the mentions from all memories that use them, or delete those memories.	
+text_ok	Text	app/modules/contact_groups/views/contact_groups_view.dart:556	OK	
+snackbar_validation_error	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:598	Validation Error	Please enter a contact group name
+snackbar_success_4	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:624	Success	Contact group "$newName" updated successfully!
+snackbar_unable_to_update	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:633	Unable to Update	Unable to update contact group. Please try again.
+snackbar_unable_to_update_2	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:644	Unable to Update	Unable to update contact group. Please try again.
+snackbar_success_5	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:682	Success	Contact deleted successfully!
+snackbar_unable_to_delete_3	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:696	Unable to Delete	Unable to delete contact. Please try again.
+snackbar_unable_to_delete_4	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:707	Unable to Delete	Unable to delete contact. Please try again.
+snackbar_invalid_name	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:914	Invalid Name	Contact name cannot be empty
+snackbar_unable_to_add	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:931	Unable to Add	Unable to add contact. Please try again.
+snackbar_duplicate_contact	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:941	Duplicate Contact	Contact with this name already exists.
+snackbar_name_conflict	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:951	Name Conflict	This name is already used by the parent group.
+snackbar_success_6	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:963	Success	Contact added successfully
+snackbar_unable_to_add_2	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:972	Unable to Add	Unable to add contact. Please try again.
+tooltip_add_new_contact_group	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1226	Add New Contact Group	
+text_selectedcontactgroups_where_g_g_issubgroup_length_s	Text	app/modules/contact_groups/views/contact_groups_view.dart:1255	${_selectedContactGroups.where((g) => g.isSubgroup).length} selected	
+text_no_contact_groups_found_ntap_to_add_a_new_group	Text	app/modules/contact_groups/views/contact_groups_view.dart:1321	No contact groups found.\nTap + to add a new group.	
+text_rich_text_rich_widget	text_rich	app/modules/contact_groups/views/contact_groups_view.dart:1462	(Text.rich widget)	line 1462; scan TextSpan children in app/modules/contact_groups/views/contact_groups_view.dart
+text_span	text_span	app/modules/contact_groups/views/contact_groups_view.dart:1462	 (	inside Text.rich
+text_span_maincontactgroup_subgroups_length_0	text_span	app/modules/contact_groups/views/contact_groups_view.dart:1462	 (${mainContactGroup.subgroups?.length ?? 0})	inside Text.rich
+text_span_selectedsubgroupscount	text_span	app/modules/contact_groups/views/contact_groups_view.dart:1462	$selectedSubgroupsCount	inside Text.rich
+text_span_maincontactgroup_subgroups_length_0_2	text_span	app/modules/contact_groups/views/contact_groups_view.dart:1462	/${mainContactGroup.subgroups?.length ?? 0})	inside Text.rich
+tooltip_edit_contact_group	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1544	Edit Contact Group	
+tooltip_delete_contact_group	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1561	Delete Contact Group	
+tooltip_add_subgroup	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1579	Add Subgroup	
+tooltip_edit	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1717	Edit	
+tooltip_delete	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1738	Delete	
+hinttext_add_contact_name	hintText	app/modules/contact_groups/views/contact_groups_view.dart:1793	add Contact Name	
+tooltip_save	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1837	Save	
+tooltip_cancel	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1858	Cancel	
+snackbar_success_7	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:1894	Success	Contact updated successfully
+hinttext_edit_contact	hintText	app/modules/contact_groups/views/contact_groups_view.dart:1945	edit Contact	
+tooltip_save_2	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:1987	Save	
+tooltip_cancel_2	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:2008	Cancel	
+snackbar_invalid_name_2	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2028	Invalid Name	Contact group name cannot be empty
+snackbar_success_8	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2051	Success	Contact updated successfully
+snackbar_duplicate_contact_2	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2064	Duplicate Contact	(2nd arg not a string literal — check same catch block / ternary)
+snackbar_name_conflict_2	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2072	Name Conflict	This name is already used by a contact in another group.
+snackbar_name_conflict_3	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2080	Name Conflict	This name is already used by the parent group.
+snackbar_unable_to_update_3	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2088	Unable to Update	Unable to update contact group. Please try again.
+snackbar_invalid_name_3	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2118	Invalid Name	Contact group name cannot be empty
+snackbar_unable_to_add_3	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2132	Unable to Add	Unable to add contact group. Please try again.
+snackbar_duplicate_contact_3	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2142	Duplicate Contact	Contact Group with this name already exists.
+snackbar_name_conflict_4	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2152	Name Conflict	This name is already used by a contact in another group.
+snackbar_success_9	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2164	Success	Contact group "$name" added successfully!
+snackbar_unable_to_add_4	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2173	Unable to Add	Unable to add contact group. Please try again.
+snackbar_invalid_name_4	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2198	Invalid Name	Contact group name cannot be empty
+snackbar_unable_to_add_5	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2212	Unable to Add	Unable to add contact group. Please try again.
+snackbar_duplicate_contact_4	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2222	Duplicate Contact	Contact Group with this name already exists.
+snackbar_name_conflict_5	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2232	Name Conflict	This name is already used by a contact in another group.
+snackbar_success_10	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2245	Success	Contact group "$name" added successfully!
+snackbar_unable_to_add_6	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2254	Unable to Add	Unable to add contact group. Please try again.
+hinttext_add_contact	hintText	app/modules/contact_groups/views/contact_groups_view.dart:2301	add Contact	
+tooltip_save_3	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:2338	Save	
+tooltip_cancel_3	tooltip	app/modules/contact_groups/views/contact_groups_view.dart:2359	Cancel	
+snackbar_invalid_name_5	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2378	Invalid Name	Contact name cannot be empty
+snackbar_unable_to_add_7	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2395	Unable to Add	Unable to add contact. Please try again.
+snackbar_duplicate_contact_5	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2405	Duplicate Contact	Contact with this name already exists.
+snackbar_name_conflict_6	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2415	Name Conflict	This name is already used by the parent group.
+snackbar_success_11	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2428	Success	Contact added successfully
+snackbar_unable_to_add_8	snackbar	app/modules/contact_groups/views/contact_groups_view.dart:2437	Unable to Add	Unable to add contact. Please try again.
+title_literal_feedback	title_literal	app/modules/feedback/views/feedback_view.dart:31	Feedback	
+snackbar_no_internet	snackbar	app/modules/get_started/controllers/get_started_controller.dart:379	No internet	Connect to the internet to download map tiles and style.
+text_background_refresh_deactivated	Text	app/modules/get_started/controllers/get_started_controller.dart:531	Background refresh deactivated	
+text_activate_background_refresh_in_settings_general_bac	Text	app/modules/get_started/controllers/get_started_controller.dart:544	Activate background refresh in Settings → General → Background App Refresh\n\n	
+text_not_now	Text	app/modules/get_started/controllers/get_started_controller.dart:563	Not now	
+text_activate	Text	app/modules/get_started/controllers/get_started_controller.dart:585	Activate	
+text_welcome_to	Text	app/modules/get_started/views/get_started_view.dart:91	Welcome to	
+text_spacetime	Text	app/modules/get_started/views/get_started_view.dart:112	SpaceTime	
+text_your	Text	app/modules/get_started/views/get_started_view.dart:144	your	
+text_100_offline	Text	app/modules/get_started/views/get_started_view.dart:165	100% offline	
+text_100_open_source	Text	app/modules/get_started/views/get_started_view.dart:185	100% open source	
+text_personal_diary_app	Text	app/modules/get_started/views/get_started_view.dart:205	personal diary app	
+text_welcome_to_2	Text	app/modules/get_started/views/get_started_view.dart:257	Welcome to	
+text_spacetime_2	Text	app/modules/get_started/views/get_started_view.dart:278	SpaceTime	
+text_your_2	Text	app/modules/get_started/views/get_started_view.dart:309	your	
+text_100_offline_2	Text	app/modules/get_started/views/get_started_view.dart:332	100% offline	
+text_100_open_source_2	Text	app/modules/get_started/views/get_started_view.dart:354	100% open source	
+text_personal_diary_app_2	Text	app/modules/get_started/views/get_started_view.dart:376	personal diary app	
+text_download_4_5gb_of_map_tiles	Text	app/modules/get_started/views/get_started_view.dart:407	download 4.5GB of map tiles	
+text_checking_tiles	Text	app/modules/get_started/views/get_started_view.dart:440	Checking tiles...	
+text_controller_downloadprogress_value_100_tostringasfix	Text	app/modules/get_started/views/get_started_view.dart:662	${(controller.downloadProgress.value * 100).toStringAsFixed(1)}%	
+text_download_completed	Text	app/modules/get_started/views/get_started_view.dart:694	Download completed!	
+text_download_failed	Text	app/modules/get_started/views/get_started_view.dart:726	Download failed	
+text_background_app_refresh_is_off_turn_it_on_in_setting	Text	app/modules/get_started/views/get_started_view.dart:784	Background App Refresh is off. Turn it on in Settings → General → Background App Refresh.	
+text_start	Text	app/modules/get_started/views/get_started_view.dart:828	Start	
+text_start_2	Text	app/modules/get_started/views/get_started_view.dart:870	Start	
+text_start_3	Text	app/modules/get_started/views/get_started_view.dart:919	Start	
+text_choose_your_language	Text	app/modules/get_started/views/get_started_view.dart:1060	choose your 🇺🇳 Language	
+snackbar_unable_to_load_2	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:214	Unable to Load	Unable to load hashtag groups. Please try again.
+snackbar_unable_to_refresh_2	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:258	Unable to Refresh	Unable to refresh hashtag groups. Please try again.
+text_delete_hashtag_group	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:296	Delete Hashtag Group	
+text_are_you_sure_you_want_to_delete_hashtaggroup_name	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:307	Are you sure you want to delete "${hashtagGroup.name}"?	
+text_this_action_cannot_be_undone_2	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:329	This action cannot be undone.	
+text_cancel_3	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:351	Cancel	
+text_delete_3	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:370	Delete	
+snackbar_success_12	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:430	Success	Hashtag group deleted successfully!
+snackbar_unable_to_delete_5	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:449	Unable to Delete	Unable to delete hashtag group. Please try again.
+snackbar_unable_to_delete_6	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:459	Unable to Delete	Unable to delete hashtag group. Please try again.
+text_cannot_delete_hashtag_group	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:501	Cannot Delete Hashtag Group	
+text_the_hashtag_group_groupname_cannot_be_deleted_becau	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:515	The hashtag group "$groupName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 	
+text_to_delete_this_hashtag_group_first_remove_the_hasht	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:537	To delete this hashtag group, first remove the hashtags from all memories that use them, or delete those memories.	
+text_ok_2	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:558	OK	
+snackbar_validation_error_2	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:600	Validation Error	Please enter a hashtag group name
+snackbar_success_13	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:626	Success	Hashtag group "$newName" updated successfully!
+snackbar_unable_to_update_4	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:634	Unable to Update	Unable to update hashtag group. Please try again.
+snackbar_unable_to_update_5	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:644	Unable to Update	Unable to update hashtag group. Please try again.
+snackbar_success_14	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:681	Success	Hashtag deleted successfully!
+snackbar_unable_to_delete_7	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:694	Unable to Delete	Unable to delete hashtag. Please try again.
+snackbar_unable_to_delete_8	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:704	Unable to Delete	Unable to delete hashtag. Please try again.
+snackbar_invalid_name_6	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:904	Invalid Name	Hashtag name cannot be empty
+snackbar_unable_to_add_9	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:921	Unable to Add	Unable to add hashtag. Please try again.
+snackbar_duplicate_hashtag	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:931	Duplicate Hashtag	Hashtag with this name already exists.
+snackbar_name_conflict_7	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:941	Name Conflict	This name is already used by the parent group.
+snackbar_success_15	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:953	Success	Hashtag added successfully
+snackbar_unable_to_add_10	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:962	Unable to Add	Unable to add hashtag. Please try again.
+tooltip_add_new_hashtag_group	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1181	Add New Hashtag Group	
+text_selectedhashtaggroups_where_g_g_issubgroup_length_s	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1209	${_selectedHashtagGroups.where((g) => g.isSubgroup).length} selected	
+text_no_hashtag_groups_found_ntap_to_add_a_new_group	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1274	No hashtag groups found.\nTap + to add a new group.	
+text_rich_text_rich_widget_2	text_rich	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1415	(Text.rich widget)	line 1415; scan TextSpan children in app/modules/hashtag_groups/views/hashtag_groups_view.dart
+text_span_2	text_span	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1415	 (	inside Text.rich
+text_span_mainhashtaggroup_subgroups_length_0	text_span	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1415	 (${mainHashtagGroup.subgroups?.length ?? 0})	inside Text.rich
+text_span_selectedsubgroupscount_2	text_span	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1415	$selectedSubgroupsCount	inside Text.rich
+text_span_mainhashtaggroup_subgroups_length_0_2	text_span	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1415	/${mainHashtagGroup.subgroups?.length ?? 0})	inside Text.rich
+tooltip_edit_hashtag_group	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1497	Edit Hashtag Group	
+tooltip_delete_hashtag_group	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1514	Delete Hashtag Group	
+tooltip_add_subgroup_2	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1532	Add Subgroup	
+tooltip_edit_2	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1670	Edit	
+tooltip_delete_2	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1691	Delete	
+hinttext_add_hashtag_name	hintText	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1746	add Hashtag Name	
+tooltip_save_4	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1790	Save	
+tooltip_cancel_4	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1811	Cancel	
+snackbar_success_16	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1847	Success	Hashtag updated successfully
+hinttext_edit_hashtag	hintText	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1898	edit Hashtag	
+tooltip_save_5	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1940	Save	
+tooltip_cancel_5	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1961	Cancel	
+snackbar_invalid_name_7	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:1981	Invalid Name	Hashtag group name cannot be empty
+snackbar_success_17	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2004	Success	Hashtag updated successfully
+snackbar_duplicate_hashtag_2	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2017	Duplicate Hashtag	(2nd arg not a string literal — check same catch block / ternary)
+snackbar_name_conflict_8	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2025	Name Conflict	This name is already used by a hashtag in another group.
+snackbar_name_conflict_9	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2033	Name Conflict	This name is already used by the parent group.
+snackbar_unable_to_update_6	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2041	Unable to Update	Unable to update hashtag group. Please try again.
+snackbar_invalid_name_8	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2071	Invalid Name	Hashtag group name cannot be empty
+snackbar_unable_to_add_11	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2085	Unable to Add	Unable to add hashtag group. Please try again.
+snackbar_duplicate_hashtag_3	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2095	Duplicate Hashtag	Hashtag Group with this name already exists.
+snackbar_name_conflict_10	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2105	Name Conflict	This name is already used by a hashtag in another group.
+snackbar_success_18	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2117	Success	Hashtag group "$name" added successfully!
+snackbar_error_5	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2126	Error	Failed to add hashtag group
+snackbar_invalid_name_9	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2151	Invalid Name	Hashtag group name cannot be empty
+snackbar_unable_to_add_12	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2165	Unable to Add	Unable to add hashtag group. Please try again.
+snackbar_duplicate_hashtag_4	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2175	Duplicate Hashtag	Hashtag Group with this name already exists.
+snackbar_name_conflict_11	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2185	Name Conflict	This name is already used by a hashtag in another group.
+snackbar_success_19	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2198	Success	Hashtag group "$name" added successfully!
+snackbar_unable_to_add_13	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2207	Unable to Add	Unable to add hashtag group. Please try again.
+text_2	Text	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2237	#  	
+hinttext_add_hashtag	hintText	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2256	add Hashtag	
+tooltip_save_6	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2293	Save	
+tooltip_cancel_6	tooltip	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2314	Cancel	
+snackbar_invalid_name_10	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2333	Invalid Name	Hashtag name cannot be empty
+snackbar_unable_to_add_14	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2350	Unable to Add	Unable to add hashtag. Please try again.
+snackbar_duplicate_hashtag_5	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2360	Duplicate Hashtag	Hashtag with this name already exists.
+snackbar_name_conflict_12	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2370	Name Conflict	This name is already used by the parent group.
+snackbar_success_20	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2383	Success	Hashtag added successfully
+snackbar_unable_to_add_15	snackbar	app/modules/hashtag_groups/views/hashtag_groups_view.dart:2392	Unable to Add	Unable to add hashtag. Please try again.
+text_loading_map	Text	app/modules/location_picker/views/new_location_picker_widget.dart:73	Loading map...	
+text_error	Text	app/modules/location_picker/views/new_location_picker_widget.dart:91	Error	
+text_retry	Text	app/modules/location_picker/views/new_location_picker_widget.dart:104	Retry	
+hinttext_search_locations	hintText	app/modules/location_picker/views/new_location_picker_widget.dart:357	Search locations...	
+text_selected_location	Text	app/modules/location_picker/views/new_location_picker_widget.dart:599	Selected Location	
+text_location_city_location_city_isnotempty_location_sta	Text	app/modules/location_picker/views/new_location_picker_widget.dart:615	${location.city}${location.city.isNotEmpty && location.state.isNotEmpty ? 	
+text_search_locations	Text	app/modules/location_picker/views/widgets/location_search_dialog.dart:65	Search Locations	
+hinttext_search_for_a_location	hintText	app/modules/location_picker/views/widgets/location_search_dialog.dart:97	Search for a location...	
+text_no_recent_locations	Text	app/modules/location_picker/views/widgets/location_search_dialog.dart:186	No recent locations	
+subtitle_literal_location_city_location_city_isnotempty	subtitle_literal	app/modules/location_picker/views/widgets/location_search_dialog.dart:204	${location.city}${location.city.isNotEmpty && location.state.isNotEmpty ? 	
+text_no_locations_found	Text	app/modules/location_picker/views/widgets/location_search_dialog.dart:254	No locations found	
+text_try_searching_with_different_keywords	Text	app/modules/location_picker/views/widgets/location_search_dialog.dart:262	Try searching with different keywords	
+snackbar_test_marker	snackbar	app/modules/map/controllers/map_controller.dart:5430	Test Marker	This is a test marker. Add memories with location data to see real clustering.
+title_text_location_is_off	title_text	app/modules/map/controllers/map_controller.dart:6461	Location is Off	
+dialog_content_please_enable_location_services_to_contin	dialog_content	app/modules/map/controllers/map_controller.dart:6462	Please enable location services to continue.	
+text_open_settings	Text	app/modules/map/controllers/map_controller.dart:6469	Open Settings	
+title_text_permission_denied	title_text	app/modules/map/controllers/map_controller.dart:6496	Permission Denied	
+dialog_content_location_permission_is_permanently_denied	dialog_content	app/modules/map/controllers/map_controller.dart:6497	Location permission is permanently denied. Open app settings to enable.	
+text_open_settings_2	Text	app/modules/map/controllers/map_controller.dart:6506	Open Settings	
+snackbar_error_6	snackbar	app/modules/map/controllers/map_controller_new.dart:969	Error	No memory data available for this location. This might be a clustering issue.
+snackbar_error_7	snackbar	app/modules/map/controllers/map_controller_new.dart:1013	Error	Failed to load memory data: ${memoryError.toString()}
+snackbar_info	snackbar	app/modules/map/controllers/map_controller_new.dart:1032	Info	This location doesn\'t have accessible memory data (count: ${cluster.count})
+snackbar_error_8	snackbar	app/modules/map/controllers/map_controller_new.dart:1048	Error	Failed to open memory details. Please try again.
+snackbar_error_9	snackbar	app/modules/map/controllers/map_controller_new.dart:1070	Error	No memories found in this cluster
+snackbar_error_10	snackbar	app/modules/map/controllers/map_controller_new.dart:1109	Error	No valid location data found for these memories
+snackbar_error_11	snackbar	app/modules/map/controllers/map_controller_new.dart:1140	Error	Failed to process memory data
+snackbar_error_12	snackbar	app/modules/map/controllers/map_controller_new.dart:1173	Error	Failed to show cluster details: ${e.toString()}
+snackbar_error_13	snackbar	app/modules/map/controllers/map_controller_new.dart:1234	Error	Invalid memory data
+snackbar_error_14	snackbar	app/modules/map/controllers/map_controller_new.dart:1280	Error	Failed to open memory: ${e.toString()}
+snackbar_hint_3	snackbar	app/modules/map/controllers/map_controller_new.dart:1377	Hint	Don\'t forget to set the radius for location-based filtering
+snackbar_error_15	snackbar	app/modules/map/controllers/map_controller_new.dart:2910	Error	Could not load cluster memories
+text_cluster_memories_memories_length	Text	app/modules/map/controllers/map_controller_new.dart:2977	Cluster Memories (${memories.length})	
+snackbar_memory_selected	snackbar	app/modules/map/controllers/map_controller_new.dart:3064	Memory Selected	(2nd arg not a string literal — check same catch block / ternary)
+snackbar_error_16	snackbar	app/modules/map/controllers/map_controller_new.dart:3084	Error	Could not load cluster memories
+snackbar_cluster	snackbar	app/modules/map/controllers/map_controller_new.dart:3756	Cluster	$pointCount memories at this location
+snackbar_error_17	snackbar	app/modules/map/controllers/map_controller_new.dart:3864	⚠️ Error	Memory not found
+snackbar_error_18	snackbar	app/modules/map/controllers/map_controller_new.dart:3880	⚠️ Error	Failed to load memory details
+snackbar_memory_tapped	snackbar	app/modules/map/controllers/map_controller_new.dart:4858	Memory Tapped	(2nd arg not a string literal — check same catch block / ternary)
+text_please_wait	Text	app/modules/map/views/map_view.dart:182	Please wait...	
+text_something_went_wrong	Text	app/modules/map/views/map_view.dart:390	Something went wrong	
+text_please_try_again_or_restart_the_app	Text	app/modules/map/views/map_view.dart:404	Please try again or restart the app.	
+text_retry_2	Text	app/modules/map/views/map_view.dart:448	Retry	
+label_retry	label	app/modules/map/views/map_view.dart:448	Retry	
+text_no_memories_found_2	Text	app/modules/map/views/mini_widgets/bottom_info.dart:116	No memories found	
+text_all_memories_length_memories	Text	app/modules/map/views/mini_widgets/bottom_info.dart:138	All ${_memories.length} Memories	
+text_yearmemories_length_from_year	Text	app/modules/map/views/mini_widgets/bottom_info.dart:183	${yearMemories.length} from $year	
+hint_dynamic_hinttext_hint_variable	hint_dynamic	app/modules/map/views/mini_widgets/filter_fields.dart:104	hintText ← hint variable	Parent supplies hint
+text_internet_connection_required	Text	app/modules/map/views/mini_widgets/internet_required_screen.dart:202	Internet Connection Required	
+text_internet_connection_is_required_to_download_map_til	Text	app/modules/map/views/mini_widgets/internet_required_screen.dart:218	Internet connection is required to download map tiles. Once tiles are downloaded, you can use the app fully in offline mode.	
+text_check_connection	Text	app/modules/map/views/mini_widgets/internet_required_screen.dart:388	Check Connection	
+label_check_connection	label	app/modules/map/views/mini_widgets/internet_required_screen.dart:388	Check Connection	
+text_once_map_tiles_are_downloaded_you_can_use_the_app_w	Text	app/modules/map/views/mini_widgets/internet_required_screen.dart:433	Once map tiles are downloaded, you can use the app without internet connection.	
+text_connection_options	Text	app/modules/map/views/mini_widgets/internet_required_screen.dart:521	Connection Options	
+title_literal_wifi_settings	title_literal	app/modules/map/views/mini_widgets/internet_required_screen.dart:544	WiFi Settings	
+subtitle_literal_open_device_wifi_settings	subtitle_literal	app/modules/map/views/mini_widgets/internet_required_screen.dart:545	Open device WiFi settings	
+snackbar_wifi_settings	snackbar	app/modules/map/views/mini_widgets/internet_required_screen.dart:549	WiFi Settings	Please open WiFi settings from your device settings
+title_literal_mobile_data	title_literal	app/modules/map/views/mini_widgets/internet_required_screen.dart:567	Mobile Data	
+subtitle_literal_check_mobile_data_connection	subtitle_literal	app/modules/map/views/mini_widgets/internet_required_screen.dart:568	Check mobile data connection	
+snackbar_mobile_data	snackbar	app/modules/map/views/mini_widgets/internet_required_screen.dart:572	Mobile Data	Please check your mobile data connection in device settings
+text_close	Text	app/modules/map/views/mini_widgets/internet_required_screen.dart:607	Close	
+text_no_internet_connection	Text	app/modules/map/views/mini_widgets/internet_required_screen_new.dart:242	No Internet Connection	
+text_mapbox_requires_an_active_internet_connection_to_lo	Text	app/modules/map/views/mini_widgets/internet_required_screen_new.dart:266	MapBox requires an active internet connection to load map tiles and location services.	
+text_the_app_will_automatically_continue_when_your_conne	Text	app/modules/map/views/mini_widgets/internet_required_screen_new.dart:284	The app will automatically continue when your connection is restored.	
+text_check_your_wifi_or_mobile_data_connection	Text	app/modules/map/views/mini_widgets/internet_required_screen_new.dart:401	Check your WiFi or mobile data connection	
+text_getting_your_location_2	Text	app/modules/map/views/mini_widgets/location_picker.dart:300	Getting your location...	
+text_unable_to_get_location_2	Text	app/modules/map/views/mini_widgets/location_picker.dart:311	Unable to get location	
+text_please_check_location_permissions_2	Text	app/modules/map/views/mini_widgets/location_picker.dart:316	Please check location permissions	
+text_done_2	Text	app/modules/map/views/mini_widgets/location_picker.dart:379	Done	
+snackbar_refreshed	snackbar	app/modules/map/views/mini_widgets/map_refresh_fab.dart:37	Refreshed	Map view has been refreshed successfully
+snackbar_error_19	snackbar	app/modules/map/views/mini_widgets/map_refresh_fab.dart:48	Error	Failed to refresh map view: $e
+text_starting_local_tile_server	Text	app/modules/map/views/mini_widgets/map_view_widget_new.dart:174	Starting local tile server...	
+text_preparing_your_map	Text	app/modules/map/views/mini_widgets/map_view_widget_new.dart:247	Preparing your map	
+text_loading_offline_tiles_and_map_style	Text	app/modules/map/views/mini_widgets/map_view_widget_new.dart:249	Loading offline tiles and map style…	
+text_error_loading_map_style	Text	app/modules/map/views/mini_widgets/map_view_widget_new.dart:393	Error loading map style	
+title_text_circle_layer_clustering_example	title_text	app/modules/map/views/mini_widgets/map_view_widget_new.dart:631	Circle Layer Clustering Example	
+tooltip_zoom_in	tooltip	app/modules/map/views/mini_widgets/map_view_widget_new.dart:637	Zoom In	
+tooltip_zoom_out	tooltip	app/modules/map/views/mini_widgets/map_view_widget_new.dart:643	Zoom Out	
+tooltip_reset_view	tooltip	app/modules/map/views/mini_widgets/map_view_widget_new.dart:666	Reset View	
+snackbar_widget_earthquake_point_tapped_zoom_in_to_see_d	snackbar_widget	app/modules/map/views/mini_widgets/map_view_widget_new.dart:1031	Earthquake point tapped - zoom in to see details	
+snackbar_widget_earthquake_point_tapped_zoom_in_to_see_d_2	snackbar_widget	app/modules/map/views/mini_widgets/map_view_widget_new.dart:1032	Earthquake point tapped - zoom in to see details	
+dialog_content_earthquake_point_tapped_zoom_in_to_see_de	dialog_content	app/modules/map/views/mini_widgets/map_view_widget_new.dart:1033	Earthquake point tapped - zoom in to see details	
+text_location_permission_required	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:122	Location Permission Required	
+text_location_permission_is_required_to_show_your_positi	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:138	Location permission is required to show your position on the map and provide location-based features.	
+text_permission_status	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:222	Permission Status	
+snackbar_permission_denied	snackbar	app/modules/map/views/mini_widgets/permission_required_screen.dart:369	Permission Denied	Location permission is required for map functionality.
+text_open_settings_3	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:432	Open Settings	
+label_open_settings	label	app/modules/map/views/mini_widgets/permission_required_screen.dart:432	Open Settings	
+text_you_can_change_location_permissions_anytime_in_your	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:477	You can change location permissions anytime in your device settings.	
+text_location_permission	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:565	Location Permission	
+text_location_permission_is_used_for	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:586	Location permission is used for:	
+text_you_can_grant_permission_now_or_open_app_settings_t	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:625	You can grant permission now or open app settings to enable it manually.	
+text_cancel_4	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:661	Cancel	
+text_open_settings_4	Text	app/modules/map/views/mini_widgets/permission_required_screen.dart:709	Open Settings	
+text_region_formatregionname_currentregion	Text	app/modules/map/views/mini_widgets/tile_download_banner.dart:103	Region: ${_formatRegionName(currentRegion)}	
+text_formattilecount_totaltiles_50k	Text	app/modules/map/views/mini_widgets/tile_download_banner.dart:125	${_formatTileCount(totalTiles)} / 50K	
+text_totaltiles_tostring_replaceallmapped_regexp_r	Text	app/modules/map/views/mini_widgets/tile_download_banner.dart:154	${totalTiles.toString().replaceAllMapped(RegExp(r	
+text_progress_to_50_000_tiles	Text	app/modules/map/views/mini_widgets/tile_download_banner.dart:168	Progress to 50,000 tiles	
+text_overallprogress_100_tostringasfixed_1	Text	app/modules/map/views/mini_widgets/tile_download_banner.dart:175	${(overallProgress * 100).toStringAsFixed(1)}%	
+text_downloading_currentregion_length_20	Text	app/modules/map/views/mini_widgets/tile_download_banner.dart:212	Downloading: ${currentRegion.length > 20 ? 	
+text_currentdownloadprogress_100_tostringasfixed_0	Text	app/modules/map/views/mini_widgets/tile_download_banner.dart:221	${(currentDownloadProgress * 100).toStringAsFixed(0)}%	
+text_downloading_offline_maps	Text	app/modules/map/views/widgets/download_progress_widget.dart:48	Downloading offline maps...	
+text_service_totaltilesdownloaded_value_tiles	Text	app/modules/map/views/widgets/download_progress_widget.dart:80	${service.totalTilesDownloaded.value} tiles	
+text_service_downloadprogress_value_100_tostringasfixed	Text	app/modules/map/views/widgets/download_progress_widget.dart:86	${(service.downloadProgress.value * 100).toStringAsFixed(0)}%	
+text_region_service_currentdownloadregion_value	Text	app/modules/map/views/widgets/download_progress_widget.dart:97	Region: ${service.currentDownloadRegion.value}	
+title_text_offline_map_download	title_text	app/modules/map/views/widgets/download_progress_widget.dart:115	Offline Map Download	
+text_progress_service_downloadprogress_value_100_tostrin	Text	app/modules/map/views/widgets/download_progress_widget.dart:121	Progress: ${(service.downloadProgress.value * 100).toStringAsFixed(1)}%	
+text_tiles_downloaded_service_totaltilesdownloaded_value	Text	app/modules/map/views/widgets/download_progress_widget.dart:127	Tiles Downloaded: ${service.totalTilesDownloaded.value}	
+text_current_region_service_currentdownloadregion_value	Text	app/modules/map/views/widgets/download_progress_widget.dart:133	Current Region: ${service.currentDownloadRegion.value.isEmpty ? 	
+text_queue_service_downloadqueue_length_regions	Text	app/modules/map/views/widgets/download_progress_widget.dart:138	Queue: ${service.downloadQueue.length} regions	
+text_maps_are_being_downloaded_in_the_background_for_off	Text	app/modules/map/views/widgets/download_progress_widget.dart:140	Maps are being downloaded in the background for offline use. This process won\'t affect app performance.	
+text_ok_3	Text	app/modules/map/views/widgets/download_progress_widget.dart:147	OK	
+text_settings	Text	app/modules/map/views/widgets/download_progress_widget.dart:153	Settings	
+title_text_download_settings	title_text	app/modules/map/views/widgets/download_progress_widget.dart:164	Download Settings	
+title_text_auto_download	title_text	app/modules/map/views/widgets/download_progress_widget.dart:170	Auto Download	
+title_text_automatically_download_tiles_for_frequently_v	title_text	app/modules/map/views/widgets/download_progress_widget.dart:171	Automatically download tiles for frequently visited areas	
+title_text_wifi_only	title_text	app/modules/map/views/widgets/download_progress_widget.dart:180	WiFi Only	
+title_text_download_tiles_only_when_connected_to_wifi	title_text	app/modules/map/views/widgets/download_progress_widget.dart:181	Download tiles only when connected to WiFi	
+text_max_tiles	Text	app/modules/map/views/widgets/download_progress_widget.dart:191	Max Tiles: 	
+text_close_2	Text	app/modules/map/views/widgets/download_progress_widget.dart:210	Close	
+text_offline_map_storage	Text	app/modules/map/views/widgets/download_progress_widget.dart:232	Offline Map Storage	
+text_quota_currenttiles_quota_maxtiles_tiles_quota_usage	Text	app/modules/map/views/widgets/download_progress_widget.dart:245	${quota.currentTiles} / ${quota.maxTiles} tiles (${quota.usagePercentage.toStringAsFixed(1)}%)	
+text_download_current_area	Text	app/modules/map/views/widgets/download_progress_widget.dart:272	Download Current Area	
+label_download_current_area	label	app/modules/map/views/widgets/download_progress_widget.dart:272	Download Current Area	
+text_manage	Text	app/modules/map/views/widgets/download_progress_widget.dart:279	Manage	
+label_manage	label	app/modules/map/views/widgets/download_progress_widget.dart:279	Manage	
+snackbar_download_started	snackbar	app/modules/map/views/widgets/download_progress_widget.dart:292	Download Started	Downloading tiles for current area in background
+title_text_manage_offline_maps	title_text	app/modules/map/views/widgets/download_progress_widget.dart:305	Manage Offline Maps	
+text_options	Text	app/modules/map/views/widgets/download_progress_widget.dart:310	Options:	
+title_text_download_settings_2	title_text	app/modules/map/views/widgets/download_progress_widget.dart:315	Download Settings	
+title_text_configure_automatic_downloads	title_text	app/modules/map/views/widgets/download_progress_widget.dart:316	Configure automatic downloads	
+text_cancel_5	Text	app/modules/map/views/widgets/download_progress_widget.dart:325	Cancel	
+text_geocoding_service_activerequests_value	Text	app/modules/map/views/widgets/geocoding_indicator_widget.dart:44	Geocoding (${service.activeRequests.value})	
+text_geocoding_service	Text	app/modules/map/views/widgets/geocoding_indicator_widget.dart:141	Geocoding Service	
+text_this_service_handles_reverse_geocoding_in_backgroun	Text	app/modules/map/views/widgets/geocoding_indicator_widget.dart:156	This service handles reverse geocoding in background isolates to prevent UI blocking.	
+text_ok_4	Text	app/modules/map/views/widgets/geocoding_indicator_widget.dart:163	OK	
+snackbar_service	snackbar	app/modules/map/views/widgets/geocoding_indicator_widget.dart:169	Service	(2nd arg not a string literal — check same catch block / ternary)
+text_retry_init	Text	app/modules/map/views/widgets/geocoding_indicator_widget.dart:180	Retry Init	
+text_processing_memories	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:48	Processing Memories	
+text_service_processingprogress_value_100_tostringasfixe	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:95	${(service.processingProgress.value * 100).toStringAsFixed(0)}%	
+text_memory_processing	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:120	Memory Processing	
+text_progress_service_processingprogress_value_100_tostr	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:128	Progress: ${(service.processingProgress.value * 100).toStringAsFixed(1)}%	
+text_status_service_processingstatus_value	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:133	Status: ${service.processingStatus.value}	
+text_processed_memories_service_processedmemories_length	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:136	Processed Memories: ${service.processedMemories.length}	
+text_generated_clusters_service_processedclusters_length	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:142	Generated Clusters: ${service.processedClusters.length}	
+text_generated_arrows_service_processedarrows_length	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:148	Generated Arrows: ${service.processedArrows.length}	
+text_memories_are_being_processed_in_a_background_isolat	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:151	Memories are being processed in a background isolate for better performance. This won\'t affect app responsiveness.	
+text_ok_5	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:158	OK	
+text_memory_processing_status	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:180	Memory Processing Status	
+text_status_progress_100_tostringasfixed_1_status_status	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:192	${(status.progress * 100).toStringAsFixed(1)}% - ${status.status}	
+text_processing_complete	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:200	Processing Complete	
+text_memories_status_memoriescount	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:205	Memories: ${status.memoriesCount}	
+text_clusters_status_clusterscount	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:206	Clusters: ${status.clustersCount}	
+text_arrows_status_arrowscount	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:207	Arrows: ${status.arrowsCount}	
+text_reprocess_memories	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:218	Reprocess Memories	
+label_reprocess_memories	label	app/modules/map/views/widgets/memory_processing_progress_widget.dart:218	Reprocess Memories	
+text_details	Text	app/modules/map/views/widgets/memory_processing_progress_widget.dart:225	Details	
+label_details	label	app/modules/map/views/widgets/memory_processing_progress_widget.dart:225	Details	
+snackbar_processing_complete	snackbar	app/modules/map/views/widgets/memory_processing_progress_widget.dart:239	Processing Complete	Processed ${memories.length} memories into ${clusters.length} clusters
+text_offline_mode	Text	app/modules/map/views/widgets/offline_status_widget.dart:37	Offline Mode	
+text_map_status	Text	app/modules/map/views/widgets/offline_status_widget.dart:72	Map Status	
+text_error_snapshot_error	Text	app/modules/map/views/widgets/offline_status_widget.dart:95	Error: ${snapshot.error}	
+text_refresh_status	Text	app/modules/map/views/widgets/offline_status_widget.dart:152	Refresh Status	
+label_refresh_status	label	app/modules/map/views/widgets/offline_status_widget.dart:152	Refresh Status	
+text_details_2	Text	app/modules/map/views/widgets/offline_status_widget.dart:162	Details	
+label_details_2	label	app/modules/map/views/widgets/offline_status_widget.dart:162	Details	
+title_text_offline_status_details	title_text	app/modules/map/views/widgets/offline_status_widget.dart:208	Offline Status Details	
+text_error_snapshot_error_2	Text	app/modules/map/views/widgets/offline_status_widget.dart:220	Error: ${snapshot.error}	
+text_entry_key	Text	app/modules/map/views/widgets/offline_status_widget.dart:237	${entry.key}:	
+text_entry_value	Text	app/modules/map/views/widgets/offline_status_widget.dart:244	${entry.value}	
+text_close_3	Text	app/modules/map/views/widgets/offline_status_widget.dart:256	Close	
+text_offline	Text	app/modules/map/views/widgets/offline_status_widget.dart:291	OFFLINE	
+text_year_color_legend	Text	app/modules/map/views/widgets/year_color_legend_widget.dart:47	Year Color Legend	
+text_now	Text	app/modules/map/views/widgets/year_color_legend_widget.dart:135	NOW	
+text_now_2	Text	app/modules/map/views/widgets/year_color_legend_widget.dart:218	NOW	
+title_literal_microphone_access_needed	title_literal	app/modules/memories/controllers/memory_controller.dart:949	Microphone access needed	
+snackbar_recording_error	snackbar	app/modules/memories/controllers/memory_controller.dart:1014	Recording Error	Failed to start audio recording: ${e.toString()}
+snackbar_recording_too_short	snackbar	app/modules/memories/controllers/memory_controller.dart:1071	Recording Too Short	Recording must be at least 1 second long. Please try again.
+snackbar_recording_failed	snackbar	app/modules/memories/controllers/memory_controller.dart:1132	Recording Failed	Audio recording is empty. Please try again.
+snackbar_recording_failed_2	snackbar	app/modules/memories/controllers/memory_controller.dart:1150	Recording Failed	Audio file was not created. Please try again.
+snackbar_recording_failed_3	snackbar	app/modules/memories/controllers/memory_controller.dart:1168	Recording Failed	Failed to save audio recording. Please try again.
+snackbar_recording_error_2	snackbar	app/modules/memories/controllers/memory_controller.dart:1185	Recording Error	Failed to stop recording: ${e.toString()}
+snackbar_unable_to_delete_9	snackbar	app/modules/memories/views/memory_view.dart:383	Unable to Delete	Unable to delete audio. Please try again.
+text_save_new_memory	Text	app/modules/memories/views/memory_view.dart:788	Save new memory?	
+text_no	Text	app/modules/memories/views/memory_view.dart:830	No	
+snackbar_widget_draft_saved_successfully	snackbar_widget	app/modules/memories/views/memory_view.dart:851	Draft saved successfully!	
+snackbar_widget_draft_saved_successfully_2	snackbar_widget	app/modules/memories/views/memory_view.dart:852	Draft saved successfully!	
+dialog_content_draft_saved_successfully	dialog_content	app/modules/memories/views/memory_view.dart:853	Draft saved successfully!	
+text_yes	Text	app/modules/memories/views/memory_view.dart:877	Yes	
+snackbar_widget_memory_updated_successfully	snackbar_widget	app/modules/memories/views/memory_view.dart:1163	Memory updated successfully!	
+snackbar_widget_memory_updated_successfully_2	snackbar_widget	app/modules/memories/views/memory_view.dart:1164	Memory updated successfully!	
+dialog_content_memory_updated_successfully	dialog_content	app/modules/memories/views/memory_view.dart:1165	Memory updated successfully!	
+title_text_delete_memory_2	title_text	app/modules/memories/views/memory_view.dart:1331	Delete Memory	
+dialog_content_are_you_sure_you_want_to_delete_this_memo_2	dialog_content	app/modules/memories/views/memory_view.dart:1341	Are you sure you want to delete this memory? This action cannot be undone.	
+text_cancel_6	Text	app/modules/memories/views/memory_view.dart:1354	Cancel	
+snackbar_success_21	snackbar	app/modules/memories/views/memory_view.dart:1400	Success	Memory deleted successfully
+snackbar_unable_to_delete_10	snackbar	app/modules/memories/views/memory_view.dart:1409	Unable to Delete	Unable to delete memory. Please try again.
+text_delete_4	Text	app/modules/memories/views/memory_view.dart:1420	Delete	
+title_literal_database_contents	title_literal	app/modules/memories/views/memory_view.dart:1443	Database Contents	
+text_database_statistics	Text	app/modules/memories/views/memory_view.dart:1460	Database Statistics	
+text_total_memories_allmemories_length	Text	app/modules/memories/views/memory_view.dart:1467	Total Memories: ${allMemories.length}	
+text_database_version_4	Text	app/modules/memories/views/memory_view.dart:1468	Database Version: 4	
+text_database_name_memories_db	Text	app/modules/memories/views/memory_view.dart:1469	Database Name: memories.db	
+text_id_memory	Text	app/modules/memories/views/memory_view.dart:1489	ID: ${memory[	
+text_date_memory	Text	app/modules/memories/views/memory_view.dart:1497	📅 Date: ${memory[	
+text_time_memory	Text	app/modules/memories/views/memory_view.dart:1498	🕐 Time: ${memory[	
+text_location_memory	Text	app/modules/memories/views/memory_view.dart:1501	📍 Location: ${memory[	
+text_category_memory	Text	app/modules/memories/views/memory_view.dart:1504	🏷️ Category: ${memory[	
+text_description_memory	Text	app/modules/memories/views/memory_view.dart:1507	📝 Description: ${memory[	
+text_images_base64_base64images_length_image_s	Text	app/modules/memories/views/memory_view.dart:1516	🖼️ Images (Base64): ${base64Images.length} image(s)	
+text_image_index_1_base64_length_characters_base64_lengt	Text	app/modules/memories/views/memory_view.dart:1530	Image ${index + 1}: ${base64.length} characters (${(base64.length * 0.75 / 1024).toStringAsFixed(1)} KB)	
+text_audio_files_audiopaths_length_file_s	Text	app/modules/memories/views/memory_view.dart:1544	🎵 Audio Files: ${audioPaths.length} file(s)	
+text_audio_index_1_filename	Text	app/modules/memories/views/memory_view.dart:1559	Audio ${index + 1}: $fileName	
+text_tags_memory	Text	app/modules/memories/views/memory_view.dart:1572	🏷️ Tags: ${memory[	
+text_mentions_memory	Text	app/modules/memories/views/memory_view.dart:1575	👥 Mentions: ${memory[	
+text_created_memory	Text	app/modules/memories/views/memory_view.dart:1578	📅 Created: ${memory[	
+text_updated_memory	Text	app/modules/memories/views/memory_view.dart:1586	🔄 Updated: ${memory[	
+text_close_4	Text	app/modules/memories/views/memory_view.dart:1603	Close	
+snackbar_unable_to_load_3	snackbar	app/modules/memories/views/memory_view.dart:1607	Unable to Load	Unable to load data. Please try again.
+text_ok_6	Text	app/modules/memories/views/memory_view.dart:2159	OK	
+snackbar_validation_error_3	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:670	Validation Error	Please enter a Place category name
+snackbar_error_20	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:706	Error	Failed to add Place Category
+snackbar_error_21	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:716	Error	Failed to add Place Category: $e
+snackbar_validation_error_4	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:773	Validation Error	Please enter a Place category
+snackbar_validation_error_5	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:784	Validation Error	Please select an icon
+snackbar_error_22	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:820	Error	Failed to update Place
+snackbar_error_23	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:830	Error	Failed to update Place: $e
+snackbar_validation_error_6	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1021	Validation Error	Please enter a place name
+snackbar_validation_error_7	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1032	Validation Error	Please select an icon
+snackbar_error_24	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1054	Error	Failed to add Place
+snackbar_duplicate_place	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1064	Duplicate Place	Place with this name already exists.
+snackbar_name_conflict_13	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1074	Name Conflict	This name is already used by the Place Category.
+snackbar_validation_error_8	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1117	Validation Error	Please enter both name and icon
+snackbar_error_25	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1164	Error	Failed to add Place
+snackbar_error_26	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1174	Error	Failed to add Place
+snackbar_validation_error_9	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1215	Validation Error	Please enter both name and icon
+snackbar_error_27	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1258	Error	Failed to update Place
+snackbar_error_28	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1268	Error	Failed to update Place: $e
+snackbar_error_29	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1375	Error	Failed to delete Place
+snackbar_error_30	snackbar	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1385	Error	Failed to delete Place: $e
+text_cannot_delete_categorytype	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1412	Cannot Delete $categoryType	
+text_the_categorytype_categoryname_cannot_be_deleted_bec	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1427	The $categoryType "$categoryName" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? 	
+text_to_delete_this_categorytype_first_change_the_place	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1450	To delete this $categoryType, first change the Place of all memories that use it, or delete those memories.	
+text_ok_7	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1463	OK	
+hinttext_search_icons	hintText	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1614	Search icons...	
+text_fixing_place_inconsistencies	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1643	Fixing Place inconsistencies...	
+text_fix_complete	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1681	Fix Complete	
+dialog_content_fixed_totalfixed_place_inconsistencies_n	dialog_content	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1695	Fixed $totalFixed Place inconsistencies.\n\nMemories and Place picker now show the correct updated Place names.	
+text_ok_8	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1708	OK	
+text_fix_failed	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1735	Fix Failed	
+dialog_content_an_error_occurred_while_fixing_place_inco	dialog_content	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1749	An error occurred while fixing Place inconsistencies:\n\n$e	
+text_ok_9	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1762	OK	
+tooltip_add_place_category	tooltip	app/modules/memories/views/mini_widgets/category_picker_widget.dart:1841	Add Place Category	
+text_no_places_match_your_search	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2011	No Places match your search	
+text_no_place_categories_found	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2082	No Place Categories found	
+hinttext_place_category	hintText	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2155	Place Category	
+hinttext_place_name	hintText	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2288	Place Name	
+hinttext_place_name_2	hintText	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2425	Place Name	
+text_rich_text_rich_widget_3	text_rich	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2588	(Text.rich widget)	line 2588; scan TextSpan children in app/modules/memories/views/mini_widgets/category_picker_widget.dart
+text_span_3	text_span	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2588	 (	inside Text.rich
+text_span_maincategory_subcategories_length_0	text_span	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2588	 (${mainCategory.subcategories?.length ?? 0})	inside Text.rich
+text_span_selectedsubcategoriescount	text_span	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2588	$selectedSubcategoriesCount	inside Text.rich
+text_span_maincategory_subcategories_length_0_2	text_span	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2588	/${mainCategory.subcategories?.length ?? 0})	inside Text.rich
+tooltip_delete_3	tooltip	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2699	Delete	
+tooltip_add_subcategory	tooltip	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2723	Add Subcategory	
+text_in_getparentcategoryname_category_parentid	Text	app/modules/memories/views/mini_widgets/category_picker_widget.dart:2837	in ${_getParentCategoryName(category.parentId!)}	
+text_no_2	Text	app/modules/memories/views/mini_widgets/custom_dialogue_box.dart:50	No	
+text_yes_2	Text	app/modules/memories/views/mini_widgets/custom_dialogue_box.dart:70	Yes	
+text_internet_connection_required_2	Text	app/modules/memories/views/mini_widgets/internet_required_location_picker_screen.dart:211	Internet Connection Required	
+text_location_picker_needs_internet_connection_or_offlin	Text	app/modules/memories/views/mini_widgets/internet_required_location_picker_screen.dart:227	Location picker needs internet connection or offline maps (30,000+ tiles) to function properly.	
+snackbar_no_internet_2	snackbar	app/modules/memories/views/mini_widgets/internet_required_location_picker_screen.dart:351	No Internet	(2nd arg not a string literal — check same catch block / ternary)
+text_check_connection_2	Text	app/modules/memories/views/mini_widgets/internet_required_location_picker_screen.dart:376	Check Connection	
+label_check_connection_2	label	app/modules/memories/views/mini_widgets/internet_required_location_picker_screen.dart:376	Check Connection	
+text_offline_tiles_backgroundservice_totaltilesdownloade	Text	app/modules/memories/views/mini_widgets/internet_required_location_picker_screen.dart:422	Offline tiles: ${backgroundService.totalTilesDownloaded.value.toString().replaceAllMapped(RegExp(r	
+text_no_internet_connection_2	Text	app/modules/memories/views/mini_widgets/internet_required_screen_location_picker.dart:236	No Internet Connection	
+text_please_check_your_internet_connection_and_try_again	Text	app/modules/memories/views/mini_widgets/internet_required_screen_location_picker.dart:251	Please check your internet connection and try again. The location picker requires an active internet connection to load map data.	
+text_the_app_will_automatically_continue_when_your_conne_2	Text	app/modules/memories/views/mini_widgets/internet_required_screen_location_picker.dart:267	The app will automatically continue when your connection is restored.	
+snackbar_widget_location_permission_needed_to_get_curren	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:577	📍 Location permission needed to get current location. You can manually tap on the map to select a location.	
+snackbar_widget_location_permission_needed_to_get_curren_2	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:578	📍 Location permission needed to get current location. You can manually tap on the map to select a location.	
+dialog_content_location_permission_needed_to_get_current	dialog_content	app/modules/memories/views/mini_widgets/location_picker_widget.dart:579	📍 Location permission needed to get current location. You can manually tap on the map to select a location.	
+snackbar_widget_moved_to_current_location	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:666	📍 Moved to current location	
+snackbar_widget_moved_to_current_location_2	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:667	📍 Moved to current location	
+dialog_content_moved_to_current_location	dialog_content	app/modules/memories/views/mini_widgets/location_picker_widget.dart:668	📍 Moved to current location	
+snackbar_widget_unable_to_get_your_current_location_plea	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:680	Unable to get your current location. Please check your location settings or select a location manually on the map.	
+snackbar_widget_unable_to_get_your_current_location_plea_2	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:681	Unable to get your current location. Please check your location settings or select a location manually on the map.	
+dialog_content_unable_to_get_your_current_location_pleas	dialog_content	app/modules/memories/views/mini_widgets/location_picker_widget.dart:682	Unable to get your current location. Please check your location settings or select a location manually on the map.	
+snackbar_widget_moved_to_location	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1111	📍 Moved to ${location[	
+snackbar_widget_moved_to_location_2	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1112	📍 Moved to ${location[	
+dialog_content_moved_to_location	dialog_content	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1113	📍 Moved to ${location[	
+snackbar_widget_unable_to_move_to_the_selected_location	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1126	Unable to move to the selected location. Please try again.	
+snackbar_widget_unable_to_move_to_the_selected_location_2	snackbar_widget	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1127	Unable to move to the selected location. Please try again.	
+dialog_content_unable_to_move_to_the_selected_location_p	dialog_content	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1128	Unable to move to the selected location. Please try again.	
+snackbar_unable_to_get_location	snackbar	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1701	Unable to Get Location	Unable to get location details. Please try again.
+text_offline_mode_enabled	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1819	Offline Mode: Enabled	
+title_text_offline_mode	title_text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1878	Offline Mode	
+text_current_mode_offlinemodereason	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1883	Current mode: $offlineModeReason	
+text_available_offline_features	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1885	Available offline features:	
+text_got_it	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:1899	Got it	
+text_done_3	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:2042	Done	
+text_please_wait_2	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:2283	Please wait...	
+text_search_locations_2	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:2607	Search Locations	
+hinttext_search_by_city_or_country	hintText	app/modules/memories/views/mini_widgets/location_picker_widget.dart:2640	Search by city or country...	
+text_searching_locations	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:2673	Searching locations...	
+text_try_downloading_offline_maps_for_this_area	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:2711	Try downloading offline maps for this area	
+text_location	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:2780	${location[	
+text_moving_to_location	Text	app/modules/memories/views/mini_widgets/location_picker_widget.dart:2886	Moving to location...	
+text_select_media	Text	app/modules/memories/views/mini_widgets/media_picker_popup.dart:48	Select Media	
+text_cancel_7	Text	app/modules/memories/views/mini_widgets/media_picker_popup.dart:89	Cancel	
+title_literal_camera_access_needed	title_literal	app/modules/memories/views/mini_widgets/media_picker_popup.dart:164	Camera access needed	
+title_literal_camera_access_needed_2	title_literal	app/modules/memories/views/mini_widgets/media_picker_popup.dart:186	Camera access needed	
+title_literal_microphone_access_needed_2	title_literal	app/modules/memories/views/mini_widgets/media_picker_popup.dart:197	Microphone access needed	
+title_literal_photos_access_needed	title_literal	app/modules/memories/views/mini_widgets/media_picker_popup.dart:240	Photos access needed	
+title_literal_delete_audio	title_literal	app/modules/memories/views/mini_widgets/memory_audio_widget.dart:184	Delete Audio	
+title_literal_delete_audio_2	title_literal	app/modules/memories/views/mini_widgets/memory_audio_widget.dart:292	Delete Audio	
+snackbar_space_not_allowed	snackbar	app/modules/memories/views/mini_widgets/memory_description_field_widget.dart:450	Space Not Allowed	Spaces are not allowed in ${triggerChar == '#' ? 'hashtags' : 'mentions'}
+hinttext_my_memory	hintText	app/modules/memories/views/mini_widgets/memory_description_field_widget.dart:920	my memory... 	
+title_literal_delete_image	title_literal	app/modules/memories/views/mini_widgets/memory_image_widget.dart:82	Delete Image	
+snackbar_deleted	snackbar	app/modules/memories/views/mini_widgets/memory_image_widget.dart:85	Deleted	Your image has been successfully deleted.
+text_add_photo	Text	app/modules/memories/views/mini_widgets/memory_image_widget.dart:132	Add Photo	
+text_3	Text	app/modules/memories/views/mini_widgets/memory_info_widget.dart:576	 *	
+text_copied	Text	app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart:236	Copied	
+text_gps_coordinates_are_on_the_clipboard	Text	app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart:241	GPS coordinates are on the clipboard.	
+text_gps_location	Text	app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart:366	GPS Location	
+snackbar_country_required	snackbar	app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart:457	Country required	Please select a country.
+title_literal_edit_location	title_literal	app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart:514	edit Location	
+title_text_flag_country_name	title_text	app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart:715	$flag ${country.name}	
+text_loading_map_2	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart:90	Loading map...	
+text_error_2	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart:108	Error	
+text_retry_3	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart:121	Retry	
+text_loading_map_style	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart:300	Loading map style...	
+text_error_loading_map_style_2	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart:313	Error loading map style	
+hinttext_search_locations_2	hintText	app/modules/memories/views/mini_widgets/memory_location_picker_widget.dart:390	search locations	
+text_error_3	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart:48	Error	
+text_retry_4	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart:61	Retry	
+text_loading_map_style_2	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart:115	Loading map style...	
+text_map_style_unavailable	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart:143	Map style unavailable	
+hinttext_search_locations_3	hintText	app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart:236	Search locations...	
+text_radius	Text	app/modules/memories/views/mini_widgets/memory_location_picker_widget_with_radius.dart:469	radius	
+snackbar_spaces_not_allowed	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:62	Spaces Not Allowed	${widget.isTagMode ? 'Hashtags' : 'Mentions'} cannot contain spaces
+hinttext_search	hintText	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:395	Search...	
+text_cancel_8	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:511	Cancel	
+text_save	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:547	Save	
+text_no_widget_istagmode	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:583	No ${widget.isTagMode ? 	
+text_prefixchar_trimmedsearchtext	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:624	$prefixChar$trimmedSearchText	
+text_add	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:644	add	
+text_prefixchar_item	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:697	$prefixChar${item[	
+text_group	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:740	Group	
+text_see_list	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:820	See List	
+snackbar_widget_please_enter_a_widget_istagmode	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:917	Please enter a ${widget.isTagMode ? 	
+snackbar_widget_please_enter_a_widget_istagmode_2	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:918	Please enter a ${widget.isTagMode ? 	
+dialog_content_please_enter_a_widget_istagmode	dialog_content	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:920	Please enter a ${widget.isTagMode ? 	
+snackbar_widget_please_select_a_widget_istagmode	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:936	Please select a ${widget.isTagMode ? 	
+snackbar_widget_please_select_a_widget_istagmode_2	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:937	Please select a ${widget.isTagMode ? 	
+dialog_content_please_select_a_widget_istagmode	dialog_content	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:939	Please select a ${widget.isTagMode ? 	
+snackbar_duplicate_hashtag_6	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:983	Duplicate Hashtag	Hashtag Group with this name already exists.
+snackbar_name_conflict_14	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:995	Name Conflict	This name is already used by a hashtag in another group.
+snackbar_duplicate_contact_6	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1014	Duplicate Contact	Contact Group with this name already exists.
+snackbar_name_conflict_15	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1026	Name Conflict	This name is already used by a contact in another group.
+snackbar_message_branch_hashtag_group_with_this_name_alr	snackbar_message_branch	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1096	Hashtag Group with this name already exists.	DUPLICATE_HASHTAG_NAME snackbar when editParentId==null
+snackbar_message_branch_hashtag_with_this_name_already_e	snackbar_message_branch	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1097	Hashtag with this name already exists.	DUPLICATE_HASHTAG_NAME snackbar when editParentId!=null
+snackbar_duplicate_hashtag_7	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1098	Duplicate Hashtag	(2nd arg not a string literal — check same catch block / ternary)
+snackbar_name_conflict_16	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1108	Name Conflict	This name is already used by a hashtag in another group.
+snackbar_name_conflict_17	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1118	Name Conflict	This name is already used by the parent group.
+snackbar_message_branch_contact_group_with_this_name_alr	snackbar_message_branch	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1129	Contact Group with this name already exists.	DUPLICATE_CONTACT_NAME when editParentId==null
+snackbar_message_branch_contact_with_this_name_already_e	snackbar_message_branch	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1130	Contact with this name already exists.	DUPLICATE_CONTACT_NAME when editParentId!=null
+snackbar_duplicate_contact_7	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1131	Duplicate Contact	(2nd arg not a string literal — check same catch block / ternary)
+snackbar_widget_failed_to_update_widget_istagmode	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1141	Failed to update ${widget.isTagMode ? 	
+snackbar_widget_failed_to_update_widget_istagmode_2	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1142	Failed to update ${widget.isTagMode ? 	
+dialog_content_failed_to_update_widget_istagmode	dialog_content	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1144	Failed to update ${widget.isTagMode ? 	
+snackbar_widget_please_select_a_widget_istagmode_3	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1160	Please select a ${widget.isTagMode ? 	
+snackbar_widget_please_select_a_widget_istagmode_4	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1161	Please select a ${widget.isTagMode ? 	
+dialog_content_please_select_a_widget_istagmode_2	dialog_content	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1163	Please select a ${widget.isTagMode ? 	
+snackbar_duplicate_hashtag_8	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1207	Duplicate Hashtag	Hashtag Group with this name already exists.
+snackbar_name_conflict_18	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1219	Name Conflict	This name is already used by a hashtag in another group.
+snackbar_duplicate_contact_8	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1239	Duplicate Contact	Contact Group with this name already exists.
+snackbar_name_conflict_19	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1251	Name Conflict	This name is already used by a contact in another group.
+snackbar_duplicate_hashtag_9	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1277	Duplicate Hashtag	Hashtag with this name already exists.
+snackbar_name_conflict_20	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1289	Name Conflict	This name is already used by the parent group.
+snackbar_duplicate_contact_9	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1307	Duplicate Contact	Contact with this name already exists.
+snackbar_name_conflict_21	snackbar	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1319	Name Conflict	This name is already used by the parent group.
+snackbar_widget_failed_to_add_widget_istagmode	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1345	Failed to add ${widget.isTagMode ? 	
+snackbar_widget_failed_to_add_widget_istagmode_2	snackbar_widget	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1346	Failed to add ${widget.isTagMode ? 	
+dialog_content_failed_to_add_widget_istagmode	dialog_content	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1348	Failed to add ${widget.isTagMode ? 	
+text_widget_istagmode	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1425	${widget.isTagMode ? 	
+text_loading_widget_istagmode	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1445	Loading ${widget.isTagMode ? 	
+text_select_prefixchar_widget_istagmode	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1455	select $prefixChar ${widget.isTagMode ? 	
+text_add_new_widget_istagmode	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1483	Add New ${widget.isTagMode ? 	
+text_widget_istagmode_2	Text	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1514	${widget.isTagMode ? 	
+hint_dynamic_enter_new_hashtag_group_name_enter_new_cont	hint_dynamic	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1541	Enter new Hashtag Group name | Enter new Contact Group name	widget.isTagMode
+hinttext_prefixchar_name	hintText	app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart:1603	$prefixChar Name	
+text_error_loading_video	Text	app/modules/memories/views/mini_widgets/video_player_screen.dart:213	Error loading video	
+text_4	Text	app/modules/settings/views/settings_view.dart:75	📍	
+title_literal_select_theme_color	title_literal	app/modules/ui/views/screens/colors_view.dart:30	Select Theme Color	
+subtitle_literal_displaynameforlanguagecode_controller_s	subtitle_literal	app/modules/ui/views/ui_view.dart:41	(${displayNameForLanguageCode(controller.selectedLanguage.value)})	
+subtitle_literal_controller_maincolor_value_capitalizefi	subtitle_literal	app/modules/ui/views/ui_view.dart:61	(${controller.mainColor.value.capitalizeFirst})	
+snackbar_unable_to_load_memories	snackbar	app/repositories/memory_repository.dart:87	Unable to Load Memories	Unable to load your memories. Please try again.
+snackbar_memory_cluster	snackbar	app/services/map_marker_service.dart:369	📍 Memory Cluster	${cluster.count} memories in $categoryText\nTap to zoom or view details
+text_details_3	Text	app/services/map_marker_service.dart:384	Details	
+snackbar_error_31	snackbar	app/services/map_marker_service.dart:392	Error	Could not load cluster details
+title_text_memory_cluster_details	title_text	app/services/map_marker_service.dart:444	📍 Memory Cluster Details	
+text_memories_in_this_cluster	Text	app/services/map_marker_service.dart:452	Memories in this cluster:	
+text_memory_2	Text	app/services/map_marker_service.dart:460	• ${memory[	
+text_close_5	Text	app/services/map_marker_service.dart:469	Close	
+text_zoom_to_cluster	Text	app/services/map_marker_service.dart:476	Zoom to Cluster	
+snackbar_memory	snackbar	app/services/map_marker_service.dart:581	📝 Memory	$category${description.isNotEmpty ? ': $description' : ''}\n📍 $locationName\n📅 $date
+text_view	Text	app/services/map_marker_service.dart:599	View	
+snackbar_cluster_tapped	snackbar	app/services/map_marker_service.dart:626	📍 Cluster Tapped	Cluster marker tapped: $markerId
+snackbar_download_failed	snackbar	app/services/offline_map_coordinator_service.dart:310	Download Failed	Failed to download offline maps: $e
+snackbar_online_mode	snackbar	app/services/offline_map_coordinator_service.dart:331	Online Mode	Map is now using online tiles
+snackbar_offline_mode	snackbar	app/services/offline_map_coordinator_service.dart:346	Offline Mode	Map is now using offline tiles ($tileCount tiles)
+snackbar_no_offline_tiles	snackbar	app/services/offline_map_coordinator_service.dart:355	No Offline Tiles	No offline tiles available. Please download tiles first.
+snackbar_data_cleared	snackbar	app/services/offline_map_coordinator_service.dart:379	Data Cleared	All offline map data has been cleared
+text_select_icon	Text	app/shared/widgets/add_edit_group_pop_new.dart:196	Select Icon	
+snackbar_validation_error_10	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:378	Validation Error	Hashtag Group name required
+snackbar_validation_error_11	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:393	Validation Error	Please enter a hashtag name
+snackbar_validation_error_12	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:428	Validation Error	Please enter a hashtag group name
+snackbar_error_32	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:442	Error	Failed to add Hashtag Group
+snackbar_duplicate_hashtag_group	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:452	Duplicate Hashtag Group	Hashtag Group with this name already exists.
+snackbar_name_conflict_22	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:462	Name Conflict	This name is already used by a Hashtag in another group.
+snackbar_error_33	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:481	Error	Failed to add Hashtag
+snackbar_duplicate_hashtag_10	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:491	Duplicate Hashtag	Hashtag with this name already exists.
+snackbar_name_conflict_23	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:501	Name Conflict	This name is already used by the Hashtag Group.
+snackbar_validation_error_13	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:515	Validation Error	Please select a Hashtag Group
+snackbar_error_34	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:527	Error	Failed to add hashtag: $e
+snackbar_validation_error_14	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:551	Validation Error	Contact Group name required
+snackbar_validation_error_15	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:566	Validation Error	Please enter a contact name
+snackbar_validation_error_16	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:601	Validation Error	Please enter a contact group name
+snackbar_error_35	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:615	Error	Failed to add Contact Group
+snackbar_duplicate_contact_group	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:625	Duplicate Contact Group	Contact Group with this name already exists.
+snackbar_name_conflict_24	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:635	Name Conflict	This name is already used by a Contact in another group.
+snackbar_error_36	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:654	Error	Failed to add Contact
+snackbar_duplicate_contact_10	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:664	Duplicate Contact	Contact with this name already exists.
+snackbar_name_conflict_25	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:674	Name Conflict	This name is already used by the Contact Group.
+snackbar_validation_error_17	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:688	Validation Error	Please select a Contact Group
+snackbar_error_37	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:700	Error	Failed to add contact: $e
+snackbar_validation_error_18	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:719	Validation Error	Category name required
+snackbar_validation_error_19	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:738	Validation Error	Category name required
+snackbar_validation_error_20	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:754	Validation Error	Please enter a place name
+snackbar_validation_error_21	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:769	Validation Error	Please select an icon
+snackbar_validation_error_22	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:805	Validation Error	Please enter a place category name
+snackbar_error_38	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:823	Error	Failed to add Place category
+snackbar_duplicate_place_category	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:833	Duplicate Place category	Place category with this name already exists.
+snackbar_name_conflict_26	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:843	Name Conflict	This name is already used by a Place in another Place category.
+snackbar_error_39	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:879	Error	Failed to add Place
+snackbar_duplicate_place_2	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:889	Duplicate Place	Place with this name already exists.
+snackbar_name_conflict_27	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:899	Name Conflict	This name is already used by the Place category.
+snackbar_validation_error_23	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:931	Validation Error	Please select a Place category
+snackbar_error_40	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:943	Error	Failed to add place: $e
+snackbar_validation_error_24	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:965	Validation Error	Please enter a place name
+snackbar_validation_error_25	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:979	Validation Error	Category name required
+snackbar_validation_error_26	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:992	Validation Error	Please select an icon
+snackbar_validation_error_27	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1008	Validation Error	Please select a Place Category
+snackbar_error_41	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1035	Error	Failed to add Place category
+snackbar_duplicate_place_category_2	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1045	Duplicate Place category	Place category with this name already exists.
+snackbar_name_conflict_28	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1055	Name Conflict	This name is already used by a Place in another Place category.
+snackbar_error_42	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1106	Error	Failed to update Place
+snackbar_duplicate_place_3	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1117	Duplicate Place	Place with this name already exists.
+snackbar_name_conflict_29	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1125	Name Conflict	This name is already used by the Place category.
+snackbar_error_43	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1133	Error	Failed to update Place
+snackbar_validation_error_28	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1152	Validation Error	Please enter a hashtag name
+snackbar_validation_error_29	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1166	Validation Error	Hashtag Group name required
+snackbar_error_44	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1190	Error	Failed to add Hashtag Group
+snackbar_duplicate_hashtag_group_2	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1200	Duplicate Hashtag Group	Hashtag Group with this name already exists.
+snackbar_name_conflict_30	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1210	Name Conflict	This name is already used by a Hashtag in another group.
+snackbar_duplicate_hashtag_11	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1265	Duplicate Hashtag	(2nd arg not a string literal — check same catch block / ternary)
+snackbar_name_conflict_31	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1273	Name Conflict	This name is already used by a hashtag in another group.
+snackbar_name_conflict_32	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1281	Name Conflict	This name is already used by the parent group.
+snackbar_error_45	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1289	Error	Failed to update hashtag: $e
+snackbar_validation_error_30	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1308	Validation Error	Please enter a contact name
+snackbar_validation_error_31	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1322	Validation Error	Contact Group name required
+snackbar_error_46	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1346	Error	Failed to add Contact Group
+snackbar_duplicate_contact_group_2	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1356	Duplicate Contact Group	Contact Group with this name already exists.
+snackbar_name_conflict_33	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1366	Name Conflict	This name is already used by a Contact in another group.
+snackbar_duplicate_contact_11	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1421	Duplicate Contact	(2nd arg not a string literal — check same catch block / ternary)
+snackbar_name_conflict_34	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1429	Name Conflict	This name is already used by a contact in another group.
+snackbar_name_conflict_35	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1437	Name Conflict	This name is already used by the parent group.
+snackbar_error_47	snackbar	app/shared/widgets/add_edit_group_pop_new.dart:1445	Error	Failed to update contact: $e
+text_select_getcategorylabeltext	Text	app/shared/widgets/add_edit_group_pop_new.dart:1647	Select ${_getCategoryLabelText()}	
+text_add_new_isplacemode_category_group	Text	app/shared/widgets/add_edit_group_pop_new.dart:1664	+ Add New ${_isPlaceMode ? "Category" : "Group"}	
+text_category_name	Text	app/shared/widgets/add_edit_group_pop_new.dart:1677	${category.name}	
+hinttext_isplacemode_category_group_name	hintText	app/shared/widgets/add_edit_group_pop_new.dart:1752	${_isPlaceMode ? "Category" : "Group"} Name	
+text_select_places	Text	app/shared/widgets/add_edit_group_pop_new.dart:1792	select Places	
+text_add_new_category	Text	app/shared/widgets/add_edit_group_pop_new.dart:1809	+ Add New Category	
+text_category_name_2	Text	app/shared/widgets/add_edit_group_pop_new.dart:1822	${category.name}	
+hinttext_places_name	hintText	app/shared/widgets/add_edit_group_pop_new.dart:1871	Places Name	
+hint_dynamic_hinttext_widget_ismaincategory_ternary	hint_dynamic	app/shared/widgets/add_edit_group_pop_new.dart:1976	hintText ← widget.isMainCategory (ternary)	See file
+snackbar_validation_error_32	snackbar	app/shared/widgets/add_edit_group_popup.dart:64	Validation Error	Please enter a name
+text_widget_parentgroupname	Text	app/shared/widgets/add_edit_group_popup.dart:161	📁 ${widget.parentGroupName}	
+hint_dynamic_hinttext_widget_ismaingroup_ternary	hint_dynamic	app/shared/widgets/add_edit_group_popup.dart:216	hintText ← widget.isMainGroup (ternary)	See file
+text_select_icon_2	Text	app/shared/widgets/add_place_category_popup.dart:146	Select Icon	
+snackbar_validation_error_33	snackbar	app/shared/widgets/add_place_category_popup.dart:244	Validation Error	Category name required
+snackbar_validation_error_34	snackbar	app/shared/widgets/add_place_category_popup.dart:263	Validation Error	Category name required
+snackbar_validation_error_35	snackbar	app/shared/widgets/add_place_category_popup.dart:279	Validation Error	Please enter a place name
+snackbar_validation_error_36	snackbar	app/shared/widgets/add_place_category_popup.dart:294	Validation Error	Please select an icon
+snackbar_validation_error_37	snackbar	app/shared/widgets/add_place_category_popup.dart:330	Validation Error	Please enter a place category name
+snackbar_error_48	snackbar	app/shared/widgets/add_place_category_popup.dart:352	Error	Failed to add Place category
+snackbar_duplicate_place_category_3	snackbar	app/shared/widgets/add_place_category_popup.dart:362	Duplicate Place category	Place category with this name already exists.
+snackbar_name_conflict_36	snackbar	app/shared/widgets/add_place_category_popup.dart:372	Name Conflict	This name is already used by a Place in another Place category.
+snackbar_error_49	snackbar	app/shared/widgets/add_place_category_popup.dart:392	Error	Failed to add Place
+snackbar_duplicate_place_4	snackbar	app/shared/widgets/add_place_category_popup.dart:402	Duplicate Place	Place with this name already exists.
+snackbar_name_conflict_37	snackbar	app/shared/widgets/add_place_category_popup.dart:412	Name Conflict	This name is already used by the Place category.
+snackbar_error_50	snackbar	app/shared/widgets/add_place_category_popup.dart:455	Error	Failed to add Place
+snackbar_duplicate_place_5	snackbar	app/shared/widgets/add_place_category_popup.dart:465	Duplicate Place	Place with this name already exists.
+snackbar_name_conflict_38	snackbar	app/shared/widgets/add_place_category_popup.dart:475	Name Conflict	This name is already used by the Place category.
+snackbar_validation_error_38	snackbar	app/shared/widgets/add_place_category_popup.dart:507	Validation Error	Please select a Place category
+snackbar_error_51	snackbar	app/shared/widgets/add_place_category_popup.dart:519	Error	Failed to add place: $e
+snackbar_validation_error_39	snackbar	app/shared/widgets/add_place_category_popup.dart:541	Validation Error	Please enter a place name
+snackbar_validation_error_40	snackbar	app/shared/widgets/add_place_category_popup.dart:555	Validation Error	Category name required
+snackbar_validation_error_41	snackbar	app/shared/widgets/add_place_category_popup.dart:568	Validation Error	Please select an icon
+snackbar_validation_error_42	snackbar	app/shared/widgets/add_place_category_popup.dart:584	Validation Error	Please select a Place Category
+snackbar_error_52	snackbar	app/shared/widgets/add_place_category_popup.dart:611	Error	Failed to add Place category
+snackbar_duplicate_place_category_4	snackbar	app/shared/widgets/add_place_category_popup.dart:621	Duplicate Place category	Place category with this name already exists.
+snackbar_name_conflict_39	snackbar	app/shared/widgets/add_place_category_popup.dart:631	Name Conflict	This name is already used by a Place in another Place category.
+snackbar_error_53	snackbar	app/shared/widgets/add_place_category_popup.dart:682	Error	Failed to update Place
+snackbar_duplicate_place_6	snackbar	app/shared/widgets/add_place_category_popup.dart:693	Duplicate Place	Place with this name already exists.
+snackbar_name_conflict_40	snackbar	app/shared/widgets/add_place_category_popup.dart:701	Name Conflict	This name is already used by the Place category.
+snackbar_error_54	snackbar	app/shared/widgets/add_place_category_popup.dart:709	Error	Failed to update Place
+text_place_category	Text	app/shared/widgets/add_place_category_popup.dart:824	Place Category	
+text_select_place_category	Text	app/shared/widgets/add_place_category_popup.dart:853	Select Place Category	
+text_add_new_category_2	Text	app/shared/widgets/add_place_category_popup.dart:870	+ Add New Category	
+text_category_name_3	Text	app/shared/widgets/add_place_category_popup.dart:882	${category.name}	
+text_category_name_4	Text	app/shared/widgets/add_place_category_popup.dart:916	Category Name	
+hinttext_category_name	hintText	app/shared/widgets/add_place_category_popup.dart:942	Category Name	
+text_select_places_2	Text	app/shared/widgets/add_place_category_popup.dart:982	select Places	
+text_add_new_category_3	Text	app/shared/widgets/add_place_category_popup.dart:999	+ Add New Category	
+text_category_name_5	Text	app/shared/widgets/add_place_category_popup.dart:1012	${category.name}	
+hinttext_places_name_2	hintText	app/shared/widgets/add_place_category_popup.dart:1058	Places Name	
+text_place_name	Text	app/shared/widgets/add_place_category_popup.dart:1081	Place Name	
+hint_dynamic_place_category_place_name	hint_dynamic	app/shared/widgets/add_place_category_popup.dart:1159	Place Category | Place Name	widget.isMainCategory
+text_select_icon_3	Text	app/shared/widgets/add_place_category_popup.dart:1329	Select Icon	
+snackbar_validation_error_43	snackbar	app/shared/widgets/add_place_category_popup.dart:1436	Validation Error	Category name required
+snackbar_validation_error_44	snackbar	app/shared/widgets/add_place_category_popup.dart:1453	Validation Error	Please enter a place name
+snackbar_validation_error_45	snackbar	app/shared/widgets/add_place_category_popup.dart:1470	Validation Error	Please select an icon
+snackbar_validation_error_46	snackbar	app/shared/widgets/add_place_category_popup.dart:1510	Validation Error	Please enter a place category name
+snackbar_error_55	snackbar	app/shared/widgets/add_place_category_popup.dart:1530	Error	Failed to add Place category
+snackbar_duplicate_place_category_5	snackbar	app/shared/widgets/add_place_category_popup.dart:1542	Duplicate Place category	Place category with this name already exists.
+snackbar_name_conflict_41	snackbar	app/shared/widgets/add_place_category_popup.dart:1554	Name Conflict	This name is already used by a Place in another Place category.
+snackbar_error_56	snackbar	app/shared/widgets/add_place_category_popup.dart:1592	Error	Failed to add Place
+snackbar_duplicate_place_7	snackbar	app/shared/widgets/add_place_category_popup.dart:1602	Duplicate Place	Place with this name already exists.
+snackbar_name_conflict_42	snackbar	app/shared/widgets/add_place_category_popup.dart:1612	Name Conflict	This name is already used by the Place category.
+snackbar_validation_error_47	snackbar	app/shared/widgets/add_place_category_popup.dart:1646	Validation Error	Please select a Place category
+snackbar_error_57	snackbar	app/shared/widgets/add_place_category_popup.dart:1658	Error	Failed to add place: $e
+snackbar_validation_error_48	snackbar	app/shared/widgets/add_place_category_popup.dart:1680	Validation Error	Please enter a place name
+snackbar_validation_error_49	snackbar	app/shared/widgets/add_place_category_popup.dart:1694	Validation Error	Category name required
+snackbar_validation_error_50	snackbar	app/shared/widgets/add_place_category_popup.dart:1707	Validation Error	Please select an icon
+snackbar_validation_error_51	snackbar	app/shared/widgets/add_place_category_popup.dart:1724	Validation Error	Please select a Place Category
+snackbar_error_58	snackbar	app/shared/widgets/add_place_category_popup.dart:1751	Error	Failed to add Place category
+snackbar_duplicate_place_category_6	snackbar	app/shared/widgets/add_place_category_popup.dart:1761	Duplicate Place category	Place category with this name already exists.
+snackbar_name_conflict_43	snackbar	app/shared/widgets/add_place_category_popup.dart:1771	Name Conflict	This name is already used by a Place in another Place category.
+snackbar_error_59	snackbar	app/shared/widgets/add_place_category_popup.dart:1822	Error	Failed to update Place
+snackbar_duplicate_place_8	snackbar	app/shared/widgets/add_place_category_popup.dart:1833	Duplicate Place	Place with this name already exists.
+snackbar_name_conflict_44	snackbar	app/shared/widgets/add_place_category_popup.dart:1841	Name Conflict	This name is already used by the Place category.
+snackbar_error_60	snackbar	app/shared/widgets/add_place_category_popup.dart:1849	Error	Failed to update Place
+text_category_name_6	Text	app/shared/widgets/add_place_category_popup.dart:2074	Category Name	
+hinttext_category_name_2	hintText	app/shared/widgets/add_place_category_popup.dart:2100	Category Name	
+text_select_places_3	Text	app/shared/widgets/add_place_category_popup.dart:2140	select Places	
+text_add_new_category_4	Text	app/shared/widgets/add_place_category_popup.dart:2157	+ Add New Category	
+text_category_emoji_category_name	Text	app/shared/widgets/add_place_category_popup.dart:2170	${category.emoji} ${category.name}	
+text_category_name_7	Text	app/shared/widgets/add_place_category_popup.dart:2204	Category Name	
+hinttext_places_name_3	hintText	app/shared/widgets/add_place_category_popup.dart:2230	Places Name	
+text_place_name_2	Text	app/shared/widgets/add_place_category_popup.dart:2257	Place Name	
+hint_dynamic_place_category_place_name_2	hint_dynamic	app/shared/widgets/add_place_category_popup.dart:2322	Place Category | Place Name	widget.isMainCategory
+param_dialog_title_message_caller	param_dialog	app/shared/widgets/permission_open_settings_dialog.dart:8	title, message ← caller	showPermissionOpenSettingsDialog(context, title:, message:)
+text_cancel_9	Text	app/shared/widgets/permission_open_settings_dialog.dart:42	Cancel	
+text_open_settings_5	Text	app/shared/widgets/permission_open_settings_dialog.dart:57	Open Settings	
+hint_dynamic_hinttext_widget_title	hint_dynamic	app/shared/widgets/searchable_category_widget.dart:758	hintText ← widget.title	Caller passes title
+text_see_list_2	Text	app/shared/widgets/searchable_category_widget.dart:966	See List	
+text_add_new	Text	app/shared/widgets/searchable_category_widget.dart:986	Add new	
+text_see_list_3	Text	app/shared/widgets/searchable_category_widget.dart:1001	See List	
+hint_dynamic_hinttext_widget_title_2	hint_dynamic	app/shared/widgets/searchable_contact_widget.dart:538	hintText ← widget.title	Caller passes title
+text_no_contacts_found	Text	app/shared/widgets/searchable_contact_widget.dart:652	No contacts found	
+text_no_recent_contacts	Text	app/shared/widgets/searchable_contact_widget.dart:662	No recent contacts	
+text_no_contacts_found_2	Text	app/shared/widgets/searchable_contact_widget.dart:701	No contacts found	
+text_5	Text	app/shared/widgets/searchable_contact_widget.dart:748	@	
+text_6	Text	app/shared/widgets/searchable_contact_widget.dart:794	@	
+text_see_list_4	Text	app/shared/widgets/searchable_contact_widget.dart:883	See List	
+hint_dynamic_hinttext_widget_title_3	hint_dynamic	app/shared/widgets/searchable_hashtag_widget.dart:543	hintText ← widget.title	Caller passes title
+text_no_hashtags_found	Text	app/shared/widgets/searchable_hashtag_widget.dart:657	No hashtags found	
+text_no_recent_hashtags	Text	app/shared/widgets/searchable_hashtag_widget.dart:667	No recent hashtags	
+text_no_hashtags_found_2	Text	app/shared/widgets/searchable_hashtag_widget.dart:711	No hashtags found	
+text_7	Text	app/shared/widgets/searchable_hashtag_widget.dart:754	#	
+text_8	Text	app/shared/widgets/searchable_hashtag_widget.dart:799	#	
+text_see_list_5	Text	app/shared/widgets/searchable_hashtag_widget.dart:888	See List	
+text_reset	Text	app/widgets/filter_section.dart:375	reset	
+text_filter	Text	app/widgets/filter_section.dart:397	filter	
+text_download_offline_maps	Text	app/widgets/offline_download_overlay.dart:68	Download Offline Maps	
+text_download_maps_for_offline_use	Text	app/widgets/offline_download_overlay.dart:75	Download maps for offline use	
+text_later	Text	app/widgets/offline_download_overlay.dart:97	Later	
+text_download	Text	app/widgets/offline_download_overlay.dart:108	Download	
+label_download	label	app/widgets/offline_download_overlay.dart:108	Download	
+text_downloading_maps	Text	app/widgets/offline_download_overlay.dart:153	Downloading Maps...	
+tooltip_minimize	tooltip	app/widgets/offline_download_overlay.dart:176	Minimize	
+text_style_pack	Text	app/widgets/offline_download_overlay.dart:189	Style Pack	
+text_offlineservice_stylepackprogress_value_100_tostring	Text	app/widgets/offline_download_overlay.dart:195	${(offlineService.stylePackProgress.value * 100).toStringAsFixed(0)}%	
+text_map_tiles	Text	app/widgets/offline_download_overlay.dart:226	Map Tiles	
+text_offlineservice_downloadedtilecount_value_tiles	Text	app/widgets/offline_download_overlay.dart:232	${offlineService.downloadedTileCount.value} tiles	
+text_offline_maps_ready	Text	app/widgets/offline_download_overlay.dart:282	Offline Maps Ready	
+text_offlineservice_downloadedtilecount_value_tiles_down	Text	app/widgets/offline_download_overlay.dart:291	${offlineService.downloadedTileCount.value} tiles downloaded	
+text_ok_10	Text	app/widgets/offline_download_overlay.dart:304	OK	
+label_ok	label	app/widgets/offline_download_overlay.dart:304	OK	
+title_literal_application	title_literal	main.dart:194	Application	
+snackbar_offline_mode_activated	snackbar	services/background_tile_download_service.dart:973	Offline Mode Activated	Maximum tiles downloaded (${totalTilesDownloaded.value}). App now running in offline mode.
+snackbar_connection_status	snackbar	services/connectivity_service.dart:500	Connection Status	(2nd arg not a string literal — check same catch block / ternary)
+title_text_storage_permission_required	title_text	services/mbtiles_download_service.dart:366	Storage Permission Required	
+dialog_content_storage_permission_is_required_to_downloa	dialog_content	services/mbtiles_download_service.dart:373	Storage permission is required to download offline maps. Please enable it in app settings.	
+text_cancel_10	Text	services/mbtiles_download_service.dart:382	Cancel	
+text_open_settings_6	Text	services/mbtiles_download_service.dart:394	Open Settings	
+snackbar_memory_processing_error	snackbar	services/memory_processing_isolate_service.dart:610	Memory Processing Error	Failed to process memories: ${message['error']}
+title_text_location_service_disabled	title_text	services/permission_service.dart:150	Location Service Disabled	
+dialog_content_location_services_are_disabled_please_ena	dialog_content	services/permission_service.dart:157	Location services are disabled. Please enable location services to use map features.	
+text_cancel_11	Text	services/permission_service.dart:169	Cancel	
+text_open_settings_7	Text	services/permission_service.dart:184	Open Settings	
+title_text_location_permission_required	title_text	services/permission_service.dart:206	Location Permission Required	
+dialog_content_location_permission_is_permanently_denied_2	dialog_content	services/permission_service.dart:213	Location permission is permanently denied. Please enable it in app settings to use location features.	
+text_cancel_12	Text	services/permission_service.dart:225	Cancel	
+text_open_settings_8	Text	services/permission_service.dart:240	Open Settings	
+snackbar_location_permission	snackbar	services/permission_service.dart:328	Location Permission	(2nd arg not a string literal — check same catch block / ternary)
+text_app_locked	Text	widgets/app_lock_gate.dart:38	App locked	
+text_pin_or_biometrics_required	Text	widgets/app_lock_gate.dart:49	PIN or biometrics required.	
+text_unlock	Text	widgets/app_lock_gate.dart:90	Unlock	

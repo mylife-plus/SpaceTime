@@ -13,6 +13,7 @@ import '../../../services/place_category_service.dart';
 import '../../memories/controllers/memory_controller.dart';
 import '../../map/controllers/map_controller_new.dart';
 import '../../add_memories/controllers/add_memories_controller.dart';
+import 'package:spacetime/app/l10n/place_category_l10n.dart';
 
 /// Dedicated controller for managing all filter-related logic
 /// Used by both MemoriesFilterOverlay and SearchMemoriesView
@@ -231,9 +232,10 @@ class FilterController extends GetxController {
       final mentions =
           (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ??
           '';
-      final category =
-          (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ??
-          '';
+      final categoryRaw =
+          memory[DatabaseHelper.columnCategory] as String? ?? '';
+      final category = categoryRaw.toLowerCase();
+      final categoryHaystack = placeCategorySearchHaystack(categoryRaw);
       // final locationName =
       //     (memory[DatabaseHelper.columnLocationName] as String?)
       //         ?.toLowerCase() ??
@@ -253,7 +255,8 @@ class FilterController extends GetxController {
       // Search in all text fields
 
       final searchableText =
-          '$description $tags @$tags #$mentions $mentions $category  $locationAddress $locationCity $locationCountry'.toLowerCase();
+          '$description $tags @$tags #$mentions $mentions $category $categoryHaystack $locationAddress $locationCity $locationCountry'
+              .toLowerCase();
 
       if(keyword[0] == '@' || keyword[0] =='#') {
 
@@ -411,11 +414,13 @@ List<Map<String, dynamic>> _applyDateFilter(
       final mentions =
           (memory[DatabaseHelper.columnMentions] as String?)?.toLowerCase() ??
           '';
-      final category =
-          (memory[DatabaseHelper.columnCategory] as String?)?.toLowerCase() ??
-          '';
+      final categoryRaw =
+          memory[DatabaseHelper.columnCategory] as String? ?? '';
+      final category = categoryRaw.toLowerCase();
+      final categoryHaystack = placeCategorySearchHaystack(categoryRaw);
 
-      final searchableText = '$description $tags $mentions $category';
+      final searchableText =
+          '$description $tags $mentions $category $categoryHaystack';
 
       // Check if all filter values are present in searchable text
       for (final entry in textFilters.entries) {

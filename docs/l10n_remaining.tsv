@@ -1,0 +1,72 @@
+proposed_key	reason	file	source_kind	english_label
+hinttext_widget_hint	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/filter_dropdown.dart	hintText	${widget.hint}
+text_activefiltercount_filter_activefiltercount_1	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/filter_indicator.dart	Text	$activeFilterCount filter${activeFilterCount > 1 ? 
+text_controller_filteredmemories_length_results	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/filter_indicator.dart	Text	(${controller.filteredMemories.length} results)
+text_currentindex_1_of_totalcount	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/image_viewer_screen.dart	Text	${_currentIndex + 1} of $_totalCount
+text_widget_time	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/memory_card.dart	Text	 ${widget.time}
+text_getdayordate_widget_date_widget_year	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/memory_card.dart	Text	${getDayOrDate(widget.date, widget.year)} 
+text_widget_time_substring_3	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/memory_card.dart	Text	 ${widget.time.substring(3)}
+text_search_controller_searchquery_value	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/search_indicator.dart	Text	"Search: ""${controller.searchQuery.value}"""
+text_controller_filteredmemories_length_results_2	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/search_indicator.dart	Text	(${controller.filteredMemories.length} results)
+text_date_year	literal_in_file	lib/app/modules/add_memories/views/mini_widgets/search_overly.dart	Text	$date $year
+text_selectedcontactgroups_where_g_g_issubgroup_length_s	literal_in_file	lib/app/modules/contact_groups/views/contact_groups_view.dart	Text	${_selectedContactGroups.where((g) => g.isSubgroup).length} selected
+text_span_maincontactgroup_subgroups_length_0	literal_in_file	lib/app/modules/contact_groups/views/contact_groups_view.dart	text_span	 (${mainContactGroup.subgroups?.length ?? 0})
+text_span_selectedsubgroupscount	literal_in_file	lib/app/modules/contact_groups/views/contact_groups_view.dart	text_span	$selectedSubgroupsCount
+text_span_maincontactgroup_subgroups_length_0_2	literal_in_file	lib/app/modules/contact_groups/views/contact_groups_view.dart	text_span	/${mainContactGroup.subgroups?.length ?? 0})
+text_selectedhashtaggroups_where_g_g_issubgroup_length_s	literal_in_file	lib/app/modules/hashtag_groups/views/hashtag_groups_view.dart	Text	${_selectedHashtagGroups.where((g) => g.isSubgroup).length} selected
+text_span_mainhashtaggroup_subgroups_length_0	literal_in_file	lib/app/modules/hashtag_groups/views/hashtag_groups_view.dart	text_span	 (${mainHashtagGroup.subgroups?.length ?? 0})
+text_span_selectedsubgroupscount_2	literal_in_file	lib/app/modules/hashtag_groups/views/hashtag_groups_view.dart	text_span	$selectedSubgroupsCount
+text_span_mainhashtaggroup_subgroups_length_0_2	literal_in_file	lib/app/modules/hashtag_groups/views/hashtag_groups_view.dart	text_span	/${mainHashtagGroup.subgroups?.length ?? 0})
+text_location_city_location_city_isnotempty_location_sta	literal_in_file	lib/app/modules/location_picker/views/new_location_picker_widget.dart	Text	${location.city}${location.city.isNotEmpty && location.state.isNotEmpty ? 
+subtitle_literal_location_city_location_city_isnotempty	literal_in_file	lib/app/modules/location_picker/views/widgets/location_search_dialog.dart	subtitle_literal	${location.city}${location.city.isNotEmpty && location.state.isNotEmpty ? 
+text_cluster_memories_memories_length	literal_in_file	lib/app/modules/map/controllers/map_controller_new.dart	Text	Cluster Memories (${memories.length})
+text_all_memories_length_memories	literal_in_file	lib/app/modules/map/views/mini_widgets/bottom_info.dart	Text	All ${_memories.length} Memories
+text_yearmemories_length_from_year	literal_in_file	lib/app/modules/map/views/mini_widgets/bottom_info.dart	Text	${yearMemories.length} from $year
+text_region_formatregionname_currentregion	literal_in_file	lib/app/modules/map/views/mini_widgets/tile_download_banner.dart	Text	Region: ${_formatRegionName(currentRegion)}
+text_formattilecount_totaltiles_50k	literal_in_file	lib/app/modules/map/views/mini_widgets/tile_download_banner.dart	Text	${_formatTileCount(totalTiles)} / 50K
+text_overallprogress_100_tostringasfixed_1	literal_in_file	lib/app/modules/map/views/mini_widgets/tile_download_banner.dart	Text	${(overallProgress * 100).toStringAsFixed(1)}%
+text_currentdownloadprogress_100_tostringasfixed_0	literal_in_file	lib/app/modules/map/views/mini_widgets/tile_download_banner.dart	Text	${(currentDownloadProgress * 100).toStringAsFixed(0)}%
+text_service_downloadprogress_value_100_tostringasfixed	literal_in_file	lib/app/modules/map/views/widgets/download_progress_widget.dart	Text	${(service.downloadProgress.value * 100).toStringAsFixed(0)}%
+text_quota_currenttiles_quota_maxtiles_tiles_quota_usage	literal_in_file	lib/app/modules/map/views/widgets/download_progress_widget.dart	Text	${quota.currentTiles} / ${quota.maxTiles} tiles (${quota.usagePercentage.toStringAsFixed(1)}%)
+text_service_processingprogress_value_100_tostringasfixe	literal_in_file	lib/app/modules/map/views/widgets/memory_processing_progress_widget.dart	Text	${(service.processingProgress.value * 100).toStringAsFixed(0)}%
+text_entry_key	literal_in_file	lib/app/modules/map/views/widgets/offline_status_widget.dart	Text	${entry.key}:
+text_entry_value	literal_in_file	lib/app/modules/map/views/widgets/offline_status_widget.dart	Text	${entry.value}
+text_total_memories_allmemories_length	literal_in_file	lib/app/modules/memories/views/memory_view.dart	Text	Total Memories: ${allMemories.length}
+text_images_base64_base64images_length_image_s	literal_in_file	lib/app/modules/memories/views/memory_view.dart	Text	🖼️ Images (Base64): ${base64Images.length} image(s)
+text_image_index_1_base64_length_characters_base64_lengt	literal_in_file	lib/app/modules/memories/views/memory_view.dart	Text	Image ${index + 1}: ${base64.length} characters (${(base64.length * 0.75 / 1024).toStringAsFixed(1)} KB)
+text_audio_files_audiopaths_length_file_s	literal_in_file	lib/app/modules/memories/views/memory_view.dart	Text	🎵 Audio Files: ${audioPaths.length} file(s)
+text_audio_index_1_filename	literal_in_file	lib/app/modules/memories/views/memory_view.dart	Text	Audio ${index + 1}: $fileName
+text_cannot_delete_categorytype	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	Text	Cannot Delete $categoryType
+text_the_categorytype_categoryname_cannot_be_deleted_bec	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	Text	"The $categoryType ""$categoryName"" cannot be deleted because it is being used by $memoryCount ${memoryCount == 1 ? "
+text_to_delete_this_categorytype_first_change_the_place	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	Text	To delete this $categoryType, first change the Place of all memories that use it, or delete those memories.
+dialog_content_fixed_totalfixed_place_inconsistencies_n	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	dialog_content	"Fixed $totalFixed Place inconsistencies.
+
+Memories and Place picker now show the correct updated Place names."
+dialog_content_an_error_occurred_while_fixing_place_inco	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	dialog_content	"An error occurred while fixing Place inconsistencies:
+
+$e"
+text_span_maincategory_subcategories_length_0	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	text_span	 (${mainCategory.subcategories?.length ?? 0})
+text_span_selectedsubcategoriescount	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	text_span	$selectedSubcategoriesCount
+text_span_maincategory_subcategories_length_0_2	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	text_span	/${mainCategory.subcategories?.length ?? 0})
+text_in_getparentcategoryname_category_parentid	literal_in_file	lib/app/modules/memories/views/mini_widgets/category_picker_widget.dart	Text	in ${_getParentCategoryName(category.parentId!)}
+text_current_mode_offlinemodereason	literal_in_file	lib/app/modules/memories/views/mini_widgets/location_picker_widget.dart	Text	Current mode: $offlineModeReason
+text_location	literal_in_file	lib/app/modules/memories/views/mini_widgets/location_picker_widget.dart	Text	${location[
+title_text_flag_country_name	literal_in_file	lib/app/modules/memories/views/mini_widgets/memory_location_admin_edit_widget.dart	title_text	$flag ${country.name}
+text_prefixchar_trimmedsearchtext	literal_in_file	lib/app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart	Text	$prefixChar$trimmedSearchText
+text_prefixchar_item	literal_in_file	lib/app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart	Text	$prefixChar${item[
+text_widget_istagmode	literal_in_file	lib/app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart	Text	${widget.isTagMode ? 
+text_widget_istagmode_2	literal_in_file	lib/app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart	Text	${widget.isTagMode ? 
+hinttext_prefixchar_name	literal_in_file	lib/app/modules/memories/views/mini_widgets/mention_bottom_sheet_widget.dart	hintText	$prefixChar Name
+subtitle_literal_controller_maincolor_value_capitalizefi	literal_in_file	lib/app/modules/ui/views/ui_view.dart	subtitle_literal	(${controller.mainColor.value.capitalizeFirst})
+text_select_getcategorylabeltext	literal_in_file	lib/app/shared/widgets/add_edit_group_pop_new.dart	Text	Select ${_getCategoryLabelText()}
+text_add_new_isplacemode_category_group	literal_in_file	lib/app/shared/widgets/add_edit_group_pop_new.dart	Text	"+ Add New ${_isPlaceMode ? ""Category"" : ""Group""}"
+text_category_name	literal_in_file	lib/app/shared/widgets/add_edit_group_pop_new.dart	Text	${category.name}
+hinttext_isplacemode_category_group_name	literal_in_file	lib/app/shared/widgets/add_edit_group_pop_new.dart	hintText	"${_isPlaceMode ? ""Category"" : ""Group""} Name"
+text_category_name_2	literal_in_file	lib/app/shared/widgets/add_edit_group_pop_new.dart	Text	${category.name}
+text_widget_parentgroupname	literal_in_file	lib/app/shared/widgets/add_edit_group_popup.dart	Text	📁 ${widget.parentGroupName}
+text_category_name_3	literal_in_file	lib/app/shared/widgets/add_place_category_popup.dart	Text	${category.name}
+text_category_name_5	literal_in_file	lib/app/shared/widgets/add_place_category_popup.dart	Text	${category.name}
+text_category_emoji_category_name	literal_in_file	lib/app/shared/widgets/add_place_category_popup.dart	Text	${category.emoji} ${category.name}
+text_offlineservice_stylepackprogress_value_100_tostring	literal_in_file	lib/app/widgets/offline_download_overlay.dart	Text	${(offlineService.stylePackProgress.value * 100).toStringAsFixed(0)}%
+text_offlineservice_downloadedtilecount_value_tiles	literal_in_file	lib/app/widgets/offline_download_overlay.dart	Text	${offlineService.downloadedTileCount.value} tiles
+text_offlineservice_downloadedtilecount_value_tiles_down	literal_in_file	lib/app/widgets/offline_download_overlay.dart	Text	${offlineService.downloadedTileCount.value} tiles downloaded
