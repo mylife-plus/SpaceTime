@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Locks the app with device biometrics / PIN when enabled in Security settings.
 /// Persists [app_lock_enabled] (same key as [UiController.phoneVerificationEnabled]).
 ///
+/// **Android:** PIN/biometric app lock is disabled (no overlay, no [LocalAuthentication]).
+///
 /// After a cold start, requires auth immediately if lock is enabled.
 /// After [paused] → [resumed], requires auth only if the app was in background
 /// for at least [_lockAfterBackgroundDuration].
@@ -27,6 +29,8 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   final LocalAuthentication _localAuth = LocalAuthentication();
 
+  bool get _appLockDisabledOnAndroid => Platform.isAndroid;
+
   @override
   void onInit() {
     super.onInit();
@@ -42,6 +46,10 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _bootstrap() async {
     try {
+      if (_appLockDisabledOnAndroid) {
+        isLocked.value = false;
+        return;
+      }
       final prefs = await SharedPreferences.getInstance();
       final enabled = prefs.getBool(_prefsKey) ?? false;
       if (enabled) {
@@ -77,6 +85,7 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _onAppResumed() async {
     if (!_bootstrapDone) return;
+    if (_appLockDisabledOnAndroid) return;
 
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_prefsKey) ?? false;
@@ -119,6 +128,12 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   /// Call when user taps Unlock on the overlay.
   Future<void> authenticate({bool isColdStart = false}) async {
     authError.value = null;
+
+    if (_appLockDisabledOnAndroid) {
+      isLocked.value = false;
+      authError.value = null;
+      return;
+    }
 
     if (!Platform.isAndroid && !Platform.isIOS) {
       isLocked.value = false;

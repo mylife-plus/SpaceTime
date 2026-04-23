@@ -634,7 +634,7 @@
   "text_current_mode_offlinemodereason": "Aktueller Modus: $1",
   "text_current_region_service_currentdownloadregion_value": "Aktuelle Region: $1",
   "text_currentdownloadprogress_100_tostringasfixed_0": "$1 %",
-  "text_currentindex_1_of_totalcount": "$1 von $2 ",
+  "text_currentindex_1_of_totalcount": "$1 von $2",
   "text_database_name_memories_db": "Datenbankname: Memories.db",
   "text_database_statistics": "Datenbankstatistiken",
   "text_debug_audio_file_entry": "Audio $1: $2",

@@ -7,13 +7,13 @@ import '../../../ui/controllers/ui_controller.dart';
 class SecurityTile extends StatelessWidget {
   final String title;
   final bool isActive;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   const SecurityTile({
     super.key,
     required this.title,
     required this.isActive,
-    required this.onChanged,
+    this.onChanged,
   });
 
   @override

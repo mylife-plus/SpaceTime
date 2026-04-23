@@ -6,6 +6,8 @@ import android.location.Geocoder
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -14,6 +16,7 @@ import java.util.*
 class MainActivity : FlutterActivity() {
     private val LOCATION_SEARCH_CHANNEL = "com.spacetime.location_search"
     private val TILE_DOWNLOAD_CHANNEL = "com.spacetime.tile_download"
+    private val APP_LOCALE_CHANNEL = "com.spacetime/app_locale"
 
     private lateinit var geocoder: Geocoder
     private lateinit var tileDownloader: MapboxTileDownloader
@@ -54,6 +57,22 @@ class MainActivity : FlutterActivity() {
                 else -> {
                     result.notImplemented()
                 }
+            }
+        }
+
+        // Sync Flutter in-app language with Android application locales (permission dialogs, etc.)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, APP_LOCALE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "setApplicationLocales" -> {
+                    val raw = call.argument<String>("languageTag") ?: "en"
+                    val tag = when (raw.lowercase()) {
+                        "de", "es", "fr", "en" -> raw.lowercase()
+                        else -> "en"
+                    }
+                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
         }
 

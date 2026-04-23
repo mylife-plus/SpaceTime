@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:spacetime/app/platform/android_application_locale.dart';
 
 import '../../../config/app_locale.dart';
 import '../../../config/supported_languages.dart';
@@ -33,6 +35,7 @@ class UiController extends GetxController {
         kSupportedLanguages.any((l) => l.code == code) ? code : 'en';
     selectedLanguage.value = normalized;
     Get.updateLocale(appLocaleFromLanguageCode(normalized));
+    await AndroidApplicationLocale.sync(normalized);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('selected_language', normalized);
@@ -47,7 +50,21 @@ class UiController extends GetxController {
   }
 
   /// App lock (biometrics / device PIN). Synced with [AppLockController].
+  /// Not available on Android (PIN/biometric gate disabled there).
   Future<void> setAppLockEnabled(bool value) async {
+    if (Platform.isAndroid) {
+      phoneVerificationEnabled.value = false;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('app_lock_enabled', false);
+      } catch (e) {
+        debugPrint('[UiController] Error saving app lock: $e');
+      }
+      if (Get.isRegistered<AppLockController>()) {
+        Get.find<AppLockController>().clearLockIfDisabled();
+      }
+      return;
+    }
     phoneVerificationEnabled.value = value;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -96,8 +113,15 @@ class UiController extends GetxController {
       final savedMainColor = prefs.getString('main_color') ?? 'blue';
       mainColor.value = savedMainColor;
 
-      phoneVerificationEnabled.value =
-          prefs.getBool('app_lock_enabled') ?? false;
+      final savedAppLock = prefs.getBool('app_lock_enabled') ?? false;
+      if (Platform.isAndroid) {
+        phoneVerificationEnabled.value = false;
+        if (savedAppLock) {
+          await prefs.setBool('app_lock_enabled', false);
+        }
+      } else {
+        phoneVerificationEnabled.value = savedAppLock;
+      }
 
       final savedLang = prefs.getString('selected_language') ?? 'en';
       if (kSupportedLanguages.any((l) => l.code == savedLang)) {
@@ -106,6 +130,7 @@ class UiController extends GetxController {
         selectedLanguage.value = 'en';
       }
       Get.updateLocale(appLocaleFromLanguageCode(selectedLanguage.value));
+      await AndroidApplicationLocale.sync(selectedLanguage.value);
 
       debugPrint('[UiController] Preferences loaded - Dark mode: $savedDarkMode, Main color: $savedMainColor');
     } catch (e) {

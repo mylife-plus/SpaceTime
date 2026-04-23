@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
@@ -553,13 +554,19 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                             },
                           ),
                           title: Center(
-                            child: Text(
-                              '${_currentIndex + 1} of $_totalCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                            child: Obx(() {
+                              final _ = controller.selectedLanguage.value;
+                              return Text(
+                                trKey('text_currentindex_1_of_totalcount', [
+                                  _currentIndex + 1,
+                                  _totalCount,
+                                ]),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              );
+                            }),
                           ),
                           actions: [
                             if (widget.allowHorizontal)
