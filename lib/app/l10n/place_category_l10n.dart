@@ -98,6 +98,29 @@ String localizedPlaceCategoryName({
   );
 }
 
+/// Maps edit-dialog text back to the DB name: custom uses [trimmedControllerText];
+/// predefined keeps canonical English if the user left the localized or English label.
+String resolvedPlaceCategoryDbNameForEditSave({
+  required String trimmedControllerText,
+  required String canonicalDbName,
+  required String emoji,
+  required bool isCustom,
+  required bool isMainCategory,
+}) {
+  if (isCustom) return trimmedControllerText;
+  final localized = localizedPlaceCategoryName(
+    name: canonicalDbName,
+    emoji: emoji,
+    isCustom: false,
+    isMainCategory: isMainCategory,
+  );
+  if (trimmedControllerText == canonicalDbName ||
+      trimmedControllerText == localized) {
+    return canonicalDbName;
+  }
+  return trimmedControllerText;
+}
+
 /// Normalized text including [storedCategory] plus all known translations (en/es/fr/de)
 /// so keyword search matches regardless of UI language used when saving the memory.
 String placeCategorySearchHaystack(String? storedCategory) {

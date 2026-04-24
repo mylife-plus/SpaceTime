@@ -73,10 +73,16 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
   void initState() {
     super.initState();
 
-    // If editing, pre-fill the fields
+    // If editing, pre-fill the fields (same localized label as dropdown / displayText)
     if (widget.editCategory != null) {
-      _placeNameController.text = widget.editCategory!.name;
-      _placeEmojiController.text = widget.editCategory!.emoji;
+      final ec = widget.editCategory!;
+      _placeNameController.text = localizedPlaceCategoryName(
+        name: ec.name,
+        emoji: ec.emoji,
+        isCustom: ec.isCustom,
+        isMainCategory: ec.isMainCategory,
+      );
+      _placeEmojiController.text = ec.emoji;
     }
 
     // If adding a main category, set the flag
@@ -468,11 +474,18 @@ Navigator.of(context).pop();
 
   /// Edit existing category
   Future<void> _editCategory() async {
-    final placeName = _placeNameController.text.trim();
+    final ec = widget.editCategory!;
+    final placeName = resolvedPlaceCategoryDbNameForEditSave(
+      trimmedControllerText: _placeNameController.text.trim(),
+      canonicalDbName: ec.name,
+      emoji: ec.emoji,
+      isCustom: ec.isCustom,
+      isMainCategory: ec.isMainCategory,
+    );
     // Use existing emoji if not changed (since emoji picker is hidden when editing)
     final placeEmoji = _placeEmojiController.text.trim().isNotEmpty
         ? _placeEmojiController.text.trim()
-        : widget.editCategory!.emoji;
+        : ec.emoji;
 
     // Validation
     if (placeName.isEmpty) {
@@ -517,7 +530,7 @@ Navigator.of(context).pop();
 
     try {
       // Get parent ID - check multiple scenarios
-      int? parentId = widget.editCategory!.parentId;
+      int? parentId = ec.parentId;
 
       // If "Add New Category" is selected, create the new category first
       if (_selectedParentId.value == 'add_new_main_category') {
@@ -559,7 +572,7 @@ Navigator.of(context).pop();
       }
 
       final success = await _categoryService.updateCategory(
-        categoryId: widget.editCategory!.id!,
+        categoryId: ec.id!,
         name: placeName,
         emoji: placeEmoji,
         parentId: parentId,
@@ -570,12 +583,12 @@ Navigator.of(context).pop();
 
         // Create updated category for callback
         final updatedCategory = PlaceCategory(
-          id: widget.editCategory!.id,
+          id: ec.id,
           name: placeName,
           emoji: placeEmoji,
           parentId: parentId,
-          isCustom: widget.editCategory!.isCustom,
-          createdAt: widget.editCategory!.createdAt,
+          isCustom: ec.isCustom,
+          createdAt: ec.createdAt,
           updatedAt: DateTime.now(),
         );
 
@@ -1151,10 +1164,16 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
   void initState() {
     super.initState();
 
-    // If editing, pre-fill the fields
+    // If editing, pre-fill the fields (same localized label as dropdown / displayText)
     if (widget.editCategory != null) {
-      _placeNameController.text = widget.editCategory!.name;
-      _placeEmojiController.text = widget.editCategory!.emoji;
+      final ec = widget.editCategory!;
+      _placeNameController.text = localizedPlaceCategoryName(
+        name: ec.name,
+        emoji: ec.emoji,
+        isCustom: ec.isCustom,
+        isMainCategory: ec.isMainCategory,
+      );
+      _placeEmojiController.text = ec.emoji;
 
       // If editing a subcategory, load categories to display parent name
       if (!widget.isEditingMainCategory) {
@@ -1525,11 +1544,18 @@ Navigator.of(context).pop();
 
   /// Edit existing category
   Future<void> _editCategory() async {
-    final placeName = _placeNameController.text.trim();
+    final ec = widget.editCategory!;
+    final placeName = resolvedPlaceCategoryDbNameForEditSave(
+      trimmedControllerText: _placeNameController.text.trim(),
+      canonicalDbName: ec.name,
+      emoji: ec.emoji,
+      isCustom: ec.isCustom,
+      isMainCategory: ec.isMainCategory,
+    );
     // Use existing emoji if not changed (since emoji picker is hidden when editing)
     final placeEmoji = _placeEmojiController.text.trim().isNotEmpty
         ? _placeEmojiController.text.trim()
-        : widget.editCategory!.emoji;
+        : ec.emoji;
 
     // Validation
     if (placeName.isEmpty) {
@@ -1575,7 +1601,7 @@ Navigator.of(context).pop();
 
     try {
       // Get parent ID - check multiple scenarios
-      int? parentId = widget.editCategory!.parentId;
+      int? parentId = ec.parentId;
 
       // If "Add New Category" is selected, create the new category first
       if (_selectedParentId.value == 'add_new_main_category') {
@@ -1617,7 +1643,7 @@ Navigator.of(context).pop();
       }
 
       final success = await _categoryService.updateCategory(
-        categoryId: widget.editCategory!.id!,
+        categoryId: ec.id!,
         name: placeName,
         emoji: placeEmoji,
         parentId: parentId,
@@ -1628,12 +1654,12 @@ Navigator.of(context).pop();
 
         // Create updated category for callback
         final updatedCategory = PlaceCategory(
-          id: widget.editCategory!.id,
+          id: ec.id,
           name: placeName,
           emoji: placeEmoji,
           parentId: parentId,
-          isCustom: widget.editCategory!.isCustom,
-          createdAt: widget.editCategory!.createdAt,
+          isCustom: ec.isCustom,
+          createdAt: ec.createdAt,
           updatedAt: DateTime.now(),
         );
 

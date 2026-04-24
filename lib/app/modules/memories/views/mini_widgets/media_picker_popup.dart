@@ -137,10 +137,12 @@ class MediaPickerPopup extends StatelessWidget {
     );
   }
 
-  void _popDialogIfOpen(BuildContext context) {
+  /// Close this picker **before** opening the native camera/gallery. Popping after
+  /// `pickImage`/`pickVideo` returns can pop the wrong route (e.g. MemoryView) when
+  /// the platform already removed the dialog while the app was in background.
+  void _closePickerBeforeNativeFlow(BuildContext context) {
     if (!context.mounted) return;
-    final nav = Navigator.of(context, rootNavigator: true);
-    if (nav.canPop()) nav.pop();
+    Navigator.of(context).pop();
   }
 
   Future<bool> _ensureCameraPermission() async {
@@ -167,10 +169,11 @@ class MediaPickerPopup extends StatelessWidget {
       return;
     }
 
+    if (!context.mounted) return;
+    _closePickerBeforeNativeFlow(context);
+
     final imagePicker = ImagePicker();
     final photoFile = await imagePicker.pickImage(source: ImageSource.camera);
-
-    _popDialogIfOpen(context);
 
     if (photoFile != null) {
       onMediaSelected([photoFile.path], []);
@@ -198,13 +201,14 @@ class MediaPickerPopup extends StatelessWidget {
       return;
     }
 
+    if (!context.mounted) return;
+    _closePickerBeforeNativeFlow(context);
+
     final imagePicker = ImagePicker();
     final videoFile = await imagePicker.pickVideo(
       source: ImageSource.camera,
       maxDuration: const Duration(minutes: 10),
     );
-
-    _popDialogIfOpen(context);
 
     if (videoFile != null) {
       onMediaSelected([], [videoFile.path]);
@@ -219,6 +223,9 @@ class MediaPickerPopup extends StatelessWidget {
       // Do not call Permission.photos here. PHPicker (used by pickMultipleMedia)
       // does not require prior library read access; pre-requesting photos pushes
       // iOS toward "all photos" and breaks normal Limited Library behavior.
+      if (!context.mounted) return;
+      _closePickerBeforeNativeFlow(context);
+
       final imagePicker = ImagePicker();
       final selected = await imagePicker.pickMultipleMedia();
       for (final media in selected) {
@@ -239,6 +246,9 @@ class MediaPickerPopup extends StatelessWidget {
         );
         return;
       }
+      if (!context.mounted) return;
+      _closePickerBeforeNativeFlow(context);
+
       final result = await FilePicker.platform.pickFiles(
         type: FileType.media,
         allowMultiple: true,
@@ -256,8 +266,6 @@ class MediaPickerPopup extends StatelessWidget {
         }
       }
     }
-
-    _popDialogIfOpen(context);
 
     if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
       onMediaSelected(imagePaths, videoPaths);
