@@ -1,0 +1,524 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
+
+import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
+import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/models/kmz_ignore_rule.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_import_pipeline.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_inspector.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_parser.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_ignore_rule_editor_view.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_past_uploads_view.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_preview_view.dart';
+import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
+import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
+import 'package:spacetime/app/services/memory_db.dart';
+
+/// KMZ import: parse → filter → cluster → preview stats; upload runs geocode + DB.
+class GpxKmzUploadController extends GetxController {
+  static const List<String> maxTimeApartOptionKeys = [
+    'gpx_dd_time_1m',
+    'gpx_dd_time_2m',
+    'gpx_dd_time_5m',
+    'gpx_dd_time_10m',
+    'gpx_dd_time_15m',
+    'gpx_dd_time_30m',
+    'gpx_dd_time_1h',
+  ];
+
+  static const List<String> maxMeterApartOptionKeys = [
+    'gpx_dd_dist_10m',
+    'gpx_dd_dist_25m',
+    'gpx_dd_dist_50m',
+    'gpx_dd_dist_100m',
+    'gpx_dd_dist_250m',
+    'gpx_dd_dist_500m',
+    'gpx_dd_dist_1km',
+  ];
+
+  final TextEditingController filePathController = TextEditingController();
+  final TextEditingController ignoreMarkerController = TextEditingController();
+  final TextEditingController ignoreContainsController = TextEditingController();
+
+  final RxString selectedMaxTimeApartKey = maxTimeApartOptionKeys[2].obs;
+  final RxString selectedMaxMeterApartKey = maxMeterApartOptionKeys[2].obs;
+  final RxList<String> availableMemoryDateKeys = <String>[].obs;
+  final RxString selectedStartDateKey = ''.obs;
+  final RxString selectedEndDateKey = ''.obs;
+
+  final RxInt pastUploadCount = 0.obs;
+
+  final RxInt rawEntryCount = 0.obs;
+  final RxInt ignoredEntryCount = 0.obs;
+  final RxInt duplicateEntryCount = 0.obs;
+  final RxInt totalEntryCount = 0.obs;
+  final RxInt newMemoriesCount = 0.obs;
+
+  final RxBool isBusy = false.obs;
+
+  final RxList<KmzIgnoreRule> ignoreRules = <KmzIgnoreRule>[].obs;
+  final Rxn<KmzFileInspect> kmzInspect = Rxn();
+
+  KmzImportStats? _lastStats;
+  String? _kmzPath;
+  int _previewGeneration = 0;
+
+  Future<T> _retry<T>(Future<T> Function() fn, {String label = 'op'}) async {
+    Object? last;
+    for (var i = 0; i < 3; i++) {
+      try {
+        return await fn();
+      } catch (e, st) {
+        last = e;
+        debugPrint('[GpxKmzUpload] $label retry ${i + 1}/3: $e\n$st');
+        if (i < 2) {
+          await Future<void>.delayed(Duration(milliseconds: 300 * (i + 1)));
+        }
+      }
+    }
+    throw last ?? Exception('$label failed');
+  }
+
+  @override
+  void onInit() {
+    super.onInit();
+    ignoreMarkerController.text = '';
+    ignoreContainsController.text = '';
+  }
+
+  Future<void> _refreshInspect() async {
+    final path = _kmzPath ?? '';
+    if (path.isEmpty || !await File(path).exists()) {
+      kmzInspect.value = null;
+      return;
+    }
+    kmzInspect.value = await KmzKmlInspector.inspectFromPath(path);
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    _reloadPastUploadCount();
+  }
+
+  Future<void> _reloadPastUploadCount() async {
+    try {
+      pastUploadCount.value =
+          await DatabaseHelper.instance.countTrackImportLogs();
+    } catch (e) {
+      debugPrint('[GpxKmzUpload] past upload count: $e');
+    }
+  }
+
+  /// Opens picker once when entering from Settings (no file yet).
+  Future<void> pickKmzFileFromSettingsEntry() async {
+    if (_kmzPath != null && _kmzPath!.isNotEmpty) return;
+    await pickKmzFile();
+  }
+
+  Future<void> pickKmzFile() async {
+    // iOS: custom UTIs hide most rows in the picker's Recents vs the Files app.
+    // public.item (FileType.any) matches system Recents; we filter by extension.
+    final FilePickerResult? result = Platform.isIOS
+        ? await FilePicker.platform.pickFiles(
+            type: FileType.any,
+            withData: false,
+            withReadStream: false,
+          )
+        : await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: const ['kmz', 'gpx'],
+            withData: false,
+            withReadStream: false,
+          );
+    if (result == null || result.files.isEmpty) return;
+    final f = result.files.first;
+    if (Platform.isIOS && !_isSupportedTrackFileName(f.name)) {
+      showTrSnackbar(
+        'gpx_snackbar_nothing_to_import',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+    final path = f.path;
+    if (path != null && path.isNotEmpty) {
+      _kmzPath = path;
+      filePathController.text = p.basename(path);
+    } else if (f.name.isNotEmpty) {
+      filePathController.text = f.name;
+    }
+    await runPreview();
+  }
+
+  static bool _isSupportedTrackFileName(String name) {
+    final n = name.toLowerCase();
+    return n.endsWith('.kmz') || n.endsWith('.zip') || n.endsWith('.gpx');
+  }
+
+  Future<void> runPreview() async {
+    final path = _kmzPath ?? '';
+    if (path.isEmpty || !await File(path).exists()) {
+      _applyEmptyStats();
+      return;
+    }
+
+    final gen = ++_previewGeneration;
+    isBusy.value = true;
+    try {
+      await _retry(_refreshInspect, label: 'inspect');
+      if (gen != _previewGeneration) return;
+      final useRules = ignoreRules.isNotEmpty;
+      final rawPts = await _retry(
+        () => KmzImportPipeline.loadPointsFiltered(
+          path,
+          ignoreMarkerSub: '',
+          ignoreContainsSub: '',
+          structuredRules: const [],
+        ),
+        label: 'loadPointsRaw',
+      );
+      if (gen != _previewGeneration) return;
+      final pts = await _retry(
+        () => KmzImportPipeline.loadPointsFiltered(
+          path,
+          ignoreMarkerSub: useRules ? '' : ignoreMarkerController.text,
+          ignoreContainsSub: useRules ? '' : ignoreContainsController.text,
+          structuredRules: ignoreRules.toList(),
+        ),
+        label: 'loadPointsFiltered',
+      );
+      if (gen != _previewGeneration) return;
+      final dateKeys = _extractDateKeys(pts);
+      _syncDateSelection(dateKeys);
+      final filteredByDate = _filterPointsBySelectedDateRange(pts);
+      final rows =
+          await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
+      final fpSet = <String>{};
+      for (final r in rows) {
+        final fp = r[DatabaseHelper.columnTrackImportFingerprint] as String?;
+        if (fp != null && fp.isNotEmpty) fpSet.add(fp);
+      }
+
+      final maxT = KmzImportPipeline.durationForTimeKey(
+        selectedMaxTimeApartKey.value,
+      );
+      final maxM = KmzImportPipeline.metersForDistanceKey(
+        selectedMaxMeterApartKey.value,
+      );
+
+      _lastStats = KmzImportPipeline.buildStats(
+        points: filteredByDate,
+        maxTimeApart: maxT,
+        maxMetersApart: maxM,
+        existingFingerprints: fpSet,
+        existingCoordinateRows: rows,
+      );
+
+      final ignoredByRules = (rawPts.length - pts.length).clamp(0, 1 << 30);
+      rawEntryCount.value = rawPts.length;
+      ignoredEntryCount.value = _lastStats!.ignoredEntries + ignoredByRules;
+      duplicateEntryCount.value = _lastStats!.duplicateEntries;
+      totalEntryCount.value = _lastStats!.totalAfterFilter;
+      newMemoriesCount.value = _lastStats!.newMemories;
+    } catch (e, st) {
+      debugPrint('[GpxKmzUpload] preview error: $e\n$st');
+      showTrSnackbar(
+        'gpx_snackbar_preview_error',
+        args: [e.toString()],
+        backgroundColor: Colors.red.shade700,
+        colorText: Colors.white,
+      );
+      _applyEmptyStats();
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
+  void _applyEmptyStats() {
+    _lastStats = null;
+    availableMemoryDateKeys.clear();
+    selectedStartDateKey.value = '';
+    selectedEndDateKey.value = '';
+    rawEntryCount.value = 0;
+    ignoredEntryCount.value = 0;
+    duplicateEntryCount.value = 0;
+    totalEntryCount.value = 0;
+    newMemoriesCount.value = 0;
+  }
+
+  Future<void> commitUploadToDatabase() async {
+    final path = _kmzPath ?? '';
+    if (path.isEmpty || !await File(path).exists()) {
+      showTrSnackbar(
+        'snackbar_validation_error_35',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    await runPreview();
+    if (_lastStats == null || _lastStats!.candidates.isEmpty) {
+      showTrSnackbar(
+        'gpx_snackbar_nothing_to_import',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (!Get.isRegistered<MemoryController>()) {
+      showTrSnackbar(
+        'gpx_snackbar_memory_controller_missing',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    isBusy.value = true;
+    final mem = Get.find<MemoryController>();
+    final rows =
+        await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
+    final fpLive = <String>{};
+    for (final r in rows) {
+      final fp = r[DatabaseHelper.columnTrackImportFingerprint] as String?;
+      if (fp != null && fp.isNotEmpty) fpLive.add(fp);
+    }
+
+    var inserted = 0;
+    var dupRuntime = 0;
+    final insertedItems = <Map<String, dynamic>>[];
+
+    try {
+      for (final c in _lastStats!.candidates) {
+        if (fpLive.contains(c.fingerprint)) {
+          dupRuntime++;
+          continue;
+        }
+        try {
+          await mem.saveImportedTrackMemory(
+            when: c.when,
+            latitude: c.latitude,
+            longitude: c.longitude,
+            description: '',
+            trackImportFingerprint: c.fingerprint,
+          );
+          fpLive.add(c.fingerprint);
+          inserted++;
+          insertedItems.add({
+            DatabaseHelper.columnTrackLogItemWhen: c.when.toUtc().toIso8601String(),
+            DatabaseHelper.columnTrackLogItemLat: c.latitude,
+            DatabaseHelper.columnTrackLogItemLng: c.longitude,
+            DatabaseHelper.columnTrackLogItemLocation: 'Region',
+          });
+        } catch (e) {
+          debugPrint('[GpxKmzUpload] skip row: $e');
+        }
+      }
+
+      final fileName = p.basename(path);
+      final logId = await DatabaseHelper.instance.insertTrackImportLog(
+        fileName: fileName,
+        rawCount: _lastStats!.rawEntries,
+        ignoredCount: _lastStats!.ignoredEntries,
+        dupCount: _lastStats!.duplicateEntries + dupRuntime,
+        newCount: inserted,
+      );
+      await DatabaseHelper.instance.insertTrackImportLogItems(
+        logId: logId,
+        items: insertedItems,
+      );
+
+      await _reloadPastUploadCount();
+
+      if (Get.isRegistered<FilterController>()) {
+        Get.find<FilterController>().resetFiltersExceptSearch();
+      }
+      if (Get.isRegistered<AddMemoriesController>()) {
+        await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
+      }
+      if (Get.isRegistered<MapControllerNew>() && Get.isRegistered<FilterController>()) {
+        final map = Get.find<MapControllerNew>();
+        try {
+          await map.reloadDisplayedMemoriesWithRetry();
+        } catch (e, st) {
+          debugPrint('[GpxKmzUpload] map reload after import: $e\n$st');
+        }
+      }
+
+      showTrSnackbar(
+        'gpx_snackbar_import_done',
+        args: [inserted],
+        backgroundColor: Colors.green.shade700,
+        colorText: Colors.white,
+      );
+
+      await runPreview();
+    } catch (e, st) {
+      debugPrint('[GpxKmzUpload] upload error: $e\n$st');
+      showTrSnackbar(
+        'gpx_snackbar_preview_error',
+        args: [e.toString()],
+        backgroundColor: Colors.red.shade700,
+        colorText: Colors.white,
+      );
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
+  Future<void> onPreviewTap() async {
+    await runPreview();
+    final stats = _lastStats;
+    if (stats == null || stats.candidates.isEmpty) return;
+    Get.to(
+      () => KmzPreviewView(candidates: stats.candidates),
+    );
+  }
+
+  List<String> _extractDateKeys(List<KmzTrackPoint> pts) {
+    final set = <String>{};
+    for (final p in pts) {
+      final when = p.when;
+      if (when == null) continue;
+      final d = when.toUtc();
+      set.add(
+        '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}',
+      );
+    }
+    final out = set.toList()..sort();
+    return out;
+  }
+
+  void _syncDateSelection(List<String> keys) {
+    availableMemoryDateKeys.value = keys;
+    if (keys.isEmpty) {
+      selectedStartDateKey.value = '';
+      selectedEndDateKey.value = '';
+      return;
+    }
+    if (!keys.contains(selectedStartDateKey.value)) {
+      selectedStartDateKey.value = keys.first;
+    }
+    if (!keys.contains(selectedEndDateKey.value)) {
+      selectedEndDateKey.value = keys.last;
+    }
+    if (selectedStartDateKey.value.compareTo(selectedEndDateKey.value) > 0) {
+      selectedEndDateKey.value = keys.last;
+    }
+  }
+
+  List<KmzTrackPoint> _filterPointsBySelectedDateRange(List<KmzTrackPoint> pts) {
+    final startKey = selectedStartDateKey.value;
+    final endKey = selectedEndDateKey.value;
+    if (startKey.isEmpty || endKey.isEmpty) return pts;
+    return pts.where((p) {
+      final w = p.when;
+      if (w == null) return false;
+      final d = w.toUtc();
+      final key =
+          '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.day.toString().padLeft(2, '0')}';
+      return key.compareTo(startKey) >= 0 && key.compareTo(endKey) <= 0;
+    }).toList();
+  }
+
+  String formatDateKeyForUi(String key) {
+    if (key.length != 10) return key;
+    return '${key.substring(8, 10)}.${key.substring(5, 7)}.${key.substring(0, 4)}';
+  }
+
+  void onStartDateChanged(String key) {
+    selectedStartDateKey.value = key;
+    if (selectedEndDateKey.value.isEmpty ||
+        selectedEndDateKey.value.compareTo(key) < 0) {
+      selectedEndDateKey.value = availableMemoryDateKeys.isEmpty
+          ? key
+          : availableMemoryDateKeys.last;
+    }
+    runPreview();
+  }
+
+  void onEndDateChanged(String key) {
+    selectedEndDateKey.value = key;
+    if (selectedStartDateKey.value.isEmpty ||
+        selectedStartDateKey.value.compareTo(key) > 0) {
+      selectedStartDateKey.value = availableMemoryDateKeys.isEmpty
+          ? key
+          : availableMemoryDateKeys.first;
+    }
+    runPreview();
+  }
+
+  void onPastUploadsTap() {
+    Get.to(() => const KmzPastUploadsView());
+  }
+
+  Future<void> onAddIgnoreRuleTap() async {
+    try {
+      final path = _kmzPath ?? '';
+      await _refreshInspect();
+      if (path.isEmpty ||
+          !await File(path).exists() ||
+          kmzInspect.value == null) {
+        showTrSnackbar(
+          'gpx_ignore_snackbar_need_file',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+      final rule = await Get.to<KmzIgnoreRule?>(
+        () => KmzIgnoreRuleEditorView(inspect: kmzInspect.value!),
+      );
+      if (rule != null) {
+        ignoreRules.add(rule);
+        await runPreview();
+      }
+    } catch (e, st) {
+      debugPrint('[GpxKmzUpload] add ignore rule error: $e\n$st');
+      showTrSnackbar(
+        'gpx_snackbar_preview_error',
+        args: [e.toString()],
+        backgroundColor: Colors.red.shade700,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void onIgnoreHelpTap() {
+    Get.dialog<void>(
+      AlertDialog(
+        title: Text('gpx_ignore_help_tooltip'.tr),
+        content: SingleChildScrollView(child: Text('gpx_ignore_help_body'.tr)),
+        actions: [
+          TextButton(onPressed: () => Get.back<void>(), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  void removeIgnoreRuleAt(int index) {
+    if (index < 0 || index >= ignoreRules.length) return;
+    ignoreRules.removeAt(index);
+    runPreview();
+  }
+
+  @override
+  void onClose() {
+    filePathController.dispose();
+    ignoreMarkerController.dispose();
+    ignoreContainsController.dispose();
+    super.onClose();
+  }
+}

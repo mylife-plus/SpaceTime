@@ -1294,6 +1294,93 @@ class MemoryController extends GetxController {
     debugPrint('Controller data cleared after saving memory');
   }
 
+  /// Offline reverse geocode (same pipeline as memory / location picker).
+  Future<Map<String, dynamic>?> reverseGeocodeCoordinates(
+    double latitude,
+    double longitude,
+  ) {
+    return _getLocationDetailsFromCoordinates(latitude, longitude);
+  }
+
+  /// One memory from KMZ/GPX track import: [date]/[time] and [created_at] use [when];
+  /// location fields match [saveMemory] after geocoding.
+  Future<int> saveImportedTrackMemory({
+    required DateTime when,
+    required double latitude,
+    required double longitude,
+    String description = '',
+    String? trackImportFingerprint,
+  }) async {
+    // Keep KMZ/GPX point timestamp per memory exactly as parsed.
+    final w = when.toLocal();
+
+    final ctx = Get.context;
+    if (ctx == null) {
+      throw Exception('Missing context for time formatting');
+    }
+
+    final dateStr = DateFormat('yyyy-MM-dd').format(w);
+    final timeStr = TimeOfDay.fromDateTime(w).format(ctx);
+
+    final loc =
+        '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
+
+    final geo = await reverseGeocodeCoordinates(latitude, longitude);
+    var locationCountrySnap = geo?['country'] as String? ?? '';
+    var locationCitySnap = geo?['city'] as String? ?? '';
+    var locationNameSnap = geo?['name'] as String? ?? '';
+    final locationAddressSnap = geo?['address'] as String? ?? '';
+    var locationFlagSnap = geo?['flag'] as String? ?? '';
+
+    if (locationFlagSnap.trim() == '🌊') {
+      final c = locationCountrySnap.trim().toLowerCase();
+      final resolvedFlag = c.isNotEmpty ? countryFlags[c] : null;
+      if (resolvedFlag != null && resolvedFlag.isNotEmpty) {
+        locationFlagSnap = resolvedFlag;
+      }
+
+      if (locationNameSnap.trim().isEmpty) {
+        final countryName = locationCountrySnap.trim();
+        if (countryName.isNotEmpty) {
+          locationNameSnap = countryName;
+        }
+      }
+    }
+
+    final memory = <String, dynamic>{
+      DatabaseHelper.columnDate: dateStr,
+      DatabaseHelper.columnTime: timeStr,
+      DatabaseHelper.columnLocation: loc,
+      DatabaseHelper.columnLocationCountry:
+          locationCountrySnap.isNotEmpty ? locationCountrySnap : null,
+      DatabaseHelper.columnLocationCity:
+          locationCitySnap.isNotEmpty ? locationCitySnap : null,
+      DatabaseHelper.columnLocationName:
+          locationNameSnap.isNotEmpty ? locationNameSnap : null,
+      DatabaseHelper.columnLocationAddress:
+          locationAddressSnap.isNotEmpty ? locationAddressSnap : null,
+      DatabaseHelper.columnLocationFlag:
+          locationFlagSnap.isNotEmpty ? locationFlagSnap : null,
+      DatabaseHelper.columnLocationLatitude: latitude,
+      DatabaseHelper.columnLocationLongitude: longitude,
+      DatabaseHelper.columnCategory: selectedCategory.value,
+      DatabaseHelper.columnDescription: description,
+      DatabaseHelper.columnImagePath: null,
+      DatabaseHelper.columnAudioPath: null,
+      DatabaseHelper.columnTags: null,
+      DatabaseHelper.columnMentions: null,
+      DatabaseHelper.columnCreatedAt: w.toIso8601String(),
+      DatabaseHelper.columnUpdatedAt: DateTime.now().toIso8601String(),
+      DatabaseHelper.columnTrackImportFingerprint: trackImportFingerprint,
+    };
+
+    if (!await _databaseHelper.isDatabaseHealthy()) {
+      await _databaseHelper.resetDatabaseConnection();
+    }
+
+    return _databaseHelper.insertCompleteMemory(memoryData: memory);
+  }
+
   @override
   void onClose() {
     _recordingTimer?.cancel();

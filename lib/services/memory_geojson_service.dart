@@ -23,7 +23,9 @@ class MemoryGeoJsonService {
       // Extract memory properties for styling and interaction
       final memoryDate =
           DateTime.tryParse('${memory['memory_date']} ${ memory['year']}' ?? '') ?? DateTime.now();
-      final year = memory['year'].toString();
+      final yearStr = memory['year']?.toString() ?? '';
+      final yearInt = int.tryParse(yearStr) ?? memoryDate.year;
+      final year = yearInt.toString();
       final category = memory['category'] as String? ?? 'general';
       final description =
           memory['text'] as String? ?? memory['description'] as String? ?? '';
@@ -49,10 +51,10 @@ class MemoryGeoJsonService {
           'memory_date': memory['date'],
           'has_images': images.isNotEmpty,
           'timestamp': memoryDate.millisecondsSinceEpoch, // 👈 ADD
-          'color_index': getColorIndexForYear(int.parse(year), allMemoriesWithoutFilter),
+          'color_index': getColorIndexForYear(yearInt, allMemoriesWithoutFilter),
           'memory_timestamp': memoryDate.millisecondsSinceEpoch,
           'has_audios': audios.isNotEmpty,
-          'color': colors[getColorIndexForYear(int.parse(year), allMemoriesWithoutFilter)],
+          'color': colors[getColorIndexForYear(yearInt, allMemoriesWithoutFilter)],
           'image_count': images.length,
           'audio_count': audios.length,
           'location_name': memory['location_name'] ?? '',
@@ -61,7 +63,7 @@ class MemoryGeoJsonService {
           'location_country': memory['location_country'] ?? '',
           // 'color_index': getColorIndexForYear(year),
           'memory_data': memory,
-          'toMemoryYear': int.parse(year),
+          'toMemoryYear': yearInt,
         },
       };
 
@@ -113,14 +115,18 @@ class MemoryGeoJsonService {
 
   static int getColorIndexForYear(int year, RxList<Map<String, dynamic>> allMemoriesWithoutFilter) {
    
-   Set<int> uniqueYears = {};
+   final Set<int> uniqueYears = {};
 for (final memory in allMemoriesWithoutFilter) {
   if (memory['year'] != null) {
-    uniqueYears.add(int.parse(memory['year'].toString()));
+    final y = int.tryParse(memory['year'].toString());
+    if (y != null) uniqueYears.add(y);
   }
 }
 
-// if (uniqueYears.isNotEmpty) {
+if (uniqueYears.isEmpty) {
+  return year.abs() % colors.length;
+}
+
 int minYear = uniqueYears.reduce((a, b) => a < b ? a : b);
 int maxYear = uniqueYears.reduce((a, b) => a > b ? a : b);
 int range = (maxYear - minYear) + 1;

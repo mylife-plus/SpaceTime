@@ -46,6 +46,11 @@ class MapControllerNew extends GetxController {
   // MapBox controller
   mapbox.MapboxMap? mapboxMap;
 
+  /// True after the map style is ready for addSource/addLayer (not the same as [isMapReady]).
+  final RxBool isStyleReady = false.obs;
+
+  Future<void> _mapVisualOpsTail = Future.value();
+
   // MapBox Native Clustering Constants
   static const String MEMORY_SOURCE_ID = 'memory-source';
   static const String CLUSTER_LAYER_ID = 'cluster-layer';
@@ -346,6 +351,7 @@ class MapControllerNew extends GetxController {
     );
     mapboxMapInstance.logo.updateSettings(mapbox.LogoSettings(enabled: false));
 
+    isStyleReady.value = false;
     mapboxMap = mapboxMapInstance;
     isMapReady.value = true;
   }
@@ -368,6 +374,7 @@ class MapControllerNew extends GetxController {
   /// Handle style loaded callback
   void onStyleLoaded(mapbox.StyleLoadedEventData data) {
     Future.delayed(Duration(milliseconds: 1), () async {
+      isStyleReady.value = true;
       _initializeMapAfterCreation();
       await loadMemoriesFromDB();
       showLoadedDataOnMap();
@@ -375,9 +382,24 @@ class MapControllerNew extends GetxController {
   }
 
   Future<void> showLoadedDataOnMap() async {
+    await (_mapVisualOpsTail = _mapVisualOpsTail.then((_) async {
+      await _showLoadedDataOnMapImpl();
+    }).catchError((Object e, StackTrace st) {
+      debugPrint('[MapControllerNew] showLoadedDataOnMap chain: $e\n$st');
+    }));
+  }
+
+  Future<void> _showLoadedDataOnMapImpl() async {
     debugPrint(
       '[MapControllerNew] 🗺️ showLoadedDataOnMap called with ${_currentMemories.length} memories',
     );
+
+    if (mapboxMap == null || !isStyleReady.value) {
+      debugPrint(
+        '[MapControllerNew] ⚠️ showLoadedDataOnMap skipped (map or style not ready)',
+      );
+      return;
+    }
 
     await clearAllLines();
 
@@ -395,11 +417,40 @@ class MapControllerNew extends GetxController {
     debugPrint(
       '[MapControllerNew] 🏹 Generating arrows for ${_currentMemories.length} memories',
     );
-    await generateAndDisplayArrowsAsSymbols(_currentMemories, mapboxMap!);
+    final map = mapboxMap;
+    if (map != null) {
+      await generateAndDisplayArrowsAsSymbols(_currentMemories, map);
+    }
 
     handleMapTap();
 
     debugPrint('[MapControllerNew] ✅ Map display completed');
+  }
+
+  /// Reload DB → map layers with retries (KMZ bulk import can race style/map readiness).
+  Future<void> reloadDisplayedMemoriesWithRetry({int maxAttempts = 3}) async {
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (mapboxMap == null ||
+            !isMapReady.value ||
+            !isStyleReady.value) {
+          debugPrint(
+            '[MapControllerNew] reloadDisplayedMemoriesWithRetry: map/style not ready ($attempt/$maxAttempts)',
+          );
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+          continue;
+        }
+        await loadMemoriesFromDB(_filterController.filteredMemories.toList());
+        await showLoadedDataOnMap();
+        return;
+      } catch (e, st) {
+        debugPrint(
+          '[MapControllerNew] reloadDisplayedMemoriesWithRetry failed $attempt/$maxAttempts: $e\n$st',
+        );
+        if (attempt == maxAttempts) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 450 * attempt));
+      }
+    }
   }
 
   /// Retry getting location permissions
@@ -4186,12 +4237,12 @@ class MapControllerNew extends GetxController {
 
         final memoryDate = DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
         // final year = memoryDate.year;
-        final aYear = b['year'] as String? ?? '';
-
-        // var color = MemoryGeoJsonService.createYearColorExpression();
+        final aYearStr = b['year'] as String? ?? '';
+        final yearForColor =
+            int.tryParse(aYearStr) ?? memoryDate.year;
 
         var index = MemoryGeoJsonService.getColorIndexForYear(
-          int.parse(aYear),
+          yearForColor,
           allMemoriesWithoutFilter,
         );
         final double? startLat = a['location_latitude'];
@@ -4347,32 +4398,32 @@ class MapControllerNew extends GetxController {
       } catch (_) {}
 
       debugPrint('✅ Arrows positioned at 65% and oriented correctly');
+
+      try {
+        final layers = await mapboxMap.style.getStyleLayers();
+        final layerID = getLayerID(layers);
+        await mapboxMap.style.moveStyleLayer(
+          ARROW_LINES_LAYER_ID,
+          mapbox.LayerPosition(below: layerID),
+        );
+        try {
+          await mapboxMap.style.moveStyleLayer(
+            ARROW_LINES_LAYER_ID,
+            mapbox.LayerPosition(below: layerID),
+          );
+        } catch (_) {}
+        try {
+          await mapboxMap.style.moveStyleLayer(
+            ARROW_SYMBOLS_LAYER_ID,
+            mapbox.LayerPosition(above: ARROW_LINES_LAYER_ID),
+          );
+        } catch (_) {}
+      } catch (e) {
+        debugPrint('[MapControllerNew] arrow layer reorder skipped: $e');
+      }
     } catch (e, st) {
-      // debugPrint('❌ ERROR: $e');
-      debugPrint(st.toString());
+      debugPrint('[MapControllerNew] generateAndDisplayArrowsAsSymbols: $e\n$st');
     }
-
-    var layers = await mapboxMap.style.getStyleLayers();
-    var layerID = getLayerID(layers);
-    // 5️⃣ Move layer to top to ensure it’s visible over custom tiles
-    await mapboxMap.style.moveStyleLayer(
-      ARROW_LINES_LAYER_ID,
-      mapbox.LayerPosition(below: layerID),
-    );
-
-    try {
-      await mapboxMap.style.moveStyleLayer(
-        ARROW_LINES_LAYER_ID,
-        mapbox.LayerPosition(below: layerID),
-      );
-    } catch (_) {}
-    // 🔝 Keep arrows above lines
-    try {
-      await mapboxMap.style.moveStyleLayer(
-        ARROW_SYMBOLS_LAYER_ID,
-        mapbox.LayerPosition(above: ARROW_LINES_LAYER_ID),
-      );
-    } catch (_) {}
     //   if (_currentMemories.length > 0) {
     //   debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
     //   await mapboxMap!.flyTo(

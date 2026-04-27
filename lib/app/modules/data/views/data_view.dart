@@ -12,71 +12,74 @@ class DataView extends GetView<DataController> {
   const DataView({super.key});
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<UiController>();
+    final uiController = Get.find<UiController>();
 
-    return Scaffold(
-      backgroundColor:
-          controller.darkMode.value
-              ? controller.darkBackgroundColor
-              : controller.getLightModeBackgroundColor(
-                controller.mainColor.value,
-              ),
-      appBar: CustomAppBar(
-        title: AppTexts.data,
-        icon: Image.asset(AppImages.data),
-      ),
-      body: ListView(
-        children: [
-          Container(
-            color: Colors.white,
-            child: Column(
+    return Obx(() {
+      final busy = controller.isBusy.value;
+      return Scaffold(
+        backgroundColor:
+            uiController.darkMode.value
+                ? uiController.darkBackgroundColor
+                : uiController.getLightModeBackgroundColor(
+                  uiController.mainColor.value,
+                ),
+        appBar: CustomAppBar(
+          title: AppTexts.data,
+          icon: Image.asset(AppImages.data),
+        ),
+        body: Stack(
+          children: [
+            ListView(
               children: [
-                DataTile(
-                  title: AppTexts.uploadGPS,
-                  trailingIcon: Icons.arrow_forward_ios,
-                  onTap: () {
-                    debugPrint('Download tapped');
-                  },
-                  showDivider: true,
-                ),
-                DataTile(
-                  title: AppTexts.uploadMedia,
-                  trailingIcon: Icons.arrow_forward_ios,
-                  onTap: () {
-                    debugPrint('Download tapped');
-                  },
-                  showDivider: true,
-                ),
-                DataTile(
-                  title: AppTexts.backupMemories,
-                  trailingIcon: Icons.arrow_forward_ios,
-                  onTap: () {
-                    debugPrint('Download tapped');
-                  },
-                  showDivider: true,
-                ),
-                DataTile(
-                  title: AppTexts.uploadMemories,
-                  trailingIcon: Icons.arrow_forward_ios,
-                  onTap: () {
-                    debugPrint('Download tapped');
-                  },
-                  showDivider: true,
-                ),
-                DataTile(
-                  title: AppTexts.eraseAllData,
-                  trailingIcon: Icons.arrow_forward_ios,
-                  titleColor:
-                      controller.darkMode.value ? Colors.red : Colors.red,
-                  onTap: () {
-                    debugPrint('Download tapped');
-                  },
+                Container(
+                  color: Colors.white,
+                  child: Column(
+                    children: [
+                      DataTile(
+                        title: AppTexts.uploadGPS,
+                        trailingIcon: Icons.arrow_forward_ios,
+                        onTap: () {},
+                        showDivider: true,
+                      ),
+                      DataTile(
+                        title: AppTexts.uploadMedia,
+                        trailingIcon: Icons.arrow_forward_ios,
+                        onTap: () {},
+                        showDivider: true,
+                      ),
+                      DataTile(
+                        title: AppTexts.backupMemories,
+                        trailingIcon: Icons.arrow_forward_ios,
+                        onTap: busy ? null : controller.exportFullData,
+                        showDivider: true,
+                      ),
+                      DataTile(
+                        title: AppTexts.uploadMemories,
+                        trailingIcon: Icons.arrow_forward_ios,
+                        onTap: busy ? null : controller.importFullData,
+                        showDivider: true,
+                      ),
+                      DataTile(
+                        title: AppTexts.eraseAllData,
+                        trailingIcon: Icons.arrow_forward_ios,
+                        titleColor: Colors.red,
+                        onTap: () {},
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
+            if (busy)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x66000000),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
   }
 }

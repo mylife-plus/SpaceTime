@@ -355,6 +355,9 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           controller.handleMapTap1(c);
           //
         },
+        onStyleLoadedListener: (_) {
+          controller.isStyleReady.value = true;
+        },
       );
     }
 

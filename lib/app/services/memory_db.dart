@@ -10,7 +10,24 @@ import 'package:spacetime/app/constants/place_categories_data.dart';
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      12; // Updated version for videos support
+      14; // track import fingerprint + import log + log items
+
+  static const columnTrackImportFingerprint = 'track_import_fingerprint';
+  static const tableTrackImportLog = 'track_import_log';
+  static const tableTrackImportLogItems = 'track_import_log_items';
+  static const columnTrackLogId = 'track_log_id';
+  static const columnTrackLogItemId = 'track_log_item_id';
+  static const columnTrackLogItemLogId = 'track_log_item_log_id';
+  static const columnTrackLogItemWhen = 'item_when';
+  static const columnTrackLogItemLat = 'item_lat';
+  static const columnTrackLogItemLng = 'item_lng';
+  static const columnTrackLogItemLocation = 'item_location';
+  static const columnTrackLogFileName = 'file_name';
+  static const columnTrackLogNewCount = 'new_count';
+  static const columnTrackLogDupCount = 'dup_count';
+  static const columnTrackLogIgnoredCount = 'ignored_count';
+  static const columnTrackLogRawCount = 'raw_count';
+  static const columnTrackLogCreatedAt = 'created_at';
 
   // Memory table and columns
   static const tableMemories = 'memories';
@@ -228,7 +245,32 @@ class DatabaseHelper {
         $columnTags TEXT,
         $columnMentions TEXT,
         $columnCreatedAt TEXT NOT NULL,
-        $columnUpdatedAt TEXT
+        $columnUpdatedAt TEXT,
+        $columnTrackImportFingerprint TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableTrackImportLog (
+        $columnTrackLogId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $columnTrackLogFileName TEXT NOT NULL,
+        $columnTrackLogRawCount INTEGER NOT NULL DEFAULT 0,
+        $columnTrackLogIgnoredCount INTEGER NOT NULL DEFAULT 0,
+        $columnTrackLogDupCount INTEGER NOT NULL DEFAULT 0,
+        $columnTrackLogNewCount INTEGER NOT NULL DEFAULT 0,
+        $columnTrackLogCreatedAt TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableTrackImportLogItems (
+        $columnTrackLogItemId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $columnTrackLogItemLogId INTEGER NOT NULL,
+        $columnTrackLogItemWhen TEXT NOT NULL,
+        $columnTrackLogItemLat REAL NOT NULL,
+        $columnTrackLogItemLng REAL NOT NULL,
+        $columnTrackLogItemLocation TEXT,
+        FOREIGN KEY ($columnTrackLogItemLogId) REFERENCES $tableTrackImportLog ($columnTrackLogId) ON DELETE CASCADE
       )
     ''');
 
@@ -534,6 +576,39 @@ class DatabaseHelper {
 
       debugPrint('✅ Videos table created');
     }
+
+    if (oldVersion < 13) {
+      await db.execute('''
+        ALTER TABLE $tableMemories ADD COLUMN $columnTrackImportFingerprint TEXT
+      ''');
+      await db.execute('''
+        CREATE TABLE $tableTrackImportLog (
+          $columnTrackLogId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $columnTrackLogFileName TEXT NOT NULL,
+          $columnTrackLogRawCount INTEGER NOT NULL DEFAULT 0,
+          $columnTrackLogIgnoredCount INTEGER NOT NULL DEFAULT 0,
+          $columnTrackLogDupCount INTEGER NOT NULL DEFAULT 0,
+          $columnTrackLogNewCount INTEGER NOT NULL DEFAULT 0,
+          $columnTrackLogCreatedAt TEXT NOT NULL
+        )
+      ''');
+      debugPrint('✅ track_import_fingerprint + track_import_log');
+    }
+
+    if (oldVersion < 14) {
+      await db.execute('''
+        CREATE TABLE $tableTrackImportLogItems (
+          $columnTrackLogItemId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $columnTrackLogItemLogId INTEGER NOT NULL,
+          $columnTrackLogItemWhen TEXT NOT NULL,
+          $columnTrackLogItemLat REAL NOT NULL,
+          $columnTrackLogItemLng REAL NOT NULL,
+          $columnTrackLogItemLocation TEXT,
+          FOREIGN KEY ($columnTrackLogItemLogId) REFERENCES $tableTrackImportLog ($columnTrackLogId) ON DELETE CASCADE
+        )
+      ''');
+      debugPrint('✅ track_import_log_items');
+    }
   }
 
   // Migrate existing image data from memories table to images table
@@ -622,6 +697,84 @@ class DatabaseHelper {
     } catch (e) {
       debugPrint('Error migrating existing audio files: $e');
     }
+  }
+
+  /// Rows used for KMZ/GPX import duplicate detection.
+  Future<List<Map<String, dynamic>>> queryMemoriesTrackImportDedupeRows() async {
+    final db = await database;
+    return db.query(
+      tableMemories,
+      columns: [
+        columnDate,
+        columnTime,
+        columnLocationLatitude,
+        columnLocationLongitude,
+        columnTrackImportFingerprint,
+      ],
+    );
+  }
+
+  Future<int> insertTrackImportLog({
+    required String fileName,
+    required int rawCount,
+    required int ignoredCount,
+    required int dupCount,
+    required int newCount,
+  }) async {
+    final db = await database;
+    return db.insert(tableTrackImportLog, {
+      columnTrackLogFileName: fileName,
+      columnTrackLogRawCount: rawCount,
+      columnTrackLogIgnoredCount: ignoredCount,
+      columnTrackLogDupCount: dupCount,
+      columnTrackLogNewCount: newCount,
+      columnTrackLogCreatedAt: DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> insertTrackImportLogItems({
+    required int logId,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    if (items.isEmpty) return;
+    final db = await database;
+    final batch = db.batch();
+    for (final it in items) {
+      batch.insert(tableTrackImportLogItems, {
+        columnTrackLogItemLogId: logId,
+        columnTrackLogItemWhen: (it[columnTrackLogItemWhen] ?? '').toString(),
+        columnTrackLogItemLat: (it[columnTrackLogItemLat] as num?)?.toDouble() ?? 0.0,
+        columnTrackLogItemLng: (it[columnTrackLogItemLng] as num?)?.toDouble() ?? 0.0,
+        columnTrackLogItemLocation: (it[columnTrackLogItemLocation] ?? '').toString(),
+      });
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<int> countTrackImportLogs() async {
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT COUNT(*) as c FROM $tableTrackImportLog',
+    );
+    return Sqflite.firstIntValue(r) ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> queryTrackImportLogs() async {
+    final db = await database;
+    return db.query(
+      tableTrackImportLog,
+      orderBy: '$columnTrackLogCreatedAt DESC',
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> queryTrackImportLogItems(int logId) async {
+    final db = await database;
+    return db.query(
+      tableTrackImportLogItems,
+      where: '$columnTrackLogItemLogId = ?',
+      whereArgs: [logId],
+      orderBy: '$columnTrackLogItemWhen ASC',
+    );
   }
 
   // Memory operations
@@ -1635,6 +1788,26 @@ class DatabaseHelper {
       debugPrint('[DatabaseHelper][clearAllData] ✅ Predefined data reinserted');
     } catch (e) {
       debugPrint('[DatabaseHelper][clearAllData] ❌ Error clearing database: $e');
+      rethrow;
+    }
+  }
+
+  /// Clear all memories and memory-attached media/log rows only.
+  Future<void> clearAllMemories() async {
+    try {
+      debugPrint('[DatabaseHelper][clearAllMemories] Starting memories cleanup...');
+      final db = await database;
+      await db.transaction((txn) async {
+        await txn.delete(tableTrackImportLogItems);
+        await txn.delete(tableVideos);
+        await txn.delete(tableAudios);
+        await txn.delete(tableImages);
+        await txn.delete(tableMemories);
+        await txn.delete(tableTrackImportLog);
+      });
+      debugPrint('[DatabaseHelper][clearAllMemories] ✅ All memories cleared');
+    } catch (e) {
+      debugPrint('[DatabaseHelper][clearAllMemories] ❌ Error clearing memories: $e');
       rethrow;
     }
   }
