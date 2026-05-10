@@ -9,11 +9,12 @@ import 'package:spacetime/app/app_bootstrap.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/theme/app_system_ui.dart';
 
 import '../../../config/app_colors.dart';
 import '../controllers/add_memories_controller.dart';
 import '../../memories/controllers/memory_controller.dart';
-import '../../memories/views/memory_view.dart';
+import '../../../routes/memory_view_navigation.dart';
 import '../../filter/controllers/filter_controller.dart';
 import 'mini_widgets/header.dart';
 import 'mini_widgets/memory_card.dart';
@@ -320,14 +321,17 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
     // on every widget rebuild.
     return Obx(() {
       final _ = uiController.selectedLanguage.value;
-      final mainColor = uiController.mainColor.value;
-      final useOriginalImage = mainColor == 'blue';
+      final isDark = uiController.darkMode.value;
 
-      return SafeArea(
-        child: Scaffold(
-          backgroundColor:
-                         (!uiController.darkMode.value ? Colors.white : Colors.transparent),
-          body: Stack(
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppSystemUi.overlayStyle(dark: isDark),
+        child: ColoredBox(
+          color: isDark ? uiController.darkBackgroundColor : Colors.white,
+          child: SafeArea(
+            bottom: false,
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Stack(
             children: [
                 Column(
                   children: [
@@ -367,7 +371,7 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
                         // Filters should persist until manually removed or reset
                         Get.put(MemoryController());
           
-                        final result = await Get.to(() => MemoryView());
+                        final result = await openMemoryView();
                         // Always refresh memories when returning from memory creation
                         debugPrint(
                           'Returned from memory creation, refreshing add memories screen',
@@ -414,11 +418,13 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
                 //     child: Container(color: Colors.black.withOpacity(0.1)),
                 //   ),
                 // ),
-                // Black overlay when filter is open
+                // Dim map/list behind filter sheet (lighter in light mode).
                 if (controller.isFilterOpen.value)
                   Positioned.fill(
                     child: Container(
-                      color: Colors.black.withValues(alpha: 0.8),
+                      color: Colors.black.withValues(
+                        alpha: uiController.darkMode.value ? 0.74 : 0.52,
+                      ),
                     ),
                   ),
                 if (controller.isSearchActive.value) const SearchOverlay(),
@@ -427,7 +433,9 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
               ],
             ),
           ),
-      );
+        ),
+      ),
+    );
     });
   }
 }

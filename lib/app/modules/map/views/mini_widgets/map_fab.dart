@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/add_memories/views/add_memories.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
-import 'package:spacetime/app/modules/memories/views/memory_view.dart';
+import 'package:spacetime/app/routes/memory_view_navigation.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import '../../controllers/map_controller_new.dart';
@@ -32,7 +32,7 @@ class MapFab extends StatelessWidget {
             ); // Small delay to ensure initialization
 
             // Navigate to MemoryView and check result
-            final result = await Get.to(() => MemoryView());
+            final result = await openMemoryView();
 
             // If memory was saved successfully, refresh the map
             if (result == true) {

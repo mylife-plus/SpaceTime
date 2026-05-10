@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/connectivity_service.dart';
+import 'package:spacetime/app/widgets/location_picker_system_ui_shell.dart';
 
 class InternetRequiredScreenLocationPicker extends StatefulWidget {
   final VoidCallback? onRetryCallback;
@@ -179,20 +180,22 @@ class _InternetRequiredScreenLocationPickerState extends State<InternetRequiredS
       final textColor = isDarkMode ? Colors.white : Colors.black87;
       final buttonColor = mainColor; // Uses UI controller's current main color
 
-      return Scaffold(
-        backgroundColor: backgroundColor,
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: gradientColors,
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
+      return LocationPickerSystemUiShell(
+        child: SafeArea(
+          bottom: false,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: gradientColors,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Animated WiFi Icon
@@ -364,6 +367,7 @@ class _InternetRequiredScreenLocationPickerState extends State<InternetRequiredS
                     ),
                   ),
                 ],
+                ),
               ),
             ),
           ),

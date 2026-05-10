@@ -272,7 +272,10 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
     }
 
     final placeName = _placeNameController.text.trim();
-    final placeEmoji = _placeEmojiController.text.trim();
+    var placeEmoji = _placeEmojiController.text.trim();
+    if (widget.fromMemoryView && placeEmoji.isEmpty) {
+      placeEmoji = '📍';
+    }
 
     // Validation
     if (placeName.isEmpty) {
@@ -282,10 +285,9 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
       return;
     }
 
-    // Validate emoji for subcategories (not for main categories) or when in Memory View mode
-    if (((!widget.isMainCategory &&
-        _selectedParentId.value != 'add_new_main_category') ||
-        widget.fromMemoryView) &&
+    // If emoji is still empty outside memory flow, keep existing validation.
+    if ((!widget.isMainCategory &&
+        _selectedParentId.value != 'add_new_main_category') &&
         placeEmoji.isEmpty) {
       showTrSnackbar('snackbar_validation_error_36', 
         backgroundColor: Colors.orange,
@@ -356,7 +358,7 @@ class _AddPlaceCategoryPopupState extends State<AddPlaceCategoryPopup> {
           return;
         }
 
-if(newCategory != null && newCategory.id != null) {
+if (newCategory.id != null) {
 var newCategory1 = await _categoryService.addCustomCategory(
           name: placeName,
           emoji: placeEmoji, // Default emoji for main categories
@@ -384,7 +386,7 @@ var newCategory1 = await _categoryService.addCustomCategory(
           return;
         }
           Get.back(); // Close popup
-        widget.onCategoryAdded?.call(newCategory1!);
+        widget.onCategoryAdded?.call(newCategory1);
          if (!widget.fromMemoryView) {
           await _categoryService.refreshMemoryControllersAfterMemoryChange();
         }
@@ -444,10 +446,6 @@ Navigator.of(context).pop();
           await _categoryService.refreshMemoryControllersAfterMemoryChange();
         }
 
-        final placeDisplayName = placeEmoji == '📍'
-            ? placeName
-            : '$placeEmoji $placeName';
-
         // Get.snackbar(
         //   'Success',
         //   'Place "$placeDisplayName" added successfully!',
@@ -483,7 +481,7 @@ Navigator.of(context).pop();
       isMainCategory: ec.isMainCategory,
     );
     // Use existing emoji if not changed (since emoji picker is hidden when editing)
-    final placeEmoji = _placeEmojiController.text.trim().isNotEmpty
+    var placeEmoji = _placeEmojiController.text.trim().isNotEmpty
         ? _placeEmojiController.text.trim()
         : ec.emoji;
 
@@ -506,13 +504,6 @@ Navigator.of(context).pop();
       }
     }
 
-    // Validate emoji when editing from Memory View
-    if (widget.fromMemoryView && placeEmoji.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_41', 
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
-      return;
-    }
 
     // Validate parent category only when adding from Memory View
     // Skip validation when editing (already has a parent)
@@ -1364,7 +1355,10 @@ class _AddPlaceCategoryPopupForCategoryPickerState extends State<AddPlaceCategor
     }
 
     final placeName = _placeNameController.text.trim();
-    final placeEmoji = _placeEmojiController.text.trim();
+    var placeEmoji = _placeEmojiController.text.trim();
+    if (widget.fromMemoryView && placeEmoji.isEmpty) {
+      placeEmoji = '📍';
+    }
 
     // Validation
     if (placeName.isEmpty) {
@@ -1512,10 +1506,6 @@ Navigator.of(context).pop();
           await _categoryService.refreshMemoryControllersAfterMemoryChange();
         }
 
-        final placeDisplayName = placeEmoji == '📍'
-            ? placeName
-            : '$placeEmoji $placeName';
-
         // Get.snackbar(
         //   'Success',
         //   'Place "$placeDisplayName" added successfully!',
@@ -1553,7 +1543,7 @@ Navigator.of(context).pop();
       isMainCategory: ec.isMainCategory,
     );
     // Use existing emoji if not changed (since emoji picker is hidden when editing)
-    final placeEmoji = _placeEmojiController.text.trim().isNotEmpty
+    var placeEmoji = _placeEmojiController.text.trim().isNotEmpty
         ? _placeEmojiController.text.trim()
         : ec.emoji;
 
@@ -1576,12 +1566,8 @@ Navigator.of(context).pop();
       }
     }
 
-    // Validate emoji when editing from Memory View
     if (widget.fromMemoryView && placeEmoji.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_50', 
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
-      return;
+      placeEmoji = '📍';
     }
 
     // Validate parent category only when adding from Memory View and no parentCategoryId is provided

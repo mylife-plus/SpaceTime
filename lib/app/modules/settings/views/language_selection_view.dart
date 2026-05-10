@@ -51,9 +51,11 @@ class LanguageSelectionView extends StatelessWidget {
                                         : Colors.black87,
                               )
                               : null,
-                      onTap: () {
-                        ui.setLanguage(kSupportedLanguages[i].code);
-                        Get.back();
+                      onTap: () async {
+                        await ui.setLanguage(
+                          kSupportedLanguages[i].code,
+                          restartAfterApply: true,
+                        );
                       },
                     ),
                 ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/app_lock_controller.dart';
 
@@ -14,6 +15,7 @@ Future<void> showPermissionOpenSettingsDialog(
   final ui = Get.find<UiController>();
   final isDark = ui.darkMode.value;
   final accent = ui.currentMainColor;
+  final lang = ui.selectedLanguage.value;
 
   await showDialog<void>(
     context: context,
@@ -40,7 +42,7 @@ Future<void> showPermissionOpenSettingsDialog(
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
-              'text_cancel_9'.tr,
+              trForLang('text_cancel_9', lang),
               style: TextStyle(
                 color: isDark ? Colors.grey : Colors.grey[800],
               ),
@@ -55,7 +57,7 @@ Future<void> showPermissionOpenSettingsDialog(
               openAppSettings();
             },
             child: Text(
-              'text_open_settings_5'.tr,
+              trForLang('text_open_settings_5', lang),
               style: TextStyle(
                 color: accent,
                 fontWeight: FontWeight.w600,

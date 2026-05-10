@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -212,12 +211,6 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 //   }
 // }
 
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:spacetime/app/config/app_images.dart';
-import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
-
 class FilterPanel extends StatefulWidget {
   final List<Widget> children;
   final VoidCallback onReset;
@@ -269,26 +262,29 @@ class _FilterPanelState extends State<FilterPanel>
   Widget build(BuildContext context) {
     final uiController = Get.find<UiController>();
 
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-      child: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(uiController),
-            const SizedBox(height: 8),
-            ...widget.children,
-            const SizedBox(height:8),
-            /// 🔹 Bottom Buttons (Below all filters)
-            if (!widget.hideButtons && !_isKeyboardVisible)
-              _buildBottomButtons(uiController),
-            const SizedBox(height: 8),
-          ],
+    return Obx(() {
+      uiController.darkMode.value;
+      uiController.mainColor.value;
+      return SingleChildScrollView(
+        controller: widget.scrollController,
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(uiController),
+              const SizedBox(height: 8),
+              ...widget.children,
+              const SizedBox(height: 8),
+              if (!widget.hideButtons && !_isKeyboardVisible)
+                _buildBottomButtons(uiController),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -296,29 +292,30 @@ class _FilterPanelState extends State<FilterPanel>
   // ─────────────────────────────────────────────
 
   Widget _buildHeader(UiController controller) {
+    final isDark = controller.darkMode.value;
+    final backAndNeutralFg =
+        isDark ? Colors.white : Colors.black87;
+    final accentFg =
+        isDark ? Colors.white : controller.currentMainColor;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween ,
       // alignment: Alignment.center,
       children: [
         if (widget.onBack != null)
-          // Positioned(
-            // left: 0,
-            // child:
              InkWell(
               onTap: widget.onBack,
               child: Image.asset(
                 AppImages.arrowBack,
                 width: 24,
                 height: 24,
-                color: Colors.white,
+                color: backAndNeutralFg,
               ),
             ),
-          // ),
         Image.asset(
         AppImages.filter,
         width: 24,
         height: 24,
-        color: Colors.white,
+        color: accentFg,
                 ),
                  if (widget.onBack != null)
           Visibility(
@@ -329,7 +326,7 @@ class _FilterPanelState extends State<FilterPanel>
                 AppImages.arrowBack,
                 width: 24,
                 height: 24,
-                color: Colors.white,
+                color: backAndNeutralFg,
               ),
             ),
           )
@@ -342,6 +339,7 @@ class _FilterPanelState extends State<FilterPanel>
   // ─────────────────────────────────────────────
 
   Widget _buildBottomButtons(UiController controller) {
+    final accent = controller.currentMainColor;
     return Container(
       // padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       // decoration: BoxDecoration(
@@ -391,7 +389,7 @@ class _FilterPanelState extends State<FilterPanel>
               backgroundColor: controller.darkMode.value
                   ? Colors.white.withValues(alpha: 0.2)
                   : Colors.white,
-              side: const BorderSide(color: Colors.blue),
+              side: BorderSide(color: accent),
             ),
             onPressed: widget.onApply,
             child: Text(
@@ -399,7 +397,7 @@ class _FilterPanelState extends State<FilterPanel>
               style: GoogleFonts.kumbhSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: Colors.blue,
+                color: accent,
               ),
             ),
           ),

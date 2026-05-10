@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/widgets/right_nav_trailing_icon.dart';
 import '../../../ui/controllers/ui_controller.dart';
 
 class MemoryClusterPopup extends StatelessWidget {
@@ -236,11 +237,10 @@ class MemoryClusterPopup extends StatelessWidget {
             ),
         ],
       ),
-      trailing: Icon(
-        Icons.arrow_forward_ios,
+      trailing: RightNavTrailingIcon(
         size: 16,
         color:
-            uiController.darkMode.value ? Colors.grey[400] : Colors.grey[600],
+            uiController.darkMode.value ? Colors.grey[400]! : Colors.grey[600]!,
       ),
       onTap: () => onMemorySelected(memory),
     );

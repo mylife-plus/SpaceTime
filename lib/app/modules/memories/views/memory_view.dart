@@ -1679,7 +1679,7 @@ class _MemoryViewState extends State<MemoryView> {
               onTap: () {
                 FocusScope.of(context).unfocus();
               },
-              child: SafeArea(
+              child: SafeArea(bottom: false,
                 child: Column(
                   children: [
                     Expanded(

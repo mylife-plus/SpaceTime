@@ -8,6 +8,14 @@ class AppImages {
   static const contact = 'assets/images/contact.png';
   static const feedback = 'assets/images/feedback.png';
   static const arrowBack = 'assets/images/arrow_back.png';
+  /// Track upload: past uploads row + preview/history app bars.
+  static const refresh = 'assets/images/refresh.png';
+  /// Media GPS — upload files row / app bar (white on dark surfaces).
+  static const uploadFilesWhite = 'assets/images/upload_files_white.png';
+  /// Media GPS — upload files row on light surfaces.
+  static const uploadFilesBlack = 'assets/images/upload_files_black.png';
+  /// Settings / lists: indicates row opens another screen.
+  static const rightNav = 'assets/images/ic_right_nav.png';
   static const blueCircle = 'assets/images/blue_circle.jpeg';
   static const purpleCircle = 'assets/images/purple_circle.jpeg';
   static const redCircle = 'assets/images/red_circle.jpeg';

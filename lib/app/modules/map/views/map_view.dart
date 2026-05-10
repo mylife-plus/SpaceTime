@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/filter_overlay.dart';
-import 'package:spacetime/app/modules/map/views/mini_widgets/filter_overlay.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/internet_required_screen.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_fab.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_refresh_fab.dart';
@@ -36,7 +34,7 @@ class MapView extends GetView<MapController> {
       service = Get.put(BackgroundTileDownloadService());
     }
 
-    return SafeArea(
+    return SafeArea(bottom: false,
       child: Scaffold(
         body: Obx(() {
           //  controller.currentInitializationState.value = MapInitializationState.error ;
@@ -44,11 +42,6 @@ class MapView extends GetView<MapController> {
           return Stack(
             children: [
               const MapViewWidget(),
-
-              if (controller.isFilterOpen.value)
-                Positioned.fill(
-                  child: Container(color: Colors.black.withValues(alpha: 0.8)),
-                ),
 
               // Always show tile download progress bar until 25,000 tiles
               if (service.totalTilesDownloaded.value < 25000)
@@ -68,12 +61,18 @@ class MapView extends GetView<MapController> {
               if (!controller.isFilterOpen.value)
                 const GeocodingStatusOverlay(),
 
-              if (controller.isFilterOpen.value)
-                Positioned.fill(
-                  child: Container(color: Colors.black.withValues(alpha: 0.8)),
-                ),
-              if (controller.isFilterOpen.value)
+              if (controller.isFilterOpen.value) ...[
+                Obx(() {
+                  final ui = Get.find<UiController>();
+                  final alpha = ui.darkMode.value ? 0.74 : 0.52;
+                  return Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withValues(alpha: alpha),
+                    ),
+                  );
+                }),
                 MemoriesFilterOverlay(isOpenedFromMap: true),
+              ],
 
               if (service.totalTilesDownloaded.value < 30000) ...[
                 buildInternetAndPermissionsScreen(

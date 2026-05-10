@@ -259,7 +259,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                   child: Column(
                     children: [
                       // Top bar with close button
-                      SafeArea(
+                      SafeArea(bottom: false,
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Row(
@@ -298,7 +298,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                       ),
                       const Spacer(),
                       // Bottom controls
-                      SafeArea(
+                      SafeArea(bottom: false,
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Column(

@@ -81,7 +81,7 @@ class OfflineGeocoder {
       'longitude',
       fieldDelimiter: ',',
       eol: '\n',
-      numMarkers: 5,
+      numMarkers: 48,
     );
     _isInitialized = true;
 

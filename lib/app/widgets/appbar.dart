@@ -7,16 +7,24 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
+  /// Plain title when [titleWidget] is null.
   final String title;
-  final Widget icon;
+  /// When set, replaces the centered title text (e.g. mixed-weight l10n).
+  final Widget? titleWidget;
+  /// Optional icon left of the title (omit for title-only bar).
+  final Widget? icon;
   final VoidCallback? onBack;
 
-  const CustomAppBar({
+  CustomAppBar({
     super.key,
-    required this.title,
-    required this.icon,
+    this.title = '',
+    this.titleWidget,
+    this.icon,
     this.onBack,
-  });
+  }) : assert(
+          title.isNotEmpty || titleWidget != null,
+          'Provide title or titleWidget',
+        );
 
   @override
   Size get preferredSize => const Size.fromHeight(60);
@@ -45,27 +53,35 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 width: 24,
                 height: 24,
                 fit: BoxFit.contain,
+                color: Colors.white,
               ),
             ),
             Expanded(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: FittedBox(fit: BoxFit.contain, child: icon),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: AutoSizeText(
-                      title,
-                      maxLines: 2,
-                      minFontSize: 10,
-                      style: AppFonts.bold(18, color: Colors.white),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
+                  if (icon != null) ...[
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: FittedBox(fit: BoxFit.contain, child: icon!),
                     ),
+                    const SizedBox(width: 8),
+                  ],
+                  Flexible(
+                    child: titleWidget != null
+                        ? FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: titleWidget!,
+                          )
+                        : AutoSizeText(
+                            title,
+                            maxLines: 2,
+                            minFontSize: 10,
+                            style: AppFonts.bold(18, color: Colors.white),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                   ),
                 ],
               ),

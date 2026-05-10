@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_text.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 
-import '../../../config/app_images.dart';
 import '../../ui/controllers/ui_controller.dart';
 import '../controllers/data_controller.dart';
 import 'mini_widgets/data_tile.dart';
@@ -25,48 +25,36 @@ class DataView extends GetView<DataController> {
                 ),
         appBar: CustomAppBar(
           title: AppTexts.data,
-          icon: Image.asset(AppImages.data),
+          icon: const Icon(Icons.storage_rounded, color: Colors.white, size: 22),
         ),
         body: Stack(
           children: [
             ListView(
               children: [
-                Container(
-                  color: Colors.white,
-                  child: Column(
-                    children: [
-                      DataTile(
-                        title: AppTexts.uploadGPS,
-                        trailingIcon: Icons.arrow_forward_ios,
-                        onTap: () {},
-                        showDivider: true,
-                      ),
-                      DataTile(
-                        title: AppTexts.uploadMedia,
-                        trailingIcon: Icons.arrow_forward_ios,
-                        onTap: () {},
-                        showDivider: true,
-                      ),
-                      DataTile(
-                        title: AppTexts.backupMemories,
-                        trailingIcon: Icons.arrow_forward_ios,
-                        onTap: busy ? null : controller.exportFullData,
-                        showDivider: true,
-                      ),
-                      DataTile(
-                        title: AppTexts.uploadMemories,
-                        trailingIcon: Icons.arrow_forward_ios,
-                        onTap: busy ? null : controller.importFullData,
-                        showDivider: true,
-                      ),
-                      DataTile(
-                        title: AppTexts.eraseAllData,
-                        trailingIcon: Icons.arrow_forward_ios,
-                        titleColor: Colors.red,
-                        onTap: () {},
-                      ),
-                    ],
-                  ),
+                DataTile(
+                  title: trKey('apptexts_upload_kmz_gpx'),
+                  onTap: busy ? null : controller.openKmzGpxUpload,
+                  showDivider: true,
+                ),
+                DataTile(
+                  title: AppTexts.uploadMedia,
+                  onTap: busy ? null : controller.openMediaGpsUpload,
+                  showDivider: true,
+                ),
+                DataTile(
+                  title: AppTexts.backupMemories,
+                  onTap: busy ? null : controller.exportFullData,
+                  showDivider: true,
+                ),
+                DataTile(
+                  title: AppTexts.uploadMemories,
+                  onTap: busy ? null : controller.importFullData,
+                  showDivider: true,
+                ),
+                DataTile(
+                  title: AppTexts.eraseAllData,
+                  titleColor: Colors.red,
+                  onTap: busy ? null : controller.eraseAllMemories,
                 ),
               ],
             ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_text.dart';
@@ -40,7 +42,7 @@ class UiView extends GetView<UiController> {
                       title: AppTexts.language,
                       subtitle:
                           '(${displayLabelForLanguageCode(controller.selectedLanguage.value)})',
-                      trailingIcon: Icons.arrow_forward_ios,
+                      showTrailingNav: true,
                       onTap: () => Get.to(() => const LanguageSelectionView()),
                       showDivider: true,
                     ),
@@ -49,7 +51,7 @@ class UiView extends GetView<UiController> {
                     () => UiTile(
                       title: AppTexts.darkMode,
                       isActive: controller.darkMode.value,
-                      onChanged: (val) => controller.setDarkMode(val),
+                      onChanged: (val) => unawaited(controller.setDarkMode(val)),
                       showDivider: true,
                     ),
                   ),
@@ -60,7 +62,7 @@ class UiView extends GetView<UiController> {
 
                       subtitle:
                           '(${AppTexts.themeColorDisplayName(controller.mainColor.value)})',
-                      trailingIcon: Icons.arrow_forward_ios,
+                      showTrailingNav: true,
                       onTap: () => Get.to(() => MainColorSelectionView()),
                       // showDivider: true,
                     ),

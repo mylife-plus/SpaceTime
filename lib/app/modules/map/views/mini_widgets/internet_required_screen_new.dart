@@ -194,7 +194,7 @@ class _InternetRequiredScreenNewState extends State<InternetRequiredScreenNew>
           ),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: SafeArea(
+            child: SafeArea(bottom: false,
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Column(

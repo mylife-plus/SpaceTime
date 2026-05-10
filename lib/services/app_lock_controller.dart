@@ -143,12 +143,12 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     try {
       final supported = await _localAuth.isDeviceSupported();
       if (!supported) {
-        authError.value = 'This device does not support secure unlock.';
+        authError.value = 'app_lock_error_device_not_supported';
         return;
       }
 
       final ok = await _localAuth.authenticate(
-        localizedReason: 'Unlock SpaceTime',
+        localizedReason: 'app_lock_localized_reason'.tr,
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,
@@ -160,11 +160,11 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
         isLocked.value = false;
         authError.value = null;
       } else {
-        authError.value = 'Unlock was cancelled.';
+        authError.value = 'app_lock_error_unlock_cancelled';
       }
     } catch (e) {
       debugPrint('[AppLockController] authenticate: $e');
-      authError.value = 'Could not unlock. Try again.';
+      authError.value = 'app_lock_error_generic';
     }
   }
 

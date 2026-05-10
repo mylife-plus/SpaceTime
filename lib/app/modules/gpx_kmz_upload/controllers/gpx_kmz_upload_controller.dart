@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -10,43 +11,34 @@ import 'package:spacetime/app/modules/add_memories/controllers/add_memories_cont
 import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/models/kmz_ignore_rule.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_import_pipeline.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/track_cluster_field_config.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_inspector.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_parser.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_ignore_rule_editor_view.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_past_uploads_view.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_preview_geocode.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_preview_view.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'package:spacetime/app/widgets/app_date_time_pickers.dart';
+import 'package:spacetime/services/geocoding_isolate_service.dart';
+import 'package:spacetime/services/memory_import_blocking_controller.dart';
 
 /// KMZ import: parse → filter → cluster → preview stats; upload runs geocode + DB.
 class GpxKmzUploadController extends GetxController {
-  static const List<String> maxTimeApartOptionKeys = [
-    'gpx_dd_time_1m',
-    'gpx_dd_time_2m',
-    'gpx_dd_time_5m',
-    'gpx_dd_time_10m',
-    'gpx_dd_time_15m',
-    'gpx_dd_time_30m',
-    'gpx_dd_time_1h',
-  ];
-
-  static const List<String> maxMeterApartOptionKeys = [
-    'gpx_dd_dist_10m',
-    'gpx_dd_dist_25m',
-    'gpx_dd_dist_50m',
-    'gpx_dd_dist_100m',
-    'gpx_dd_dist_250m',
-    'gpx_dd_dist_500m',
-    'gpx_dd_dist_1km',
-  ];
-
   final TextEditingController filePathController = TextEditingController();
   final TextEditingController ignoreMarkerController = TextEditingController();
   final TextEditingController ignoreContainsController = TextEditingController();
 
-  final RxString selectedMaxTimeApartKey = maxTimeApartOptionKeys[2].obs;
-  final RxString selectedMaxMeterApartKey = maxMeterApartOptionKeys[2].obs;
+  final RxString selectedMaxTimeApartKey =
+      TrackClusterFieldConfig.maxTimeApartOptionKeys[
+              TrackClusterFieldConfig.defaultClusterOptionIndex]
+          .obs;
+  final RxString selectedMaxMeterApartKey =
+      TrackClusterFieldConfig.maxMeterApartOptionKeys[
+              TrackClusterFieldConfig.defaultClusterOptionIndex]
+          .obs;
   final RxList<String> availableMemoryDateKeys = <String>[].obs;
   final RxString selectedStartDateKey = ''.obs;
   final RxString selectedEndDateKey = ''.obs;
@@ -60,6 +52,8 @@ class GpxKmzUploadController extends GetxController {
   final RxInt newMemoriesCount = 0.obs;
 
   final RxBool isBusy = false.obs;
+  /// Full reverse-geocode pass before opening preview (upload screen shows overlay).
+  final RxBool isPreparingPreviewLocations = false.obs;
 
   final RxList<KmzIgnoreRule> ignoreRules = <KmzIgnoreRule>[].obs;
   final Rxn<KmzFileInspect> kmzInspect = Rxn();
@@ -87,6 +81,9 @@ class GpxKmzUploadController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (!Get.isRegistered<GeocodingIsolateService>()) {
+      Get.put(GeocodingIsolateService(), permanent: true);
+    }
     ignoreMarkerController.text = '';
     ignoreContainsController.text = '';
   }
@@ -109,11 +106,15 @@ class GpxKmzUploadController extends GetxController {
   Future<void> _reloadPastUploadCount() async {
     try {
       pastUploadCount.value =
-          await DatabaseHelper.instance.countTrackImportLogs();
+          await DatabaseHelper.instance.countTrackImportLogs(
+        importSource: DatabaseHelper.trackImportSourceGpxKmz,
+      );
     } catch (e) {
       debugPrint('[GpxKmzUpload] past upload count: $e');
     }
   }
+
+  Future<void> refreshPastUploadCount() => _reloadPastUploadCount();
 
   /// Opens picker once when entering from Settings (no file yet).
   Future<void> pickKmzFileFromSettingsEntry() async {
@@ -240,6 +241,19 @@ class GpxKmzUploadController extends GetxController {
     }
   }
 
+  void _clearImportedTrackFile() {
+    _kmzPath = null;
+    filePathController.clear();
+    kmzInspect.value = null;
+    _applyEmptyStats();
+  }
+
+  /// Clears the selected KMZ/GPX file and resets preview stats on screen.
+  void clearImportedFileAndResetView() {
+    _previewGeneration++;
+    _clearImportedTrackFile();
+  }
+
   void _applyEmptyStats() {
     _lastStats = null;
     availableMemoryDateKeys.clear();
@@ -282,6 +296,8 @@ class GpxKmzUploadController extends GetxController {
       return;
     }
 
+    final importBlock = Get.find<MemoryImportBlockingController>();
+    importBlock.importing.value = true;
     isBusy.value = true;
     final mem = Get.find<MemoryController>();
     final rows =
@@ -303,7 +319,7 @@ class GpxKmzUploadController extends GetxController {
           continue;
         }
         try {
-          await mem.saveImportedTrackMemory(
+          final memoryId = await mem.saveImportedTrackMemory(
             when: c.when,
             latitude: c.latitude,
             longitude: c.longitude,
@@ -317,6 +333,7 @@ class GpxKmzUploadController extends GetxController {
             DatabaseHelper.columnTrackLogItemLat: c.latitude,
             DatabaseHelper.columnTrackLogItemLng: c.longitude,
             DatabaseHelper.columnTrackLogItemLocation: 'Region',
+            DatabaseHelper.columnTrackLogItemMemoryId: memoryId,
           });
         } catch (e) {
           debugPrint('[GpxKmzUpload] skip row: $e');
@@ -330,6 +347,7 @@ class GpxKmzUploadController extends GetxController {
         ignoredCount: _lastStats!.ignoredEntries,
         dupCount: _lastStats!.duplicateEntries + dupRuntime,
         newCount: inserted,
+        importSource: DatabaseHelper.trackImportSourceGpxKmz,
       );
       await DatabaseHelper.instance.insertTrackImportLogItems(
         logId: logId,
@@ -360,7 +378,13 @@ class GpxKmzUploadController extends GetxController {
         colorText: Colors.white,
       );
 
-      await runPreview();
+      if (inserted > 0) {
+        _clearImportedTrackFile();
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+        Get.back<void>();
+      } else {
+        await runPreview();
+      }
     } catch (e, st) {
       debugPrint('[GpxKmzUpload] upload error: $e\n$st');
       showTrSnackbar(
@@ -370,17 +394,56 @@ class GpxKmzUploadController extends GetxController {
         colorText: Colors.white,
       );
     } finally {
+      importBlock.importing.value = false;
       isBusy.value = false;
     }
   }
 
   Future<void> onPreviewTap() async {
+    final path = _kmzPath ?? '';
+    if (path.isEmpty || !await File(path).exists()) {
+      showTrSnackbar(
+        'gpx_snackbar_nothing_to_import',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
     await runPreview();
     final stats = _lastStats;
-    if (stats == null || stats.candidates.isEmpty) return;
-    Get.to(
-      () => KmzPreviewView(candidates: stats.candidates),
-    );
+    if (stats == null || stats.candidates.isEmpty) {
+      showTrSnackbar(
+        'gpx_snackbar_nothing_to_import',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+    final sorted = [...stats.candidates]
+      ..sort((a, b) => a.when.compareTo(b.when));
+    final coords = sorted
+        .map((e) => (lat: e.latitude, lng: e.longitude))
+        .toList();
+    try {
+      isPreparingPreviewLocations.value = true;
+      final lines = await resolveTrackPreviewLocationLinesOrdered(coords);
+      await Get.to<void>(
+        () => KmzPreviewView(
+          candidates: sorted,
+          locationLines: lines,
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('[GpxKmzUpload] preview geocode: $e\n$st');
+      showTrSnackbar(
+        'gpx_snackbar_preview_error',
+        args: [e.toString()],
+        backgroundColor: Colors.red.shade700,
+        colorText: Colors.white,
+      );
+    } finally {
+      isPreparingPreviewLocations.value = false;
+    }
   }
 
   List<String> _extractDateKeys(List<KmzTrackPoint> pts) {
@@ -438,6 +501,75 @@ class GpxKmzUploadController extends GetxController {
     return '${key.substring(8, 10)}.${key.substring(5, 7)}.${key.substring(0, 4)}';
   }
 
+  DateTime? _dateFromKey(String key) {
+    if (key.length != 10) return null;
+    final y = int.tryParse(key.substring(0, 4));
+    final m = int.tryParse(key.substring(5, 7));
+    final d = int.tryParse(key.substring(8, 10));
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
+
+  String? _nearestDateKey(DateTime picked, {required bool forStart}) {
+    final keys = availableMemoryDateKeys;
+    if (keys.isEmpty) return null;
+    final pickedKey =
+        '${picked.year.toString().padLeft(4, '0')}-'
+        '${picked.month.toString().padLeft(2, '0')}-'
+        '${picked.day.toString().padLeft(2, '0')}';
+    if (keys.contains(pickedKey)) return pickedKey;
+    if (forStart) {
+      for (final k in keys) {
+        if (k.compareTo(pickedKey) >= 0) return k;
+      }
+      return keys.last;
+    }
+    for (var i = keys.length - 1; i >= 0; i--) {
+      if (keys[i].compareTo(pickedKey) <= 0) return keys[i];
+    }
+    return keys.first;
+  }
+
+  Future<void> pickStartDate(BuildContext context) async {
+    final keys = availableMemoryDateKeys;
+    if (keys.isEmpty) return;
+    final first = _dateFromKey(keys.first);
+    final last = _dateFromKey(keys.last);
+    final initial = _dateFromKey(selectedStartDateKey.value) ?? first;
+    if (first == null || last == null || initial == null) return;
+    final picked = await showAppDatePicker(
+      context: context,
+      initialDate: initial.isBefore(first)
+          ? first
+          : (initial.isAfter(last) ? last : initial),
+      firstDate: first,
+      lastDate: last,
+    );
+    if (picked == null) return;
+    final key = _nearestDateKey(picked, forStart: true);
+    if (key != null) onStartDateChanged(key);
+  }
+
+  Future<void> pickEndDate(BuildContext context) async {
+    final keys = availableMemoryDateKeys;
+    if (keys.isEmpty) return;
+    final first = _dateFromKey(keys.first);
+    final last = _dateFromKey(keys.last);
+    final initial = _dateFromKey(selectedEndDateKey.value) ?? last;
+    if (first == null || last == null || initial == null) return;
+    final picked = await showAppDatePicker(
+      context: context,
+      initialDate: initial.isBefore(first)
+          ? first
+          : (initial.isAfter(last) ? last : initial),
+      firstDate: first,
+      lastDate: last,
+    );
+    if (picked == null) return;
+    final key = _nearestDateKey(picked, forStart: false);
+    if (key != null) onEndDateChanged(key);
+  }
+
   void onStartDateChanged(String key) {
     selectedStartDateKey.value = key;
     if (selectedEndDateKey.value.isEmpty ||
@@ -460,8 +592,13 @@ class GpxKmzUploadController extends GetxController {
     runPreview();
   }
 
-  void onPastUploadsTap() {
-    Get.to(() => const KmzPastUploadsView());
+  Future<void> onPastUploadsTap() async {
+    await Get.to<void>(
+      () => const KmzPastUploadsView(
+        importSource: DatabaseHelper.trackImportSourceGpxKmz,
+      ),
+    );
+    await _reloadPastUploadCount();
   }
 
   Future<void> onAddIgnoreRuleTap() async {
@@ -499,10 +636,13 @@ class GpxKmzUploadController extends GetxController {
   void onIgnoreHelpTap() {
     Get.dialog<void>(
       AlertDialog(
-        title: Text('gpx_ignore_help_tooltip'.tr),
+        title: Text('gpx_ignore_help_title'.tr),
         content: SingleChildScrollView(child: Text('gpx_ignore_help_body'.tr)),
         actions: [
-          TextButton(onPressed: () => Get.back<void>(), child: const Text('OK')),
+          TextButton(
+            onPressed: () => Get.back<void>(),
+            child: Text('text_ok'.tr),
+          ),
         ],
       ),
     );

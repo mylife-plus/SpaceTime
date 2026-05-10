@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../config/app_fonts.dart';
+import '../../../../widgets/right_nav_trailing_icon.dart';
 import '../../../ui/controllers/ui_controller.dart';
 
 class SettingsTile extends StatelessWidget {
@@ -9,6 +11,8 @@ class SettingsTile extends StatelessWidget {
   final String title;
   /// When set, title is resolved with `.tr` inside [Obx] so it updates on language change.
   final String? titleL10nKey;
+  /// When set, used as the list title instead of [title] / [titleL10nKey] text.
+  final Widget? titleOverride;
   final String? subtitle;
   final VoidCallback? onTap;
   final bool showDivider;
@@ -21,14 +25,15 @@ class SettingsTile extends StatelessWidget {
     required this.icon,
     this.title = '',
     this.titleL10nKey,
+    this.titleOverride,
     this.subtitle,
     this.onTap,
     this.showDivider = false,
     this.showChevron = true,
     this.trailing,
   }) : assert(
-          titleL10nKey != null || title.isNotEmpty,
-          'Provide titleL10nKey or a non-empty title',
+          titleOverride != null || titleL10nKey != null || title.isNotEmpty,
+          'Provide titleOverride, titleL10nKey, or a non-empty title',
         );
 
   @override
@@ -36,7 +41,7 @@ class SettingsTile extends StatelessWidget {
     final controller = Get.find<UiController>();
     return Obx(
       () {
-        if (titleL10nKey != null) {
+        if (titleL10nKey != null || titleOverride != null) {
           controller.selectedLanguage.value;
         }
         final titleText =
@@ -48,18 +53,18 @@ class SettingsTile extends StatelessWidget {
           children: [
             ListTile(
               leading: SizedBox(
-                width: 24,
-                height: 24,
+                width: 28,
+                height: 28,
                 child: Center(child: icon),
               ),
-              title: Text(
-                titleText,
-                style: TextStyle(
-                  fontSize: 16,
-                  color:
-                      controller.darkMode.value ? Colors.white : Colors.black,
-                ),
-              ),
+              title: titleOverride ??
+                  Text(
+                    titleText,
+                    style: AppFonts.medium(
+                      16,
+                      color: controller.darkMode.value ? Colors.white : Colors.black,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
               subtitle: subtitle == null
                   ? null
                   : Text(
@@ -74,8 +79,7 @@ class SettingsTile extends StatelessWidget {
               trailing:
                   showChevron
                       ? (trailing ??
-                          Icon(
-                            Icons.arrow_forward_ios,
+                          RightNavTrailingIcon(
                             size: 16,
                             color:
                                 controller.darkMode.value

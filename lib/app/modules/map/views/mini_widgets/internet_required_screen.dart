@@ -6,6 +6,7 @@ import 'package:spacetime/app/modules/map/controllers/map_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/connectivity_service.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/widgets/right_nav_trailing_icon.dart';
 
 class InternetRequiredScreen extends StatefulWidget {
   const InternetRequiredScreen({super.key});
@@ -682,8 +683,7 @@ class _InternetRequiredScreenState extends State<InternetRequiredScreen> {
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
+            RightNavTrailingIcon(
               size: 16,
               color: uiController.currentMainColor.withValues(alpha: 0.7),
             ),

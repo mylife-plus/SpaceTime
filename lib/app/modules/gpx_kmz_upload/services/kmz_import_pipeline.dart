@@ -45,6 +45,18 @@ class KmzImportStats {
 }
 
 class KmzImportPipeline {
+  static bool _looksLikeGpxXml(String xml) {
+    final lower = xml.toLowerCase();
+    return lower.contains('<gpx') || lower.contains('<trkpt');
+  }
+
+  static List<KmzTrackPoint> _parseGpxBytes(List<int> bytes) {
+    final xml = utf8.decode(bytes, allowMalformed: true);
+    _debugLogGpxFileData(xml);
+    var pts = KmzKmlParser.parseGpxString(xml);
+    return pts;
+  }
+
   static Duration durationForTimeKey(String key) {
     switch (key) {
       case 'gpx_dd_time_1m':
@@ -89,6 +101,19 @@ class KmzImportPipeline {
 
   static const Distance _distance = Distance();
 
+  static double metersBetween(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    return _distance.as(
+      LengthUnit.Meter,
+      LatLng(lat1, lng1),
+      LatLng(lat2, lng2),
+    );
+  }
+
   static String fingerprintFor(DateTime when, double lat, double lng) {
     final utc = when.toUtc();
     return 'kmz:${utc.toIso8601String()}:${lat.toStringAsFixed(6)}:${lng.toStringAsFixed(6)}';
@@ -109,9 +134,7 @@ class KmzImportPipeline {
     final contains = ignoreContainsSub.trim();
     if (lower.endsWith('.gpx')) {
       final bytes = await file.readAsBytes();
-      final xml = utf8.decode(bytes, allowMalformed: true);
-      _debugLogGpxFileData(xml);
-      var pts = KmzKmlParser.parseGpxString(xml);
+      var pts = _parseGpxBytes(bytes);
       if (structuredRules.isNotEmpty) {
         pts = pts.where((p) => !_gpxPointIgnoredByRules(p, structuredRules)).toList();
       }
@@ -126,17 +149,54 @@ class KmzImportPipeline {
     }
 
     final bytes = await file.readAsBytes();
+    // Some GPX files come with wrong extension; support them by content sniff.
+    final rawText = utf8.decode(bytes, allowMalformed: true);
+    if (_looksLikeGpxXml(rawText)) {
+      var pts = KmzKmlParser.parseGpxString(rawText);
+      if (structuredRules.isNotEmpty) {
+        pts = pts.where((p) => !_gpxPointIgnoredByRules(p, structuredRules)).toList();
+      }
+      pts = _applyTrackPointTimeRules(pts, structuredRules);
+      final normalized = normalizeTimes(
+        pts,
+        baseUtc: baseUtc,
+        missingStep: const Duration(minutes: 1),
+      );
+      _debugLogGpxParsedPoints(normalized);
+      return normalized;
+    }
+
     final archive = ZipDecoder().decodeBytes(bytes);
     final zipNames = archive.map((f) => f.name).toList();
     ArchiveFile? kmlFile;
+    ArchiveFile? gpxFile;
     for (final f in archive) {
       final n = f.name.toLowerCase();
       if (n.endsWith('.kml')) {
         if (n.endsWith('doc.kml') || kmlFile == null) kmlFile = f;
         if (n.endsWith('doc.kml')) break;
       }
+      if (n.endsWith('.gpx') && gpxFile == null) {
+        gpxFile = f;
+      }
     }
-    if (kmlFile == null) return [];
+    if (kmlFile == null) {
+      // Some archives contain GPX directly; support those too.
+      if (gpxFile == null) return [];
+      final gpxBytes = gpxFile.content as List<int>;
+      var pts = _parseGpxBytes(gpxBytes);
+      if (structuredRules.isNotEmpty) {
+        pts = pts.where((p) => !_gpxPointIgnoredByRules(p, structuredRules)).toList();
+      }
+      pts = _applyTrackPointTimeRules(pts, structuredRules);
+      final normalized = normalizeTimes(
+        pts,
+        baseUtc: baseUtc,
+        missingStep: const Duration(minutes: 1),
+      );
+      _debugLogGpxParsedPoints(normalized);
+      return normalized;
+    }
     final xml = utf8.decode(kmlFile.content as List<int>, allowMalformed: true);
     final inspect = KmzKmlInspector.inspectXml(xml);
     final styleMap = inspect.styleIdToAbgr;
@@ -471,6 +531,16 @@ class KmzImportPipeline {
       }
     }
     return false;
+  }
+
+  /// Public entry for non-KMZ flows (e.g. gallery GPS) that reuse the same
+  /// area grouping + time/distance clustering rules.
+  static List<List<KmzTrackPoint>> clusterTrackPoints(
+    List<KmzTrackPoint> points,
+    Duration maxTimeApart,
+    double maxMetersApart,
+  ) {
+    return _clusterPoints(points, maxTimeApart, maxMetersApart);
   }
 
   /// Cluster: walk sorted by time; start new cluster if gap > thresholds.

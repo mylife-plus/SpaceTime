@@ -13,8 +13,11 @@ import 'package:spacetime/app/helpers/nearest_region_service.dart';
 import 'package:spacetime/app/helpers/offline_water_service.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/theme/app_system_ui.dart';
 import 'package:spacetime/services/app_lock_controller.dart';
+import 'package:spacetime/services/memory_import_blocking_controller.dart';
 import 'package:spacetime/widgets/app_lock_gate.dart';
+import 'package:spacetime/widgets/memory_import_blocking_overlay.dart';
 import 'package:spacetime/services/connectivity_service.dart';
 import 'package:spacetime/services/permission_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,6 +51,7 @@ Future<void> main() async {
   // so the engine reaches runApp quickly and the native splash can dismiss.
   Get.put(UiController(), permanent: true);
   Get.put(AppLockController(), permanent: true);
+  Get.put(MemoryImportBlockingController(), permanent: true);
 
   runApp(MyApp());
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -57,6 +61,15 @@ Future<void> main() async {
 
 Future<void> _bootstrapAfterFirstPaint() async {
   FlutterNativeSplash.remove();
+
+  try {
+    await AppSystemUi.enableEdgeToEdge();
+    if (Get.isRegistered<UiController>()) {
+      AppSystemUi.syncTheme(Get.find<UiController>().darkMode.value);
+    }
+  } catch (e) {
+    debugPrint('[main] edge-to-edge / system UI: $e');
+  }
 
   try {
     await SystemChrome.setPreferredOrientations([
@@ -193,8 +206,12 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => GetMaterialApp(
+    return Obx(() {
+      final accent = uiController.currentMainColor;
+      final trackLight = accent.withValues(alpha: 0.14);
+      final trackDark = accent.withValues(alpha: 0.22);
+
+      return GetMaterialApp(
         title: 'title_literal_application'.tr,
         translations: SpaceTimeTranslations(),
         locale: appLocaleFromLanguageCode(uiController.selectedLanguage.value),
@@ -215,10 +232,21 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         builder: (context, child) {
           if (child == null) return const SizedBox.shrink();
-          return AppLockGate(child: child);
+          final ui = Get.find<UiController>();
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: AppSystemUi.overlayStyle(dark: ui.darkMode.value),
+            child: MemoryImportBlockingOverlay(
+              child: AppLockGate(child: child),
+            ),
+          );
         },
         theme: ThemeData.light().copyWith(
           inputDecorationTheme: AppInputTheme.singleLineDecorationTheme,
+          progressIndicatorTheme: ProgressIndicatorThemeData(
+            color: accent,
+            circularTrackColor: trackLight,
+            linearTrackColor: trackLight,
+          ),
         ),
         darkTheme: ThemeData.dark().copyWith(
           scaffoldBackgroundColor: Colors.black,
@@ -231,10 +259,15 @@ class MyApp extends StatelessWidget {
             iconTheme: IconThemeData(color: Colors.white),
           ),
           inputDecorationTheme: AppInputTheme.singleLineDecorationTheme,
+          progressIndicatorTheme: ProgressIndicatorThemeData(
+            color: accent,
+            circularTrackColor: trackDark,
+            linearTrackColor: trackDark,
+          ),
         ),
         themeMode:
             uiController.darkMode.value ? ThemeMode.dark : ThemeMode.light,
-      ),
-    );
+      );
+    });
   }
 }

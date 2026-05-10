@@ -5,6 +5,7 @@ import 'package:spacetime/app/modules/add_memories/controllers/location_picker_c
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import '../../../../config/app_colors.dart';
+import 'package:spacetime/app/widgets/location_picker_system_ui_shell.dart';
 
 class LocationPickerWidget extends GetView<LocationPickerController> {
   const LocationPickerWidget({super.key});
@@ -20,11 +21,13 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
     return Obx(() {
       debugPrint('[LocationPickerWidget][build] State: isOfflineMode=${controller.isOfflineMode.value}, isLoading=${controller.isLoading.value}');
 
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Stack(
-            children: [
+      return LocationPickerSystemUiShell(
+        child: SafeArea(
+          bottom: false,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Stack(
+              children: [
             if (controller.isLoading.value)
               Center(
                 child: Column(
@@ -103,7 +106,8 @@ class LocationPickerWidget extends GetView<LocationPickerController> {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       );

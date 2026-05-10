@@ -8,6 +8,7 @@ import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
+import 'package:spacetime/app/widgets/location_picker_system_ui_shell.dart';
 
 class NewLocationPickerWidget extends StatefulWidget {
   const NewLocationPickerWidget({super.key});
@@ -40,10 +41,13 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Obx(() => _buildBody()),
+    return LocationPickerSystemUiShell(
+      child: SafeArea(
+        bottom: false,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Obx(() => _buildBody()),
+        ),
       ),
     );
   }

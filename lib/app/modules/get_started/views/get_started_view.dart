@@ -1,7 +1,8 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show SystemUiOverlayStyle;
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/theme/app_system_ui.dart';
 import 'package:spacetime/app/config/supported_languages.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -33,12 +34,8 @@ class GetStartedView extends GetView<GetStartedController> {
     final uiController = Get.find<UiController>();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-  value: const SystemUiOverlayStyle(
-    statusBarColor: Colors.black,
-    statusBarIconBrightness: Brightness.light, // Android
-    statusBarBrightness: Brightness.dark, // iOS
-  ),
-  child:Scaffold(
+      value: AppSystemUi.overlayStyle(dark: true),
+      child: Scaffold(
       body: Container(
         color: Colors.black,
         child: Container(
@@ -49,7 +46,7 @@ class GetStartedView extends GetView<GetStartedController> {
               fit: BoxFit.fitWidth,
             ),
           ),
-          child: SafeArea(
+          child: SafeArea(bottom: false,
             child: Obx(() {
               if (controller.isInitializing.value) {
                 return Center(
@@ -66,7 +63,8 @@ class GetStartedView extends GetView<GetStartedController> {
           ),
         ),
       ),
-    ));
+    ),
+    );
   }
 
   /// Build the welcome animation section
@@ -190,23 +188,40 @@ class GetStartedView extends GetView<GetStartedController> {
 
               const SizedBox(height: 4),
 
-              // 'text_100_open_source'.tr text
-              Text(
-                'text_100_open_source'.tr,
-                style: GoogleFonts.lilitaOne(
-                  fontSize: _responsiveFontSize(context, 50),
+              // 'text_100_open_source' — bold on localized open-source phrase
+              Obx(() {
+                Get.find<UiController>().selectedLanguage.value;
+                final fs = _responsiveFontSize(context, 50);
+                final shadows = [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 8,
+                    offset: const Offset(0, 1),
+                  ),
+                ];
+                final base = GoogleFonts.lilitaOne(
+                  fontSize: fs,
                   fontWeight: FontWeight.w400,
                   color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.8),
-                      blurRadius: 8,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                textAlign: TextAlign.center,
-              ),
+                  shadows: shadows,
+                );
+                final bold = GoogleFonts.lilitaOne(
+                  fontSize: fs,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  shadows: shadows,
+                );
+                return Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: 'text_100_open_source_pre'.tr, style: base),
+                      TextSpan(text: 'text_100_open_source_bold'.tr, style: bold),
+                      TextSpan(text: 'text_100_open_source_post'.tr, style: base),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                );
+              }),
 
               const SizedBox(height: 8),
 
@@ -367,18 +382,54 @@ class GetStartedView extends GetView<GetStartedController> {
 
                   // const SizedBox(height: 4),
 
-                  // 'text_100_open_source_2'.tr text
-                  Text(
-                    'text_100_open_source_2'.tr,
-                    style: GoogleFonts.lilitaOne(
-                      fontSize: _responsiveFontSize(context, 24),
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 8,
-                          offset: const Offset(0, 1),
+                  // 'text_100_open_source_2' — bold on localized open-source phrase
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'text_100_open_source_pre'.tr,
+                          style: GoogleFonts.lilitaOne(
+                            fontSize: _responsiveFontSize(context, 24),
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 8,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'text_100_open_source_bold'.tr,
+                          style: GoogleFonts.lilitaOne(
+                            fontSize: _responsiveFontSize(context, 24),
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 8,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'text_100_open_source_post'.tr,
+                          style: GoogleFonts.lilitaOne(
+                            fontSize: _responsiveFontSize(context, 24),
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 8,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

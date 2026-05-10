@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 
+import '../../../../widgets/right_nav_trailing_icon.dart';
 import '../../controllers/ui_controller.dart';
 
 class UiTile extends StatelessWidget {
@@ -10,7 +11,10 @@ class UiTile extends StatelessWidget {
   final bool? isActive;
   final ValueChanged<bool>? onChanged;
   final bool showDivider;
-  final IconData? trailingIcon;
+  /// Shows trailing navigation asset when the row opens another screen.
+  final bool showTrailingNav;
+  /// Overrides [showTrailingNav] when non-null (e.g. selection checkmark).
+  final Widget? trailing;
   final VoidCallback? onTap;
   final Widget? leading;
 
@@ -21,7 +25,8 @@ class UiTile extends StatelessWidget {
     this.isActive,
     this.onChanged,
     this.showDivider = false,
-    this.trailingIcon,
+    this.showTrailingNav = false,
+    this.trailing,
     this.onTap,
     this.leading,
   });
@@ -99,13 +104,19 @@ class UiTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (trailingIcon != null)
+                    if (trailing != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 12),
-                        child: Icon(
-                          trailingIcon,
+                        child: trailing!,
+                      )
+                    else if (showTrailingNav)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: RightNavTrailingIcon(
                           size: 16,
-                          color: Theme.of(context).iconTheme.color,
+                          color: controller.darkMode.value
+                              ? Colors.white70
+                              : Colors.grey,
                         ),
                       ),
                   ],

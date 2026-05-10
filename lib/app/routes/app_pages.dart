@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/modules/add_memories/bindings/add_memories.dart';
 import 'package:spacetime/app/modules/add_memories/views/add_memories.dart';
@@ -92,6 +93,10 @@ class AppPages {
       name: _Paths.MEMORIES,
       page: () => MemoryView(),
       binding: MemoryBinding(),
+      transition: Transition.cupertino,
+      transitionDuration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      opaque: true,
     ),
     GetPage(
       name: _Paths.ADD_MEMORIES,

@@ -8,6 +8,7 @@ import 'package:spacetime/app/modules/map/controllers/memory_location_picker_wit
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/widgets/location_picker_system_ui_shell.dart';
 
 class MemoryLocationPickerWidgetWithRadius extends StatefulWidget {
   const MemoryLocationPickerWidgetWithRadius({super.key});
@@ -55,12 +56,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: 
-      Scaffold(
-      backgroundColor: Colors.black,
-      body:
-        _buildMapView(),
+    return LocationPickerSystemUiShell(
+      child: SafeArea(
+        bottom: false,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: _buildMapView(),
+        ),
       ),
     );
   }

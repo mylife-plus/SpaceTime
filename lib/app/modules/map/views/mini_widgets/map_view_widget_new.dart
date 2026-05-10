@@ -15,6 +15,8 @@ import '../../../add_memories/controllers/add_memories_controller.dart';
 import '../../../add_memories/views/mini_widgets/filter_indicator.dart';
 import '../../../add_memories/views/mini_widgets/search_indicator.dart';
 import '../../../filter/controllers/filter_controller.dart';
+import '../../../ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/theme/app_system_ui.dart';
 import 'map_filter_overlay.dart';
 import '../../../../../services/mbtiles_download_service.dart';
 import '../../../../../services/mbtiles_server_service.dart';
@@ -134,73 +136,109 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 
   @override
   Widget build(BuildContext context) {
+    final uiController = Get.find<UiController>();
+
     // Show error if server failed to start
     if (_errorMessage != null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 20),
-                  Text(
-                    _errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, color: Colors.white),
+      return Obx(() {
+        final isDark = uiController.darkMode.value;
+        final fg = isDark ? Colors.white : Colors.black87;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: AppSystemUi.overlayStyle(dark: isDark),
+          child: ColoredBox(
+            color: isDark ? uiController.darkBackgroundColor : Colors.white,
+            child: SafeArea(
+              bottom: false,
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 64, color: Colors.red),
+                        const SizedBox(height: 20),
+                        Text(
+                          _errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: fg),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
+      });
     }
 
     // Show loading while server is starting
     if (_isInitializing || _serverUrl == null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 20),
-                Text(
-                  'text_starting_local_tile_server'.tr,
-                  style: TextStyle(color: Colors.white),
+      return Obx(() {
+        final isDark = uiController.darkMode.value;
+        final fg = isDark ? Colors.white : Colors.black87;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: AppSystemUi.overlayStyle(dark: isDark),
+          child: ColoredBox(
+            color: isDark ? uiController.darkBackgroundColor : Colors.white,
+            child: SafeArea(
+              bottom: false,
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        color: isDark ? Colors.white : null,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'text_starting_local_tile_server'.tr,
+                        style: TextStyle(color: fg),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      );
+        );
+      });
     }
 
     return GetBuilder<MapControllerNew>(
       // Remove init parameter to prevent creating new instance
       builder: (controller) {
-        // return Obx(() {
-        return Scaffold(
-          backgroundColor: Colors.black,
-          body: SafeArea(
-            child: Stack(
-              children: [
-                Positioned.fill(child: _buildMapWidget(controller)),
+        return Obx(() {
+          final isDark = uiController.darkMode.value;
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: AppSystemUi.overlayStyle(dark: isDark),
+            child: ColoredBox(
+              color: isDark ? uiController.darkBackgroundColor : Colors.white,
+              child: SafeArea(
+                bottom: false,
+                child: Scaffold(
+                  backgroundColor: Colors.transparent,
+                  body: Stack(
+                    children: [
+                      Positioned.fill(child: _buildMapWidget(controller)),
 
-                if (!_mapChromeReady)
-                  Positioned.fill(child: _buildMapLoadingOverlay()),
+                      if (!_mapChromeReady)
+                        Positioned.fill(child: _buildMapLoadingOverlay()),
 
-                if (_mapChromeReady) Obx(() => _buildOverlays(controller)),
-              ],
+                      if (_mapChromeReady) Obx(() => _buildOverlays(controller)),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        );
+          );
+        });
       },
     );
     // },
@@ -280,8 +318,12 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           if (!controller.isFilterOpen.value) {
             return const SizedBox.shrink();
           }
+          final ui = Get.find<UiController>();
+          final alpha = ui.darkMode.value ? 0.74 : 0.52;
           return Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.8)),
+            child: Container(
+              color: Colors.black.withValues(alpha: alpha),
+            ),
           );
         }),
 

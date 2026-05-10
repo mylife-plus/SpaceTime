@@ -134,6 +134,7 @@ final Map<String, String> countryFlags = {
   "croatia": "🇭🇷",
   "cuba": "🇨🇺",
   "cyprus": "🇨🇾",
+  "czech republic": "🇨🇿",
   "czechia": "🇨🇿",
   "denmark": "🇩🇰",
   "djibouti": "🇩🇯",

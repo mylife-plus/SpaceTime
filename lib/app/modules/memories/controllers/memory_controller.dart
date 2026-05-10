@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show compute, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -17,6 +18,7 @@ import 'dart:ui' as ui;
 
 import '../../../services/memory_db.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/utils/memory_images_copy_compute.dart';
 
 class MemoryController extends GetxController {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
@@ -342,6 +344,8 @@ class MemoryController extends GetxController {
       print('🔍 === ISOLATE REVERSE GEOCODING DEBUG ===');
       print('📍 Input coordinates: $latitude, $longitude');
 
+      await geocodingService.ensureInitialized();
+
       final result = await geocodingService.reverseGeocode(latitude, longitude);
 
       if (result != null) {
@@ -403,47 +407,75 @@ class MemoryController extends GetxController {
     isPopupOpen.value = false;
   }
 
-  // Save images to app directory and return RELATIVE file paths (NEW APPROACH)
+  /// Copy gallery images into app storage; returns relative paths (`memory_images/...`).
+  ///
+  /// Large batches use [compute] so file I/O does not block the UI isolate.
   Future<List<String>> saveImagesToAppDirectory(List<String> imagePaths) async {
-    List<String> savedImagePaths = [];
+    if (imagePaths.isEmpty) return [];
 
     try {
-      // Get app documents directory
       final appDir = await getApplicationDocumentsDirectory();
-      final imagesDir = Directory('${appDir.path}/memory_images');
+      final imagesDirPath = '${appDir.path}/memory_images';
 
-      // Create images directory if it doesn't exist
-      if (!await imagesDir.exists()) {
-        await imagesDir.create(recursive: true);
-      }
-
-      for (String imagePath in imagePaths) {
+      if (!kIsWeb && imagePaths.length >= 4) {
         try {
-          final sourceFile = File(imagePath);
-          if (await sourceFile.exists()) {
-            // Generate unique filename
-            final timestamp = DateTime.now().millisecondsSinceEpoch;
-            final extension = imagePath.split('.').last.toLowerCase();
-            final fileName =
-                'memory_${timestamp}_${savedImagePaths.length}.$extension';
-            final targetPath = '${imagesDir.path}/$fileName';
-
-            // Copy original image to app directory (preserves quality)
-            await sourceFile.copy(targetPath);
-
-            // Store RELATIVE path instead of absolute path
-            savedImagePaths.add('memory_images/$fileName');
-
-            debugPrint('Image saved to app directory: $fileName (relative path)');
+          final copied = await compute(memoryImagesCopyIsolateWork, {
+            'dest': imagesDirPath,
+            'sources': imagePaths,
+          });
+          if (copied.isNotEmpty) {
+            debugPrint(
+              '[MemoryController] Copied ${copied.length} images in background isolate',
+            );
+            return copied;
           }
         } catch (e) {
-          debugPrint('Error saving image: $e');
+          debugPrint(
+            '[MemoryController] Isolate image copy failed, using main isolate: $e',
+          );
         }
       }
+
+      return _saveImagesToAppDirectorySequential(imagePaths, imagesDirPath);
     } catch (e) {
       debugPrint('Error creating images directory: $e');
     }
 
+    return [];
+  }
+
+  Future<List<String>> _saveImagesToAppDirectorySequential(
+    List<String> imagePaths,
+    String imagesDirPath,
+  ) async {
+    final savedImagePaths = <String>[];
+    final imagesDir = Directory(imagesDirPath);
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+
+    for (var idx = 0; idx < imagePaths.length; idx++) {
+      final imagePath = imagePaths[idx];
+      try {
+        final sourceFile = File(imagePath);
+        if (await sourceFile.exists()) {
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final extension = imagePath.split('.').last.toLowerCase();
+          final fileName =
+              'memory_${timestamp}_${savedImagePaths.length}.$extension';
+          final targetPath = '${imagesDir.path}/$fileName';
+
+          await sourceFile.copy(targetPath);
+          savedImagePaths.add('memory_images/$fileName');
+          debugPrint('Image saved to app directory: $fileName (relative path)');
+        }
+      } catch (e) {
+        debugPrint('Error saving image: $e');
+      }
+      if (idx % 4 == 3) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
     return savedImagePaths;
   }
 
@@ -515,6 +547,45 @@ class MemoryController extends GetxController {
     }
 
     return savedVideoPaths;
+  }
+
+  /// Copy gallery-import audio files into app storage; returns relative paths (`memory_audios/...`).
+  Future<List<String>> saveAudiosToAppDirectory(List<String> audioPaths) async {
+    final savedAudioPaths = <String>[];
+
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final audiosDir = Directory('${appDir.path}/memory_audios');
+
+      if (!await audiosDir.exists()) {
+        await audiosDir.create(recursive: true);
+      }
+
+      for (final audioPath in audioPaths) {
+        try {
+          final sourceFile = File(audioPath);
+          if (await sourceFile.exists()) {
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            final extension = audioPath.split('.').last.toLowerCase();
+            final fileName =
+                'memory_${timestamp}_${savedAudioPaths.length}.$extension';
+            final targetPath = '${audiosDir.path}/$fileName';
+
+            await sourceFile.copy(targetPath);
+
+            savedAudioPaths.add('memory_audios/$fileName');
+
+            debugPrint('Audio saved to app directory: $fileName (relative path)');
+          }
+        } catch (e) {
+          debugPrint('Error saving audio: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error creating audios directory: $e');
+    }
+
+    return savedAudioPaths;
   }
 
   // Compress image to reduce memory usage
@@ -1379,6 +1450,211 @@ class MemoryController extends GetxController {
     }
 
     return _databaseHelper.insertCompleteMemory(memoryData: memory);
+  }
+
+  /// Gallery GPS import: one memory with multiple images/videos at [when] / [latitude],[longitude].
+  Future<int> saveImportedGalleryClusterMemory({
+    required DateTime when,
+    required double latitude,
+    required double longitude,
+    required List<String> imageAbsolutePaths,
+    required List<String> videoAbsolutePaths,
+    List<String> audioAbsolutePaths = const [],
+    required String trackImportFingerprint,
+  }) async {
+    final w = when.toLocal();
+
+    final ctx = Get.context;
+    if (ctx == null) {
+      throw Exception('Missing context for time formatting');
+    }
+
+    final dateStr = DateFormat('yyyy-MM-dd').format(w);
+    final timeStr = TimeOfDay.fromDateTime(w).format(ctx);
+
+    final loc =
+        '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
+
+    final geo = await reverseGeocodeCoordinates(latitude, longitude);
+    var locationCountrySnap = geo?['country'] as String? ?? '';
+    var locationCitySnap = geo?['city'] as String? ?? '';
+    var locationNameSnap = geo?['name'] as String? ?? '';
+    final locationAddressSnap = geo?['address'] as String? ?? '';
+    var locationFlagSnap = geo?['flag'] as String? ?? '';
+
+    if (locationFlagSnap.trim() == '🌊') {
+      final c = locationCountrySnap.trim().toLowerCase();
+      final resolvedFlag = c.isNotEmpty ? countryFlags[c] : null;
+      if (resolvedFlag != null && resolvedFlag.isNotEmpty) {
+        locationFlagSnap = resolvedFlag;
+      }
+
+      if (locationNameSnap.trim().isEmpty) {
+        final countryName = locationCountrySnap.trim();
+        if (countryName.isNotEmpty) {
+          locationNameSnap = countryName;
+        }
+      }
+    }
+
+    final memory = <String, dynamic>{
+      DatabaseHelper.columnDate: dateStr,
+      DatabaseHelper.columnTime: timeStr,
+      DatabaseHelper.columnLocation: loc,
+      DatabaseHelper.columnLocationCountry:
+          locationCountrySnap.isNotEmpty ? locationCountrySnap : null,
+      DatabaseHelper.columnLocationCity:
+          locationCitySnap.isNotEmpty ? locationCitySnap : null,
+      DatabaseHelper.columnLocationName:
+          locationNameSnap.isNotEmpty ? locationNameSnap : null,
+      DatabaseHelper.columnLocationAddress:
+          locationAddressSnap.isNotEmpty ? locationAddressSnap : null,
+      DatabaseHelper.columnLocationFlag:
+          locationFlagSnap.isNotEmpty ? locationFlagSnap : null,
+      DatabaseHelper.columnLocationLatitude: latitude,
+      DatabaseHelper.columnLocationLongitude: longitude,
+      DatabaseHelper.columnCategory: '',
+      DatabaseHelper.columnDescription: '',
+      DatabaseHelper.columnImagePath: null,
+      DatabaseHelper.columnAudioPath: null,
+      DatabaseHelper.columnTags: null,
+      DatabaseHelper.columnMentions: null,
+      DatabaseHelper.columnCreatedAt: w.toIso8601String(),
+      DatabaseHelper.columnUpdatedAt: DateTime.now().toIso8601String(),
+      DatabaseHelper.columnTrackImportFingerprint: trackImportFingerprint,
+    };
+
+    if (!await _databaseHelper.isDatabaseHealthy()) {
+      await _databaseHelper.resetDatabaseConnection();
+    }
+
+    List<String>? imageDataList;
+    if (imageAbsolutePaths.isNotEmpty) {
+      imageDataList = await convertImagesToBase64(imageAbsolutePaths);
+    }
+
+    List<Map<String, dynamic>>? videoDataList;
+    if (videoAbsolutePaths.isNotEmpty) {
+      final savedVideoPaths = await saveVideosToAppDirectory(videoAbsolutePaths);
+      videoDataList = [];
+      for (final videoPath in savedVideoPaths) {
+        final absolutePath = await getAbsolutePath(videoPath);
+        final file = File(absolutePath);
+        if (await file.exists()) {
+          videoDataList.add({
+            'path': videoPath,
+            'duration': '',
+            'thumbnail': '',
+          });
+        }
+      }
+      if (videoDataList.isEmpty) videoDataList = null;
+    }
+
+    List<Map<String, dynamic>>? audioDataList;
+    if (audioAbsolutePaths.isNotEmpty) {
+      final savedAudioPaths =
+          await saveAudiosToAppDirectory(audioAbsolutePaths);
+      audioDataList = [];
+      for (final audioPath in savedAudioPaths) {
+        final absolutePath = await getAbsolutePath(audioPath);
+        final file = File(absolutePath);
+        if (await file.exists()) {
+          audioDataList.add({
+            'path': audioPath,
+            'duration': '',
+          });
+        }
+      }
+      if (audioDataList.isEmpty) audioDataList = null;
+    }
+
+    final imageOrders = imageDataList == null
+        ? null
+        : List<int>.generate(imageDataList.length, (i) => i);
+    final videoOrders = videoDataList == null
+        ? null
+        : List<int>.generate(videoDataList.length, (i) => i);
+
+    return _databaseHelper.insertCompleteMemory(
+      memoryData: memory,
+      imageDataList: imageDataList,
+      audioDataList: audioDataList,
+      videoDataList: videoDataList,
+      imageOrders: imageOrders,
+      videoOrders: videoOrders,
+    );
+  }
+
+  /// Append gallery-import images/videos to an existing memory (same cluster rules as import).
+  Future<void> appendImportedGalleryMediaToMemory({
+    required int memoryId,
+    required List<String> imageAbsolutePaths,
+    required List<String> videoAbsolutePaths,
+    List<String> audioAbsolutePaths = const [],
+  }) async {
+    if (!await _databaseHelper.isDatabaseHealthy()) {
+      await _databaseHelper.resetDatabaseConnection();
+    }
+
+    var nextImageOrder = (await _databaseHelper.maxImageOrderForMemory(memoryId)) + 1;
+    if (imageAbsolutePaths.isNotEmpty) {
+      final imageDataList = await convertImagesToBase64(imageAbsolutePaths);
+      for (var i = 0; i < imageDataList.length; i++) {
+        final data = imageDataList[i];
+        await _databaseHelper.insertMemoryImage(
+          memoryId,
+          data,
+          nextImageOrder,
+        );
+        nextImageOrder++;
+        if (i % 4 == 3) {
+          await Future<void>.delayed(Duration.zero);
+        }
+      }
+    }
+
+    var nextVideoOrder = (await _databaseHelper.maxVideoOrderForMemory(memoryId)) + 1;
+    if (videoAbsolutePaths.isNotEmpty) {
+      final savedVideoPaths =
+          await saveVideosToAppDirectory(videoAbsolutePaths);
+      for (final videoPath in savedVideoPaths) {
+        final absolutePath = await getAbsolutePath(videoPath);
+        final file = File(absolutePath);
+        if (await file.exists()) {
+          await _databaseHelper.insertMemoryVideo(
+            memoryId,
+            videoPath,
+            '',
+            '',
+            nextVideoOrder,
+          );
+          nextVideoOrder++;
+        }
+      }
+    }
+
+    var nextAudioOrder =
+        (await _databaseHelper.maxAudioOrderForMemory(memoryId)) + 1;
+    if (audioAbsolutePaths.isNotEmpty) {
+      final savedAudioPaths =
+          await saveAudiosToAppDirectory(audioAbsolutePaths);
+      for (final audioPath in savedAudioPaths) {
+        final absolutePath = await getAbsolutePath(audioPath);
+        final file = File(absolutePath);
+        if (await file.exists()) {
+          await _databaseHelper.insertMemoryAudio(
+            memoryId,
+            audioPath,
+            '',
+            nextAudioOrder,
+          );
+          nextAudioOrder++;
+        }
+      }
+    }
+
+    await _databaseHelper.touchMemoryUpdatedAt(memoryId);
   }
 
   @override

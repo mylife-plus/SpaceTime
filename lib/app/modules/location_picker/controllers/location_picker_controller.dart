@@ -132,7 +132,7 @@ class LocationPickerController extends GetxController {
       if (!hasLocationPermission.value) {
         final granted = await _service.requestLocationPermission();
         if (!granted) {
-          errorMessage.value = 'Location permission denied';
+          errorMessage.value = 'snackbar_body_location_permission_denied'.tr;
           state.value = LocationPickerState.error;
           return;
         }

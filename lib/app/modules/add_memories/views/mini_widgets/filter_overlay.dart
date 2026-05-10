@@ -15,6 +15,26 @@ import '../../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
 
+Color _memoriesFilterOverlayBackground(UiController ui) {
+  if (ui.darkMode.value) {
+    return ui.darkBackgroundColor;
+  }
+  return ui.getLightModeBackgroundColor(ui.mainColor.value);
+}
+
+Color _filterSectionSurface(UiController ui) {
+  if (ui.darkMode.value) {
+    return ui.darkSurfaceColor;
+  }
+  return Colors.white;
+}
+
+Color _filterChipBackground(UiController ui) {
+  return ui.darkMode.value
+      ? Colors.white.withValues(alpha: 0.12)
+      : ui.currentMainColor.withValues(alpha: 0.12);
+}
+
 class MemoriesFilterOverlay extends StatefulWidget {
   final bool isOpenedFromMap;
   const MemoriesFilterOverlay({super.key, required this.isOpenedFromMap});
@@ -153,19 +173,22 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
   bool _validateDateRangeOrShowError(AddMemoriesController controller) {
     final fromDateStr = controller.filterValues['from date'];
     final toDateStr = controller.filterValues['to date'];
-    if ((fromDateStr?.isNotEmpty ?? false) && (toDateStr?.isNotEmpty ?? false)) {
+    if ((fromDateStr?.isNotEmpty ?? false) &&
+        (toDateStr?.isNotEmpty ?? false)) {
       try {
         final from = DateTime.parse(fromDateStr!);
         final to = DateTime.parse(toDateStr!);
         final fromDateOnly = DateTime(from.year, from.month, from.day);
         final toDateOnly = DateTime(to.year, to.month, to.day);
         if (toDateOnly.isBefore(fromDateOnly)) {
-          showTrSnackbar('snackbar_invalid_date_range_2', 
+          showTrSnackbar(
+            'snackbar_invalid_date_range_2',
             backgroundColor: Colors.red.shade400,
             colorText: Colors.white,
             margin: const EdgeInsets.all(12),
             snackPosition: SnackPosition.TOP,
-            duration: const Duration(seconds: 2),);
+            duration: const Duration(seconds: 2),
+          );
           return false;
         }
       } catch (e) {
@@ -191,46 +214,43 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
             : null;
     final uiController = Get.find<UiController>();
     controller.isOpenedFromMap = widget.isOpenedFromMap;
-    return Scaffold(
-      body: Obx(() => Container(
-        decoration: BoxDecoration(
-          color:
-              uiController.darkMode.value
-                  ? uiController.mainColor.value == 'blue'
-                      ? Color(0xFF001937)
-                      : uiController.iconColor2
-                  : uiController.mainColor.value == 'blue'
-                  ? Color(0xFF92C3FF)
-                  : uiController.primaryColor,
-         
-        ),
-        height: MediaQuery.of(context).size.height,
-        width: MediaQuery.of(context).size.width,
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: FilterPanel(
+    return Obx(() {
+      final bg = _memoriesFilterOverlayBackground(uiController);
+      return Scaffold(
+        backgroundColor: bg,
+        body: Container(
+          color: bg,
+          height: MediaQuery.of(context).size.height,
+          width: MediaQuery.of(context).size.width,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: FilterPanel(
                     onBack: () {
                       controller.closeFilter();
                       mapController?.isFilterOpen.value = false;
                     },
                     onReset: () async {
-                      debugPrint('[FilterOverlay] 🔄 Resetting all filters EXCEPT search...');
-                
+                      debugPrint(
+                        '[FilterOverlay] 🔄 Resetting all filters EXCEPT search...',
+                      );
+
                       final mapController = Get.find<MapControllerNew>();
                       final filterController = Get.find<FilterController>();
-                
+
                       // Clear all filters EXCEPT search from FilterController
                       filterController.resetFiltersExceptSearch();
-                
-                      debugPrint('[FilterOverlay] ✅ Filters reset (search preserved: "${filterController.searchedTextKeyword.value}")');
-                
+
+                      debugPrint(
+                        '[FilterOverlay] ✅ Filters reset (search preserved: "${filterController.searchedTextKeyword.value}")',
+                      );
+
                       // Close filter overlay and reload with delay
                       Future.delayed(Duration(milliseconds: 500), () {
                         closefilterAndReset(mapController, filterController);
@@ -241,11 +261,13 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                       if (!_validateDateRangeOrShowError(controller)) {
                         return;
                       }
-                
+
                       // Apply filters (this will clear memory ID filters automatically)
-                      debugPrint('[FilterOverlay] 🎯 Applying filters from overlay');
+                      debugPrint(
+                        '[FilterOverlay] 🎯 Applying filters from overlay',
+                      );
                       controller.applyFilters();
-                
+
                       mapController.closeFilter();
                       await mapController.loadFilteredMemoriesFromDB();
                       mapController.handleFilterApplyFromMap();
@@ -265,7 +287,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                     Expanded(
                                       child: MemoriesFilterTextFieldRow(
                                         imagePath: AppImages.calendar,
-                                        hint: 'memories_filter_label_from_date'.tr,
+                                        hint:
+                                            'memories_filter_label_from_date'
+                                                .tr,
                                         filterStorageKey: 'from date',
                                         borderRadius: 5,
                                       ),
@@ -274,7 +298,8 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                     Expanded(
                                       child: MemoriesFilterTextFieldRow(
                                         imagePath: AppImages.calendar,
-                                        hint: 'memories_filter_label_to_date'.tr,
+                                        hint:
+                                            'memories_filter_label_to_date'.tr,
                                         filterStorageKey: 'to date',
                                         borderRadius: 5,
                                       ),
@@ -282,7 +307,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                   ],
                                 ),
                       ),
-                
+
                       // Location filter (includes radius) - Hidden when any search field is focused
                       Obx(
                         () =>
@@ -295,14 +320,14 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                   borderRadius: 5,
                                 ),
                       ),
-                
+
                       Obx(
                         () =>
                             _focusedSearchField.value.isNotEmpty
                                 ? const SizedBox.shrink()
                                 : const SizedBox(height: 2),
                       ),
-                
+
                       // Search Places Categories - Hidden when hashtags or contacts are focused
                       Obx(
                         () =>
@@ -310,11 +335,12 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                     _focusedSearchField.value == 'contacts')
                                 ? const SizedBox.shrink()
                                 : Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     SearchableCategoryWidget(
-                                      title: 'title_literal_search_places_categories'.tr,
+                                      title:
+                                          'title_literal_search_places_categories'
+                                              .tr,
                                       onCategorySelected: (category) {
                                         // Use addCategoryGroup to handle both main categories and subcategories properly
                                         controller.addCategoryGroup(category);
@@ -350,24 +376,22 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                               .toList(), // Pass previously selected categories
                                       isInFilterMode:
                                           true, // Remove bottom padding in filter mode
-                                      backgroundColor:
-                                          uiController.darkMode.value
-                                              ? Colors.white.withValues(
-                                                alpha: 0.2,
-                                              )
-                                              : Colors.white,
+                                      backgroundColor: _filterSectionSurface(
+                                        uiController,
+                                      ),
                                       borderRadius: 5,
                                     ),
-                
+
                                     // Selected categories chips
                                     Obx(() {
-                                      final _ = uiController.selectedLanguage.value;
+                                      final _ =
+                                          uiController.selectedLanguage.value;
                                       if (controller
                                           .selectedCategories
                                           .isEmpty) {
                                         return const SizedBox.shrink();
                                       }
-                
+
                                       return Container(
                                         padding: const EdgeInsets.all(8),
                                         child: Wrap(
@@ -399,17 +423,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                                     );
                                                   },
                                                   backgroundColor:
-                                                      uiController
-                                                              .darkMode
-                                                              .value
-                                                          ? Colors.white
-                                                              .withValues(
-                                                                alpha: 0.2,
-                                                              )
-                                                          : Colors.blue
-                                                              .withValues(
-                                                                alpha: 0.1,
-                                                              ),
+                                                      _filterChipBackground(
+                                                        uiController,
+                                                      ),
                                                 );
                                               }).toList(),
                                         ),
@@ -418,7 +434,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                   ],
                                 ),
                       ),
-                
+
                       // Spacing between Search Place Categories and Search Hashtags - Hidden when contacts are focused
                       Obx(
                         () =>
@@ -426,15 +442,14 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                 ? const SizedBox.shrink()
                                 : const SizedBox(height: 4),
                       ),
-                
+
                       // Search Hashtags - Hidden when contacts are focused
                       Obx(
                         () =>
                             _focusedSearchField.value == 'contacts'
                                 ? const SizedBox.shrink()
                                 : Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     SearchableHashtagWidget(
                                       title: 'title_literal_search_hashtags'.tr,
@@ -468,23 +483,18 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                               .toList(), // Pass previously selected hashtags
                                       isInFilterMode:
                                           true, // Remove bottom padding in filter mode
-                                      backgroundColor:
-                                          uiController.darkMode.value
-                                              ? Colors.white.withValues(
-                                                alpha: 0.2,
-                                              )
-                                              : Colors.white,
+                                      backgroundColor: _filterSectionSurface(
+                                        uiController,
+                                      ),
                                       borderRadius: 5,
                                     ),
-                
+
                                     // Selected hashtags chips
                                     Obx(() {
-                                      if (controller
-                                          .selectedHashtags
-                                          .isEmpty) {
+                                      if (controller.selectedHashtags.isEmpty) {
                                         return const SizedBox.shrink();
                                       }
-                
+
                                       return Container(
                                         padding: const EdgeInsets.all(8),
                                         child: Wrap(
@@ -496,7 +506,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                               ) {
                                                 return Chip(
                                                   label: Text(
-                                                    trKey('label_hashtag', [hashtag]),
+                                                    trKey('label_hashtag', [
+                                                      hashtag,
+                                                    ]),
                                                     style:
                                                         GoogleFonts.kumbhSans(
                                                           fontSize: 12,
@@ -517,17 +529,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                                     );
                                                   },
                                                   backgroundColor:
-                                                      uiController
-                                                              .darkMode
-                                                              .value
-                                                          ? Colors.white
-                                                              .withValues(
-                                                                alpha: 0.2,
-                                                              )
-                                                          : Colors.blue
-                                                              .withValues(
-                                                                alpha: 0.1,
-                                                              ),
+                                                      _filterChipBackground(
+                                                        uiController,
+                                                      ),
                                                 );
                                               }).toList(),
                                         ),
@@ -536,10 +540,10 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                   ],
                                 ),
                       ),
-                
+
                       // Spacing between Search Hashtags and Search Contacts
                       const SizedBox(height: 4),
-                
+
                       // Search Contacts - Using SearchableContactWidget
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,20 +577,19 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                       .toList(), // Pass previously selected contacts
                               isInFilterMode:
                                   true, // Remove bottom padding in filter mode
-                              backgroundColor:
-                                  uiController.darkMode.value
-                                      ? Colors.white.withValues(alpha: 0.2)
-                                      : Colors.white,
+                              backgroundColor: _filterSectionSurface(
+                                uiController,
+                              ),
                               borderRadius: 5,
                             ),
                           ),
-                
+
                           // Selected contacts chips
                           Obx(() {
                             if (controller.selectedContacts.isEmpty) {
                               return const SizedBox.shrink();
                             }
-                
+
                             return Container(
                               padding: const EdgeInsets.all(8),
                               child: Wrap(
@@ -597,9 +600,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                       return Chip(
                                         label: Text(
                                           trKey('label_contact', [contact]),
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                          ),
+                                          style: const TextStyle(fontSize: 12),
                                         ),
                                         deleteIcon: const Icon(
                                           Icons.close,
@@ -611,14 +612,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                           );
                                           controller.removeContact(contact);
                                         },
-                                        backgroundColor:
-                                            uiController.darkMode.value
-                                                ? Colors.white.withValues(
-                                                  alpha: 0.2,
-                                                )
-                                                : Colors.blue.withValues(
-                                                  alpha: 0.1,
-                                                ),
+                                        backgroundColor: _filterChipBackground(
+                                          uiController,
+                                        ),
                                       );
                                     }).toList(),
                               ),
@@ -628,18 +624,23 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                       ),
                     ],
                   ),
-                // ),
-              ),
-          
-            ],
+                  // ),
+                ),
+              ],
+            ),
           ),
         ),
-      )),
-    );
+      );
+    });
   }
 
-  Future<void> closefilterAndReset(MapControllerNew? mapController, FilterController filterController) async {
-    debugPrint('[FilterOverlay] 📊 Loaded ${filterController.filteredMemories.length} memories');
+  Future<void> closefilterAndReset(
+    MapControllerNew? mapController,
+    FilterController filterController,
+  ) async {
+    debugPrint(
+      '[FilterOverlay] 📊 Loaded ${filterController.filteredMemories.length} memories',
+    );
 
     // Reload AddMemories view
     if (Get.isRegistered<AddMemoriesController>()) {
@@ -650,7 +651,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
 
     // Close filter overlay and reload map
     mapController?.isFilterOpen.value = false;
-    await mapController?.loadMemoriesFromDB(filterController.filteredMemories.toList());
+    await mapController?.loadMemoriesFromDB(
+      filterController.filteredMemories.toList(),
+    );
     mapController?.showLoadedDataOnMap();
 
     debugPrint('[FilterOverlay] ✅ Map reloaded');

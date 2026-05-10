@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/services/app_lock_controller.dart' show AppLockController;
 
 class PermissionService extends GetxController {
   static PermissionService get instance => Get.find<PermissionService>();
@@ -11,6 +12,9 @@ class PermissionService extends GetxController {
   final RxBool isLocationServiceEnabled = false.obs;
   final RxBool isCheckingPermissions = false.obs;
   final RxBool permissionJustGranted = false.obs;
+
+  Timer? _permissionPollTimer;
+  bool _permissionPollInFlight = false;
 
   // Stream controller for permission changes
   final StreamController<bool> _permissionChangeController =
@@ -25,6 +29,8 @@ class PermissionService extends GetxController {
 
   @override
   void onClose() {
+    _permissionPollTimer?.cancel();
+    _permissionPollTimer = null;
     _permissionChangeController.close();
     super.onClose();
   }
@@ -37,14 +43,17 @@ class PermissionService extends GetxController {
 
   /// Start monitoring permission changes
   void _startPermissionMonitoring() {
-    // Check permissions more frequently to catch settings changes quickly
-    Timer.periodic(const Duration(seconds: 1), (timer) {
+    _permissionPollTimer?.cancel();
+    // Avoid stacking overlapping native checks (common freeze after returning from Settings).
+    _permissionPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _checkPermissionStatus();
     });
   }
 
   /// Check permission status without requesting
   Future<void> _checkPermissionStatus() async {
+    if (_permissionPollInFlight) return;
+    _permissionPollInFlight = true;
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       final permission = await Geolocator.checkPermission();
@@ -72,6 +81,8 @@ class PermissionService extends GetxController {
       }
     } catch (e) {
       debugPrint('❌ Error checking permission status: $e');
+    } finally {
+      _permissionPollInFlight = false;
     }
   }
 
@@ -178,6 +189,9 @@ class PermissionService extends GetxController {
           ),
           TextButton(
             onPressed: () {
+              if (Get.isRegistered<AppLockController>()) {
+                Get.find<AppLockController>().skipLockOnNextResumeFromSettings();
+              }
               Geolocator.openLocationSettings();
               Get.back();
             },
@@ -234,6 +248,9 @@ class PermissionService extends GetxController {
           ),
           TextButton(
             onPressed: () {
+              if (Get.isRegistered<AppLockController>()) {
+                Get.find<AppLockController>().skipLockOnNextResumeFromSettings();
+              }
               Geolocator.openAppSettings();
               Get.back();
             },
@@ -315,13 +332,13 @@ class PermissionService extends GetxController {
     Color color;
 
     if (hasLocationPermission.value) {
-      message = 'Location permission granted';
+      message = 'snackbar_body_location_permission_granted'.tr;
       color = Colors.green;
     } else if (!isLocationServiceEnabled.value) {
-      message = 'Location service disabled';
+      message = 'snackbar_body_location_service_disabled'.tr;
       color = Colors.orange;
     } else {
-      message = 'Location permission denied';
+      message = 'snackbar_body_location_permission_denied'.tr;
       color = Colors.red;
     }
 

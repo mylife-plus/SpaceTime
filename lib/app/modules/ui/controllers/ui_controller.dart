@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:restart_app/restart_app.dart';
+import 'package:spacetime/app/theme/app_system_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/platform/android_application_locale.dart';
 
@@ -25,12 +28,13 @@ class UiController extends GetxController {
     isTagMode = tagMode;
   }
 
-  void setMainColor(String color) {
+  Future<void> setMainColor(String color) async {
     mainColor.value = color;
-    _saveMainColor(color);
+    await _saveMainColor(color);
+    _restartAppIfMobile();
   }
 
-  Future<void> setLanguage(String code) async {
+  Future<void> setLanguage(String code, {bool restartAfterApply = false}) async {
     final normalized =
         kSupportedLanguages.any((l) => l.code == code) ? code : 'en';
     selectedLanguage.value = normalized;
@@ -42,11 +46,29 @@ class UiController extends GetxController {
     } catch (e) {
       debugPrint('[UiController] Error saving language: $e');
     }
+    if (restartAfterApply) {
+      _restartAppIfMobile();
+    }
   }
 
-  void setDarkMode(bool isDark) {
+  Future<void> setDarkMode(bool isDark) async {
     darkMode.value = isDark;
-    _saveDarkMode(isDark);
+    await _saveDarkMode(isDark);
+    AppSystemUi.syncTheme(isDark);
+    _restartAppIfMobile();
+  }
+
+  void _restartAppIfMobile() {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    unawaited(_restartAppOnce());
+  }
+
+  Future<void> _restartAppOnce() async {
+    try {
+      await Restart.restartApp();
+    } catch (e) {
+      debugPrint('[UiController] Restart failed: $e');
+    }
   }
 
   /// App lock (biometrics / device PIN). Synced with [AppLockController].
@@ -133,11 +155,13 @@ class UiController extends GetxController {
       await AndroidApplicationLocale.sync(selectedLanguage.value);
 
       debugPrint('[UiController] Preferences loaded - Dark mode: $savedDarkMode, Main color: $savedMainColor');
+      AppSystemUi.syncTheme(darkMode.value);
     } catch (e) {
       debugPrint('[UiController] Error loading preferences: $e');
       // Use defaults if loading fails
       darkMode.value = false;
       mainColor.value = 'blue';
+      AppSystemUi.syncTheme(false);
     }
   }
 
@@ -204,6 +228,10 @@ class UiController extends GetxController {
 
   /// Base "surface" used for cards/tiles in dark mode.
   Color get darkSurfaceColor => Colors.grey[850]!;
+
+  /// Track-upload **Preview** label: black-based in light mode, contrasting light in dark.
+  Color trackUploadPreviewLabelColor(bool isDark) =>
+      isDark ? Colors.white : Colors.black87;
 
   /// Semi-transparent overlay used for modals/overlays.
   Color get darkOverlayColor => Colors.black.withOpacity(0.5);
@@ -300,6 +328,7 @@ Color get curentHomeIconColorsDark {
   @override
   void onInit() {
     super.onInit();
+    ever<bool>(darkMode, (_) => AppSystemUi.syncTheme(darkMode.value));
     // Load saved preferences at app launch
     _loadPreferences();
   }
@@ -307,6 +336,9 @@ Color get curentHomeIconColorsDark {
   @override
   void onReady() {
     super.onReady();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppSystemUi.syncTheme(darkMode.value);
+    });
   }
 
   @override

@@ -422,7 +422,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
               bottom: 0,
               left: 0,
               right: 0,
-              child: SafeArea(
+              child: SafeArea(bottom: false,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Column(
@@ -535,7 +535,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                           ],
                         ),
                       ),
-                      child: SafeArea(
+                      child: SafeArea(bottom: false,
                         child: AppBar(
                           backgroundColor: Colors.transparent,
                           elevation: 0,
@@ -628,7 +628,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
                             ],
                           ),
                         ),
-                        child: SafeArea(
+                        child: SafeArea(bottom: false,
                           child: Padding(
                             padding: const EdgeInsets.all(20),
                             child: Row(

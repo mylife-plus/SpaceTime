@@ -12,6 +12,7 @@ import '../../../../services/permission_service.dart';
 import '../../../services/offline_map_coordinator_service.dart';
 import '../../../services/offline_map_service.dart';
 import '../../../routes/app_pages.dart';
+import '../../../../services/app_lock_controller.dart';
 import '../../../../services/mbtiles_download_service.dart';
 import '../../../../services/mbtiles_server_service.dart';
 import '../../../../services/style_json_download_service.dart';
@@ -160,17 +161,11 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     if (completer != null) {
       _waitingForBackgroundRefreshCompleter = null;
       unawaited(() async {
-        // iOS can report a stale `.denied` for a short time after enabling BAR in Settings.
-        await Future<void>.delayed(const Duration(milliseconds: 450));
-        var status = await _getBackgroundRefreshStatus();
-        if (status != 'available') {
-          await Future<void>.delayed(const Duration(milliseconds: 500));
-          status = await _getBackgroundRefreshStatus();
-        }
-        if (status != 'available') {
-          await Future<void>.delayed(const Duration(milliseconds: 600));
-          status = await _getBackgroundRefreshStatus();
-        }
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        final status = await _getBackgroundRefreshStatusStable(
+          attempts: 5,
+          step: const Duration(milliseconds: 280),
+        );
         final enabled = status == 'available';
         if (!completer.isCompleted) completer.complete(enabled);
         await refreshIosBackgroundRefreshBanner();
@@ -552,15 +547,47 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   /// Downloads mbtiles file based on selected zoom level and saves to app-specific folder
   static const _backgroundRefreshChannel = MethodChannel('com.spacetime.app/settings');
 
+  static String _normalizeBackgroundRefreshPayload(dynamic raw) {
+    if (raw == null) return 'unknown';
+    final s = raw.toString().trim().toLowerCase();
+    switch (s) {
+      case 'available':
+      case 'denied':
+      case 'restricted':
+      case 'unknown':
+        return s;
+      default:
+        return 'unknown';
+    }
+  }
+
   Future<String> _getBackgroundRefreshStatus() async {
     if (!Platform.isIOS) return 'available';
     try {
-      final status = await _backgroundRefreshChannel.invokeMethod<String>('getBackgroundRefreshStatus');
-      return status ?? 'unknown';
+      final raw = await _backgroundRefreshChannel.invokeMethod(
+        'getBackgroundRefreshStatus',
+      );
+      return _normalizeBackgroundRefreshPayload(raw);
     } catch (e) {
       debugPrint('[GetStartedController] Error checking background refresh: $e');
       return 'unknown';
     }
+  }
+
+  /// iOS often reports a stale non-available [UIBackgroundRefreshStatus] for a short
+  /// time after launch or resume even when Background App Refresh is enabled.
+  Future<String> _getBackgroundRefreshStatusStable({
+    int attempts = 6,
+    Duration step = const Duration(milliseconds: 220),
+  }) async {
+    if (!Platform.isIOS) return 'available';
+    var last = 'unknown';
+    for (var i = 0; i < attempts; i++) {
+      last = await _getBackgroundRefreshStatus();
+      if (last == 'available') return 'available';
+      if (i < attempts - 1) await Future<void>.delayed(step);
+    }
+    return last;
   }
 
   Future<bool> _showBackgroundRefreshPopup() async {
@@ -634,6 +661,9 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
             ElevatedButton(
               onPressed: () {
                 Get.back();
+                if (Get.isRegistered<AppLockController>()) {
+                  Get.find<AppLockController>().skipLockOnNextResumeFromSettings();
+                }
                 openAppSettings();
                 if (!completer.isCompleted) completer.complete(true);
               },
@@ -668,7 +698,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   Future<bool> _waitForBackgroundRefreshToBecomeAvailable({Duration timeout = const Duration(seconds: 90)}) async {
     if (!Platform.isIOS) return true;
 
-    final statusNow = await _getBackgroundRefreshStatus();
+    final statusNow = await _getBackgroundRefreshStatusStable();
     if (statusNow == 'available') return true;
 
     final completer = Completer<bool>();
@@ -704,7 +734,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       iosBackgroundRefreshBannerVisible.value = false;
       return;
     }
-    final status = await _getBackgroundRefreshStatus();
+    final status = await _getBackgroundRefreshStatusStable(
+      attempts: 5,
+      step: const Duration(milliseconds: 180),
+    );
     final barOff = status != 'available';
     final show = barOff && !isCompleted.value && !isDownloading.value;
     iosBackgroundRefreshBannerVisible.value = show;
@@ -736,8 +769,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       }
 
       if (Platform.isIOS) {
-        var bgStatus = await _getBackgroundRefreshStatus();
-        debugPrint('[GetStartedController] Background refresh status: $bgStatus');
+        var bgStatus = await _getBackgroundRefreshStatusStable();
+        debugPrint('[GetStartedController] Background refresh status (stable): $bgStatus');
         if (bgStatus != 'available') {
           final alreadyShown = await _readIosBarPopupShownPref();
           var userOpenedSettings = false;
@@ -748,10 +781,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
           if (userOpenedSettings) {
             await _waitForBackgroundRefreshToBecomeAvailable();
           }
-          // iOS can lag updating status after toggling BAR in Settings.
+          // Extra passes after returning from Settings — OS can update BAR flag late.
           for (var i = 0; i < 4 && bgStatus != 'available'; i++) {
             await Future<void>.delayed(const Duration(milliseconds: 400));
-            bgStatus = await _getBackgroundRefreshStatus();
+            bgStatus = await _getBackgroundRefreshStatusStable(
+              attempts: 3,
+              step: const Duration(milliseconds: 200),
+            );
             debugPrint('[GetStartedController] Background refresh re-check ($i): $bgStatus');
           }
         }

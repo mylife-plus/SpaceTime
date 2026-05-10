@@ -86,7 +86,7 @@ class MapControllerNew extends GetxController {
   final RxBool isLoadingLocation = false.obs;
   final RxBool hasLocationPermission =
       false.obs; // Start as false until checked
-  final RxString locationStatus = 'Checking permissions...'.obs;
+  final RxString locationStatus = ''.obs;
   // Internet connectivity checks removed - offline tiles are downloaded during Get Started flow
   PermissionStatus permissionStatus = PermissionStatus.denied;
 
@@ -154,6 +154,8 @@ class MapControllerNew extends GetxController {
   void onInit() {
     super.onInit();
 
+    locationStatus.value = 'map_location_status_checking_permissions'.tr;
+
     _initializeServices();
 
     loadFilterData();
@@ -177,7 +179,8 @@ class MapControllerNew extends GetxController {
   /// Initialize the map with location permissions and current location
   Future<void> _initializeMap() async {
     try {
-      locationStatus.value = 'Checking location permissions...';
+      locationStatus.value =
+          'map_location_status_checking_location_permissions'.tr;
       isLoadingLocation.value =
           true; // Show loading state during permission check
 
@@ -211,13 +214,13 @@ class MapControllerNew extends GetxController {
         }
 
         hasLocationPermission.value = false;
-        locationStatus.value = 'Location permission required';
+        locationStatus.value = 'map_location_status_permission_required'.tr;
         isLoadingLocation.value =
             false; // Stop loading since we need user action
       }
     } catch (e) {
       hasLocationPermission.value = false;
-      locationStatus.value = 'Error initializing map';
+      locationStatus.value = 'map_location_status_error_initializing_map'.tr;
     } finally {
       // Ensure loading state is stopped if permission was denied or error occurred
       if (!hasLocationPermission.value) {
@@ -237,7 +240,8 @@ class MapControllerNew extends GetxController {
       );
 
       if (!serviceEnabled) {
-        locationStatus.value = 'Location services are disabled';
+        locationStatus.value =
+            'map_location_status_location_services_disabled'.tr;
         return false;
       }
       // Check current permission status
@@ -260,21 +264,21 @@ class MapControllerNew extends GetxController {
         );
 
         if (permission == LocationPermission.denied) {
-          locationStatus.value = 'Location permission denied';
+          locationStatus.value = 'map_location_status_permission_denied'.tr;
           return false;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
         locationStatus.value =
-            'Location permission permanently denied. Please enable in Settings.';
+            'map_location_status_permission_permanently_denied'.tr;
         return false;
       }
 
-      locationStatus.value = 'Permission granted';
+      locationStatus.value = 'map_location_status_permission_granted'.tr;
       return true;
     } catch (e) {
-      locationStatus.value = 'Error checking permissions';
+      locationStatus.value = 'map_location_status_error_checking_permissions'.tr;
       return false;
     }
   }
@@ -283,14 +287,15 @@ class MapControllerNew extends GetxController {
   Future<void> _getCurrentLocation() async {
     try {
       isLoadingLocation.value = true;
-      locationStatus.value = 'Getting current location...';
+      locationStatus.value =
+          'map_location_status_getting_current_location'.tr;
 
       Position position = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       currentLocation.value = position;
-      locationStatus.value = 'Location found';
+      locationStatus.value = 'map_location_status_location_found'.tr;
 
       // Move camera to current location if map is ready
       if (isMapReady.value && mapboxMap != null) {
@@ -456,7 +461,7 @@ class MapControllerNew extends GetxController {
   /// Retry getting location permissions
   Future<void> retryLocationPermission() async {
     try {
-      locationStatus.value = 'Checking permissions...';
+      locationStatus.value = 'map_location_status_checking_permissions'.tr;
       isLoadingLocation.value = true;
 
       await _initializeMap();
@@ -471,7 +476,7 @@ class MapControllerNew extends GetxController {
     } catch (e) {
       hasLocationPermission.value = false;
       isLoadingLocation.value = false;
-      locationStatus.value = 'Error checking permissions';
+      locationStatus.value = 'map_location_status_error_checking_permissions'.tr;
     }
   }
 
@@ -2033,7 +2038,7 @@ class MapControllerNew extends GetxController {
   void resetLoadingStates() {
     debugPrint('[MapControllerNew] 🔄 Resetting loading states');
     isLoadingLocation.value = false;
-    locationStatus.value = 'Ready';
+    locationStatus.value = 'map_location_status_ready'.tr;
     debugPrint('[MapControllerNew] States after reset:');
     debugPrint(
       '[MapControllerNew] - hasLocationPermission: ${hasLocationPermission.value}',
@@ -2064,7 +2069,8 @@ class MapControllerNew extends GetxController {
           '[MapControllerNew] 🎉 Permission was granted! Updating state...',
         );
         hasLocationPermission.value = true;
-        locationStatus.value = 'Permission granted, getting location...';
+        locationStatus.value =
+            'map_location_status_permission_granted_getting_location'.tr;
         isLoadingLocation.value = true;
 
         // Get location immediately
@@ -2074,7 +2080,7 @@ class MapControllerNew extends GetxController {
           '[MapControllerNew] ❌ Permission was revoked! Updating state...',
         );
         hasLocationPermission.value = false;
-        locationStatus.value = 'Location permission required';
+        locationStatus.value = 'map_location_status_permission_required'.tr;
         isLoadingLocation.value = false;
       }
 
@@ -2192,7 +2198,8 @@ class MapControllerNew extends GetxController {
   /// Handle when permission is granted (iOS-specific timing fix)
   void _handlePermissionGranted() async {
     hasLocationPermission.value = true;
-    locationStatus.value = 'Permission granted, getting location...';
+    locationStatus.value =
+        'map_location_status_permission_granted_getting_location'.tr;
     isLoadingLocation.value = true;
 
     try {
@@ -2218,7 +2225,7 @@ class MapControllerNew extends GetxController {
   /// Handle when permission is revoked
   void _handlePermissionRevoked() {
     hasLocationPermission.value = false;
-    locationStatus.value = 'Location permission required';
+    locationStatus.value = 'map_location_status_permission_required'.tr;
     isLoadingLocation.value = false;
     currentLocation.value = null;
   }

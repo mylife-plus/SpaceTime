@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_text.dart';
@@ -60,11 +62,16 @@ class MainColorSelectionView extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            trailingIcon: isSelected ? Icons.check : null,
-            onTap: () {
-              controller.setMainColor(colorItem['value']);
-              Get.back();
-            },
+            trailing: isSelected
+                ? Icon(
+                    Icons.check,
+                    color: controller.darkMode.value
+                        ? Colors.white70
+                        : Colors.blueGrey,
+                  )
+                : null,
+            onTap: () =>
+                unawaited(controller.setMainColor(colorItem['value'] as String)),
             showDivider: index < _colors.length - 1,
           );
         },

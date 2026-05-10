@@ -9,7 +9,7 @@ import 'package:spacetime/app/modules/add_memories/views/mini_widgets/audio_dura
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/image_viewer_screen.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_view_widget_new.dart';
-import 'package:spacetime/app/modules/memories/views/memory_view.dart';
+import 'package:spacetime/app/routes/memory_view_navigation.dart';
 
 
 import '../../../../config/app_images.dart';
@@ -796,15 +796,18 @@ class _MemoryCardState extends State<MemoryCard> {
               )
             : Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Colors.white))),
         if (initialized)
-          GestureDetector(
-            onTap: () => setState(() { vc.value.isPlaying ? vc.pause() : vc.play(); }),
-            child: AnimatedOpacity(
-              opacity: vc.value.isPlaying ? 0.0 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              child: Container(
-                decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-                padding: const EdgeInsets.all(12),
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 40),
+          AnimatedOpacity(
+            opacity: vc.value.isPlaying ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            child: IconButton(
+              iconSize: 64,
+              onPressed: () => setState(() {
+                vc.value.isPlaying ? vc.pause() : vc.play();
+              }),
+              icon: const Icon(
+                Icons.play_circle_filled,
+                color: Colors.white,
+                size: 64,
               ),
             ),
           ),
@@ -947,7 +950,7 @@ class _MemoryCardState extends State<MemoryCard> {
 
     // Navigate to memory creation page in edit mode
     Get.put(MemoryController());
-    Get.to(() => MemoryView(editMode: true, memoryData: widget.memoryData));
+    openMemoryView(editMode: true, memoryData: widget.memoryData);
   }
 
   // Delete memory functionality

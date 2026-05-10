@@ -10,6 +10,7 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 
 import '../../../../config/app_colors.dart';
 import '../../controllers/map_controller_new.dart';
+import 'package:spacetime/app/widgets/location_picker_system_ui_shell.dart';
 
 class LocationPickerWidget extends StatefulWidget {
   const LocationPickerWidget({super.key});
@@ -284,12 +285,14 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
-    return Obx(
-      () => Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Stack(
-            children: [
+    return LocationPickerSystemUiShell(
+      child: Obx(
+        () => Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
             if (isLoading)
               Center(
                 child: Column(
@@ -432,7 +435,8 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
                 ),
               ),
             ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

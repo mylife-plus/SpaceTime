@@ -16,6 +16,7 @@ import 'package:spacetime/app/modules/add_memories/controllers/add_memories_cont
 import 'package:spacetime/app/modules/memories/helpers/tagmention_helper.dart';
 import 'package:spacetime/app/shared/widgets/searchable_hashtag_widget.dart';
 import 'package:spacetime/app/shared/widgets/searchable_contact_widget.dart';
+import 'package:spacetime/app/widgets/right_nav_trailing_icon.dart';
 
 import '../../controllers/memory_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
@@ -832,10 +833,10 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      color: widget.isTagMode ? AppColors.green : AppColors.blue,
+                    RightNavTrailingIcon(
                       size: 16,
+                      color:
+                          widget.isTagMode ? AppColors.green : AppColors.blue,
                     ),
                   ],
                 ),

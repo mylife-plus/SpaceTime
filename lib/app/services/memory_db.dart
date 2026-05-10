@@ -10,7 +10,11 @@ import 'package:spacetime/app/constants/place_categories_data.dart';
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      14; // track import fingerprint + import log + log items
+      16; // track_import_log.import_source (gpx_kmz vs media_gps)
+
+  /// Stored on [tableTrackImportLog] rows — filters past uploads by screen.
+  static const String trackImportSourceGpxKmz = 'gpx_kmz';
+  static const String trackImportSourceMediaGps = 'media_gps';
 
   static const columnTrackImportFingerprint = 'track_import_fingerprint';
   static const tableTrackImportLog = 'track_import_log';
@@ -22,12 +26,14 @@ class DatabaseHelper {
   static const columnTrackLogItemLat = 'item_lat';
   static const columnTrackLogItemLng = 'item_lng';
   static const columnTrackLogItemLocation = 'item_location';
+  static const columnTrackLogItemMemoryId = 'item_memory_id';
   static const columnTrackLogFileName = 'file_name';
   static const columnTrackLogNewCount = 'new_count';
   static const columnTrackLogDupCount = 'dup_count';
   static const columnTrackLogIgnoredCount = 'ignored_count';
   static const columnTrackLogRawCount = 'raw_count';
   static const columnTrackLogCreatedAt = 'created_at';
+  static const columnTrackLogImportSource = 'import_source';
 
   // Memory table and columns
   static const tableMemories = 'memories';
@@ -217,10 +223,31 @@ class DatabaseHelper {
       await db.rawQuery('SELECT 1');
       debugPrint('[DatabaseHelper] Database accessibility verified');
 
+      await _ensureTrackImportLogItemsMemoryIdColumn(db);
+
       debugPrint('[DatabaseHelper] Database configuration completed');
     } catch (e) {
       debugPrint('[DatabaseHelper] Warning: Database configuration failed: $e');
       // Continue without these optimizations if they fail
+    }
+  }
+
+  /// Some installs reached schema v15 without running migration 15; add column if missing.
+  Future<void> _ensureTrackImportLogItemsMemoryIdColumn(Database db) async {
+    try {
+      final info = await db.rawQuery('PRAGMA table_info($tableTrackImportLogItems)');
+      if (info.isEmpty) return;
+      final has = info.any((row) => row['name'] == columnTrackLogItemMemoryId);
+      if (has) return;
+      await db.execute('''
+        ALTER TABLE $tableTrackImportLogItems
+        ADD COLUMN $columnTrackLogItemMemoryId INTEGER
+      ''');
+      debugPrint(
+        '[DatabaseHelper] Added $columnTrackLogItemMemoryId to $tableTrackImportLogItems',
+      );
+    } catch (e) {
+      debugPrint('[DatabaseHelper] _ensureTrackImportLogItemsMemoryIdColumn: $e');
     }
   }
 
@@ -258,7 +285,8 @@ class DatabaseHelper {
         $columnTrackLogIgnoredCount INTEGER NOT NULL DEFAULT 0,
         $columnTrackLogDupCount INTEGER NOT NULL DEFAULT 0,
         $columnTrackLogNewCount INTEGER NOT NULL DEFAULT 0,
-        $columnTrackLogCreatedAt TEXT NOT NULL
+        $columnTrackLogCreatedAt TEXT NOT NULL,
+        $columnTrackLogImportSource TEXT NOT NULL DEFAULT '$trackImportSourceGpxKmz'
       )
     ''');
 
@@ -270,6 +298,7 @@ class DatabaseHelper {
         $columnTrackLogItemLat REAL NOT NULL,
         $columnTrackLogItemLng REAL NOT NULL,
         $columnTrackLogItemLocation TEXT,
+        $columnTrackLogItemMemoryId INTEGER,
         FOREIGN KEY ($columnTrackLogItemLogId) REFERENCES $tableTrackImportLog ($columnTrackLogId) ON DELETE CASCADE
       )
     ''');
@@ -589,7 +618,8 @@ class DatabaseHelper {
           $columnTrackLogIgnoredCount INTEGER NOT NULL DEFAULT 0,
           $columnTrackLogDupCount INTEGER NOT NULL DEFAULT 0,
           $columnTrackLogNewCount INTEGER NOT NULL DEFAULT 0,
-          $columnTrackLogCreatedAt TEXT NOT NULL
+          $columnTrackLogCreatedAt TEXT NOT NULL,
+          $columnTrackLogImportSource TEXT NOT NULL DEFAULT '$trackImportSourceGpxKmz'
         )
       ''');
       debugPrint('✅ track_import_fingerprint + track_import_log');
@@ -608,6 +638,29 @@ class DatabaseHelper {
         )
       ''');
       debugPrint('✅ track_import_log_items');
+    }
+
+    if (oldVersion < 15) {
+      await db.execute('''
+        ALTER TABLE $tableTrackImportLogItems
+        ADD COLUMN $columnTrackLogItemMemoryId INTEGER
+      ''');
+      debugPrint('✅ track_import_log_items.item_memory_id');
+    }
+
+    if (oldVersion < 16) {
+      await db.execute('''
+        ALTER TABLE $tableTrackImportLog ADD COLUMN $columnTrackLogImportSource TEXT NOT NULL DEFAULT '$trackImportSourceGpxKmz'
+      ''');
+      await db.rawUpdate(
+        '''
+        UPDATE $tableTrackImportLog
+        SET $columnTrackLogImportSource = ?
+        WHERE $columnTrackLogFileName LIKE ?
+        ''',
+        [trackImportSourceMediaGps, r'Media GPS %'],
+      );
+      debugPrint('✅ track_import_log.import_source');
     }
   }
 
@@ -714,12 +767,70 @@ class DatabaseHelper {
     );
   }
 
+  /// Gallery-import memories (for merging new clusters into existing ones).
+  Future<List<Map<String, dynamic>>> queryMemoriesGalleryMergeCandidates() async {
+    final db = await database;
+    return db.query(
+      tableMemories,
+      columns: [
+        columnId,
+        columnCreatedAt,
+        columnLocationLatitude,
+        columnLocationLongitude,
+        columnTrackImportFingerprint,
+      ],
+      where: '$columnTrackImportFingerprint LIKE ?',
+      whereArgs: const ['gallery:%'],
+    );
+  }
+
+  Future<int> maxImageOrderForMemory(int memoryId) async {
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT IFNULL(MAX($columnImageOrder), -1) AS m FROM $tableImages WHERE $columnMemoryId = ?',
+      [memoryId],
+    );
+    if (r.isEmpty) return -1;
+    return (r.first['m'] as num?)?.toInt() ?? -1;
+  }
+
+  Future<int> maxVideoOrderForMemory(int memoryId) async {
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT IFNULL(MAX($columnVideoOrder), -1) AS m FROM $tableVideos WHERE $columnVideoMemoryId = ?',
+      [memoryId],
+    );
+    if (r.isEmpty) return -1;
+    return (r.first['m'] as num?)?.toInt() ?? -1;
+  }
+
+  Future<int> maxAudioOrderForMemory(int memoryId) async {
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT IFNULL(MAX($columnAudioOrder), -1) AS m FROM $tableAudios WHERE $columnAudioMemoryId = ?',
+      [memoryId],
+    );
+    if (r.isEmpty) return -1;
+    return (r.first['m'] as num?)?.toInt() ?? -1;
+  }
+
+  Future<int> touchMemoryUpdatedAt(int memoryId) async {
+    final db = await database;
+    return db.update(
+      tableMemories,
+      {columnUpdatedAt: DateTime.now().toIso8601String()},
+      where: '$columnId = ?',
+      whereArgs: [memoryId],
+    );
+  }
+
   Future<int> insertTrackImportLog({
     required String fileName,
     required int rawCount,
     required int ignoredCount,
     required int dupCount,
     required int newCount,
+    String importSource = trackImportSourceGpxKmz,
   }) async {
     final db = await database;
     return db.insert(tableTrackImportLog, {
@@ -729,6 +840,7 @@ class DatabaseHelper {
       columnTrackLogDupCount: dupCount,
       columnTrackLogNewCount: newCount,
       columnTrackLogCreatedAt: DateTime.now().toIso8601String(),
+      columnTrackLogImportSource: importSource,
     });
   }
 
@@ -740,29 +852,53 @@ class DatabaseHelper {
     final db = await database;
     final batch = db.batch();
     for (final it in items) {
-      batch.insert(tableTrackImportLogItems, {
+      final mid = it[columnTrackLogItemMemoryId];
+      final row = <String, dynamic>{
         columnTrackLogItemLogId: logId,
         columnTrackLogItemWhen: (it[columnTrackLogItemWhen] ?? '').toString(),
         columnTrackLogItemLat: (it[columnTrackLogItemLat] as num?)?.toDouble() ?? 0.0,
         columnTrackLogItemLng: (it[columnTrackLogItemLng] as num?)?.toDouble() ?? 0.0,
         columnTrackLogItemLocation: (it[columnTrackLogItemLocation] ?? '').toString(),
-      });
+      };
+      if (mid is int) {
+        row[columnTrackLogItemMemoryId] = mid;
+      } else if (mid is num) {
+        row[columnTrackLogItemMemoryId] = mid.toInt();
+      }
+      batch.insert(tableTrackImportLogItems, row);
     }
     await batch.commit(noResult: true);
   }
 
-  Future<int> countTrackImportLogs() async {
+  Future<int> countTrackImportLogs({String? importSource}) async {
     final db = await database;
+    if (importSource == null || importSource.isEmpty) {
+      final r = await db.rawQuery(
+        'SELECT COUNT(*) as c FROM $tableTrackImportLog',
+      );
+      return Sqflite.firstIntValue(r) ?? 0;
+    }
     final r = await db.rawQuery(
-      'SELECT COUNT(*) as c FROM $tableTrackImportLog',
+      'SELECT COUNT(*) as c FROM $tableTrackImportLog WHERE $columnTrackLogImportSource = ?',
+      [importSource],
     );
     return Sqflite.firstIntValue(r) ?? 0;
   }
 
-  Future<List<Map<String, dynamic>>> queryTrackImportLogs() async {
+  Future<List<Map<String, dynamic>>> queryTrackImportLogs({
+    String? importSource,
+  }) async {
     final db = await database;
+    if (importSource == null || importSource.isEmpty) {
+      return db.query(
+        tableTrackImportLog,
+        orderBy: '$columnTrackLogCreatedAt DESC',
+      );
+    }
     return db.query(
       tableTrackImportLog,
+      where: '$columnTrackLogImportSource = ?',
+      whereArgs: [importSource],
       orderBy: '$columnTrackLogCreatedAt DESC',
     );
   }
@@ -775,6 +911,40 @@ class DatabaseHelper {
       whereArgs: [logId],
       orderBy: '$columnTrackLogItemWhen ASC',
     );
+  }
+
+  Future<int> deleteTrackImportLog(int logId) async {
+    final db = await database;
+    return db.delete(
+      tableTrackImportLog,
+      where: '$columnTrackLogId = ?',
+      whereArgs: [logId],
+    );
+  }
+
+  Future<void> deleteTrackImportLogAndMemories(int logId) async {
+    final db = await database;
+    final items = await db.query(
+      tableTrackImportLogItems,
+      columns: [columnTrackLogItemMemoryId],
+      where: '$columnTrackLogItemLogId = ?',
+      whereArgs: [logId],
+    );
+    final memoryIds = <int>{};
+    for (final row in items) {
+      final v = row[columnTrackLogItemMemoryId];
+      if (v is int) {
+        memoryIds.add(v);
+      } else if (v is num) {
+        memoryIds.add(v.toInt());
+      }
+    }
+
+    for (final id in memoryIds) {
+      await deleteMemory(id);
+    }
+
+    await deleteTrackImportLog(logId);
   }
 
   // Memory operations
@@ -951,10 +1121,87 @@ class DatabaseHelper {
     );
   }
 
+  static bool _storedValueLooksLikeFilesystemMediaRef(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty || t.startsWith('data:')) return false;
+    if (t.startsWith('/') ||
+        t.startsWith('memory_images/') ||
+        t.startsWith('memory_videos/') ||
+        t.startsWith('audio_files/')) {
+      return true;
+    }
+    if (t.contains(r'\')) return true;
+    return false;
+  }
+
+  Future<String> _absolutePathUnderDocuments(String stored) async {
+    if (stored.startsWith('/')) return stored;
+    final appDir = await getApplicationDocumentsDirectory();
+    return join(appDir.path, stored);
+  }
+
+  Future<void> _tryDeleteFilePath(String path) async {
+    if (path.isEmpty) return;
+    try {
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+    } catch (e) {
+      debugPrint('[DatabaseHelper] file delete skipped: $path ($e)');
+    }
+  }
+
+  /// Deletes media files on disk for this memory (paths in images/videos/audios tables).
+  Future<void> purgeMemoryMediaFilesFromDisk(int memoryId) async {
+    final db = await instance.database;
+
+    final imgRows = await db.query(
+      tableImages,
+      columns: [columnImageData],
+      where: '$columnMemoryId = ?',
+      whereArgs: [memoryId],
+    );
+    for (final r in imgRows) {
+      final data = (r[columnImageData] ?? '').toString();
+      if (_storedValueLooksLikeFilesystemMediaRef(data)) {
+        await _tryDeleteFilePath(await _absolutePathUnderDocuments(data));
+      }
+    }
+
+    final audRows = await db.query(
+      tableAudios,
+      columns: [columnAudioFilePath],
+      where: '$columnAudioMemoryId = ?',
+      whereArgs: [memoryId],
+    );
+    for (final r in audRows) {
+      final p = (r[columnAudioFilePath] ?? '').toString();
+      if (p.isNotEmpty) {
+        await _tryDeleteFilePath(await _absolutePathUnderDocuments(p));
+      }
+    }
+
+    final vidRows = await db.query(
+      tableVideos,
+      columns: [columnVideoFilePath, columnVideoThumbnailPath],
+      where: '$columnVideoMemoryId = ?',
+      whereArgs: [memoryId],
+    );
+    for (final r in vidRows) {
+      final vp = (r[columnVideoFilePath] ?? '').toString();
+      final tp = (r[columnVideoThumbnailPath] ?? '').toString();
+      if (vp.isNotEmpty) {
+        await _tryDeleteFilePath(await _absolutePathUnderDocuments(vp));
+      }
+      if (tp.isNotEmpty) {
+        await _tryDeleteFilePath(await _absolutePathUnderDocuments(tp));
+      }
+    }
+  }
+
   Future<int> deleteMemory(int id) async {
-    Database db = await instance.database;
-    // Images will be automatically deleted due to CASCADE constraint
-    return await db.delete(
+    await purgeMemoryMediaFilesFromDisk(id);
+    final Database db = await instance.database;
+    return db.delete(
       tableMemories,
       where: '$columnId = ?',
       whereArgs: [id],
@@ -1877,6 +2124,32 @@ class DatabaseHelper {
     } catch (e) {
       debugPrint('Error loading memories with images: $e');
       return [];
+    }
+  }
+
+  /// Close DB without reopening — use before replacing [memories.db] on disk (e.g. restore).
+  Future<void> closeDatabaseOnly() async {
+    try {
+      if (_database != null && _database!.isOpen) {
+        debugPrint('[DatabaseHelper] Closing database (no reopen)');
+        await _database!.close();
+      }
+    } catch (e) {
+      debugPrint('[DatabaseHelper] Error closing database: $e');
+    } finally {
+      _database = null;
+      _isInitializing = false;
+    }
+  }
+
+  /// Merge WAL pages into the main DB file so a plain file copy is complete
+  /// (safe for backup zip / cross-device restore).
+  Future<void> flushWalForBackupSnapshot() async {
+    try {
+      final db = await database;
+      await db.rawQuery('PRAGMA wal_checkpoint(TRUNCATE)');
+    } catch (e) {
+      debugPrint('[DatabaseHelper] flushWalForBackupSnapshot (non-fatal): $e');
     }
   }
 

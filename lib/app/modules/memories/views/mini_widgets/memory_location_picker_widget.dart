@@ -7,6 +7,7 @@ import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_location_picker_controller.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
+import 'package:spacetime/app/widgets/location_picker_system_ui_shell.dart';
 import 'package:spacetime/app/modules/memories/utils/memory_location_line_format.dart';
 
 class MemoryLocationPickerWidget extends StatefulWidget {
@@ -57,10 +58,13 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: _buildBody(),
+    return LocationPickerSystemUiShell(
+      child: SafeArea(
+        bottom: false,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: _buildBody(),
+        ),
       ),
     );
   }
@@ -193,61 +197,62 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           );
 
           final editColor = isDark
-              ? Colors.white.withValues(alpha: 0.75)
+              ? Colors.white.withValues(alpha: 0.9)
               : Colors.white;
 
+          final ui = controller.uiController;
+          final barColor = isDark
+              ? (ui.mainColor.value == 'blue'
+                  ? const Color(0xFF001937)
+                  : Color.alphaBlend(
+                      Colors.black.withValues(alpha: 0.55),
+                      ui.currentMainColor,
+                    ))
+              : ui.currentMainColor.withValues(alpha: 0.95);
+
           return Material(
-            color: Colors.transparent,
+            color: barColor,
             elevation: 0,
-            child: ClipRRect(
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
-              child: Container(
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
               width: double.infinity,
-              padding: const EdgeInsets.only(left: 12, top: 4, bottom: 4, right: 6),
-              decoration: BoxDecoration(
-                color: isDark
-                ?  controller.uiController.primaryColorDark
-                    // ? Colors.black.withValues(alpha: 0.78)
-                    : controller.uiController.currentMainColor.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(4),
-                // boxShadow: [
-                //   BoxShadow(
-                //     // color: Colors.black.withValues(alpha: 0.12),
-                //     // blurRadius: 8,
-                //     offset: const Offset(0, 2),
-                //   ),
-                // ],
-              ),
-              child: GestureDetector(
-                onTap: () => controller.onEditLocationTextPressed(),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        line,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppFonts.medium(15, color: valueColor),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => controller.onEditLocationTextPressed(),
-                      behavior: HitTestBehavior.opaque,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Image.asset(
-                          'assets/images/ic_edit.png',
-                          width: 22,
-                          height: 22,
-                          color: editColor,
+              child: Padding(
+                padding:
+                    const EdgeInsets.only(left: 12, top: 4, bottom: 4, right: 6),
+                child: GestureDetector(
+                  onTap: () => controller.onEditLocationTextPressed(),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          line,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppFonts.medium(15, color: valueColor),
                         ),
                       ),
-                    ),
-                  ],
+                      GestureDetector(
+                        onTap: () => controller.onEditLocationTextPressed(),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Image.asset(
+                            'assets/images/ic_edit.png',
+                            width: 22,
+                            height: 22,
+                            color: editColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             ),
           );
         }),

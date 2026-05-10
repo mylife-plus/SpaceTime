@@ -27,6 +27,7 @@ import 'internet_required_screen_location_picker.dart';
 
 import '../../../../config/app_colors.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/widgets/location_picker_system_ui_shell.dart';
 
 enum LocationPickerState {
   initial,
@@ -1986,12 +1987,14 @@ Future<bool> _checkOfflineTileCount() async {
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
 
-    return Obx(
-      () => Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Stack(
-            children: [
+    return LocationPickerSystemUiShell(
+      child: Obx(
+        () => Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
             // Always keep the map in the background
             mapbox.MapWidget(
               key: const ValueKey("mapbox_map_new"),
@@ -2123,6 +2126,7 @@ Future<bool> _checkOfflineTileCount() async {
             // if (currentState  == LocationPickerState.error)
             // _buildErrorScreen(),
             ],
+            ),
           ),
         ),
       ),
