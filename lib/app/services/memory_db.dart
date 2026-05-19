@@ -2059,19 +2059,148 @@ class DatabaseHelper {
     }
   }
 
+  /// Attaches images/audios/videos lists to a memory row map.
+  Map<String, dynamic> _memoryRowWithMedia(
+    Map<String, dynamic> memory, {
+    required List<String> images,
+    required List<Map<String, dynamic>> imagesWithOrder,
+    required List<Map<String, dynamic>> audios,
+    required List<Map<String, dynamic>> videos,
+    required List<Map<String, dynamic>> videosWithOrder,
+  }) {
+    final memoryWithMedia = Map<String, dynamic>.from(memory);
+    memoryWithMedia['images'] = images;
+    memoryWithMedia['audios'] = audios;
+    memoryWithMedia['videos'] = videos;
+    memoryWithMedia['imageOrders'] =
+        imagesWithOrder.map((r) => r[columnImageOrder] as int? ?? 0).toList();
+    memoryWithMedia['videoOrders'] =
+        videosWithOrder.map((r) => r[columnVideoOrder] as int? ?? 0).toList();
+
+    if (images.isNotEmpty) {
+      memoryWithMedia[columnImagePath] = images.join('|');
+    }
+    if (audios.isNotEmpty) {
+      final audioPaths =
+          audios.map((audio) => audio[columnAudioFilePath] as String).toList();
+      memoryWithMedia[columnAudioPath] = audioPaths.join('|');
+    }
+    return memoryWithMedia;
+  }
+
+  Future<_MemoryMediaBatch> _loadAllMemoryMediaBatch(Database db) async {
+    final imageRows = await db.query(
+      tableImages,
+      columns: [columnMemoryId, columnImageData, columnImageOrder, columnImageId],
+      orderBy: '$columnMemoryId ASC, $columnImageOrder ASC',
+    );
+    final imagesByMemory = <int, List<String>>{};
+    final imagesWithOrderByMemory = <int, List<Map<String, dynamic>>>{};
+    for (final row in imageRows) {
+      final memoryId = row[columnMemoryId] as int;
+      imagesByMemory.putIfAbsent(memoryId, () => []).add(
+        row[columnImageData] as String,
+      );
+      imagesWithOrderByMemory.putIfAbsent(memoryId, () => []).add(row);
+    }
+
+    final audioRows = await db.query(
+      tableAudios,
+      columns: [
+        columnAudioMemoryId,
+        columnAudioFilePath,
+        columnAudioDuration,
+        columnAudioOrder,
+        columnAudioId,
+      ],
+      orderBy: '$columnAudioMemoryId ASC, $columnAudioOrder ASC',
+    );
+    final audiosByMemory = <int, List<Map<String, dynamic>>>{};
+    for (final row in audioRows) {
+      final memoryId = row[columnAudioMemoryId] as int;
+      audiosByMemory.putIfAbsent(memoryId, () => []).add(row);
+    }
+
+    final videoRows = await db.query(
+      tableVideos,
+      columns: [
+        columnVideoMemoryId,
+        columnVideoFilePath,
+        columnVideoDuration,
+        columnVideoThumbnailPath,
+        columnVideoOrder,
+        columnVideoId,
+      ],
+      orderBy: '$columnVideoMemoryId ASC, $columnVideoOrder ASC',
+    );
+    final videosByMemory = <int, List<Map<String, dynamic>>>{};
+    final videosWithOrderByMemory = <int, List<Map<String, dynamic>>>{};
+    for (final row in videoRows) {
+      final memoryId = row[columnVideoMemoryId] as int;
+      videosByMemory.putIfAbsent(memoryId, () => []).add(row);
+      videosWithOrderByMemory.putIfAbsent(memoryId, () => []).add(row);
+    }
+
+    return _MemoryMediaBatch(
+      imagesByMemory: imagesByMemory,
+      imagesWithOrderByMemory: imagesWithOrderByMemory,
+      audiosByMemory: audiosByMemory,
+      videosByMemory: videosByMemory,
+      videosWithOrderByMemory: videosWithOrderByMemory,
+    );
+  }
+
+  /// One memory with media — avoids reloading the full library after a single save.
+  Future<Map<String, dynamic>?> getMemoryWithDetails(int memoryId) async {
+    final db = await database;
+    try {
+      final rows = await db.query(
+        tableMemories,
+        columns: [
+          columnId, columnDate, columnTime, columnLocation, columnCategory,
+          columnDescription, columnAudioPath, columnTags, columnMentions,
+          columnCreatedAt, columnUpdatedAt,
+          columnLocationCountry, columnLocationCity, columnLocationName,
+          columnLocationAddress, columnLocationFlag, columnLocationLatitude,
+          columnLocationLongitude,
+        ],
+        where: '$columnId = ?',
+        whereArgs: [memoryId],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+
+      final images = await getMemoryImages(memoryId);
+      final imagesWithOrder = await getMemoryImagesWithOrder(memoryId);
+      final audios = await getMemoryAudios(memoryId);
+      final videos = await getMemoryVideos(memoryId);
+      final videosWithOrder = await getMemoryVideosWithOrder(memoryId);
+
+      return _memoryRowWithMedia(
+        rows.first,
+        images: images,
+        imagesWithOrder: imagesWithOrder,
+        audios: audios,
+        videos: videos,
+        videosWithOrder: videosWithOrder,
+      );
+    } catch (e) {
+      debugPrint('[DatabaseHelper] getMemoryWithDetails($memoryId): $e');
+      return null;
+    }
+  }
+
   // Get all memories with their images from separate table
   Future<List<Map<String, dynamic>>> getAllMemoriesWithDetails() async {
     final db = await database;
 
     try {
-      // First, get all memories (without image data to avoid CursorWindow issues)
       final memories = await db.query(
         tableMemories,
         columns: [
           columnId, columnDate, columnTime, columnLocation, columnCategory,
           columnDescription, columnAudioPath, columnTags, columnMentions,
           columnCreatedAt, columnUpdatedAt,
-          // Enhanced location fields
           columnLocationCountry, columnLocationCity, columnLocationName,
           columnLocationAddress, columnLocationFlag, columnLocationLatitude,
           columnLocationLongitude,
@@ -2081,40 +2210,23 @@ class DatabaseHelper {
 
       debugPrint('Loaded ${memories.length} memories from database');
 
-      // Then, get images for each memory from the images table
+      final mediaBatch = await _loadAllMemoryMediaBatch(db);
       final List<Map<String, dynamic>> memoriesWithImages = [];
 
       for (final memory in memories) {
         final memoryId = memory[columnId] as int;
-
-        final images = await getMemoryImages(memoryId);
-        final imagesWithOrder = await getMemoryImagesWithOrder(memoryId);
-        final audios = await getMemoryAudios(memoryId);
-        final videos = await getMemoryVideos(memoryId);
-        final videosWithOrder = await getMemoryVideosWithOrder(memoryId);
-
-        final memoryWithMedia = Map<String, dynamic>.from(memory);
-        memoryWithMedia['images'] = images;
-        memoryWithMedia['audios'] = audios;
-        memoryWithMedia['videos'] = videos;
-        memoryWithMedia['imageOrders'] = imagesWithOrder.map((r) => r[columnImageOrder] as int? ?? 0).toList();
-        memoryWithMedia['videoOrders'] = videosWithOrder.map((r) => r[columnVideoOrder] as int? ?? 0).toList();
-
-        // For backward compatibility, also store in image_path field
-        if (images.isNotEmpty) {
-          memoryWithMedia[columnImagePath] = images.join('|');
-        }
-
-        // For backward compatibility, also store in audio_path field
-        if (audios.isNotEmpty) {
-          final audioPaths =
-              audios
-                  .map((audio) => audio[columnAudioFilePath] as String)
-                  .toList();
-          memoryWithMedia[columnAudioPath] = audioPaths.join('|');
-        }
-
-        memoriesWithImages.add(memoryWithMedia);
+        memoriesWithImages.add(
+          _memoryRowWithMedia(
+            memory,
+            images: mediaBatch.imagesByMemory[memoryId] ?? const [],
+            imagesWithOrder:
+                mediaBatch.imagesWithOrderByMemory[memoryId] ?? const [],
+            audios: mediaBatch.audiosByMemory[memoryId] ?? const [],
+            videos: mediaBatch.videosByMemory[memoryId] ?? const [],
+            videosWithOrder:
+                mediaBatch.videosWithOrderByMemory[memoryId] ?? const [],
+          ),
+        );
       }
 
       debugPrint(
@@ -2486,4 +2598,20 @@ class DatabaseHelper {
     // Note: No longer initializing predefined contact groups
     // Users will create their own groups as needed
   }
+}
+
+class _MemoryMediaBatch {
+  const _MemoryMediaBatch({
+    required this.imagesByMemory,
+    required this.imagesWithOrderByMemory,
+    required this.audiosByMemory,
+    required this.videosByMemory,
+    required this.videosWithOrderByMemory,
+  });
+
+  final Map<int, List<String>> imagesByMemory;
+  final Map<int, List<Map<String, dynamic>>> imagesWithOrderByMemory;
+  final Map<int, List<Map<String, dynamic>>> audiosByMemory;
+  final Map<int, List<Map<String, dynamic>>> videosByMemory;
+  final Map<int, List<Map<String, dynamic>>> videosWithOrderByMemory;
 }

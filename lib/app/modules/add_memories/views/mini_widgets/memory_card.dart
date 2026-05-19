@@ -60,7 +60,6 @@ class MemoryCard extends StatefulWidget {
   String get location {
     try {
       final value = memoryData['location'].toString();
-      print('LOCATION: $value');
       return value;
     } catch (e) {
       return '';

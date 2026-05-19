@@ -833,6 +833,55 @@ List<Map<String, dynamic>> _applyDateFilter(
     }
   }
 
+  /// After creating one memory, prepend it without reloading the full library.
+  Future<void> prependMemoryById(int memoryId) async {
+    try {
+      final raw = await _databaseHelper.getMemoryWithDetails(memoryId);
+      if (raw == null) {
+        debugPrint('$tag prependMemoryById: memory $memoryId not found');
+        return;
+      }
+
+      final uiMemory = await transformDatabaseMemoryToUI(raw);
+      final updated = <Map<String, dynamic>>[uiMemory, ...allMemories];
+      allMemories.value = updated;
+
+      _mergeFilterOptionsFromUiMemory(uiMemory);
+      updateFilterStatus();
+      applyAllFilters();
+
+      debugPrint(
+        '$tag prependMemoryById: inserted memory $memoryId (${allMemories.length} total)',
+      );
+
+      if (Get.isRegistered<AddMemoriesController>()) {
+        Get.find<AddMemoriesController>().rebuildDisplayList();
+      }
+    } catch (e) {
+      debugPrint('$tag prependMemoryById error: $e');
+    }
+  }
+
+  void _mergeFilterOptionsFromUiMemory(Map<String, dynamic> memory) {
+    final tags = memory['tags'] as String?;
+    if (tags != null && tags.isNotEmpty) {
+      final merged = <String>{...availableHashtags, ...tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty)};
+      availableHashtags.value = merged.toList()..sort();
+    }
+
+    final mentions = memory['mentions'] as String?;
+    if (mentions != null && mentions.isNotEmpty) {
+      final merged = <String>{...availableContacts, ...mentions.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty)};
+      availableContacts.value = merged.toList()..sort();
+    }
+
+    final category = memory['category'] as String?;
+    if (category != null && category.isNotEmpty) {
+      final merged = <String>{...availableCategories, category};
+      availableCategories.value = merged.toList()..sort();
+    }
+  }
+
   /// Transform database memory to UI format
   Future<Map<String, dynamic>> transformDatabaseMemoryToUI(
     Map<String, dynamic> dbMemory,

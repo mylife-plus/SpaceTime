@@ -133,18 +133,14 @@ class GpxKmzUploadController extends GetxController {
           )
         : await FilePicker.platform.pickFiles(
             type: FileType.custom,
-            allowedExtensions: const ['kmz', 'gpx'],
+            allowedExtensions: const ['kmz', 'gpx', 'zip'],
             withData: false,
             withReadStream: false,
           );
     if (result == null || result.files.isEmpty) return;
     final f = result.files.first;
-    if (Platform.isIOS && !_isSupportedTrackFileName(f.name)) {
-      showTrSnackbar(
-        'gpx_snackbar_nothing_to_import',
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,
-      );
+    if (!_isSupportedTrackFileName(f.name)) {
+      _showInvalidTrackFileSnackbar();
       return;
     }
     final path = f.path;
@@ -154,12 +150,27 @@ class GpxKmzUploadController extends GetxController {
     } else if (f.name.isNotEmpty) {
       filePathController.text = f.name;
     }
-    await runPreview();
+    try {
+      await runPreview();
+    } on InvalidTrackFileException {
+      clearImportedFileAndResetView();
+      _showInvalidTrackFileSnackbar();
+    }
   }
 
   static bool _isSupportedTrackFileName(String name) {
     final n = name.toLowerCase();
-    return n.endsWith('.kmz') || n.endsWith('.zip') || n.endsWith('.gpx');
+    return n.endsWith('.kmz') ||
+        n.endsWith('.gpx') ||
+        n.endsWith('.zip');
+  }
+
+  void _showInvalidTrackFileSnackbar() {
+    showTrSnackbar(
+      'gpx_snackbar_invalid_track_file',
+      backgroundColor: Colors.orange,
+      colorText: Colors.white,
+    );
   }
 
   Future<void> runPreview() async {
@@ -185,6 +196,9 @@ class GpxKmzUploadController extends GetxController {
         label: 'loadPointsRaw',
       );
       if (gen != _previewGeneration) return;
+      if (rawPts.isEmpty) {
+        throw InvalidTrackFileException('empty');
+      }
       final pts = await _retry(
         () => KmzImportPipeline.loadPointsFiltered(
           path,
@@ -198,6 +212,9 @@ class GpxKmzUploadController extends GetxController {
       final dateKeys = _extractDateKeys(pts);
       _syncDateSelection(dateKeys);
       final filteredByDate = _filterPointsBySelectedDateRange(pts);
+      final ignoredByRules = (rawPts.length - pts.length).clamp(0, 1 << 30);
+      final ignoredByDate =
+          (pts.length - filteredByDate.length).clamp(0, 1 << 30);
       final rows =
           await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
       final fpSet = <String>{};
@@ -221,12 +238,15 @@ class GpxKmzUploadController extends GetxController {
         existingCoordinateRows: rows,
       );
 
-      final ignoredByRules = (rawPts.length - pts.length).clamp(0, 1 << 30);
       rawEntryCount.value = rawPts.length;
-      ignoredEntryCount.value = _lastStats!.ignoredEntries + ignoredByRules;
+      ignoredEntryCount.value =
+          _lastStats!.ignoredEntries + ignoredByRules + ignoredByDate;
       duplicateEntryCount.value = _lastStats!.duplicateEntries;
       totalEntryCount.value = _lastStats!.totalAfterFilter;
       newMemoriesCount.value = _lastStats!.newMemories;
+    } on InvalidTrackFileException {
+      _applyEmptyStats();
+      rethrow;
     } catch (e, st) {
       debugPrint('[GpxKmzUpload] preview error: $e\n$st');
       showTrSnackbar(

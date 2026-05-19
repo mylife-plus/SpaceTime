@@ -62,6 +62,19 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   double _lastScrollOffset = 0.0;
   bool _isScrollingDown = false;
 
+  /// Page size for add-memories list (lazy load on scroll).
+  static const int memoryListPageSize = 50;
+
+  /// Sorted memories shown in the list (rebuilt when source data/filters change).
+  final RxList<Map<String, dynamic>> displayMemories =
+      <Map<String, dynamic>>[].obs;
+
+  /// How many rows from [displayMemories] are currently built in the ListView.
+  final RxInt loadedDisplayCount = 0.obs;
+
+  bool get _listUsesFilteredSource =>
+      isSearching.value || hasActiveFilters.value;
+
   // ============================================================================
   // FILTER STATE (delegates to FilterController)
   // ============================================================================
@@ -231,6 +244,8 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     // Reapply filters if they were active
     if (hasActiveFilters.value) {
       applyFilters();
+    } else {
+      rebuildDisplayList();
     }
 
   }
@@ -254,6 +269,53 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     _syncFilterValuesFromFilterController();
 
     debugPrint('[AddMemoriesController] Loaded ${allMemories.length} memories from FilterController');
+    rebuildDisplayList();
+  }
+
+  /// Rebuilds sorted [displayMemories] and resets pagination window.
+  void rebuildDisplayList() {
+    final source = _listUsesFilteredSource
+        ? filteredMemories.toList()
+        : allMemories.toList();
+    displayMemories.value = _sortMemoriesNewestFirst(source);
+    final total = displayMemories.length;
+    loadedDisplayCount.value = total == 0
+        ? 0
+        : memoryListPageSize.clamp(0, total);
+  }
+
+  void loadMoreDisplayItems() {
+    final total = displayMemories.length;
+    if (loadedDisplayCount.value >= total) return;
+    final next = loadedDisplayCount.value + memoryListPageSize;
+    loadedDisplayCount.value = next > total ? total : next;
+  }
+
+  void onDisplayListIndexVisible(int index) {
+    if (index >= loadedDisplayCount.value - 12) {
+      loadMoreDisplayItems();
+    }
+  }
+
+  List<Map<String, dynamic>> _sortMemoriesNewestFirst(
+    List<Map<String, dynamic>> memories,
+  ) {
+    final list = List<Map<String, dynamic>>.from(memories);
+    list.sort(
+      (a, b) => _memorySortKey(b).compareTo(_memorySortKey(a)),
+    );
+    return list;
+  }
+
+  String _memorySortKey(Map<String, dynamic> memory) {
+    final created = memory['created_at'];
+    if (created is String && created.isNotEmpty) return created;
+    final updated = memory['updated_at'];
+    if (updated is String && updated.isNotEmpty) return updated;
+    final year = memory['year']?.toString() ?? '';
+    final date = memory['date']?.toString() ?? '';
+    final time = memory['time']?.toString() ?? '';
+    return '$year|$date|$time';
   }
 
   /// Sync filter values from FilterController to local state
@@ -960,6 +1022,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       } else {
         debugPrint('$tag 🧹 Clearing search & stopping');
         isSearching.value = false;
+        rebuildDisplayList();
       }
       return;
     }
@@ -996,6 +1059,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     debugPrint(
       '$tag 🏁 Search completed | Query="$query" | Results=${filteredMemories.length} | isSearching=${isSearching.value} | Filters=${hasActiveFilters.value ? "ON" : "OFF"}',
     );
+    rebuildDisplayList();
   }
 
   // Helper method to create a temporary MemoryCard for filtering
@@ -1023,6 +1087,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     // If there are filters, keep isSearching true to show filtered results
     if (!hasActiveFilters.value) {
       isSearching.value = false;
+      rebuildDisplayList();
     }
 
     debugPrint('[AddMemoriesController] closeSearch() completed - isSearching: ${isSearching.value}, hasActiveFilters: ${hasActiveFilters.value}');
@@ -1032,6 +1097,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     isSearching.value = false;
     searchQuery.value = '';
     filteredMemories.clear();
+    rebuildDisplayList();
   }
 
   String _normalizeFilterKey(String hint) => hint.trim().toLowerCase();
@@ -1886,6 +1952,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       _filterController.clearSearchedTextKeyword();
       _filterController.resetFilters();
       closeFilter();
+      rebuildDisplayList();
       return;
     }
 
@@ -1917,6 +1984,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     _backupSelectedContacts = List<String>.from(selectedContacts);
     _backupSelectedCategories = List<String>.from(selectedCategories);
 
+    rebuildDisplayList();
     _closeFilterPanelOnly();
   }
 
@@ -1954,6 +2022,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       _syncFiltersToMapController();
     }
 
+    rebuildDisplayList();
     debugPrint('All filters reset (isOpenedFromMap: $isOpenedFromMap)');
   }
 
@@ -1985,6 +2054,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       _syncFiltersToMapController();
     }
 
+    rebuildDisplayList();
     debugPrint('All filters reset (isOpenedFromMap: $isOpenedFromMap)');
   }
 

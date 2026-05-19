@@ -1196,7 +1196,7 @@ class _MemoryViewState extends State<MemoryView> {
           if (item['type'] == 'image') imgOrders.add(i);
           if (item['type'] == 'video') vidOrders.add(i);
         }
-        await memoryController.saveMemory(
+        final newMemoryId = await memoryController.saveMemory(
           description: description,
           imagePaths: _selectedImagePaths,
           videoPaths: _selectedVideoPaths,
@@ -1205,7 +1205,7 @@ class _MemoryViewState extends State<MemoryView> {
           tags: tags,
           mentions: mentions,
         );
-        debugPrint('MemoryView: handleSave - CREATE MODE - Memory saved successfully');
+        debugPrint('MemoryView: handleSave - CREATE MODE - Memory saved successfully (id: $newMemoryId)');
 
         // Clear the draft since memory was saved successfully
         debugPrint('MemoryView: handleSave - CREATE MODE - Clearing draft');
@@ -1223,28 +1223,24 @@ class _MemoryViewState extends State<MemoryView> {
         memoryController.clearAllData();
         debugPrint('MemoryView: handleSave - CREATE MODE - Controller data cleared');
 
-        // Reload data from FilterController (single source of truth)
-        debugPrint('MemoryView: handleSave - CREATE MODE - Reloading from FilterController');
+        // Incrementally update lists/map — avoid reloading 1000s of KMZ memories.
+        debugPrint('MemoryView: handleSave - CREATE MODE - Incremental FilterController update');
         if (Get.isRegistered<FilterController>()) {
           final filterController = Get.find<FilterController>();
           filterController.resetFiltersExceptSearch();
-          debugPrint('MemoryView: handleSave - CREATE MODE - FilterController reloaded: ${filterController.filteredMemories.length} memories');
-        }
+          await filterController.prependMemoryById(newMemoryId);
+          debugPrint(
+            'MemoryView: handleSave - CREATE MODE - FilterController: ${filterController.filteredMemories.length} memories',
+          );
 
-        // Refresh AddMemories view
-        if (Get.isRegistered<AddMemoriesController>()) {
-          final addMemoriesController = Get.find<AddMemoriesController>();
-          await addMemoriesController.loadMemoriesFromDatabase();
-          debugPrint('MemoryView: handleSave - CREATE MODE - AddMemories view reloaded');
-        }
-
-        // Refresh Map view
-        if (Get.isRegistered<MapControllerNew>()) {
-          final mapController = Get.find<MapControllerNew>();
-          final filterController = Get.find<FilterController>();
-          await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
-          mapController.showLoadedDataOnMap();
-          debugPrint('MemoryView: handleSave - CREATE MODE - Map view reloaded');
+          if (Get.isRegistered<MapControllerNew>()) {
+            final mapController = Get.find<MapControllerNew>();
+            await mapController.loadMemoriesFromDB(
+              filterController.filteredMemories.toList(),
+            );
+            mapController.showLoadedDataOnMap();
+            debugPrint('MemoryView: handleSave - CREATE MODE - Map view updated (incremental)');
+          }
         }
 
         // Show success snackbar before popping

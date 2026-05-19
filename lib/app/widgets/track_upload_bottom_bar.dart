@@ -32,13 +32,15 @@ class TrackUploadBottomBar extends StatelessWidget {
     super.key,
     required this.isDark,
     required this.busy,
-    required this.onPreview,
     required this.onUpload,
+    this.showPreviewButton = true,
+    this.onPreview,
   });
 
   final bool isDark;
   final bool busy;
-  final VoidCallback onPreview;
+  final bool showPreviewButton;
+  final VoidCallback? onPreview;
   final VoidCallback onUpload;
 
   @override
@@ -69,19 +71,21 @@ class TrackUploadBottomBar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ElevatedButton(
-                style: previewStyle,
-                onPressed: busy ? null : onPreview,
-                child: Text(
-                  'gpx_button_preview'.tr,
-                  style: GoogleFonts.kumbhSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: previewFg,
+              if (showPreviewButton) ...[
+                ElevatedButton(
+                  style: previewStyle,
+                  onPressed: busy ? null : onPreview,
+                  child: Text(
+                    'gpx_button_preview'.tr,
+                    style: GoogleFonts.kumbhSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: previewFg,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 20),
+                const SizedBox(width: 20),
+              ],
               ElevatedButton(
                 style: uploadStyle,
                 onPressed: busy ? null : onUpload,

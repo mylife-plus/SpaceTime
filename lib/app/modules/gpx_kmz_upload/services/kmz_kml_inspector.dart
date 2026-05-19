@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_parser.dart';
 
 DateTime? _parseKmlWhenForInspect(String raw) {
@@ -71,7 +72,13 @@ class KmzKmlInspector {
       return inspectGpxXml(xml);
     }
     final bytes = await file.readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
+    Archive archive;
+    try {
+      archive = ZipDecoder().decodeBytes(bytes);
+    } catch (e, st) {
+      debugPrint('[KmzKmlInspector] zip decode failed: $e\n$st');
+      return null;
+    }
     ArchiveFile? kmlFile;
     for (final f in archive) {
       final n = f.name.toLowerCase();

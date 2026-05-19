@@ -326,7 +326,6 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
     return Obx(() {
       final _ = ui.selectedLanguage.value;
       final __busy = controller.isBusy.value;
-      final _prepPreview = controller.isPreparingPreviewLocations.value;
       final isDark = ui.darkMode.value;
       final pageBg = isDark
           ? Colors.black
@@ -532,42 +531,12 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
             _newMemoriesSummaryLine(accent),
             TrackUploadBottomBar(
               isDark: isDark,
-              busy: __busy || _prepPreview,
-              onPreview: controller.onPreviewTap,
+              busy: __busy,
+              showPreviewButton: false,
               onUpload: controller.commitUploadToDatabase,
             ),
               ],
             ),
-            if (_prepPreview)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            color: accent,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Text(
-                            'text_preparing_your_map'.tr,
-                            textAlign: TextAlign.center,
-                            style: AppFonts.medium(16, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       );

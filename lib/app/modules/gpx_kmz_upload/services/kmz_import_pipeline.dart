@@ -26,6 +26,16 @@ class KmzMemoryCandidate {
   final String fingerprint;
 }
 
+/// Thrown when the picked file is not a readable GPX/KMZ track archive.
+class InvalidTrackFileException implements Exception {
+  InvalidTrackFileException([this.reason = 'invalid']);
+
+  final String reason;
+
+  @override
+  String toString() => 'InvalidTrackFileException($reason)';
+}
+
 class KmzImportStats {
   KmzImportStats({
     required this.rawEntries,
@@ -45,6 +55,23 @@ class KmzImportStats {
 }
 
 class KmzImportPipeline {
+  static Archive? _decodeZipArchive(List<int> bytes) {
+    try {
+      return ZipDecoder().decodeBytes(bytes);
+    } catch (e, st) {
+      debugPrint('[KmzImportPipeline] zip decode failed: $e\n$st');
+      return null;
+    }
+  }
+
+  static bool _archiveHasTrackData(Archive archive) {
+    for (final f in archive) {
+      final n = f.name.toLowerCase();
+      if (n.endsWith('.kml') || n.endsWith('.gpx')) return true;
+    }
+    return false;
+  }
+
   static bool _looksLikeGpxXml(String xml) {
     final lower = xml.toLowerCase();
     return lower.contains('<gpx') || lower.contains('<trkpt');
@@ -166,7 +193,10 @@ class KmzImportPipeline {
       return normalized;
     }
 
-    final archive = ZipDecoder().decodeBytes(bytes);
+    final archive = _decodeZipArchive(bytes);
+    if (archive == null || !_archiveHasTrackData(archive)) {
+      throw InvalidTrackFileException('zip_no_track_data');
+    }
     final zipNames = archive.map((f) => f.name).toList();
     ArchiveFile? kmlFile;
     ArchiveFile? gpxFile;

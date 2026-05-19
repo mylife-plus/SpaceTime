@@ -22,6 +22,12 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   DateTime? _lastPausedAt;
   bool _bootstrapDone = false;
 
+  /// True while [authenticate] is in flight (prevents overlapping system dialogs).
+  bool _authInProgress = false;
+
+  /// Cold-start unlock is scheduled after the first frame — not during [onInit].
+  bool _coldStartUnlockScheduled = false;
+
   /// Next resume after opening system Settings (e.g. permission flow) skips lock once.
   bool _skipLockOnceAfterExternalSettings = false;
 
@@ -54,12 +60,33 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       final enabled = prefs.getBool(_prefsKey) ?? false;
       if (enabled) {
         isLocked.value = true;
-        await authenticate(isColdStart: true);
+        _scheduleColdStartAuthentication();
       }
     } catch (e) {
       debugPrint('[AppLockController] bootstrap: $e');
     } finally {
       _bootstrapDone = true;
+    }
+  }
+
+  /// iOS can hang if [LocalAuthentication.authenticate] runs before the first frame
+  /// (e.g. right after enabling PIN, on cold start, when Face ID permission appears).
+  void _scheduleColdStartAuthentication() {
+    if (_coldStartUnlockScheduled) return;
+    _coldStartUnlockScheduled = true;
+
+    void runAfterUiReady() {
+      Future<void>.delayed(const Duration(milliseconds: 500), () {
+        if (!isLocked.value || _authInProgress) return;
+        unawaited(authenticate(isColdStart: true));
+      });
+    }
+
+    final binding = WidgetsBinding.instance;
+    if (binding.platformDispatcher.views.isNotEmpty) {
+      binding.addPostFrameCallback((_) => runAfterUiReady());
+    } else {
+      Future<void>.delayed(const Duration(milliseconds: 300), runAfterUiReady);
     }
   }
 
@@ -85,6 +112,7 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _onAppResumed() async {
     if (!_bootstrapDone) return;
+    if (_authInProgress) return;
     if (_appLockDisabledOnAndroid) return;
 
     final prefs = await SharedPreferences.getInstance();
@@ -125,8 +153,10 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     unawaited(authenticate(isColdStart: false));
   }
 
-  /// Call when user taps Unlock on the overlay.
+  /// Call when user taps Unlock on the overlay (or after cold-start UI is ready).
   Future<void> authenticate({bool isColdStart = false}) async {
+    if (_authInProgress) return;
+
     authError.value = null;
 
     if (_appLockDisabledOnAndroid) {
@@ -140,7 +170,13 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       return;
     }
 
+    _authInProgress = true;
     try {
+      // Ensure a mounted view exists before presenting the system sheet.
+      if (isColdStart) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+
       final supported = await _localAuth.isDeviceSupported();
       if (!supported) {
         authError.value = 'app_lock_error_device_not_supported';
@@ -165,6 +201,8 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('[AppLockController] authenticate: $e');
       authError.value = 'app_lock_error_generic';
+    } finally {
+      _authInProgress = false;
     }
   }
 

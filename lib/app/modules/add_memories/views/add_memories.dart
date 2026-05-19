@@ -34,176 +34,53 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
   final UiController uiController = Get.find<UiController>();
 
   Widget _buildMemoryList() {
-
-
     return NotificationListener<ScrollNotification>(
       onNotification: (ScrollNotification scrollInfo) {
         if (scrollInfo is ScrollUpdateNotification) {
-          final currentOffset = scrollInfo.metrics.pixels;
-          final maxScrollExtent = scrollInfo.metrics.maxScrollExtent;
-          controller.handleScrollUpdate(currentOffset, maxScrollExtent);
+          controller.handleScrollUpdate(
+            scrollInfo.metrics.pixels,
+            scrollInfo.metrics.maxScrollExtent,
+          );
+          if (scrollInfo.metrics.pixels >=
+              scrollInfo.metrics.maxScrollExtent - 600) {
+            controller.loadMoreDisplayItems();
+          }
         }
         return false;
       },
       child: Obx(() {
         final _ = uiController.selectedLanguage.value;
-        debugPrint(
-          'AddMemoriesView rebuild - isLoading: ${controller.isLoading.value}, isSearching: ${controller.isSearching.value}, allMemories: ${controller.allMemories.length}, filteredMemories: ${controller.filteredMemories.length}',
-        );
 
-        // Show loading state
         if (controller.isLoading.value) {
-          debugPrint('Showing loading state');
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Show filtered memories when searching OR when filters are active
-        if (controller.isSearching.value || controller.hasActiveFilters.value) {
-          debugPrint('🔍 Showing filtered memories - isSearching: ${controller.isSearching.value}, hasActiveFilters: ${controller.hasActiveFilters.value}');
-          debugPrint('🔍 filteredMemories.length: ${controller.filteredMemories.length}');
-          debugPrint('🔍 FilterController.filteredMemories.length: ${Get.find<FilterController>().filteredMemories.length}');
-          debugPrint('🔍 FilterController.searchedTextKeyword: "${Get.find<FilterController>().searchedTextKeyword.value}"');
-          debugPrint('🔍 FilterController.hasActiveSearch: ${Get.find<FilterController>().hasActiveSearch}');
-
-          // Handle empty search results
-          if (controller.filteredMemories.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'text_no_memories_found'.tr,
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'text_try_adjusting_your_search_or_filters'.tr,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final groupedMemories = <String, List<Map<String, dynamic>>>{};
-          for (final memory in controller.filteredMemories) {
-            final year = memory['year'] ?? '';
-            if (!groupedMemories.containsKey(year)) {
-              groupedMemories[year] = [];
-            }
-            // debugPrint('Added memory to yearrrr $year: ${memory}');
-            groupedMemories[year]!.add(memory);
-          }
-
-          // Sort memories within each year by date and time (newest first)
-          groupedMemories.forEach((year, memories) {
-            memories.sort((a, b) {
-              try {
-                final aDate = a['date'] as String? ?? '';
-                final bDate = b['date'] as String? ?? '';
-                final aYear = a['year'] as String? ?? '';
-                final bYear = b['year'] as String? ?? '';
-                final aTime = a['time'] as String? ?? '';
-                final bTime = b['time'] as String? ?? '';
-
-                DateTime? aDateTime;
-                DateTime? bDateTime;
-
-                String format = Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
-
-                if (aTime.toLowerCase().contains('am') || aTime.toLowerCase().contains('pm')) {
-                  format = "d. MMMM yyyy hh:mm a";
-                } else {
-                  format = "d. MMMM yyyy HH:mm";
-                }
-
-                try {
-                  aDateTime = DateFormat(format).parse('$aDate $aYear $aTime');
-                } catch (e) {
-                  // Try alternative format
-                  try {
-                    aDateTime = DateFormat("d. MMMM yyyy HH:mm").parse('$aDate $aYear $aTime');
-                  } catch (e2) {
-                    debugPrint('Error parsing date A: $aDate $aYear $aTime - $e2');
-                  }
-                }
-
-                try {
-                  bDateTime = DateFormat(format).parse('$bDate $bYear $bTime');
-                } catch (e) {
-                  // Try alternative format
-                  try {
-                    bDateTime = DateFormat("d. MMMM yyyy HH:mm").parse('$bDate $bYear $bTime');
-                  } catch (e2) {
-                    debugPrint('Error parsing date B: $bDate $bYear $bTime - $e2');
-                  }
-                }
-
-                // Compare dates (newest first)
-                if (aDateTime != null && bDateTime != null) {
-                  return bDateTime.compareTo(aDateTime);
-                } else if (aDateTime != null) {
-                  return -1;
-                } else if (bDateTime != null) {
-                  return 1;
-                }
-                return 0;
-              } catch (e) {
-                debugPrint('Error sorting memories: $e');
-                return 0;
-              }
-            });
-          });
-
-          final sortedYears =
-              groupedMemories.keys.toList()..sort((a, b) => b.compareTo(a));
-
-
-          return Container(
-                              color: (!uiController.darkMode.value ? Colors.white : Colors.transparent),
-
-            child: ListView(
-              controller: controller.scrollController,
-              // shrinkWrap: false,
-              padding: EdgeInsets.zero,
-              physics: const AlwaysScrollableScrollPhysics(),
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              children: [
-                for (final year in sortedYears) ...[
-                  if (year.isNotEmpty) Container(),
-                  ...groupedMemories[year]!.map(
-                    (memory) => MemoryCard(memoryData: memory),
-                  ),
-                ],
-                Container(child: SizedBox(height: 100),                            color: (!uiController.darkMode.value ? Colors.white : Colors.transparent),
-             ),
-              ],
-            ),
-          );
-        }
-
-        // Handle empty memories
-        if (controller.allMemories.isEmpty) {
-          debugPrint('Showing empty memories state');
+        if (controller.displayMemories.isEmpty) {
+          final filteredOrSearch =
+              controller.isSearching.value || controller.hasActiveFilters.value;
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.photo_library_outlined,
+                  filteredOrSearch
+                      ? Icons.search_off
+                      : Icons.photo_library_outlined,
                   size: 64,
                   color: Colors.grey[400],
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'text_no_memories_yet'.tr,
+                  filteredOrSearch
+                      ? 'text_no_memories_found'.tr
+                      : 'text_no_memories_yet'.tr,
                   style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'text_start_creating_your_first_memory'.tr,
+                  filteredOrSearch
+                      ? 'text_try_adjusting_your_search_or_filters'.tr
+                      : 'text_start_creating_your_first_memory'.tr,
                   style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                 ),
               ],
@@ -211,100 +88,29 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
           );
         }
 
-        // Group memories by year
-        debugPrint(
-          'Grouping ${controller.allMemories.length} memories by year',
-        );
-        final groupedMemories = <String, List<Map<String, dynamic>>>{};
-        for (final memory in controller.allMemories) {
-          final year = memory['year'] ?? '';
-          if (!groupedMemories.containsKey(year)) {
-            groupedMemories[year] = [];
-          }
-          groupedMemories[year]!.add(memory);
-          debugPrint('Added memory to yearrrrrrrr $year: ${memory['date']}');
-        }
-
-        // Sort memories within each year by date and time (newest first)
-        groupedMemories.forEach((year, memories) {
-          memories.sort((a, b) {
-            try {
-              final aDate = a['date'] as String? ?? '';
-              final bDate = b['date'] as String? ?? '';
-              final aYear = a['year'] as String? ?? '';
-              final bYear = b['year'] as String? ?? '';
-              final aTime = a['time'] as String? ?? '';
-              final bTime = b['time'] as String? ?? '';
-
-              DateTime? aDateTime;
-              DateTime? bDateTime;
-
-              String format = Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
-
-              if (aTime.toLowerCase().contains('am') || aTime.toLowerCase().contains('pm')) {
-                format = "d. MMMM yyyy hh:mm a";
-              } else {
-                format = "d. MMMM yyyy HH:mm";
-              }
-
-              try {
-                aDateTime = DateFormat(format).parse('$aDate $aYear $aTime');
-              } catch (e) {
-                // Try alternative format
-                try {
-                  aDateTime = DateFormat("d. MMMM yyyy HH:mm").parse('$aDate $aYear $aTime');
-                } catch (e2) {
-                  debugPrint('Error parsing date A: $aDate $aYear $aTime - $e2');
-                }
-              }
-
-              try {
-                bDateTime = DateFormat(format).parse('$bDate $bYear $bTime');
-              } catch (e) {
-                // Try alternative format
-                try {
-                  bDateTime = DateFormat("d. MMMM yyyy HH:mm").parse('$bDate $bYear $bTime');
-                } catch (e2) {
-                  debugPrint('Error parsing date B: $bDate $bYear $bTime - $e2');
-                }
-              }
-
-              // Compare dates (newest first)
-              if (aDateTime != null && bDateTime != null) {
-                return bDateTime.compareTo(aDateTime);
-              } else if (aDateTime != null) {
-                return -1;
-              } else if (bDateTime != null) {
-                return 1;
-              }
-              return 0;
-            } catch (e) {
-              debugPrint('Error sorting memories: $e');
-              return 0;
-            }
-          });
-        });
-
-        final sortedYears =
-            groupedMemories.keys.toList()..sort((a, b) => b.compareTo(a));
-        debugPrint('Sorted years: $sortedYears');
-
-        final flattenedMemories = <Map<String, dynamic>>[];
-        for (final year in sortedYears) {
-          flattenedMemories.addAll(groupedMemories[year] ?? const []);
-        }
-
+        final loaded = controller.loadedDisplayCount.value;
         return ListView.builder(
           controller: controller.scrollController,
           padding: EdgeInsets.zero,
           physics: const AlwaysScrollableScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          itemCount: flattenedMemories.length + 1,
+          cacheExtent: 800,
+          itemCount: loaded + 1,
           itemBuilder: (context, index) {
-            if (index == flattenedMemories.length) {
-              return const SizedBox(height: 100);
+            if (index == loaded) {
+              return ColoredBox(
+                color: !uiController.darkMode.value
+                    ? Colors.white
+                    : Colors.transparent,
+                child: const SizedBox(height: 100),
+              );
             }
-            return MemoryCard(memoryData: flattenedMemories[index]);
+            controller.onDisplayListIndexVisible(index);
+            final memory = controller.displayMemories[index];
+            return MemoryCard(
+              key: ValueKey(memory['id']),
+              memoryData: memory,
+            );
           },
         );
       }),

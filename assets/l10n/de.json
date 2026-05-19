@@ -1241,5 +1241,6 @@
   "map_location_status_getting_current_location": "Aktueller Standort wird ermittelt …",
   "map_location_status_location_found": "Standort gefunden",
   "map_location_status_ready": "Bereit",
-  "map_location_status_permission_granted_getting_location": "Berechtigung erteilt, Standort wird ermittelt …"
+  "map_location_status_permission_granted_getting_location": "Berechtigung erteilt, Standort wird ermittelt …",
+  "gpx_snackbar_invalid_track_file": "Bitte wählen Sie eine gültige GPX- oder KMZ-Datei."
 }

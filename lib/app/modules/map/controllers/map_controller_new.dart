@@ -539,6 +539,25 @@ class MapControllerNew extends GetxController {
   Future<void> loadMemoriesFromDB([
     List<Map<String, dynamic>>? filteredMemoriesData,
   ]) async {
+    // Fast path: caller already updated FilterController (e.g. after saving one memory).
+    if (filteredMemoriesData != null) {
+      debugPrint(
+        '[MapControllerNew] loadMemoriesFromDB incremental (${filteredMemoriesData.length} filtered)',
+      );
+      if (_filterController.allMemories.isNotEmpty) {
+        allMemoriesWithoutFilter.assignAll(_filterController.allMemories);
+      }
+      _currentMemories.clear();
+      final spreadMemories = _spreadOverlappingMemories(filteredMemoriesData);
+      if (spreadMemories.isNotEmpty) {
+        _currentMemories.assignAll(spreadMemories);
+        debugPrint(
+          '[MapControllerNew] Incremental map data: ${spreadMemories.length} memories',
+        );
+      }
+      return;
+    }
+
     final db = await _databaseHelper.database;
     if (!db.isOpen) {
       await _databaseHelper.resetDatabaseConnection();
