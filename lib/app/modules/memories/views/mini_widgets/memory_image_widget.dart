@@ -1,12 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/custom_dialogue_box.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/utils/memory_media_image_cache.dart';
 
 class MemoryImageWidget extends StatelessWidget {
   final String? imagePath;
@@ -14,56 +12,18 @@ class MemoryImageWidget extends StatelessWidget {
 
   const MemoryImageWidget({super.key, this.imagePath, this.onImageTap});
 
-  // Build image widget that handles both file paths and base64 data
-  Widget _buildImageWidget(String imagePath) {
-    // Check if it's a file path (starts with / or contains file extension)
-    if (imagePath.startsWith('/') || imagePath.contains('.')) {
-      // It's a file path
-      if (File(imagePath).existsSync()) {
-        return Image.file(
-          File(imagePath),
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[300],
-              child: const Icon(Icons.error, color: Colors.red),
-            );
-          },
-        );
-      } else {
-        // File doesn't exist, might be an asset
-        return Image.asset(
-          imagePath,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[300],
-              child: const Icon(Icons.error, color: Colors.red),
-            );
-          },
-        );
-      }
-    } else {
-      // Assume it's base64 data
-      try {
-        final bytes = base64Decode(imagePath);
-        return Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[300],
-              child: const Icon(Icons.error, color: Colors.red),
-            );
-          },
-        );
-      } catch (e) {
-        return Container(
-          color: Colors.grey[300],
-          child: const Icon(Icons.error, color: Colors.red),
-        );
-      }
-    }
+  Widget _buildImageWidget(BuildContext context, String imagePath) {
+    return MemoryMediaImageProviderCache.instance.buildImage(
+      context: context,
+      imageData: imagePath,
+      fit: BoxFit.cover,
+      width: 120,
+      height: 170,
+      errorChild: Container(
+        color: Colors.grey[300],
+        child: const Icon(Icons.error, color: Colors.red),
+      ),
+    );
   }
 
   @override
@@ -91,7 +51,7 @@ class MemoryImageWidget extends StatelessWidget {
                       },
                     );
                   },
-                  child: _buildImageWidget(imagePath!),
+                  child: _buildImageWidget(context, imagePath!),
                 ),
               )
               : Obx(

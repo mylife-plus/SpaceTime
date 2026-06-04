@@ -36,20 +36,19 @@ abstract final class OpenSourceCommunityLabels {
     );
   }
 
-  /// Settings list row (16 / medium + bold).
+  /// Settings list row.
   static Widget settingsTileTitle() {
     return Obx(() {
       final ui = Get.find<UiController>();
       ui.selectedLanguage.value;
       final dark = ui.darkMode.value;
       final color = dark ? Colors.white : Colors.black;
-      final normal = AppFonts.medium(16, color: color).copyWith(
-        fontWeight: FontWeight.w600,
+      return Text(
+        'apptexts_community_app'.tr,
+        style: AppFonts.medium(16, color: color).copyWith(
+          fontWeight: FontWeight.w600,
+        ),
       );
-      final bold = AppFonts.medium(16, color: color).copyWith(
-        fontWeight: FontWeight.w800,
-      );
-      return Text.rich(_titleSpan(normal, bold));
     });
   }
 

@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/app/widgets/open_source_community_labels.dart';
 
-import '../../../config/app_images.dart';
 import '../../ui/controllers/ui_controller.dart';
 import 'mini_widgets/settings_tile.dart';
 import 'open_source_community_detail_view.dart';
@@ -78,7 +77,7 @@ class OpenSourceCommunityView extends StatelessWidget {
                     },
                   ),
                   SettingsTile(
-                    icon: Image.asset(AppImages.feedback),
+                    icon: const Text('✍️', style: TextStyle(fontSize: 22)),
                     titleL10nKey: 'apptexts_see_all_feedbacks',
                     showDivider: false,
                     onTap: () {
@@ -86,7 +85,10 @@ class OpenSourceCommunityView extends StatelessWidget {
                         () => OpenSourceCommunityDetailView(
                           title: 'apptexts_see_all_feedbacks'.tr,
                           url: _feedbacksUrl,
-                          appBarIcon: Image.asset(AppImages.feedback),
+                          appBarIcon: const Text(
+                            '✍️',
+                            style: TextStyle(fontSize: 24),
+                          ),
                         ),
                       );
                     },

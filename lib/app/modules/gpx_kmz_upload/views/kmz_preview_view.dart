@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/controllers/gpx_kmz_upload_controller.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_import_pipeline.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
@@ -10,7 +11,7 @@ import 'package:spacetime/app/widgets/track_upload_refresh_icon.dart';
 import 'mini_widgets/track_preview_summary_card.dart';
 
 /// Preview after upload screen has finished reverse-geocoding all candidates.
-class KmzPreviewView extends StatelessWidget {
+class KmzPreviewView extends StatefulWidget {
   const KmzPreviewView({
     super.key,
     required this.candidates,
@@ -20,6 +21,33 @@ class KmzPreviewView extends StatelessWidget {
   final List<KmzMemoryCandidate> candidates;
   /// Same order as [candidates] (typically sorted by time).
   final List<String> locationLines;
+
+  @override
+  State<KmzPreviewView> createState() => _KmzPreviewViewState();
+}
+
+class _KmzPreviewViewState extends State<KmzPreviewView> {
+  // Local mutable copies so a previewed memory can be removed from the list
+  // (and excluded from the upload) without rebuilding the source data.
+  late final List<KmzMemoryCandidate> candidates = [...widget.candidates];
+  late final List<String> locationLines = [...widget.locationLines];
+
+  /// Delete a previewed memory: drop it from the list and exclude it from the
+  /// upload so the counts on the previous screen update. Pops when empty.
+  void _deleteCandidateAt(int i) {
+    if (i < 0 || i >= candidates.length) return;
+    final candidate = candidates[i];
+    if (Get.isRegistered<GpxKmzUploadController>()) {
+      Get.find<GpxKmzUploadController>().excludeCandidateFromUpload(candidate);
+    }
+    setState(() {
+      candidates.removeAt(i);
+      locationLines.removeAt(i);
+    });
+    if (candidates.isEmpty) {
+      Get.back<void>();
+    }
+  }
 
   String _monthShort(int m) {
     const names = [
@@ -55,6 +83,7 @@ class KmzPreviewView extends StatelessWidget {
     required Color headerText,
     required Color bodyText,
     required Color bodyBg,
+    required VoidCallback onDelete,
   }) {
     final dt = candidate.when.toLocal();
     final hh =
@@ -63,10 +92,8 @@ class KmzPreviewView extends StatelessWidget {
     final yr = '${dt.year}';
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(8, 0, 8, 10),
       decoration: BoxDecoration(
         color: bodyBg,
-        border: Border.all(color: Colors.black12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,7 +102,7 @@ class KmzPreviewView extends StatelessWidget {
             width: double.infinity,
             height: 36,
             color: headerBg,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.only(left: 12, right: 4),
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -96,11 +123,27 @@ class KmzPreviewView extends StatelessWidget {
                     ),
                   ],
                 ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onDelete,
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      child: Image.asset(
+                        'assets/images/trash.png',
+                        width: 20,
+                        height: 20,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Row(
               children: [
                 Text(
@@ -169,6 +212,7 @@ class KmzPreviewView extends StatelessWidget {
             }
             final i = index - 1;
             return RepaintBoundary(
+              key: ValueKey(candidates[i].fingerprint),
               child: _card(
                 candidate: candidates[i],
                 locationText: locationLines[i],
@@ -176,6 +220,7 @@ class KmzPreviewView extends StatelessWidget {
                 headerText: headerText,
                 bodyText: bodyText,
                 bodyBg: bodyBg,
+                onDelete: () => _deleteCandidateAt(i),
               ),
             );
           },

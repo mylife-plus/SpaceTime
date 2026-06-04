@@ -1733,17 +1733,50 @@ class MapControllerNew extends GetxController {
         _toDouble(memory['longitude']);
   }
 
+  /// Parse a memory's user-selected date+time into a comparable DateTime.
+  /// Mirrors the timeline/arrow ordering logic (uses memory['date']/['year']/['time'],
+  /// NOT created_at) so camera focus and the chronological arrows agree on which
+  /// memory is the "latest" one.
+  DateTime? _parseMemoryDateTime(Map<String, dynamic> memory) {
+    final date = (memory['date'] as String?) ?? '';
+    final year = (memory['year'] as String?) ?? '';
+    final time = (memory['time'] as String?) ?? '';
+    try {
+      if (date.isNotEmpty && year.isNotEmpty) {
+        if (time.isNotEmpty) {
+          String format =
+              io.Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
+          if (time.toLowerCase().contains('am') ||
+              time.toLowerCase().contains('pm')) {
+            format = "d. MMMM yyyy hh:mm a";
+          } else {
+            format = "d. MMMM yyyy HH:mm";
+          }
+          return DateFormat(format).parse('$date $year $time');
+        }
+        return DateFormat("d. MMMM yyyy").parse('$date $year');
+      }
+      // Fallback: date may already be a fully-formed parseable string.
+      if (date.isNotEmpty) {
+        final parsed = DateTime.tryParse(date);
+        if (parsed != null) return parsed;
+      }
+    } catch (e) {
+      debugPrint(
+        '[MapControllerNew] _parseMemoryDateTime failed for "$date $year $time": $e',
+      );
+    }
+    return null;
+  }
+
   /// Find the latest memory with valid coordinates in a list
   Map<String, double>? _getLatestMemoryLatLng(
     List<Map<String, dynamic>> memories,
   ) {
-    for (int i = memories.length - 1; i >= 0; i--) {
-      final lat = _extractLatitude(memories[0]);
-      final lng = _extractLongitude(memories[0]);
-      if (lat != null &&
-          lng != null &&
-          !lat.isNaN &&
-          !lng.isNaN) {
+    for (final memory in memories) {
+      final lat = _extractLatitude(memory);
+      final lng = _extractLongitude(memory);
+      if (lat != null && lng != null && !lat.isNaN && !lng.isNaN) {
         return {'lat': lat, 'lng': lng};
       }
     }
@@ -1751,7 +1784,7 @@ class MapControllerNew extends GetxController {
   }
 
   /// Decide default camera position:
-  /// 1) Latest memory (from _currentMemories or allMemories fallback)
+  /// 1) Latest memory by created_at across ALL memories (not just filtered view)
   /// 2) Current location (if available)
   /// 3) Germany fallback
   Future<void> _setDefaultCameraPosition([
@@ -1759,15 +1792,32 @@ class MapControllerNew extends GetxController {
   ]) async {
     if (mapboxMap == null) return;
 
-    // 1) Try latest memory from current view
-    Map<String, double>? latest =
-        _getLatestMemoryLatLng(_currentMemories);
+    // Sort all available memories by their user-selected date/time DESC so the
+    // most recent memory (the last arrow endpoint on the timeline) comes first.
+    // We use the same date/time parsing the chronological arrows use — NOT
+    // created_at — so a newly-added memory is focused based on its memory date,
+    // not when the row was inserted. created_at is only a tie-break fallback for
+    // memories whose date/time can't be parsed.
+    final candidates = (allMemories != null && allMemories.isNotEmpty)
+        ? allMemories
+        : allMemoriesWithoutFilter.toList();
+    final sorted = List<Map<String, dynamic>>.from(candidates)
+      ..sort((a, b) {
+        final ad = _parseMemoryDateTime(a);
+        final bd = _parseMemoryDateTime(b);
+        if (ad != null && bd != null) return bd.compareTo(ad); // newest first
+        if (ad != null) return -1;
+        if (bd != null) return 1;
+        final ac = (a['created_at'] as String?) ?? '';
+        final bc = (b['created_at'] as String?) ?? '';
+        return bc.compareTo(ac); // fallback: newest created_at first
+      });
 
-    // If filters hid everything but DB has memories, fall back to allMemories
-    if ((latest == null || latest.isEmpty) &&
-        allMemories != null &&
-        allMemories.isNotEmpty) {
-      latest = _getLatestMemoryLatLng(allMemories);
+    Map<String, double>? latest = _getLatestMemoryLatLng(sorted);
+
+    // Fallback: try _currentMemories if the sorted candidates had no valid coords
+    if (latest == null && _currentMemories.isNotEmpty) {
+      latest = _getLatestMemoryLatLng(_currentMemories);
     }
 
     if (latest != null && latest.isNotEmpty) {
@@ -1842,6 +1892,14 @@ class MapControllerNew extends GetxController {
     debugPrint(
       '[MapControllerNew] ✅ Default camera: Germany fallback at ($fallbackLat, $fallbackLng) with zoom 5',
     );
+  }
+
+  /// Move camera to the globally latest memory (by created_at) with valid coords.
+  /// Call this after a successful KMZ/GPX/GPS import so the map focuses on the
+  /// latest memory across ALL types, not just the newly imported ones.
+  Future<void> focusOnLatestMemory() async {
+    if (mapboxMap == null || !isMapReady.value || !isStyleReady.value) return;
+    await _setDefaultCameraPosition(allMemoriesWithoutFilter.toList());
   }
 
   Map<String, dynamic> _normalizeMemoryForNavigation(
@@ -2077,7 +2135,7 @@ class MapControllerNew extends GetxController {
 
       // Check current permission without requesting
       LocationPermission permission = await Geolocator.checkPermission();
-      debugPrint('[MapControllerNew] Current permission: $permission');
+      debugPrint('[MapControllerNew] Current location permission: $permission');
 
       bool hasPermission =
           permission == LocationPermission.always ||
@@ -2102,6 +2160,17 @@ class MapControllerNew extends GetxController {
         locationStatus.value = 'map_location_status_permission_required'.tr;
         isLoadingLocation.value = false;
       }
+
+      // Also refresh camera, gallery (photos), and microphone permissions.
+      try {
+        final permService = Get.find<PermissionService>();
+        await permService.refreshMediaPermissions();
+        debugPrint(
+          '[MapControllerNew] 📷 camera=${permService.hasCameraPermission.value}'
+          '  📸 photos=${permService.hasPhotosPermission.value}'
+          '  🎙 mic=${permService.hasMicrophonePermission.value}',
+        );
+      } catch (_) {}
 
       debugPrint('[MapControllerNew] Final state after force check:');
       debugPrint(

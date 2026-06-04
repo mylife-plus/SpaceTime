@@ -10,7 +10,11 @@ import 'package:spacetime/app/constants/place_categories_data.dart';
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      16; // track_import_log.import_source (gpx_kmz vs media_gps)
+      17; // imported_gallery_assets for GPS upload dedupe
+
+  static const tableImportedGalleryAssets = 'imported_gallery_assets';
+  static const columnGalleryAssetId = 'asset_id';
+  static const columnGalleryAssetMemoryId = 'memory_id';
 
   /// Stored on [tableTrackImportLog] rows — filters past uploads by screen.
   static const String trackImportSourceGpxKmz = 'gpx_kmz';
@@ -300,6 +304,14 @@ class DatabaseHelper {
         $columnTrackLogItemLocation TEXT,
         $columnTrackLogItemMemoryId INTEGER,
         FOREIGN KEY ($columnTrackLogItemLogId) REFERENCES $tableTrackImportLog ($columnTrackLogId) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $tableImportedGalleryAssets (
+        $columnGalleryAssetId TEXT PRIMARY KEY,
+        $columnGalleryAssetMemoryId INTEGER NOT NULL,
+        FOREIGN KEY ($columnGalleryAssetMemoryId) REFERENCES $tableMemories ($columnId) ON DELETE CASCADE
       )
     ''');
 
@@ -662,6 +674,17 @@ class DatabaseHelper {
       );
       debugPrint('✅ track_import_log.import_source');
     }
+
+    if (oldVersion < 17) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableImportedGalleryAssets (
+          $columnGalleryAssetId TEXT PRIMARY KEY,
+          $columnGalleryAssetMemoryId INTEGER NOT NULL,
+          FOREIGN KEY ($columnGalleryAssetMemoryId) REFERENCES $tableMemories ($columnId) ON DELETE CASCADE
+        )
+      ''');
+      debugPrint('✅ imported_gallery_assets');
+    }
   }
 
   // Migrate existing image data from memories table to images table
@@ -768,6 +791,40 @@ class DatabaseHelper {
   }
 
   /// Gallery-import memories (for merging new clusters into existing ones).
+  Future<Set<String>> queryImportedGalleryAssetIds() async {
+    final db = await database;
+    final rows = await db.query(
+      tableImportedGalleryAssets,
+      columns: [columnGalleryAssetId],
+    );
+    return rows
+        .map((r) => r[columnGalleryAssetId] as String?)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
+  Future<void> recordImportedGalleryAssetIds(
+    int memoryId,
+    Iterable<String> assetIds,
+  ) async {
+    final ids = assetIds.where((id) => id.trim().isNotEmpty).toSet();
+    if (ids.isEmpty) return;
+    final db = await database;
+    final batch = db.batch();
+    for (final id in ids) {
+      batch.insert(
+        tableImportedGalleryAssets,
+        {
+          columnGalleryAssetId: id,
+          columnGalleryAssetMemoryId: memoryId,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
   Future<List<Map<String, dynamic>>> queryMemoriesGalleryMergeCandidates() async {
     final db = await database;
     return db.query(
@@ -2046,6 +2103,7 @@ class DatabaseHelper {
       final db = await database;
       await db.transaction((txn) async {
         await txn.delete(tableTrackImportLogItems);
+        await txn.delete(tableImportedGalleryAssets);
         await txn.delete(tableVideos);
         await txn.delete(tableAudios);
         await txn.delete(tableImages);

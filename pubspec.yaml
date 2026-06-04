@@ -74,9 +74,12 @@ dependencies:
   flutter_native_splash: ^2.4.4
   image_picker: ^1.2.1
   photo_manager: ^3.6.4
+  exif: ^3.3.0
+  crypto: ^3.0.6
   vector_tile: ^3.0.1
   local_auth: ^2.3.0
   restart_app: ^1.8.3
+  device_info_plus: ^11.4.0
 dependency_overrides:
   csv: ^6.0.0
 

@@ -9,11 +9,23 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/shared/widgets/permission_open_settings_dialog.dart';
 
 class MediaPickerPopup extends StatelessWidget {
-  final Function(List<String> imagePaths, List<String> videoPaths) onMediaSelected;
+  final Future<void> Function(
+    List<String> imagePaths,
+    List<String> videoPaths,
+  ) onMediaSelected;
+  /// MemoryView (or parent) context — valid after this dialog is popped.
+  final BuildContext? hostContext;
+  /// After the select-media dialog is closed, before the native picker opens.
+  final VoidCallback? onNativePickerWillOpen;
+  /// Native picker closed with no files (cancel or empty selection).
+  final VoidCallback? onNativePickerCancelled;
 
   const MediaPickerPopup({
     super.key,
     required this.onMediaSelected,
+    this.hostContext,
+    this.onNativePickerWillOpen,
+    this.onNativePickerCancelled,
   });
 
   @override
@@ -137,13 +149,25 @@ class MediaPickerPopup extends StatelessWidget {
     );
   }
 
-  /// Close this picker **before** opening the native camera/gallery. Popping after
-  /// `pickImage`/`pickVideo` returns can pop the wrong route (e.g. MemoryView) when
-  /// the platform already removed the dialog while the app was in background.
-  void _closePickerBeforeNativeFlow(BuildContext context) {
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
+  BuildContext get _overlayContext =>
+      hostContext ?? Get.overlayContext ?? Get.context!;
+
+  /// Close select-media first so the staging loader is not stacked on this dialog.
+  Future<void> _closeSelectMediaPopup(BuildContext dialogContext) async {
+    if (!dialogContext.mounted) return;
+    Navigator.of(dialogContext).pop();
+    await Future<void>.delayed(Duration.zero);
   }
+
+  Future<void> _openNativePickerWithLoader(
+    Future<void> Function() openNativePicker,
+  ) async {
+    onNativePickerWillOpen?.call();
+    await WidgetsBinding.instance.endOfFrame;
+    await openNativePicker();
+  }
+
+  void _notifyNativePickerCancelled() => onNativePickerCancelled?.call();
 
   Future<bool> _ensureCameraPermission() async {
     final status = await Permission.camera.request();
@@ -159,32 +183,36 @@ class MediaPickerPopup extends StatelessWidget {
     return storage.isGranted;
   }
 
-  Future<void> _handleCameraPhoto(BuildContext context) async {
+  Future<void> _handleCameraPhoto(BuildContext dialogContext) async {
+    await _closeSelectMediaPopup(dialogContext);
+
     if (!await _ensureCameraPermission()) {
       await showPermissionOpenSettingsDialog(
-        context,
+        _overlayContext,
         title: 'title_literal_camera_access_needed'.tr,
         message: 'dialog_content_permission_camera_photos'.tr,
       );
       return;
     }
 
-    if (!context.mounted) return;
-    _closePickerBeforeNativeFlow(context);
-
-    final imagePicker = ImagePicker();
-    final photoFile = await imagePicker.pickImage(source: ImageSource.camera);
-
-    if (photoFile != null) {
-      onMediaSelected([photoFile.path], []);
-    }
+    await _openNativePickerWithLoader(() async {
+      final photoFile =
+          await ImagePicker().pickImage(source: ImageSource.camera);
+      if (photoFile == null) {
+        _notifyNativePickerCancelled();
+        return;
+      }
+      await onMediaSelected([_normalizePickerPath(photoFile.path)], []);
+    });
   }
 
-  Future<void> _handleCameraVideo(BuildContext context) async {
+  Future<void> _handleCameraVideo(BuildContext dialogContext) async {
+    await _closeSelectMediaPopup(dialogContext);
+
     final cam = await Permission.camera.request();
     if (!cam.isGranted) {
       await showPermissionOpenSettingsDialog(
-        context,
+        _overlayContext,
         title: 'title_literal_camera_access_needed_2'.tr,
         message: 'dialog_content_permission_camera_video'.tr,
       );
@@ -194,70 +222,76 @@ class MediaPickerPopup extends StatelessWidget {
     final mic = await Permission.microphone.request();
     if (!mic.isGranted) {
       await showPermissionOpenSettingsDialog(
-        context,
+        _overlayContext,
         title: 'title_literal_microphone_access_needed_2'.tr,
         message: 'dialog_content_permission_microphone_video'.tr,
       );
       return;
     }
 
-    if (!context.mounted) return;
-    _closePickerBeforeNativeFlow(context);
+    await _openNativePickerWithLoader(() async {
+      final videoFile = await ImagePicker().pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(minutes: 10),
+      );
+      if (videoFile == null) {
+        _notifyNativePickerCancelled();
+        return;
+      }
+      await onMediaSelected([], [_normalizePickerPath(videoFile.path)]);
+    });
+  }
 
-    final imagePicker = ImagePicker();
-    final videoFile = await imagePicker.pickVideo(
-      source: ImageSource.camera,
-      maxDuration: const Duration(minutes: 10),
-    );
-
-    if (videoFile != null) {
-      onMediaSelected([], [videoFile.path]);
+  static String _normalizePickerPath(String path) {
+    if (!path.contains('%')) return path;
+    try {
+      return Uri.decodeFull(path);
+    } catch (_) {
+      return path;
     }
   }
 
-  Future<void> _handleGallery(BuildContext context) async {
-    final List<String> imagePaths = [];
-    final List<String> videoPaths = [];
+  Future<void> _handleGallery(BuildContext dialogContext) async {
+    await _closeSelectMediaPopup(dialogContext);
 
-    if (Platform.isIOS) {
-      // Do not call Permission.photos here. PHPicker (used by pickMultipleMedia)
-      // does not require prior library read access; pre-requesting photos pushes
-      // iOS toward "all photos" and breaks normal Limited Library behavior.
-      if (!context.mounted) return;
-      _closePickerBeforeNativeFlow(context);
-
-      final imagePicker = ImagePicker();
-      final selected = await imagePicker.pickMultipleMedia();
-      for (final media in selected) {
-        final path = media.path;
-        final ext = path.split('.').last.toLowerCase();
-        if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp'].contains(ext)) {
-          videoPaths.add(path);
-        } else {
-          imagePaths.add(path);
-        }
-      }
-    } else {
+    if (!Platform.isIOS) {
       if (!await _ensureAndroidGalleryPermission()) {
         await showPermissionOpenSettingsDialog(
-          context,
+          _overlayContext,
           title: 'title_literal_photos_access_needed'.tr,
           message: 'dialog_content_permission_storage_gallery'.tr,
         );
         return;
       }
-      if (!context.mounted) return;
-      _closePickerBeforeNativeFlow(context);
+    }
 
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.media,
-        allowMultiple: true,
-      );
-      if (result != null && result.files.isNotEmpty) {
-        for (final file in result.files) {
-          if (file.path != null) {
+    await _openNativePickerWithLoader(() async {
+      final imagePaths = <String>[];
+      final videoPaths = <String>[];
+
+      if (Platform.isIOS) {
+        final selected = await ImagePicker().pickMultipleMedia();
+        for (final media in selected) {
+          final path = _normalizePickerPath(media.path);
+          final ext = path.split('.').last.toLowerCase();
+          if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp']
+              .contains(ext)) {
+            videoPaths.add(path);
+          } else {
+            imagePaths.add(path);
+          }
+        }
+      } else {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.media,
+          allowMultiple: true,
+        );
+        if (result != null && result.files.isNotEmpty) {
+          for (final file in result.files) {
+            if (file.path == null) continue;
             final extension = file.extension?.toLowerCase() ?? '';
-            if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp'].contains(extension)) {
+            if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp']
+                .contains(extension)) {
               videoPaths.add(file.path!);
             } else {
               imagePaths.add(file.path!);
@@ -265,11 +299,13 @@ class MediaPickerPopup extends StatelessWidget {
           }
         }
       }
-    }
 
-    if (imagePaths.isNotEmpty || videoPaths.isNotEmpty) {
-      onMediaSelected(imagePaths, videoPaths);
-    }
+      if (imagePaths.isEmpty && videoPaths.isEmpty) {
+        _notifyNativePickerCancelled();
+        return;
+      }
+      await onMediaSelected(imagePaths, videoPaths);
+    });
   }
 
 }

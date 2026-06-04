@@ -34,7 +34,9 @@ class UiView extends GetView<UiController> {
         body: ListView(
           children: [
             Container(
-              color: Colors.white,
+              color: controller.darkMode.value
+                  ? controller.darkSurfaceColor
+                  : Colors.white,
               child: Column(
                 children: [
                   Obx(

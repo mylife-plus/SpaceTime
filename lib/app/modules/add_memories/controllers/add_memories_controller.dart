@@ -72,6 +72,10 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   /// How many rows from [displayMemories] are currently built in the ListView.
   final RxInt loadedDisplayCount = 0.obs;
 
+  final RxBool isLoadingMoreDisplay = false.obs;
+
+  bool _loadMoreScheduled = false;
+
   bool get _listUsesFilteredSource =>
       isSearching.value || hasActiveFilters.value;
 
@@ -282,20 +286,41 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     loadedDisplayCount.value = total == 0
         ? 0
         : memoryListPageSize.clamp(0, total);
+    isLoadingMoreDisplay.value = false;
+    _loadMoreScheduled = false;
   }
 
-  void loadMoreDisplayItems() {
-    final total = displayMemories.length;
-    if (loadedDisplayCount.value >= total) return;
-    final next = loadedDisplayCount.value + memoryListPageSize;
-    loadedDisplayCount.value = next > total ? total : next;
+  bool get hasMoreDisplayItems =>
+      loadedDisplayCount.value < displayMemories.length;
+
+  /// Schedules pagination after the current frame (safe from [ListView] build).
+  void scheduleLoadMoreDisplayItems() {
+    if (_loadMoreScheduled || isLoadingMoreDisplay.value) return;
+    if (!hasMoreDisplayItems) return;
+
+    _loadMoreScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMoreScheduled = false;
+      _loadMoreDisplayItemsAsync();
+    });
   }
 
-  void onDisplayListIndexVisible(int index) {
-    if (index >= loadedDisplayCount.value - 12) {
-      loadMoreDisplayItems();
+  Future<void> _loadMoreDisplayItemsAsync() async {
+    if (!hasMoreDisplayItems || isLoadingMoreDisplay.value) return;
+
+    isLoadingMoreDisplay.value = true;
+    await Future<void>.delayed(Duration.zero);
+    try {
+      final total = displayMemories.length;
+      if (loadedDisplayCount.value >= total) return;
+      final next = loadedDisplayCount.value + memoryListPageSize;
+      loadedDisplayCount.value = next > total ? total : next;
+    } finally {
+      isLoadingMoreDisplay.value = false;
     }
   }
+
+  void loadMoreDisplayItems() => scheduleLoadMoreDisplayItems();
 
   List<Map<String, dynamic>> _sortMemoriesNewestFirst(
     List<Map<String, dynamic>> memories,

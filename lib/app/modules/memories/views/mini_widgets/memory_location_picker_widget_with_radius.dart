@@ -57,12 +57,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
   @override
   Widget build(BuildContext context) {
     return LocationPickerSystemUiShell(
-      child: SafeArea(
-        bottom: false,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: _buildMapView(),
-        ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: _buildMapView(),
       ),
     );
   }
@@ -228,27 +225,38 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             },
           );
         }),
-        // Top search bar
-        Obx(
-          () => Positioned(
-            top: 5,
-            left: 4,
-            right: controller.hasLocationPermission.value ? 60 : 4,
-            child: buildSearchContainer(
-              controller.uiController.darkMode.value,
+        // Controls stay below the status bar; the map above renders edge-to-edge
+        // so the status bar is transparent over the map (like the main map tab).
+        Positioned.fill(
+          child: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
+                // Top search bar
+                Obx(
+                  () => Positioned(
+                    top: 5,
+                    left: 4,
+                    right: controller.hasLocationPermission.value ? 60 : 4,
+                    child: buildSearchContainer(
+                      controller.uiController.darkMode.value,
+                    ),
+                  ),
+                ),
+
+                // Radius seekbar below search
+                _buildRadiusSeekbar(),
+
+                // Search results dropdown
+                _buildSearchResultsOverlay(),
+                // Current location button
+                _buildCurrentLocationButton(),
+                // Bottom action buttons
+                _buildBottomActionButtons(),
+              ],
             ),
           ),
         ),
-
-        // Radius seekbar below search
-        _buildRadiusSeekbar(),
-
-        // Search results dropdown
-        _buildSearchResultsOverlay(),
-        // Current location button
-        _buildCurrentLocationButton(),
-        // Bottom action buttons
-        _buildBottomActionButtons(),
       ],
     );
   }

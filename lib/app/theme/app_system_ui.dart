@@ -9,15 +9,39 @@ class AppSystemUi {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
-  static SystemUiOverlayStyle overlayStyle({required bool dark}) {
+  /// [statusBarColor] overrides the (transparent) status bar fill — used e.g.
+  /// when the memory filter overlay is open and the bar must match its surface.
+  static SystemUiOverlayStyle overlayStyle({
+    required bool dark,
+    Color? statusBarColor,
+  }) {
     final navBg = dark ? Colors.black : Colors.white;
     final iconBrightness = dark ? Brightness.light : Brightness.dark;
     return SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
+      statusBarColor: statusBarColor ?? Colors.transparent,
       statusBarIconBrightness: iconBrightness,
       statusBarBrightness: dark ? Brightness.dark : Brightness.light,
       systemNavigationBarColor: navBg,
       systemNavigationBarIconBrightness: iconBrightness,
+      systemNavigationBarContrastEnforced: false,
+    );
+  }
+
+  /// Overlay style for screens whose TOP area is dark or a saturated color
+  /// (e.g. the map's black status bar, or the add-memories main-color header):
+  /// forces WHITE status-bar text/icons for contrast while keeping the Android
+  /// navigation bar aligned with the app theme.
+  static SystemUiOverlayStyle overlayStyleLightStatusIcons({
+    required bool dark,
+  }) {
+    final navBg = dark ? Colors.black : Colors.white;
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light, // Android: white status icons
+      statusBarBrightness: Brightness.dark, // iOS: white status text
+      systemNavigationBarColor: navBg,
+      systemNavigationBarIconBrightness:
+          dark ? Brightness.light : Brightness.dark,
       systemNavigationBarContrastEnforced: false,
     );
   }

@@ -216,24 +216,59 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       builder: (controller) {
         return Obx(() {
           final isDark = uiController.darkMode.value;
+          // While the memory filter overlay is open, tint the status bar to
+          // match the overlay surface; revert to transparent once it closes
+          // (back / reset / apply all flip isFilterOpen back to false).
+          final filterOpen = controller.isFilterOpen.value;
+          final filterStatusBarColor = isDark
+              ? uiController.darkBackgroundColor
+              : uiController
+                  .getLightModeBackgroundColor(uiController.mainColor.value);
           return AnnotatedRegion<SystemUiOverlayStyle>(
-            value: AppSystemUi.overlayStyle(dark: isDark),
+            // Transparent status bar; the map renders edge-to-edge underneath it.
+            value: AppSystemUi.overlayStyle(
+              dark: isDark,
+              statusBarColor: filterOpen ? filterStatusBarColor : null,
+            ),
             child: ColoredBox(
               color: isDark ? uiController.darkBackgroundColor : Colors.white,
-              child: SafeArea(
-                bottom: false,
-                child: Scaffold(
-                  backgroundColor: Colors.transparent,
-                  body: Stack(
-                    children: [
-                      Positioned.fill(child: _buildMapWidget(controller)),
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Stack(
+                  children: [
+                    // Map fills the whole screen, INCLUDING under the status bar.
+                    Positioned.fill(child: _buildMapWidget(controller)),
 
-                      if (!_mapChromeReady)
-                        Positioned.fill(child: _buildMapLoadingOverlay()),
+                    if (!_mapChromeReady)
+                      Positioned.fill(child: _buildMapLoadingOverlay()),
 
-                      if (_mapChromeReady) Obx(() => _buildOverlays(controller)),
-                    ],
-                  ),
+                    // Chrome stays below the status bar via SafeArea (fills the
+                    // screen so the overlay Stack gets tight constraints; the
+                    // top inset matches the previous safe-area-wrapped layout).
+                    if (_mapChromeReady)
+                      Positioned.fill(
+                        child: SafeArea(
+                          bottom: false,
+                          child: Obx(() => _buildOverlays(controller)),
+                        ),
+                      ),
+
+                    // In edge-to-edge mode Android ignores statusBarColor, so we
+                    // paint the status-bar inset ourselves while the filter
+                    // overlay is open (back / reset / apply close it again).
+                    // Keep this child Positioned so the Stack stays full-size.
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: MediaQuery.of(context).padding.top,
+                      child: Obx(
+                        () => controller.isFilterOpen.value
+                            ? ColoredBox(color: filterStatusBarColor)
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

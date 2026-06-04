@@ -1,4 +1,4 @@
-import 'dart:io' show File, Platform;
+import 'dart:io' show File;
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
@@ -12,8 +12,10 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/modules/data/services/full_backup_service.dart';
 import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/bindings/gpx_kmz_upload_binding.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/controllers/gpx_kmz_upload_controller.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/gpx_kmz_upload_view.dart';
 import 'package:spacetime/app/modules/media_gps_upload/bindings/media_gps_upload_binding.dart';
+import 'package:spacetime/app/modules/media_gps_upload/controllers/media_gps_upload_controller.dart';
 import 'package:spacetime/app/modules/media_gps_upload/views/media_gps_upload_view.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/services/memory_db.dart';
@@ -97,11 +99,7 @@ class DataController extends GetxController {
       final path = res.filePath;
       if (path != null && path.isNotEmpty) {
         await Future<void>.delayed(Duration.zero);
-        await _showBackupExportSheet(
-          path: path,
-          captionKey: res.messageKey,
-          captionArgs: res.messageArgs,
-        );
+        await _showBackupExportSheet(path: path);
       } else {
         showTrSnackbar(
           res.messageKey,
@@ -125,11 +123,7 @@ class DataController extends GetxController {
     }
   }
 
-  Future<void> _showBackupExportSheet({
-    required String path,
-    required String captionKey,
-    List<Object?> captionArgs = const [],
-  }) async {
+  Future<void> _showBackupExportSheet({required String path}) async {
     final file = File(path);
     if (!await file.exists()) {
       showTrSnackbar(
@@ -150,9 +144,6 @@ class DataController extends GetxController {
         final closeAccent =
             isDark ? accent : (ui.primaryColor ?? accent);
         final titleColor = isDark ? Colors.white : Colors.black87;
-        final bodyColor = isDark ? Colors.white70 : Colors.black87;
-        final muted = isDark ? Colors.white54 : Colors.grey.shade600;
-        final hintMuted = isDark ? Colors.white38 : Colors.grey.shade700;
 
         return Material(
           color: sheetBg,
@@ -167,26 +158,8 @@ class DataController extends GetxController {
                   Text(
                     'backup_sheet_title_ready'.tr,
                     style: AppFonts.bold(18, color: titleColor),
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    trKey(captionKey, captionArgs),
-                    style: AppFonts.medium(15, color: bodyColor),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    path,
-                    style: AppFonts.medium(12, color: muted),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (Platform.isIOS || Platform.isAndroid) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'backup_sheet_share_hint'.tr,
-                      style: AppFonts.medium(12, color: hintMuted),
-                    ),
-                  ],
                   const SizedBox(height: 20),
                   Builder(
                     builder: (btnContext) {
@@ -362,6 +335,15 @@ class DataController extends GetxController {
         final fc = Get.find<FilterController>();
         await map.loadMemoriesFromDB(fc.filteredMemories.toList());
         map.showLoadedDataOnMap();
+      }
+
+      // Refresh the GPS-upload dedupe caches; otherwise an already-open upload
+      // screen keeps flagging the now-deleted memories as duplicates.
+      if (Get.isRegistered<MediaGpsUploadController>()) {
+        await Get.find<MediaGpsUploadController>().reloadDedupeFromDatabase();
+      }
+      if (Get.isRegistered<GpxKmzUploadController>()) {
+        await Get.find<GpxKmzUploadController>().refreshPastUploadCount();
       }
 
       showTrSnackbar(

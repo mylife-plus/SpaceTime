@@ -18,7 +18,9 @@ import 'dart:ui' as ui;
 
 import '../../../services/memory_db.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_cluster_candidate.dart';
 import 'package:spacetime/app/utils/memory_images_copy_compute.dart';
+import 'package:spacetime/app/utils/concurrency.dart';
 
 class MemoryController extends GetxController {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
@@ -407,21 +409,107 @@ class MemoryController extends GetxController {
     isPopupOpen.value = false;
   }
 
+  /// iOS [image_picker] paths may be percent-encoded; decode before [File] I/O.
+  static String normalizeLocalFilePath(String path) {
+    if (path.isEmpty || !path.contains('%')) return path;
+    try {
+      return Uri.decodeFull(path);
+    } catch (_) {
+      return path;
+    }
+  }
+
+  /// Copy picker cache files into app documents and return absolute paths for UI.
+  Future<({List<String> images, List<String> videos})> stagePickedMediaForUi({
+    required List<String> imagePaths,
+    required List<String> videoPaths,
+    bool forceBackgroundCopy = false,
+  }) async {
+    final List<String> relativeImages;
+    final List<String> relativeVideos;
+
+    if (imagePaths.isNotEmpty && videoPaths.isNotEmpty) {
+      final results = await Future.wait<List<String>>([
+        saveImagesToAppDirectory(
+          imagePaths,
+          forceBackgroundCopy: forceBackgroundCopy,
+        ),
+        saveVideosToAppDirectory(videoPaths),
+      ]);
+      relativeImages = results[0];
+      relativeVideos = results[1];
+    } else if (imagePaths.isNotEmpty) {
+      relativeImages = await saveImagesToAppDirectory(
+        imagePaths,
+        forceBackgroundCopy: forceBackgroundCopy,
+      );
+      relativeVideos = const [];
+    } else if (videoPaths.isNotEmpty) {
+      relativeImages = const [];
+      relativeVideos = await saveVideosToAppDirectory(videoPaths);
+    } else {
+      return (images: <String>[], videos: <String>[]);
+    }
+
+    final stagedImages = <String>[];
+    for (final r in relativeImages) {
+      stagedImages.add(await getAbsolutePath(r));
+    }
+    final stagedVideos = <String>[];
+    for (final r in relativeVideos) {
+      stagedVideos.add(await getAbsolutePath(r));
+    }
+    return (images: stagedImages, videos: stagedVideos);
+  }
+
+  Future<String?> _relativeImagePathIfAlreadyStaged(
+    String path,
+    String appDocumentsPath,
+  ) async {
+    final normalized = normalizeLocalFilePath(path);
+    if (normalized.startsWith('memory_images/')) return normalized;
+    final prefix = '$appDocumentsPath/memory_images/';
+    if (normalized.startsWith(prefix)) {
+      return 'memory_images/${normalized.substring(prefix.length)}';
+    }
+    return null;
+  }
+
+  Future<String?> _relativeVideoPathIfAlreadyStaged(
+    String path,
+    String appDocumentsPath,
+  ) async {
+    final normalized = normalizeLocalFilePath(path);
+    if (normalized.startsWith('memory_videos/')) return normalized;
+    final prefix = '$appDocumentsPath/memory_videos/';
+    if (normalized.startsWith(prefix)) {
+      return 'memory_videos/${normalized.substring(prefix.length)}';
+    }
+    return null;
+  }
+
   /// Copy gallery images into app storage; returns relative paths (`memory_images/...`).
   ///
   /// Large batches use [compute] so file I/O does not block the UI isolate.
-  Future<List<String>> saveImagesToAppDirectory(List<String> imagePaths) async {
+  Future<List<String>> saveImagesToAppDirectory(
+    List<String> imagePaths, {
+    bool forceBackgroundCopy = false,
+  }) async {
     if (imagePaths.isEmpty) return [];
 
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final imagesDirPath = '${appDir.path}/memory_images';
+      final normalizedSources = imagePaths
+          .map(normalizeLocalFilePath)
+          .toList(growable: false);
 
-      if (!kIsWeb && imagePaths.length >= 4) {
+      if (!kIsWeb &&
+          (forceBackgroundCopy || normalizedSources.length >= 4)) {
         try {
           final copied = await compute(memoryImagesCopyIsolateWork, {
             'dest': imagesDirPath,
-            'sources': imagePaths,
+            'sources': normalizedSources,
           });
           if (copied.isNotEmpty) {
             debugPrint(
@@ -436,7 +524,11 @@ class MemoryController extends GetxController {
         }
       }
 
-      return _saveImagesToAppDirectorySequential(imagePaths, imagesDirPath);
+      return _saveImagesToAppDirectorySequential(
+        normalizedSources,
+        imagesDirPath,
+        appDir.path,
+      );
     } catch (e) {
       debugPrint('Error creating images directory: $e');
     }
@@ -447,6 +539,7 @@ class MemoryController extends GetxController {
   Future<List<String>> _saveImagesToAppDirectorySequential(
     List<String> imagePaths,
     String imagesDirPath,
+    String appDocumentsPath,
   ) async {
     final savedImagePaths = <String>[];
     final imagesDir = Directory(imagesDirPath);
@@ -455,8 +548,14 @@ class MemoryController extends GetxController {
     }
 
     for (var idx = 0; idx < imagePaths.length; idx++) {
-      final imagePath = imagePaths[idx];
+      final imagePath = normalizeLocalFilePath(imagePaths[idx]);
       try {
+        final existing =
+            await _relativeImagePathIfAlreadyStaged(imagePath, appDocumentsPath);
+        if (existing != null) {
+          savedImagePaths.add(existing);
+          continue;
+        }
         final sourceFile = File(imagePath);
         if (await sourceFile.exists()) {
           final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -480,9 +579,15 @@ class MemoryController extends GetxController {
   }
 
   // Legacy method for backward compatibility - now uses file storage
-  Future<List<String>> convertImagesToBase64(List<String> imagePaths) async {
+  Future<List<String>> convertImagesToBase64(
+    List<String> imagePaths, {
+    bool forceBackgroundCopy = false,
+  }) async {
     // For new memories, use file-based storage instead of base64
-    return await saveImagesToAppDirectory(imagePaths);
+    return saveImagesToAppDirectory(
+      imagePaths,
+      forceBackgroundCopy: forceBackgroundCopy,
+    );
   }
 
   // Convert relative path to absolute path
@@ -507,8 +612,6 @@ class MemoryController extends GetxController {
 
   // Save videos to app directory and return RELATIVE file paths
   Future<List<String>> saveVideosToAppDirectory(List<String> videoPaths) async {
-    List<String> savedVideoPaths = [];
-
     try {
       // Get app documents directory
       final appDir = await getApplicationDocumentsDirectory();
@@ -519,40 +622,55 @@ class MemoryController extends GetxController {
         await videosDir.create(recursive: true);
       }
 
-      for (String videoPath in videoPaths) {
-        try {
-          final sourceFile = File(videoPath);
-          if (await sourceFile.exists()) {
-            // Generate unique filename
-            final timestamp = DateTime.now().millisecondsSinceEpoch;
-            final extension = videoPath.split('.').last.toLowerCase();
-            final fileName =
-                'memory_${timestamp}_${savedVideoPaths.length}.$extension';
-            final targetPath = '${videosDir.path}/$fileName';
+      // Copy videos in parallel (bounded) — file copies are async I/O, so a
+      // handful in flight finishes far faster than one-at-a-time for bulk
+      // imports. Index keeps each generated filename unique despite parallelism.
+      final results = await mapWithConcurrency<String, String?>(
+        videoPaths,
+        _mediaCopyConcurrency,
+        (videoPath, index) async {
+          try {
+            final normalized = normalizeLocalFilePath(videoPath);
+            final existing = await _relativeVideoPathIfAlreadyStaged(
+              normalized,
+              appDir.path,
+            );
+            if (existing != null) return existing;
+            final sourceFile = File(normalized);
+            if (await sourceFile.exists()) {
+              final timestamp = DateTime.now().millisecondsSinceEpoch;
+              final extension = normalized.split('.').last.toLowerCase();
+              final fileName = 'memory_${timestamp}_$index.$extension';
+              final targetPath = '${videosDir.path}/$fileName';
 
-            // Copy original video to app directory
-            await sourceFile.copy(targetPath);
+              // Copy original video to app directory
+              await sourceFile.copy(targetPath);
 
-            // Store RELATIVE path instead of absolute path
-            savedVideoPaths.add('memory_videos/$fileName');
-
-            debugPrint('Video saved to app directory: $fileName (relative path)');
+              debugPrint(
+                'Video saved to app directory: $fileName (relative path)',
+              );
+              // Store RELATIVE path instead of absolute path
+              return 'memory_videos/$fileName';
+            }
+          } catch (e) {
+            debugPrint('Error saving video: $e');
           }
-        } catch (e) {
-          debugPrint('Error saving video: $e');
-        }
-      }
+          return null;
+        },
+      );
+      return results.whereType<String>().toList();
     } catch (e) {
       debugPrint('Error creating videos directory: $e');
     }
 
-    return savedVideoPaths;
+    return <String>[];
   }
+
+  /// Concurrency cap for bulk media file copies (videos/audio) during import.
+  static const int _mediaCopyConcurrency = 6;
 
   /// Copy gallery-import audio files into app storage; returns relative paths (`memory_audios/...`).
   Future<List<String>> saveAudiosToAppDirectory(List<String> audioPaths) async {
-    final savedAudioPaths = <String>[];
-
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final audiosDir = Directory('${appDir.path}/memory_audios');
@@ -561,31 +679,37 @@ class MemoryController extends GetxController {
         await audiosDir.create(recursive: true);
       }
 
-      for (final audioPath in audioPaths) {
-        try {
-          final sourceFile = File(audioPath);
-          if (await sourceFile.exists()) {
-            final timestamp = DateTime.now().millisecondsSinceEpoch;
-            final extension = audioPath.split('.').last.toLowerCase();
-            final fileName =
-                'memory_${timestamp}_${savedAudioPaths.length}.$extension';
-            final targetPath = '${audiosDir.path}/$fileName';
+      final results = await mapWithConcurrency<String, String?>(
+        audioPaths,
+        _mediaCopyConcurrency,
+        (audioPath, index) async {
+          try {
+            final sourceFile = File(audioPath);
+            if (await sourceFile.exists()) {
+              final timestamp = DateTime.now().millisecondsSinceEpoch;
+              final extension = audioPath.split('.').last.toLowerCase();
+              final fileName = 'memory_${timestamp}_$index.$extension';
+              final targetPath = '${audiosDir.path}/$fileName';
 
-            await sourceFile.copy(targetPath);
+              await sourceFile.copy(targetPath);
 
-            savedAudioPaths.add('memory_audios/$fileName');
-
-            debugPrint('Audio saved to app directory: $fileName (relative path)');
+              debugPrint(
+                'Audio saved to app directory: $fileName (relative path)',
+              );
+              return 'memory_audios/$fileName';
+            }
+          } catch (e) {
+            debugPrint('Error saving audio: $e');
           }
-        } catch (e) {
-          debugPrint('Error saving audio: $e');
-        }
-      }
+          return null;
+        },
+      );
+      return results.whereType<String>().toList();
     } catch (e) {
       debugPrint('Error creating audios directory: $e');
     }
 
-    return savedAudioPaths;
+    return <String>[];
   }
 
   // Compress image to reduce memory usage
@@ -628,6 +752,7 @@ class MemoryController extends GetxController {
     List<int>? videoOrders,
     List<String>? tags,
     List<String>? mentions,
+    List<String>? galleryAssetIds,
   }) async {
     debugPrint(
       '💾 Saving memory with ${imagePaths?.length ?? 0} images, ${videoPaths?.length ?? 0} videos, and ${recordedAudioPaths.length} audio files',
@@ -723,6 +848,15 @@ class MemoryController extends GetxController {
       ), // From MemoryDescriptionField
       DatabaseHelper.columnCreatedAt: DateTime.now().toIso8601String(),
     };
+
+    if (locationLatitudeSnap != null && locationLongitudeSnap != null) {
+      memory[DatabaseHelper.columnTrackImportFingerprint] =
+          MediaGpsClusterCandidate.buildFingerprint(
+        selectedDateTime.toUtc(),
+        locationLatitudeSnap,
+        locationLongitudeSnap,
+      );
+    }
 
     // Check database health before proceeding
     if (!await _databaseHelper.isDatabaseHealthy()) {
@@ -844,12 +978,17 @@ class MemoryController extends GetxController {
       }
     }
 
-    final result = memoryId;
+    if (galleryAssetIds != null && galleryAssetIds.isNotEmpty) {
+      await _databaseHelper.recordImportedGalleryAssetIds(
+        memoryId,
+        galleryAssetIds,
+      );
+    }
 
     // Clear audio recordings after successful save
     clearAudioRecordings();
 
-    return result;
+    return memoryId;
   }
 
   // Method to clear audio recordings
@@ -1366,11 +1505,20 @@ class MemoryController extends GetxController {
   }
 
   /// Offline reverse geocode (same pipeline as memory / location picker).
+  ///
+  /// Caches by rounded lat/lng in [_importGeocodeCache] so bulk imports can
+  /// prefetch coordinates in parallel and have the per-memory save resolve as
+  /// an instant cache hit (avoids a deferred geocode backfill / second write).
   Future<Map<String, dynamic>?> reverseGeocodeCoordinates(
     double latitude,
     double longitude,
-  ) {
-    return _getLocationDetailsFromCoordinates(latitude, longitude);
+  ) async {
+    final key = _geocodeCacheKey(latitude, longitude);
+    final cached = _importGeocodeCache[key];
+    if (cached != null) return cached;
+    final geo = await _getLocationDetailsFromCoordinates(latitude, longitude);
+    if (geo != null) _importGeocodeCache[key] = geo;
+    return geo;
   }
 
   /// One memory from KMZ/GPX track import: [date]/[time] and [created_at] use [when];
@@ -1461,6 +1609,9 @@ class MemoryController extends GetxController {
     required List<String> videoAbsolutePaths,
     List<String> audioAbsolutePaths = const [],
     required String trackImportFingerprint,
+    List<String> galleryAssetIds = const [],
+    bool skipReverseGeocode = false,
+    bool forceBackgroundImageCopy = false,
   }) async {
     final w = when.toLocal();
 
@@ -1475,24 +1626,32 @@ class MemoryController extends GetxController {
     final loc =
         '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
 
-    final geo = await reverseGeocodeCoordinates(latitude, longitude);
-    var locationCountrySnap = geo?['country'] as String? ?? '';
-    var locationCitySnap = geo?['city'] as String? ?? '';
-    var locationNameSnap = geo?['name'] as String? ?? '';
-    final locationAddressSnap = geo?['address'] as String? ?? '';
-    var locationFlagSnap = geo?['flag'] as String? ?? '';
+    var locationCountrySnap = '';
+    var locationCitySnap = '';
+    var locationNameSnap = '';
+    var locationAddressSnap = '';
+    var locationFlagSnap = '';
 
-    if (locationFlagSnap.trim() == '🌊') {
-      final c = locationCountrySnap.trim().toLowerCase();
-      final resolvedFlag = c.isNotEmpty ? countryFlags[c] : null;
-      if (resolvedFlag != null && resolvedFlag.isNotEmpty) {
-        locationFlagSnap = resolvedFlag;
-      }
+    if (!skipReverseGeocode) {
+      final geo = await reverseGeocodeCoordinates(latitude, longitude);
+      locationCountrySnap = geo?['country'] as String? ?? '';
+      locationCitySnap = geo?['city'] as String? ?? '';
+      locationNameSnap = geo?['name'] as String? ?? '';
+      locationAddressSnap = geo?['address'] as String? ?? '';
+      locationFlagSnap = geo?['flag'] as String? ?? '';
 
-      if (locationNameSnap.trim().isEmpty) {
-        final countryName = locationCountrySnap.trim();
-        if (countryName.isNotEmpty) {
-          locationNameSnap = countryName;
+      if (locationFlagSnap.trim() == '🌊') {
+        final c = locationCountrySnap.trim().toLowerCase();
+        final resolvedFlag = c.isNotEmpty ? countryFlags[c] : null;
+        if (resolvedFlag != null && resolvedFlag.isNotEmpty) {
+          locationFlagSnap = resolvedFlag;
+        }
+
+        if (locationNameSnap.trim().isEmpty) {
+          final countryName = locationCountrySnap.trim();
+          if (countryName.isNotEmpty) {
+            locationNameSnap = countryName;
+          }
         }
       }
     }
@@ -1530,7 +1689,10 @@ class MemoryController extends GetxController {
 
     List<String>? imageDataList;
     if (imageAbsolutePaths.isNotEmpty) {
-      imageDataList = await convertImagesToBase64(imageAbsolutePaths);
+      imageDataList = await convertImagesToBase64(
+        imageAbsolutePaths,
+        forceBackgroundCopy: forceBackgroundImageCopy,
+      );
     }
 
     List<Map<String, dynamic>>? videoDataList;
@@ -1576,7 +1738,7 @@ class MemoryController extends GetxController {
         ? null
         : List<int>.generate(videoDataList.length, (i) => i);
 
-    return _databaseHelper.insertCompleteMemory(
+    final memoryId = await _databaseHelper.insertCompleteMemory(
       memoryData: memory,
       imageDataList: imageDataList,
       audioDataList: audioDataList,
@@ -1584,6 +1746,73 @@ class MemoryController extends GetxController {
       imageOrders: imageOrders,
       videoOrders: videoOrders,
     );
+    if (galleryAssetIds.isNotEmpty) {
+      await _databaseHelper.recordImportedGalleryAssetIds(
+        memoryId,
+        galleryAssetIds,
+      );
+    }
+    return memoryId;
+  }
+
+  static final Map<String, Map<String, dynamic>> _importGeocodeCache = {};
+
+  static String _geocodeCacheKey(double lat, double lng) =>
+      '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
+
+  /// Fills location name/country on imported memories after bulk GPS upload.
+  Future<void> backfillMemoryLocationGeocodeIfMissing(int memoryId) async {
+    final row = await _databaseHelper.queryMemory(memoryId);
+    if (row == null) return;
+
+    final lat = (row[DatabaseHelper.columnLocationLatitude] as num?)?.toDouble();
+    final lng =
+        (row[DatabaseHelper.columnLocationLongitude] as num?)?.toDouble();
+    if (lat == null || lng == null) return;
+
+    final name = (row[DatabaseHelper.columnLocationName] as String?)?.trim() ?? '';
+    final country =
+        (row[DatabaseHelper.columnLocationCountry] as String?)?.trim() ?? '';
+    if (name.isNotEmpty && country.isNotEmpty) return;
+
+    final cacheKey = _geocodeCacheKey(lat, lng);
+    Map<String, dynamic>? geo = _importGeocodeCache[cacheKey];
+    geo ??= await reverseGeocodeCoordinates(lat, lng);
+    if (geo == null) return;
+    _importGeocodeCache[cacheKey] = geo;
+
+    var locationCountrySnap = geo['country'] as String? ?? '';
+    var locationCitySnap = geo['city'] as String? ?? '';
+    var locationNameSnap = geo['name'] as String? ?? '';
+    final locationAddressSnap = geo['address'] as String? ?? '';
+    var locationFlagSnap = geo['flag'] as String? ?? '';
+
+    if (locationFlagSnap.trim() == '🌊') {
+      final c = locationCountrySnap.trim().toLowerCase();
+      final resolvedFlag = c.isNotEmpty ? countryFlags[c] : null;
+      if (resolvedFlag != null && resolvedFlag.isNotEmpty) {
+        locationFlagSnap = resolvedFlag;
+      }
+      if (locationNameSnap.trim().isEmpty) {
+        final countryName = locationCountrySnap.trim();
+        if (countryName.isNotEmpty) {
+          locationNameSnap = countryName;
+        }
+      }
+    }
+
+    final patch = Map<String, dynamic>.from(row);
+    patch[DatabaseHelper.columnLocationCountry] =
+        locationCountrySnap.isNotEmpty ? locationCountrySnap : null;
+    patch[DatabaseHelper.columnLocationCity] =
+        locationCitySnap.isNotEmpty ? locationCitySnap : null;
+    patch[DatabaseHelper.columnLocationName] =
+        locationNameSnap.isNotEmpty ? locationNameSnap : null;
+    patch[DatabaseHelper.columnLocationAddress] =
+        locationAddressSnap.isNotEmpty ? locationAddressSnap : null;
+    patch[DatabaseHelper.columnLocationFlag] =
+        locationFlagSnap.isNotEmpty ? locationFlagSnap : null;
+    await _databaseHelper.updateMemory(patch);
   }
 
   /// Append gallery-import images/videos to an existing memory (same cluster rules as import).
@@ -1592,6 +1821,8 @@ class MemoryController extends GetxController {
     required List<String> imageAbsolutePaths,
     required List<String> videoAbsolutePaths,
     List<String> audioAbsolutePaths = const [],
+    List<String> galleryAssetIds = const [],
+    bool forceBackgroundImageCopy = false,
   }) async {
     if (!await _databaseHelper.isDatabaseHealthy()) {
       await _databaseHelper.resetDatabaseConnection();
@@ -1599,7 +1830,10 @@ class MemoryController extends GetxController {
 
     var nextImageOrder = (await _databaseHelper.maxImageOrderForMemory(memoryId)) + 1;
     if (imageAbsolutePaths.isNotEmpty) {
-      final imageDataList = await convertImagesToBase64(imageAbsolutePaths);
+      final imageDataList = await convertImagesToBase64(
+        imageAbsolutePaths,
+        forceBackgroundCopy: forceBackgroundImageCopy,
+      );
       for (var i = 0; i < imageDataList.length; i++) {
         final data = imageDataList[i];
         await _databaseHelper.insertMemoryImage(
@@ -1652,6 +1886,13 @@ class MemoryController extends GetxController {
           nextAudioOrder++;
         }
       }
+    }
+
+    if (galleryAssetIds.isNotEmpty) {
+      await _databaseHelper.recordImportedGalleryAssetIds(
+        memoryId,
+        galleryAssetIds,
+      );
     }
 
     await _databaseHelper.touchMemoryUpdatedAt(memoryId);

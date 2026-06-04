@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/config/app_text.dart';
-import 'package:spacetime/app/config/supported_languages.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/app/widgets/open_source_community_labels.dart';
-import 'package:spacetime/app/modules/settings/views/language_selection_view.dart';
 import '../../ui/controllers/ui_controller.dart';
 import '../../security/views/security_view.dart';
 import '../../ui/views/ui_view.dart';
@@ -79,22 +77,6 @@ class SettingsView extends GetView<SettingsController> {
                     },
                   ),
                   SettingsTile(
-                    icon: Icon(
-                      Icons.language,
-                      color: controller.darkMode.value
-                          ? Colors.white70
-                          : Colors.blueGrey,
-                    ),
-                    titleL10nKey: 'apptexts_language',
-                    subtitle: displayLabelForLanguageCode(
-                      controller.selectedLanguage.value,
-                    ),
-                    showDivider: true,
-                    onTap: () {
-                      Get.to(() => const LanguageSelectionView());
-                    },
-                  ),
-                  SettingsTile(
                     icon: Image.asset(AppImages.ui),
                     titleL10nKey: 'apptexts_ui',
                     showDivider: true,
@@ -105,7 +87,7 @@ class SettingsView extends GetView<SettingsController> {
                   SettingsTile(
                     icon: Image.asset(AppImages.data),
                     titleL10nKey: 'apptexts_data',
-                    showDivider: true,
+                    showDivider: false,
                     onTap: () {
                       Get.to(
                         () => const DataView(),

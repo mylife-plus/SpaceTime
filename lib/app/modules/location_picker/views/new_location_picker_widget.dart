@@ -42,12 +42,9 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
   @override
   Widget build(BuildContext context) {
     return LocationPickerSystemUiShell(
-      child: SafeArea(
-        bottom: false,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Obx(() => _buildBody()),
-        ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Obx(() => _buildBody()),
       ),
     );
   }
@@ -116,20 +113,22 @@ class _NewLocationPickerWidgetState extends State<NewLocationPickerWidget> {
   Widget _buildMapView() {
     return Stack(
       children: [
-        // Map
+        // Map fills the whole screen, including under the status bar.
         _buildMap(),
 
-        // Floating action buttons
-        _buildFloatingButtons(),
-
-        // Radius control
-      //  Positioned(
-      //     top: 100,
-      //     left: 16,
-      //     right: 16,
-      //     child: _buildRadiusControl(),
-      //   ), 
-
+        // Controls stay below the status bar so the bar is transparent over the
+        // map (like the main map tab).
+        Positioned.fill(
+          child: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
+                // Floating action buttons
+                _buildFloatingButtons(),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -14,7 +14,12 @@ List<String> memoryImagesCopyIsolateWork(Map<String, dynamic> message) {
   final out = <String>[];
   final base = DateTime.now().millisecondsSinceEpoch;
   for (var i = 0; i < sources.length; i++) {
-    final imagePath = sources[i];
+    var imagePath = sources[i] as String;
+    if (imagePath.contains('%')) {
+      try {
+        imagePath = Uri.decodeFull(imagePath);
+      } catch (_) {}
+    }
     try {
       final sourceFile = File(imagePath);
       if (!sourceFile.existsSync()) continue;

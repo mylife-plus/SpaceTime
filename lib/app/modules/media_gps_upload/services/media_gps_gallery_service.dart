@@ -1,10 +1,11 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_picked_asset.dart';
 
-/// Shared option for gallery reads (photos/videos/audio) used by permission checks and requests.
+/// Shared option for gallery reads (photos/videos) used by permission checks and requests.
 const PermissionRequestOption kMediaGpsGalleryPermissionRequest =
     PermissionRequestOption(
   androidPermission: AndroidPermission(
@@ -55,7 +56,7 @@ class MediaGpsGalleryService {
           final dur = (e.type == AssetType.video || e.type == AssetType.audio)
               ? e.videoDuration
               : Duration.zero;
-          final picked = MediaGpsPickedAsset(
+          final picked = MediaGpsPickedAsset.fromGallery(
             entity: e,
             createTime: t,
             latitude: lat,
@@ -76,7 +77,7 @@ class MediaGpsGalleryService {
     }
   }
 
-  /// Recent photos / videos / audio **with GPS in library metadata** only (newest batch first).
+  /// Recent photos / videos **with GPS in library metadata** only (newest batch first).
   static Future<List<MediaGpsPickedAsset>> loadRecentAssets({
     int maxCount = _firstPageSize,
   }) async {
@@ -84,22 +85,13 @@ class MediaGpsGalleryService {
 
     final merged = <String, MediaGpsPickedAsset>{};
 
+    // Photos + videos only (RequestType.common excludes audio); audio is not
+    // importable in this flow.
     final commonPaths =
         await PhotoManager.getAssetPathList(type: RequestType.common);
     if (commonPaths.isNotEmpty) {
       await _collectGpsAssetsFromAlbum(
         album: commonPaths.first,
-        out: merged,
-        targetUniqueCount: maxCount,
-        maxPositionsToScan: _maxAlbumPositionsScan,
-      );
-    }
-
-    final audioPaths =
-        await PhotoManager.getAssetPathList(type: RequestType.audio);
-    if (audioPaths.isNotEmpty && merged.length < maxCount) {
-      await _collectGpsAssetsFromAlbum(
-        album: audioPaths.first,
         out: merged,
         targetUniqueCount: maxCount,
         maxPositionsToScan: _maxAlbumPositionsScan,
@@ -125,5 +117,19 @@ class MediaGpsGalleryService {
       debugPrint('[MediaGpsGalleryService] exportToTempFile: $e\n$st');
       return null;
     }
+  }
+
+  /// Resolves an on-disk path for gallery or file-picked items.
+  static Future<String?> resolveExportPath(MediaGpsPickedAsset asset) async {
+    if (asset.isFromFile) {
+      final path = asset.localPath;
+      if (path == null || path.isEmpty) return null;
+      final f = File(path);
+      if (await f.exists()) return path;
+      return null;
+    }
+    final entity = asset.entity;
+    if (entity == null) return null;
+    return exportToTempFile(entity);
   }
 }

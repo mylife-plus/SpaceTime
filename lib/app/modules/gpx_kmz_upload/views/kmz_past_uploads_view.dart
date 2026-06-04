@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
@@ -26,12 +28,29 @@ class KmzPastUploadsView extends StatefulWidget {
 class _KmzPastUploadsViewState extends State<KmzPastUploadsView> {
   late Future<List<Map<String, dynamic>>> _logsFuture;
 
+  /// Set when at least one upload was deleted while on this screen, so the map /
+  /// add-memories views are refreshed again on the way out (the in-place refresh
+  /// can no-op while the map is covered by this route and not "ready").
+  bool _deletedSomething = false;
+
   @override
   void initState() {
     super.initState();
     _logsFuture = DatabaseHelper.instance.queryTrackImportLogs(
       importSource: widget.importSource,
     );
+  }
+
+  @override
+  void dispose() {
+    if (_deletedSomething) {
+      // Fire-and-forget: the map is becoming visible again as this route pops,
+      // so its reload will now find the map ready.
+      unawaited(
+        refreshConsumersAfterTrackImportDeletion(logTag: 'PastUploadsExit'),
+      );
+    }
+    super.dispose();
   }
 
   Future<void> _reloadLogs() async {
@@ -49,6 +68,7 @@ class _KmzPastUploadsViewState extends State<KmzPastUploadsView> {
     final ok = await showTrackPastUploadDeleteConfirmDialog();
     if (ok != true) return;
     await DatabaseHelper.instance.deleteTrackImportLogAndMemories(id);
+    _deletedSomething = true;
     await refreshConsumersAfterTrackImportDeletion(logTag: 'PastUploads');
     await _reloadLogs();
   }

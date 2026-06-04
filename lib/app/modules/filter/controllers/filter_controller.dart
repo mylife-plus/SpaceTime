@@ -833,8 +833,28 @@ List<Map<String, dynamic>> _applyDateFilter(
     }
   }
 
+  /// True when [memory] would appear in [filteredMemories] under current filter state.
+  bool memoryMatchesActiveFilters(Map<String, dynamic> memory) {
+    var result = <Map<String, dynamic>>[memory];
+    result = _applyDateFilter(result);
+    result = _applySearchedTextFilter(result);
+    result = _applyHashtagFilters(result);
+    result = _applyContactFilters(result);
+    result = _applyCategoryFilters(result);
+    result = _applyLocationFilters(result);
+    result = _applyMemoryIdFilters(result);
+    result = _applySearchFilters(result);
+    return result.isNotEmpty;
+  }
+
   /// After creating one memory, prepend it without reloading the full library.
-  Future<void> prependMemoryById(int memoryId) async {
+  ///
+  /// When [incremental] is true, only evaluates filters for the new row instead of
+  /// scanning thousands of existing memories (KMZ bulk import case).
+  Future<void> prependMemoryById(
+    int memoryId, {
+    bool incremental = false,
+  }) async {
     try {
       final raw = await _databaseHelper.getMemoryWithDetails(memoryId);
       if (raw == null) {
@@ -848,10 +868,27 @@ List<Map<String, dynamic>> _applyDateFilter(
 
       _mergeFilterOptionsFromUiMemory(uiMemory);
       updateFilterStatus();
-      applyAllFilters();
+
+      if (incremental) {
+        final noFilters =
+            !hasActiveFilters.value &&
+            searchedTextKeyword.value.isEmpty &&
+            !isSearchedMemoryList.value;
+        if (noFilters || memoryMatchesActiveFilters(uiMemory)) {
+          filteredMemories.value = [uiMemory, ...filteredMemories];
+          totalResults.value = filteredMemories.length;
+          if (!isSearchedMemoryList.value) {
+            indicatorType.value = hasActiveFilters.value ? 'filter' : '';
+          }
+        } else {
+          applyAllFilters();
+        }
+      } else {
+        applyAllFilters();
+      }
 
       debugPrint(
-        '$tag prependMemoryById: inserted memory $memoryId (${allMemories.length} total)',
+        '$tag prependMemoryById: inserted memory $memoryId (${allMemories.length} total, incremental=$incremental)',
       );
 
       if (Get.isRegistered<AddMemoriesController>()) {
@@ -1314,8 +1351,11 @@ List<Map<String, dynamic>> _applyDateFilter(
     applyAllFilters1();
   }
 
-  /// Reset all filters EXCEPT search filter
-  void resetFiltersExceptSearch() {
+  /// Reset all filters EXCEPT search filter.
+  ///
+  /// Set [applyFilters] false when [prependMemoryById] will update lists next
+  /// (avoids scanning the full library twice after a single create).
+  void resetFiltersExceptSearch({bool applyFilters = true}) {
     debugPrint('$tag 🧹 Resetting all filters except search');
 
     filterValues.clear();
@@ -1335,6 +1375,20 @@ List<Map<String, dynamic>> _applyDateFilter(
     debugPrint(
       '$tag ✅ All filters reset except search (search keyword: "${searchedTextKeyword.value}")',
     );
+
+    if (!applyFilters) return;
+
+    if (!hasActiveFilters.value &&
+        searchedTextKeyword.value.isEmpty &&
+        !isSearchedMemoryList.value) {
+      filteredMemories.value = List<Map<String, dynamic>>.from(allMemories);
+      totalResults.value = filteredMemories.length;
+      indicatorType.value = '';
+      debugPrint(
+        '$tag ✅ Filters reset — synced ${filteredMemories.length} memories (no filter scan)',
+      );
+      return;
+    }
 
     applyAllFilters();
   }

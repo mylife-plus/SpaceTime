@@ -52,7 +52,7 @@ Future<void> showPermissionOpenSettingsDialog(
             onPressed: () {
               Navigator.of(ctx).pop();
               if (Get.isRegistered<AppLockController>()) {
-                Get.find<AppLockController>().skipLockOnNextResumeFromSettings();
+                Get.find<AppLockController>().scheduleRestartOnNextResume();
               }
               openAppSettings();
             },

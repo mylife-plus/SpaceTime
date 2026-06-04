@@ -1,10 +1,15 @@
 import 'package:photo_manager/photo_manager.dart';
 
-/// One gallery item: GPS when the OS library still has it, plus other library metadata.
-/// Stripped EXIF (e.g. WhatsApp) removes coordinates; that data cannot be recreated from the file here.
+/// Gallery library item or a file picked via the system file browser.
+enum MediaGpsAssetSource { gallery, file }
+
+enum MediaGpsFileKind { image, video, audio, unknown }
+
+/// One importable item with GPS when metadata still has coordinates.
 class MediaGpsPickedAsset {
-  MediaGpsPickedAsset({
-    required this.entity,
+  MediaGpsPickedAsset._({
+    required this.source,
+    required this.id,
     required this.createTime,
     this.latitude,
     this.longitude,
@@ -14,9 +19,73 @@ class MediaGpsPickedAsset {
     required this.modifiedTime,
     this.fileTitle,
     this.videoDuration = Duration.zero,
+    this.entity,
+    this.localPath,
+    this.fileKind = MediaGpsFileKind.unknown,
   });
 
-  final AssetEntity entity;
+  factory MediaGpsPickedAsset.fromGallery({
+    required AssetEntity entity,
+    required DateTime createTime,
+    double? latitude,
+    double? longitude,
+    int width = 0,
+    int height = 0,
+    int orientation = 0,
+    required DateTime modifiedTime,
+    String? fileTitle,
+    Duration videoDuration = Duration.zero,
+  }) {
+    return MediaGpsPickedAsset._(
+      source: MediaGpsAssetSource.gallery,
+      id: entity.id,
+      entity: entity,
+      createTime: createTime,
+      latitude: latitude,
+      longitude: longitude,
+      width: width,
+      height: height,
+      orientation: orientation,
+      modifiedTime: modifiedTime,
+      fileTitle: fileTitle,
+      videoDuration: videoDuration,
+    );
+  }
+
+  factory MediaGpsPickedAsset.fromFile({
+    required String id,
+    required String localPath,
+    required MediaGpsFileKind fileKind,
+    required DateTime createTime,
+    double? latitude,
+    double? longitude,
+    int width = 0,
+    int height = 0,
+    required DateTime modifiedTime,
+    String? fileTitle,
+    Duration videoDuration = Duration.zero,
+  }) {
+    return MediaGpsPickedAsset._(
+      source: MediaGpsAssetSource.file,
+      id: id,
+      localPath: localPath,
+      fileKind: fileKind,
+      createTime: createTime,
+      latitude: latitude,
+      longitude: longitude,
+      width: width,
+      height: height,
+      modifiedTime: modifiedTime,
+      fileTitle: fileTitle,
+      videoDuration: videoDuration,
+    );
+  }
+
+  final MediaGpsAssetSource source;
+  final String id;
+  final AssetEntity? entity;
+  final String? localPath;
+  final MediaGpsFileKind fileKind;
   final DateTime createTime;
   final double? latitude;
   final double? longitude;
@@ -27,11 +96,32 @@ class MediaGpsPickedAsset {
   final String? fileTitle;
   final Duration videoDuration;
 
-  String get id => entity.id;
+  bool get isFromFile => source == MediaGpsAssetSource.file;
 
-  bool get isVideo => entity.type == AssetType.video;
+  bool get isFromGallery => source == MediaGpsAssetSource.gallery;
 
-  bool get isAudio => entity.type == AssetType.audio;
+  bool get isVideo {
+    if (isFromFile) {
+      return fileKind == MediaGpsFileKind.video;
+    }
+    return entity?.type == AssetType.video;
+  }
+
+  bool get isAudio {
+    if (isFromFile) {
+      return fileKind == MediaGpsFileKind.audio;
+    }
+    return entity?.type == AssetType.audio;
+  }
+
+  bool get isImage {
+    if (isFromFile) {
+      return fileKind == MediaGpsFileKind.image;
+    }
+    final e = entity;
+    if (e == null) return false;
+    return e.type == AssetType.image;
+  }
 
   bool get hasGps =>
       latitude != null &&
@@ -39,7 +129,7 @@ class MediaGpsPickedAsset {
       latitude!.abs() > 1e-6 &&
       longitude!.abs() > 1e-6;
 
-  /// Short line for UI: size, date, optional video length (library metadata, not full EXIF).
+  /// Short line for UI: size, date, optional video length.
   String get libraryMetadataSubtitle {
     final parts = <String>[];
     if (width > 0 && height > 0) {

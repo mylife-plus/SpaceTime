@@ -43,7 +43,7 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
           );
           if (scrollInfo.metrics.pixels >=
               scrollInfo.metrics.maxScrollExtent - 600) {
-            controller.loadMoreDisplayItems();
+            controller.scheduleLoadMoreDisplayItems();
           }
         }
         return false;
@@ -89,23 +89,39 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
         }
 
         final loaded = controller.loadedDisplayCount.value;
+        final hasMore = controller.hasMoreDisplayItems;
+        final loadingMore = controller.isLoadingMoreDisplay.value;
+        final footerCount = (hasMore || loadingMore) ? 1 : 0;
+
         return ListView.builder(
           controller: controller.scrollController,
           padding: EdgeInsets.zero,
           physics: const AlwaysScrollableScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           cacheExtent: 800,
-          itemCount: loaded + 1,
+          itemCount: loaded + footerCount,
           itemBuilder: (context, index) {
-            if (index == loaded) {
+            if (index >= loaded) {
+              if (hasMore && !loadingMore) {
+                controller.scheduleLoadMoreDisplayItems();
+              }
               return ColoredBox(
                 color: !uiController.darkMode.value
                     ? Colors.white
                     : Colors.transparent,
-                child: const SizedBox(height: 100),
+                child: SizedBox(
+                  height: loadingMore ? 72 : 100,
+                  child: loadingMore
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : null,
+                ),
               );
             }
-            controller.onDisplayListIndexVisible(index);
             final memory = controller.displayMemories[index];
             return MemoryCard(
               key: ValueKey(memory['id']),
@@ -130,13 +146,23 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
       final isDark = uiController.darkMode.value;
 
       return AnnotatedRegion<SystemUiOverlayStyle>(
-        value: AppSystemUi.overlayStyle(dark: isDark),
+        // Light mode: status-bar area uses the current main color (matching the
+        // Header app bar) with white icons. Dark mode: unchanged.
+        value: isDark
+            ? AppSystemUi.overlayStyle(dark: true)
+            : AppSystemUi.overlayStyleLightStatusIcons(dark: false),
         child: ColoredBox(
-          color: isDark ? uiController.darkBackgroundColor : Colors.white,
+          color: isDark
+              ? uiController.darkBackgroundColor
+              : uiController.currentMainColor,
           child: SafeArea(
             bottom: false,
             child: Scaffold(
-              backgroundColor: Colors.transparent,
+              // Light mode: opaque white body so only the top safe-area shows
+              // the main color (continuing into the Header); dark mode keeps
+              // the prior transparent behavior over the dark background.
+              backgroundColor:
+                  isDark ? Colors.transparent : Colors.white,
               body: Stack(
             children: [
                 Column(

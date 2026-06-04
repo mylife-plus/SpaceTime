@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:photo_manager/photo_manager.dart';
+import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_picked_asset.dart';
 import 'package:spacetime/app/modules/media_gps_upload/controllers/media_gps_upload_controller.dart';
 import 'package:spacetime/app/modules/media_gps_upload/views/media_gps_gallery_asset_pages.dart';
+import 'package:spacetime/app/widgets/keep_alive_page.dart';
 
 class MediaGpsGalleryFullscreenPreview extends StatefulWidget {
   const MediaGpsGalleryFullscreenPreview({super.key, required this.initialIndex});
@@ -22,11 +24,22 @@ class _MediaGpsGalleryFullscreenPreviewState
 
   MediaGpsUploadController get _c => Get.find<MediaGpsUploadController>();
 
+  Widget _buildPage(MediaGpsPickedAsset picked, int index) {
+    return MediaGpsAssetPage(
+      picked: picked,
+      isActive: index == _pageIndex,
+      fit: BoxFit.contain,
+      placeholderColor: Colors.black,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _pageIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
+    _pageController = PageController(
+      initialPage: widget.initialIndex,
+    );
   }
 
   @override
@@ -52,36 +65,55 @@ class _MediaGpsGalleryFullscreenPreviewState
             }
             return PageView.builder(
               controller: _pageController,
+              clipBehavior: Clip.hardEdge,
               onPageChanged: (i) => setState(() => _pageIndex = i),
               itemCount: assets.length,
               itemBuilder: (context, index) {
                 final picked = assets[index];
-                final e = picked.entity;
-                if (e.type == AssetType.video) {
-                  return GalleryVideoPage(
-                    entity: e,
-                    isActive: index == _pageIndex,
-                  );
-                }
-                if (e.type == AssetType.audio) {
-                  return GalleryAudioPage(
-                    entity: e,
-                    isActive: index == _pageIndex,
-                    title: picked.fileTitle,
-                  );
-                }
-                return GalleryStillPage(entity: e);
+                return KeepAlivePage(
+                  child: ColoredBox(
+                    color: Colors.black,
+                    child: _buildPage(picked, index),
+                  ),
+                );
               },
             );
           }),
-          SafeArea(bottom: false,
-            child: Align(
-              alignment: Alignment.topRight,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                onPressed: () => Get.back<void>(),
-              ),
-            ),
+          SafeArea(
+            bottom: false,
+            child: Obx(() {
+              final assets = _c.galleryAssets;
+              final i = _pageIndex.clamp(0, assets.isEmpty ? 0 : assets.length - 1);
+              final noGps = assets.isNotEmpty && !assets[i].hasGps;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (noGps)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12, top: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade700.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'media_gps_no_gps_badge'.tr,
+                          style: AppFonts.bold(11, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    onPressed: () => Get.back<void>(),
+                  ),
+                ],
+              );
+            }),
           ),
           Positioned(
             left: 0,

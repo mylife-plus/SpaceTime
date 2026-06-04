@@ -59,12 +59,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
   @override
   Widget build(BuildContext context) {
     return LocationPickerSystemUiShell(
-      child: SafeArea(
-        bottom: false,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: _buildBody(),
-        ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: _buildBody(),
       ),
     );
   }
@@ -134,35 +131,46 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     // return Obx(() {
     return Stack(
       children: [
-        // Map
+        // Map fills the whole screen, including under the status bar.
         _buildMap(),
-        // Full width to screen edges; GPS button is stacked on top (does not shrink this column).
-        Positioned(
-          top: 5,
-          left: 4,
-          right: 4,
-          child: Obx(
-            () => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        // Controls stay below the status bar so the bar is transparent over the
+        // map (like the main map tab).
+        Positioned.fill(
+          child: SafeArea(
+            bottom: false,
+            child: Stack(
               children: [
-                buildSearchContainer(controller.uiController.darkMode.value),
-                                _buildSearchResultsPanel(),
+                // Full width to screen edges; GPS button is stacked on top (does not shrink this column).
+                Positioned(
+                  top: 5,
+                  left: 4,
+                  right: 4,
+                  child: Obx(
+                    () => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        buildSearchContainer(
+                            controller.uiController.darkMode.value),
+                        _buildSearchResultsPanel(),
 
-                const SizedBox(height: 6),
-                _buildLocationDetailLabel(),
-                // _buildSearchResultsPanel(),
+                        const SizedBox(height: 6),
+                        _buildLocationDetailLabel(),
+                        // _buildSearchResultsPanel(),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Current location button
+                // _buildCurrentLocationButton(),
+
+                // Bottom action buttons
+                _buildBottomActionButtons(),
               ],
             ),
           ),
         ),
-        
-        // Current location button
-        // _buildCurrentLocationButton(),
-   
-        
-        // Bottom action buttons
-        _buildBottomActionButtons(),
       ],
     );
   }

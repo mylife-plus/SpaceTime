@@ -1991,11 +1991,9 @@ Future<bool> _checkOfflineTileCount() async {
       child: Obx(
         () => Scaffold(
           backgroundColor: Colors.transparent,
-          body: SafeArea(
-            bottom: false,
-            child: Stack(
-              children: [
-            // Always keep the map in the background
+          body: Stack(
+            children: [
+            // Map fills the whole screen, including under the status bar.
             mapbox.MapWidget(
               key: const ValueKey("mapbox_map_new"),
               cameraOptions:
@@ -2023,6 +2021,12 @@ Future<bool> _checkOfflineTileCount() async {
               onTapListener: _onMapTap,
             ),
 
+            // Controls stay below the status bar; the map renders edge-to-edge.
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                child: Stack(
+                  children: [
             // Top right Done button
             if (!isLoading)
               Positioned(
@@ -2125,12 +2129,15 @@ Future<bool> _checkOfflineTileCount() async {
             // Error overlay
             // if (currentState  == LocationPickerState.error)
             // _buildErrorScreen(),
+                  ],
+                ),
+              ),
+            ),
             ],
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   @override

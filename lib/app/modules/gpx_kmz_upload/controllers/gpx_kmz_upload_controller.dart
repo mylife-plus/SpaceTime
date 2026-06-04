@@ -62,6 +62,40 @@ class GpxKmzUploadController extends GetxController {
   String? _kmzPath;
   int _previewGeneration = 0;
 
+  /// Candidate fingerprints the user removed from the preview. They are skipped
+  /// on commit and subtracted from the displayed new/remaining counts.
+  /// `commitUploadToDatabase` re-derives candidates from the file, so this set
+  /// must persist across [runPreview] to keep deletions effective.
+  final Set<String> _excludedFingerprints = <String>{};
+
+  /// True while [candidate] has been removed from the upload by the user.
+  bool isCandidateExcluded(KmzMemoryCandidate candidate) =>
+      _excludedFingerprints.contains(candidate.fingerprint);
+
+  /// Remove a previewed memory from the upload: it won't be committed, and the
+  /// new/remaining counts shown on the upload screen drop by one.
+  void excludeCandidateFromUpload(KmzMemoryCandidate candidate) {
+    if (_excludedFingerprints.add(candidate.fingerprint)) {
+      _applyExclusionsToCounts();
+    }
+  }
+
+  /// Subtract user-excluded candidates from the displayed new/remaining counts.
+  void _applyExclusionsToCounts() {
+    if (_lastStats == null || _excludedFingerprints.isEmpty) return;
+    final excluded = _lastStats!.candidates
+        .where((c) => _excludedFingerprints.contains(c.fingerprint))
+        .length;
+    if (excluded == 0) return;
+    newMemoriesCount.value =
+        (_lastStats!.newMemories - excluded).clamp(0, 1 << 30);
+    totalEntryCount.value = (rawEntryCount.value -
+            ignoredEntryCount.value -
+            duplicateEntryCount.value -
+            excluded)
+        .clamp(0, 1 << 30);
+  }
+
   Future<T> _retry<T>(Future<T> Function() fn, {String label = 'op'}) async {
     Object? last;
     for (var i = 0; i < 3; i++) {
@@ -146,6 +180,7 @@ class GpxKmzUploadController extends GetxController {
     final path = f.path;
     if (path != null && path.isNotEmpty) {
       _kmzPath = path;
+      _excludedFingerprints.clear(); // fresh file → no carried-over deletions
       filePathController.text = p.basename(path);
     } else if (f.name.isNotEmpty) {
       filePathController.text = f.name;
@@ -242,8 +277,14 @@ class GpxKmzUploadController extends GetxController {
       ignoredEntryCount.value =
           _lastStats!.ignoredEntries + ignoredByRules + ignoredByDate;
       duplicateEntryCount.value = _lastStats!.duplicateEntries;
-      totalEntryCount.value = _lastStats!.totalAfterFilter;
+      // Remaining entries = total − ignored − duplicates (keep the displayed
+      // stat math consistent with the rows shown above it).
+      totalEntryCount.value = (rawEntryCount.value -
+              ignoredEntryCount.value -
+              duplicateEntryCount.value)
+          .clamp(0, 1 << 30);
       newMemoriesCount.value = _lastStats!.newMemories;
+      _applyExclusionsToCounts();
     } on InvalidTrackFileException {
       _applyEmptyStats();
       rethrow;
@@ -276,6 +317,7 @@ class GpxKmzUploadController extends GetxController {
 
   void _applyEmptyStats() {
     _lastStats = null;
+    _excludedFingerprints.clear();
     availableMemoryDateKeys.clear();
     selectedStartDateKey.value = '';
     selectedEndDateKey.value = '';
@@ -334,6 +376,9 @@ class GpxKmzUploadController extends GetxController {
 
     try {
       for (final c in _lastStats!.candidates) {
+        if (_excludedFingerprints.contains(c.fingerprint)) {
+          continue; // user removed this one in the preview
+        }
         if (fpLive.contains(c.fingerprint)) {
           dupRuntime++;
           continue;
@@ -386,6 +431,8 @@ class GpxKmzUploadController extends GetxController {
         final map = Get.find<MapControllerNew>();
         try {
           await map.reloadDisplayedMemoriesWithRetry();
+          // Focus on the globally latest memory (not just within this import)
+          unawaited(map.focusOnLatestMemory());
         } catch (e, st) {
           debugPrint('[GpxKmzUpload] map reload after import: $e\n$st');
         }

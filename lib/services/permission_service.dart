@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/services/app_lock_controller.dart' show AppLockController;
 
@@ -12,6 +13,10 @@ class PermissionService extends GetxController {
   final RxBool isLocationServiceEnabled = false.obs;
   final RxBool isCheckingPermissions = false.obs;
   final RxBool permissionJustGranted = false.obs;
+
+  final RxBool hasCameraPermission = false.obs;
+  final RxBool hasPhotosPermission = false.obs;
+  final RxBool hasMicrophonePermission = false.obs;
 
   Timer? _permissionPollTimer;
   bool _permissionPollInFlight = false;
@@ -38,6 +43,7 @@ class PermissionService extends GetxController {
   /// Initialize permission monitoring
   Future<void> _initializePermissionMonitoring() async {
     await checkLocationPermission();
+    await _checkMediaPermissions();
     _startPermissionMonitoring();
   }
 
@@ -79,10 +85,31 @@ class PermissionService extends GetxController {
           });
         }
       }
+
+      // Check media permissions (camera, photos, microphone)
+      await _checkMediaPermissions();
     } catch (e) {
       debugPrint('❌ Error checking permission status: $e');
     } finally {
       _permissionPollInFlight = false;
+    }
+  }
+
+  /// Public entry point — called by other controllers on resume.
+  Future<void> refreshMediaPermissions() => _checkMediaPermissions();
+
+  /// Check camera, photo library, and microphone permission status (no prompt).
+  Future<void> _checkMediaPermissions() async {
+    try {
+      final camera = await Permission.camera.status;
+      final photos = await Permission.photos.status;
+      final mic = await Permission.microphone.status;
+
+      hasCameraPermission.value = camera.isGranted;
+      hasPhotosPermission.value = photos.isGranted;
+      hasMicrophonePermission.value = mic.isGranted;
+    } catch (e) {
+      debugPrint('❌ Error checking media permissions: $e');
     }
   }
 
@@ -190,7 +217,7 @@ class PermissionService extends GetxController {
           TextButton(
             onPressed: () {
               if (Get.isRegistered<AppLockController>()) {
-                Get.find<AppLockController>().skipLockOnNextResumeFromSettings();
+                Get.find<AppLockController>().scheduleRestartOnNextResume();
               }
               Geolocator.openLocationSettings();
               Get.back();
@@ -249,7 +276,7 @@ class PermissionService extends GetxController {
           TextButton(
             onPressed: () {
               if (Get.isRegistered<AppLockController>()) {
-                Get.find<AppLockController>().skipLockOnNextResumeFromSettings();
+                Get.find<AppLockController>().scheduleRestartOnNextResume();
               }
               Geolocator.openAppSettings();
               Get.back();

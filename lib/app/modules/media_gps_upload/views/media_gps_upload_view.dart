@@ -35,7 +35,9 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
     WidgetsBinding.instance.addObserver(this);
     controller = Get.find<MediaGpsUploadController>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) controller.refreshPastUploadCount();
+      if (!mounted) return;
+      unawaited(controller.refreshPastUploadCount());
+      unawaited(controller.reloadDedupeFromDatabase());
     });
   }
 
@@ -228,7 +230,7 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                   style: AppFonts.regular(18, color: valueColor),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
               RightNavTrailingIcon(
                 size: 18,
                 color: isDark ? Colors.white54 : Colors.grey,
@@ -268,12 +270,19 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
       return _buildRowField(
         isDark: isDark,
         label: label,
-        contentPadding: TrackClusterFieldConfig.dropdownContentPadding,
+        // Same default contentPadding as the date fields so this container's
+        // height matches them (with isDense the dropdown hugs its text line
+        // instead of the 48px interactive minimum).
         fieldMargin: fieldMargin,
         onInfoTap: onInfoTap,
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             isExpanded: true,
+            // isDense removes the outer 48px interactive floor; itemHeight: null
+            // stops the *selected* value from being wrapped in a 48px box, so the
+            // closed field hugs its single text line and matches the date fields.
+            isDense: true,
+            itemHeight: null,
             value: value,
             icon: const SizedBox.shrink(),
             dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
@@ -316,9 +325,11 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
 
   Widget _statsBlock(bool isDark) {
     final normal = isDark ? Colors.white : Colors.black87;
+    final red = Colors.red.shade700;
     return Obx(() {
       final raw = controller.rawFileCount.value;
       final noGps = controller.noGpsCount.value;
+      final dup = controller.duplicateHintCount.value;
       final usable = controller.totalUsableSelected;
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -337,6 +348,12 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                 textAlign: TextAlign.center,
               ),
             ],
+            const SizedBox(height: 4),
+            Text(
+              trKey('media_gps_stats_duplicate_files', [dup]),
+              style: AppFonts.regular(16, color: red),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 6),
             Text(
               trKey('media_gps_stats_total_usable', [usable]),
@@ -501,6 +518,8 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                           return _buildRowField(
                             isDark: isDark,
                             label: 'gpx_label_date_from'.tr,
+                            contentPadding:
+                                const EdgeInsets.fromLTRB(12, 8, 12, 8),
                             fieldMargin:
                                 TrackClusterFieldConfig.pairedFieldMarginStart,
                             onTap: () => controller.pickStartDate(context),
@@ -525,6 +544,8 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                           return _buildRowField(
                             isDark: isDark,
                             label: 'gpx_label_date_to'.tr,
+                            contentPadding:
+                                const EdgeInsets.fromLTRB(12, 8, 12, 8),
                             fieldMargin:
                                 TrackClusterFieldConfig.pairedFieldMarginEnd,
                             onTap: () => controller.pickEndDate(context),

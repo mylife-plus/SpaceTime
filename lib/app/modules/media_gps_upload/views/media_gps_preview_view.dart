@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:photo_manager/photo_manager.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/modules/media_gps_upload/controllers/media_gps_upload_controller.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_cluster_candidate.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_picked_asset.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
@@ -11,6 +11,7 @@ import 'package:spacetime/app/widgets/track_upload_refresh_icon.dart';
 
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/mini_widgets/track_preview_summary_card.dart';
 import 'package:spacetime/app/modules/media_gps_upload/views/media_gps_gallery_asset_pages.dart';
+import 'package:spacetime/app/widgets/keep_alive_page.dart';
 
 Widget _trackPagerIndicator(int length, int currentIndex) {
   const maxDots = 18;
@@ -42,7 +43,7 @@ Widget _trackPagerIndicator(int length, int currentIndex) {
 }
 
 /// Preview after upload screen has finished reverse-geocoding all clusters.
-class MediaGpsPreviewView extends StatelessWidget {
+class MediaGpsPreviewView extends StatefulWidget {
   const MediaGpsPreviewView({
     super.key,
     required this.candidates,
@@ -51,6 +52,35 @@ class MediaGpsPreviewView extends StatelessWidget {
 
   final List<MediaGpsClusterCandidate> candidates;
   final List<String> locationLines;
+
+  @override
+  State<MediaGpsPreviewView> createState() => _MediaGpsPreviewViewState();
+}
+
+class _MediaGpsPreviewViewState extends State<MediaGpsPreviewView> {
+  // Local mutable copies so a previewed memory can be removed from the list
+  // (and from the upload selection) without rebuilding the source data.
+  late final List<MediaGpsClusterCandidate> candidates =
+      [...widget.candidates];
+  late final List<String> locationLines = [...widget.locationLines];
+
+  /// Delete a previewed memory: drop it from the preview list and deselect its
+  /// assets so it won't be uploaded. Pops back when nothing is left.
+  void _deleteCandidateAt(int i) {
+    if (i < 0 || i >= candidates.length) return;
+    final candidate = candidates[i];
+    if (Get.isRegistered<MediaGpsUploadController>()) {
+      Get.find<MediaGpsUploadController>()
+          .removeCandidateFromSelection(candidate);
+    }
+    setState(() {
+      candidates.removeAt(i);
+      locationLines.removeAt(i);
+    });
+    if (candidates.isEmpty) {
+      Get.back<void>();
+    }
+  }
 
   String _monthShort(int m) {
     const names = [
@@ -86,6 +116,7 @@ class MediaGpsPreviewView extends StatelessWidget {
     required Color headerText,
     required Color bodyText,
     required Color bodyBg,
+    required VoidCallback onDelete,
   }) {
     final dt = candidate.when.toLocal();
     final hh =
@@ -105,7 +136,7 @@ class MediaGpsPreviewView extends StatelessWidget {
             width: double.infinity,
             height: 36,
             color: headerBg,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.only(left: 12, right: 4),
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -126,12 +157,27 @@ class MediaGpsPreviewView extends StatelessWidget {
                     ),
                   ],
                 ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onDelete,
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                      child: Image.asset(
+                        'assets/images/trash.png',
+                        width: 20,
+                        height: 20,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          _MediaPager(items: candidate.items),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Row(
               children: [
                 Text(
@@ -150,6 +196,7 @@ class MediaGpsPreviewView extends StatelessWidget {
               ],
             ),
           ),
+          _MediaPager(items: candidate.items),
         ],
       ),
     );
@@ -201,6 +248,7 @@ class MediaGpsPreviewView extends StatelessWidget {
             }
             final i = index - 1;
             return RepaintBoundary(
+              key: ValueKey(candidates[i].fingerprint),
               child: _buildCard(
                 candidate: candidates[i],
                 locationText: locationLines[i],
@@ -208,6 +256,7 @@ class MediaGpsPreviewView extends StatelessWidget {
                 headerText: headerText,
                 bodyText: bodyText,
                 bodyBg: bodyBg,
+                onDelete: () => _deleteCandidateAt(i),
               ),
             );
           },
@@ -242,6 +291,7 @@ class _MediaPagerState extends State<_MediaPager> {
     super.dispose();
   }
 
+
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
@@ -261,21 +311,12 @@ class _MediaPagerState extends State<_MediaPager> {
               },
               itemBuilder: (context, index) {
                 final picked = widget.items[index];
-                final entity = picked.entity;
-                if (entity.type == AssetType.video) {
-                  return GalleryVideoPage(
-                    entity: entity,
+                return KeepAlivePage(
+                  child: MediaGpsAssetPage(
+                    picked: picked,
                     isActive: index == _currentIndex,
-                  );
-                }
-                if (entity.type == AssetType.audio) {
-                  return GalleryAudioPage(
-                    entity: entity,
-                    isActive: index == _currentIndex,
-                    title: picked.fileTitle,
-                  );
-                }
-                return GalleryStillPage(entity: entity);
+                  ),
+                );
               },
             ),
           ),

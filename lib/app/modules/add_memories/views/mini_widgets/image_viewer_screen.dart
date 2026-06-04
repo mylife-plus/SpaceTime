@@ -7,6 +7,8 @@ import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/utils/memory_media_image_cache.dart';
+import 'package:spacetime/app/widgets/keep_alive_page.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
 
 class ImageViewerScreen extends StatefulWidget {
@@ -38,8 +40,6 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   bool _showOverlay = true;
   bool _isFullScreen = false;
 
-  final Map<int, ImageProvider> _imageCache = {};
-  final Map<int, bool> _imageLoadingStates = {};
   final Map<int, VideoPlayerController> _videoControllers = {};
 
   bool get _hasOrderedMedia => widget.orderedMedia != null && widget.orderedMedia!.isNotEmpty;
@@ -111,8 +111,15 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
     // Auto-hide overlay after 3 seconds
     _startAutoHideTimer();
 
-    // Preload images to prevent black screens during swiping
-    _preloadImages();
+    unawaited(MemoryMediaImageProviderCache.instance.ensureDocumentsRoot());
+
+    // Preload images to prevent black screens during swiping. Deferred to after
+    // the first frame: _preloadImages() reads MediaQuery.of(context), which must
+    // not be depended on during initState() (throws "dependOnInheritedWidget…
+    // called before initState completed").
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _preloadImages();
+    });
   }
 
   @override
@@ -179,134 +186,47 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
     });
   }
 
-  // Preload images to prevent black screens during swiping
   void _preloadImages() {
     for (int i = 0; i < _totalCount; i++) {
-      if (_isVideoAtIndex(i)) continue;
-      final imageData = _getImageData(i);
-
-      try {
-        ImageProvider imageProvider;
-
-        if (_isFilePath(imageData)) {
-          final file = File(imageData);
-          if (file.existsSync()) {
-            imageProvider = FileImage(file);
-          } else {
-            continue; // Skip non-existent files
-          }
-        } else if (_isBase64Image(imageData)) {
-          final bytes = base64Decode(imageData);
-          imageProvider = MemoryImage(bytes);
-        } else {
-          continue; // Skip invalid image data
-        }
-
-        // Cache the image provider
-        _imageCache[i] = imageProvider;
-        _imageLoadingStates[i] = false;
-
-        // Preload the image
-        precacheImage(imageProvider, context).then((_) {
-          if (mounted) {
-            setState(() {
-              _imageLoadingStates[i] = true;
-            });
-          }
-        }).catchError((error) {
-          debugPrint('Error preloading image $i: $error');
-        });
-
-      } catch (e) {
-        debugPrint('Error setting up preload for image $i: $e');
-      }
+      _preloadImageAt(i);
     }
   }
 
-  // Build image widget that handles both file paths and base64 images
-  Widget _buildImageWidget(String imageData) {
-    debugPrint('=== BUILDING IMAGE WIDGET ===');
-    debugPrint('Image data length: ${imageData.length}');
-    debugPrint('Is file path: ${_isFilePath(imageData)}');
-    debugPrint('Is base64: ${_isBase64Image(imageData)}');
-
-    // Check if it's a file path (NEW approach)
-    if (_isFilePath(imageData)) {
-      debugPrint('Loading image from file path: $imageData');
-      final file = File(imageData);
-
-      return file.existsSync()
-          ? Image.file(
-              file,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                debugPrint('Error loading file image in viewer: $error');
-                return const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: Colors.white54,
-                    size: 64,
-                  ),
-                );
-              },
-            )
-          : const Center(
-              child: Icon(
-                Icons.broken_image,
-                color: Colors.white54,
-                size: 64,
-              ),
-            );
-    }
-    // Handle base64 images (LEGACY approach)
-    else if (_isBase64Image(imageData)) {
-      try {
-        debugPrint('Attempting to decode base64 image...');
-        final bytes = base64Decode(imageData);
-        debugPrint('Successfully decoded base64 to ${bytes.length} bytes');
-
-        return Image.memory(
-          bytes,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('Error loading base64 image in viewer: $error');
-            debugPrint('Stack trace: $stackTrace');
-            return const Center(
-              child: Icon(
-                Icons.broken_image,
-                color: Colors.white54,
-                size: 64,
-              ),
-            );
-          },
-        );
-      } catch (e) {
-        debugPrint('Error decoding base64 image in viewer: $e');
-        return const Center(
-          child: Icon(
-            Icons.broken_image,
-            color: Colors.white54,
-            size: 64,
-          ),
-        );
-      }
-    } else {
-      // Asset image
-      return Image.asset(
+  void _preloadImageAt(int index) {
+    if (index < 0 || index >= _totalCount || _isVideoAtIndex(index)) return;
+    final imageData = _getImageData(index);
+    final decodeW = MediaQuery.sizeOf(context).shortestSide > 0
+        ? MemoryMediaImageProviderCache.decodeWidthForLayout(
+            context,
+            layoutHeight: MediaQuery.sizeOf(context).height,
+            maxDecode: 2048,
+          )
+        : 2048;
+    unawaited(
+      MemoryMediaImageProviderCache.instance.precache(
+        context,
         imageData,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          debugPrint('Error loading asset image in viewer: $error');
-          return const Center(
-            child: Icon(
-              Icons.broken_image,
-              color: Colors.white54,
-              size: 64,
-            ),
-          );
-        },
-      );
-    }
+        cacheWidth: decodeW,
+      ),
+    );
+  }
+
+  Widget _buildImageWidget(String imageData, int index) {
+    final decodeW = MemoryMediaImageProviderCache.decodeWidthForLayout(
+      context,
+      layoutHeight: MediaQuery.sizeOf(context).height,
+      maxDecode: 2048,
+    );
+    return MemoryMediaImageProviderCache.instance.buildImage(
+      context: context,
+      imageData: imageData,
+      fit: BoxFit.contain,
+      cacheWidth: decodeW,
+      placeholderColor: Colors.black,
+      errorChild: const Center(
+        child: Icon(Icons.broken_image, color: Colors.white54, size: 64),
+      ),
+    );
   }
 
   // Check if the image data is a file path
@@ -370,7 +290,10 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
     }
     final vc = _videoControllers[index]!;
     if (!vc.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return const ColoredBox(
+        color: Colors.black,
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
     }
     final accentColor = uiController.darkMode.value
         ? (uiController.mainColor.value == 'blue'
@@ -488,27 +411,38 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
             PageView.builder(
               controller: _pageController,
               physics: const ClampingScrollPhysics(),
+              clipBehavior: Clip.hardEdge,
               onPageChanged: (index) {
                 for (final vc in _videoControllers.values) {
                   vc.pause();
                 }
+                _preloadImageAt(index - 1);
+                _preloadImageAt(index);
+                _preloadImageAt(index + 1);
                 setState(() {
                   _currentIndex = index;
                 });
               },
               itemCount: _totalCount,
               itemBuilder: (context, index) {
-                if (_isVideoAtIndex(index)) {
-                  return _buildVideoPlayer(_getVideoPath(index), index);
-                }
-                return GestureDetector(
-                  onTap: _toggleOverlay,
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Center(
-                      child: _buildImageWidget(_getImageData(index)),
-                    ),
+                return KeepAlivePage(
+                  child: ColoredBox(
+                    color: Colors.black,
+                    child: _isVideoAtIndex(index)
+                        ? _buildVideoPlayer(_getVideoPath(index), index)
+                        : GestureDetector(
+                            onTap: _toggleOverlay,
+                            child: InteractiveViewer(
+                              minScale: 0.5,
+                              maxScale: 4.0,
+                              child: Center(
+                                child: _buildImageWidget(
+                                  _getImageData(index),
+                                  index,
+                                ),
+                              ),
+                            ),
+                          ),
                   ),
                 );
               },

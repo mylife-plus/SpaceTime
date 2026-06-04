@@ -91,6 +91,11 @@ class UiController extends GetxController {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('app_lock_enabled', value);
+      if (value) {
+        // First launch must unlock manually so Face ID permission is not
+        // requested during cold-start auto-auth (iOS can freeze).
+        await prefs.remove(AppLockController.biometricReadyPrefsKey);
+      }
       debugPrint('[UiController] App lock saved: $value');
     } catch (e) {
       debugPrint('[UiController] Error saving app lock: $e');

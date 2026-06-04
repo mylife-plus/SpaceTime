@@ -16,6 +16,8 @@ import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/app/widgets/track_past_upload_delete_confirm_dialog.dart';
 import 'package:spacetime/app/widgets/track_upload_refresh_icon.dart';
 
+import 'package:spacetime/app/utils/memory_media_image_cache.dart';
+import 'package:spacetime/app/widgets/keep_alive_page.dart';
 import 'mini_widgets/track_preview_summary_card.dart';
 
 String _formatInlineVideoDuration(Duration d) {
@@ -347,7 +349,7 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: Row(
                 children: [
                   Text(
@@ -655,18 +657,13 @@ class _PastMediaPagerState extends State<_PastMediaPager> {
     final decodeW = (220 * dpr).round().clamp(320, 2048);
     switch (t.kind) {
       case 0:
-        final f = File(t.filePath!);
-        if (f.existsSync()) {
-          return Image.file(
-            f,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            cacheWidth: decodeW,
-            errorBuilder: (_, __, ___) =>
-                Icon(Icons.broken_image, color: widget.bodyText),
-          );
-        }
-        return Icon(Icons.broken_image, color: widget.bodyText);
+        return MemoryMediaImageProviderCache.instance.buildImage(
+          context: context,
+          imageData: t.filePath!,
+          fit: BoxFit.cover,
+          cacheWidth: decodeW,
+          errorChild: Icon(Icons.broken_image, color: widget.bodyText),
+        );
       case 1:
         return Image.memory(
           t.bytes!,
@@ -705,17 +702,18 @@ class _PastMediaPagerState extends State<_PastMediaPager> {
               },
               itemBuilder: (context, index) {
                 final t = widget.thumbs[index];
-                if (t.kind == 2 && t.filePath != null) {
-                  return _PastVideoPage(
-                    videoPath: t.filePath!,
-                    thumbPath: t.thumbPath,
-                    bodyText: widget.bodyText,
-                    isActive: index == _currentIndex,
-                  );
-                }
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [_pageChild(context, t)],
+                return KeepAlivePage(
+                  child: t.kind == 2 && t.filePath != null
+                      ? _PastVideoPage(
+                          videoPath: t.filePath!,
+                          thumbPath: t.thumbPath,
+                          bodyText: widget.bodyText,
+                          isActive: index == _currentIndex,
+                        )
+                      : Stack(
+                          fit: StackFit.expand,
+                          children: [_pageChild(context, t)],
+                        ),
                 );
               },
             ),

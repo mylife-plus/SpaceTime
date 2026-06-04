@@ -36,10 +36,7 @@ class UiTile extends StatelessWidget {
     final controller = Get.find<UiController>();
 
     return Obx(
-      () => Container(
-        color:
-            controller.darkMode.value ? controller.darkBackgroundColor : Colors.white,
-        child: Column(
+      () => Column(
           children: [
             InkWell(
               onTap: onTap,
@@ -127,15 +124,12 @@ class UiTile extends StatelessWidget {
               Divider(
                 height: 1,
                 thickness: 1,
-                color:
-                    controller.darkMode.value
-                        ? controller.darkSurfaceColor.withOpacity(0.6)
-                        : Colors.black.withOpacity(0.1),
+                // Same separator color in dark mode as in light mode.
+                color: Colors.black.withValues(alpha: 0.1),
                 indent: 16,
                 endIndent: 16,
               ),
           ],
-        ),
       ),
     );
   }

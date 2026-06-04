@@ -6,6 +6,7 @@ import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:spacetime/services/app_lock_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
 
@@ -420,6 +421,9 @@ class MbtilesDownloadService extends GetxController {
           ),
           TextButton(
             onPressed: () {
+              if (Get.isRegistered<AppLockController>()) {
+                Get.find<AppLockController>().scheduleRestartOnNextResume();
+              }
               openAppSettings();
               Get.back();
             },

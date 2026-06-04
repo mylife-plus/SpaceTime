@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 
@@ -25,6 +26,9 @@ import '../../add_memories/controllers/add_memories_controller.dart';
 import '../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
+import 'package:spacetime/app/modules/media_gps_upload/services/gallery_asset_resolver.dart';
+import 'package:spacetime/app/routes/memory_view_navigation.dart';
+import 'package:spacetime/app/utils/memory_media_image_cache.dart';
 
 class MemoryView extends StatefulWidget {
   final bool editMode;
@@ -36,7 +40,7 @@ class MemoryView extends StatefulWidget {
   State<MemoryView> createState() => _MemoryViewState();
 }
 
-class _MemoryViewState extends State<MemoryView> {
+class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<MemoryDescriptionFieldState> _descriptionFieldKey =
       GlobalKey<MemoryDescriptionFieldState>();
@@ -45,7 +49,10 @@ class _MemoryViewState extends State<MemoryView> {
   final RxList<Map<String, dynamic>> _orderedMedia = <Map<String, dynamic>>[].obs;
   int? _editingMemoryId;
 
-  final RxBool _isKeyboardVisible = false.obs;
+  bool _keyboardVisible = false;
+  bool _deferredCreateInitStarted = false;
+  bool _mediaStagingDialogOpen = false;
+  bool _isImportingPickedMedia = false;
 
   List<Map<String, dynamic>> _originalImages = [];
   List<Map<String, dynamic>> _originalVideos = [];
@@ -60,6 +67,12 @@ class _MemoryViewState extends State<MemoryView> {
 
   List<String> get _selectedVideoPaths =>
       _orderedMedia.where((m) => m['type'] == 'video').map((m) => m['path'] as String).toList();
+
+  List<String> get _galleryAssetIdsForSave => _orderedMedia
+      .map((m) => m['galleryAssetId'] as String?)
+      .whereType<String>()
+      .where((id) => id.isNotEmpty)
+      .toList();
 
   final List<String> _existingTags = [
     'travel',
@@ -82,45 +95,29 @@ class _MemoryViewState extends State<MemoryView> {
   @override
   void initState() {
     super.initState();
-    // print('Init State Called:');
+    unawaited(MemoryMediaImageProviderCache.instance.ensureDocumentsRoot());
+    WidgetsBinding.instance.addObserver(this);
     final memoryController = Get.find<MemoryController>();
-    memoryController.setTime(TimeOfDay.now());
-
-    memoryController.setDate(DateTime.now());
     memoryController.ifCalledFromMemoryView = true;
-    // Clear any existing audio and image data first
-    try {
-      memoryController.clearAudioRecordings();
-    } catch (e) {
-      debugPrint('Error clearing audio on init: $e');
-    }
 
-    // Load draft for new memories (not in edit mode)
+    // Avoid Rx/setState during the route's first build (prevents Obx rebuild errors).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      memoryController.setTime(TimeOfDay.now());
+      memoryController.setDate(DateTime.now());
+      try {
+        memoryController.clearAudioRecordings();
+      } catch (e) {
+        debugPrint('Error clearing audio on init: $e');
+      }
+    });
+
+    // Defer heavy draft/GPS work until the route transition finishes.
     if (!widget.editMode && widget.memoryData == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await _loadDraft();
-
-        // Draft reopen might race with an in-flight GPS fetch from MemoryController.
-        // Invalidate it so it cannot override the restored location.
-        memoryController.invalidateLocationFetch();
-
-        // If draft already has enhanced location fields, do NOT geocode again.
-        final hasEnhancedLocation =
-            memoryController.locationFlag.value.isNotEmpty ||
-            memoryController.locationCountry.value.isNotEmpty ||
-            memoryController.locationCity.value.isNotEmpty ||
-            memoryController.locationName.value.isNotEmpty;
-
-        if (hasEnhancedLocation) {
-          return;
-        }
-
-        // Backward-compat: if only coordinates exist, rebuild enhanced fields once.
-        if (memoryController.selectedLocation.value.isNotEmpty) {
-          await memoryController.fetchEnhancedLocationFromSelectedLocation();
-        } else {
-          await memoryController.fetchCurrentLocation();
-        }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future<void>.delayed(memoryViewRouteDuration, () {
+          if (mounted) unawaited(_runDeferredCreateModeInit());
+        });
       });
 
       // Add auto-save listener to description controller
@@ -137,10 +134,234 @@ class _MemoryViewState extends State<MemoryView> {
 
     // Initialize edit mode if editing existing memory
     if (widget.editMode && widget.memoryData != null) {
-      // Add a small delay to ensure UI is ready
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _initializeEditMode();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future<void>.delayed(memoryViewRouteDuration, () {
+          if (mounted) _initializeEditMode();
+        });
       });
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    final bottom = view.viewInsets.bottom / view.devicePixelRatio;
+    _setKeyboardVisible(bottom > 0);
+  }
+
+  void _setKeyboardVisible(bool visible) {
+    if (_keyboardVisible == visible) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _keyboardVisible == visible) return;
+      setState(() => _keyboardVisible = visible);
+    });
+  }
+
+  void _showMediaStagingLoader() {
+    if (!mounted || _mediaStagingDialogOpen) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _mediaStagingDialogOpen) return;
+      _mediaStagingDialogOpen = true;
+      showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'text_processing_memories'.tr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      ).whenComplete(() {
+        _mediaStagingDialogOpen = false;
+      });
+    });
+  }
+
+  void _hideMediaStagingLoader() {
+    if (!_mediaStagingDialogOpen || !mounted) return;
+    final nav = Navigator.of(context, rootNavigator: true);
+    if (nav.canPop()) nav.pop();
+    _mediaStagingDialogOpen = false;
+  }
+
+  /// iOS image_picker cache files can disappear within seconds — copy before UI.
+  Future<List<String>> _existingNormalizedPickerPaths(List<String> paths) async {
+    final out = <String>[];
+    for (final raw in paths) {
+      final normalized = MemoryController.normalizeLocalFilePath(raw);
+      if (await File(normalized).exists()) {
+        out.add(normalized);
+        continue;
+      }
+      if (raw != normalized && await File(raw).exists()) {
+        out.add(raw);
+      }
+    }
+    return out;
+  }
+
+  Future<void> _importPickedMediaFromPicker({
+    required List<String> imagePaths,
+    required List<String> videoPaths,
+  }) async {
+    if (_isImportingPickedMedia) return;
+    _isImportingPickedMedia = true;
+    try {
+      if (!mounted) return;
+
+      final images = await _existingNormalizedPickerPaths(imagePaths);
+      final videos = await _existingNormalizedPickerPaths(videoPaths);
+      if (images.isEmpty && videos.isEmpty) {
+        showTrSnackbar(
+          'snackbar_validation_error_35',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Resolve while picker cache files still exist (needed for GPS-upload dedupe).
+      final assetIdByPath = await GalleryAssetResolver.resolveAssetIdsForPaths(
+        [...images, ...videos],
+        maxAlbumScan: 2000,
+      );
+
+      final memoryController = Get.find<MemoryController>();
+      final staged = await memoryController.stagePickedMediaForUi(
+        imagePaths: images,
+        videoPaths: videos,
+        forceBackgroundCopy: true,
+      );
+      if (!mounted) return;
+
+      final newItems = <Map<String, dynamic>>[];
+      for (var i = 0; i < staged.images.length; i++) {
+        final item = <String, dynamic>{'type': 'image', 'path': staged.images[i]};
+        if (i < images.length) {
+          final aid = assetIdByPath[images[i]];
+          if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+        }
+        newItems.add(item);
+      }
+      for (var i = 0; i < staged.videos.length; i++) {
+        final item = <String, dynamic>{'type': 'video', 'path': staged.videos[i]};
+        if (i < videos.length) {
+          final aid = assetIdByPath[videos[i]];
+          if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+        }
+        newItems.add(item);
+      }
+      if (newItems.isEmpty) {
+        showTrSnackbar(
+          'snackbar_validation_error_35',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+      await _sortMediaByCreationDate(newItems);
+
+      final missingPaths = <String>[];
+      for (var i = 0; i < images.length; i++) {
+        if (i >= staged.images.length) break;
+        if (!assetIdByPath.containsKey(images[i])) missingPaths.add(staged.images[i]);
+      }
+      for (var i = 0; i < videos.length; i++) {
+        if (i >= staged.videos.length) break;
+        if (!assetIdByPath.containsKey(videos[i])) missingPaths.add(staged.videos[i]);
+      }
+      if (missingPaths.isNotEmpty) {
+        unawaited(_backfillGalleryAssetIdsFromStagedPaths(missingPaths));
+      }
+    } finally {
+      _isImportingPickedMedia = false;
+      if (mounted) _hideMediaStagingLoader();
+    }
+  }
+
+  Future<void> _backfillGalleryAssetIdsFromStagedPaths(List<String> stagedPaths) async {
+    final assetIdByPath = await GalleryAssetResolver.resolveAssetIdsForPaths(
+      stagedPaths,
+      maxAlbumScan: 2000,
+    );
+    if (!mounted || assetIdByPath.isEmpty) return;
+
+    for (final item in _orderedMedia) {
+      if ((item['galleryAssetId'] as String?)?.isNotEmpty == true) continue;
+      final path = item['path'] as String?;
+      if (path == null) continue;
+      final aid = assetIdByPath[path];
+      if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+    }
+    _orderedMedia.refresh();
+  }
+
+  Future<void> _ensureGalleryAssetIdsBeforeSave() async {
+    final pathsNeedingId = <String>[];
+    for (final item in _orderedMedia) {
+      if ((item['galleryAssetId'] as String?)?.isNotEmpty == true) continue;
+      final path = item['path'] as String?;
+      if (path != null && path.isNotEmpty) pathsNeedingId.add(path);
+    }
+    if (pathsNeedingId.isEmpty) return;
+
+    final assetIdByPath = await GalleryAssetResolver.resolveAssetIdsForPaths(
+      pathsNeedingId,
+      maxAlbumScan: 2000,
+    );
+    for (final item in _orderedMedia) {
+      final path = item['path'] as String?;
+      if (path == null) continue;
+      final aid = assetIdByPath[path];
+      if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+    }
+  }
+
+  Future<void> _runDeferredCreateModeInit() async {
+    if (_deferredCreateInitStarted) return;
+    _deferredCreateInitStarted = true;
+
+    final memoryController = Get.find<MemoryController>();
+    await _loadDraft();
+    if (!mounted) return;
+
+    memoryController.invalidateLocationFetch();
+
+    final hasEnhancedLocation =
+        memoryController.locationFlag.value.isNotEmpty ||
+        memoryController.locationCountry.value.isNotEmpty ||
+        memoryController.locationCity.value.isNotEmpty ||
+        memoryController.locationName.value.isNotEmpty;
+
+    if (hasEnhancedLocation) return;
+
+    if (memoryController.selectedLocation.value.isNotEmpty) {
+      await memoryController.fetchEnhancedLocationFromSelectedLocation();
+    } else {
+      await memoryController.fetchCurrentLocation();
     }
   }
 
@@ -675,11 +896,29 @@ class _MemoryViewState extends State<MemoryView> {
     }
   }
 
+  Widget _memoryImageFile(String path, {required double width, required double height}) {
+    return MemoryMediaImageProviderCache.instance.buildImage(
+      context: context,
+      imageData: path,
+      fit: BoxFit.cover,
+      width: width,
+      height: height,
+      errorChild: Container(
+        width: width,
+        height: height,
+        color: Colors.grey[300],
+        child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+      ),
+    );
+  }
+
   Future<void> _sortMediaByCreationDate(List<Map<String, dynamic>> newItems) async {
     final List<MapEntry<Map<String, dynamic>, DateTime>> withDates = [];
     for (final item in newItems) {
       try {
-        final file = File(item['path'] as String);
+        final file = File(
+          MemoryController.normalizeLocalFilePath(item['path'] as String),
+        );
         final stat = await file.stat();
         withDates.add(MapEntry(item, stat.modified));
       } catch (e) {
@@ -693,20 +932,19 @@ class _MemoryViewState extends State<MemoryView> {
     _orderedMedia.refresh();
   }
 
-  void _handleImageUpload() async {
-    showDialog(
+  void _handleImageUpload() {
+    showDialog<void>(
       context: context,
       useRootNavigator: true,
-      builder: (context) => MediaPickerPopup(
+      builder: (dialogContext) => MediaPickerPopup(
+        hostContext: context,
+        onNativePickerWillOpen: _showMediaStagingLoader,
+        onNativePickerCancelled: _hideMediaStagingLoader,
         onMediaSelected: (imagePaths, videoPaths) async {
-          final newItems = <Map<String, dynamic>>[];
-          for (final p in imagePaths) {
-            newItems.add({'type': 'image', 'path': p});
-          }
-          for (final p in videoPaths) {
-            newItems.add({'type': 'video', 'path': p});
-          }
-          await _sortMediaByCreationDate(newItems);
+          await _importPickedMediaFromPicker(
+            imagePaths: imagePaths,
+            videoPaths: videoPaths,
+          );
         },
       ),
     );
@@ -844,11 +1082,14 @@ class _MemoryViewState extends State<MemoryView> {
                           durations,
                         );
 
-                        Navigator.pop(context);
+                        Navigator.pop(context); // close the dialog
                         showOverlaySnackText(
                           'dialog_content_draft_saved_successfully'.tr,
                           duration: const Duration(seconds: 2),
                         );
+                        // Close the memory page; the draft (incl. videos) is
+                        // persisted and restored on next entry.
+                        Get.back();
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -918,8 +1159,39 @@ class _MemoryViewState extends State<MemoryView> {
     // FocusScope.of(context).unfocus();
   }
 
+  /// Map GeoJSON rebuild for 1000+ KMZ imports is expensive — run after pop.
+  void _scheduleDeferredMapRefreshAfterCreate() {
+    if (!Get.isRegistered<FilterController>()) return;
+    unawaited(() async {
+      await Future<void>.delayed(Duration.zero);
+      try {
+        final filterController = Get.find<FilterController>();
+        if (Get.isRegistered<AddMemoriesController>()) {
+          await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
+        }
+        if (Get.isRegistered<MapControllerNew>()) {
+          final mapController = Get.find<MapControllerNew>();
+          await mapController.loadMemoriesFromDB(
+            filterController.filteredMemories.toList(),
+          );
+          unawaited(mapController.showLoadedDataOnMap());
+          // The incremental loadMemoriesFromDB path doesn't reposition the
+          // camera, so focus on the latest memory (by its date/time) explicitly.
+          await mapController.focusOnLatestMemory();
+        }
+        debugPrint(
+          'MemoryView: deferred map/list refresh (${filterController.filteredMemories.length} memories)',
+        );
+      } catch (e, st) {
+        debugPrint('MemoryView: deferred map refresh failed: $e\n$st');
+      }
+    }());
+  }
+
   void _handleSave() async {
     try {
+      if (_isImportingPickedMedia) return;
+
       debugPrint('MemoryView: handleSave - Method called');
       final memoryController = Get.find<MemoryController>();
       debugPrint('MemoryView: handleSave - Got MemoryController');
@@ -1086,6 +1358,15 @@ class _MemoryViewState extends State<MemoryView> {
         debugPrint(
           'MemoryView: handleSave - EDIT MODE - Image update check: selectedPaths=${_selectedImagePaths.length}, deletedIndices=${_deletedImageIndices.length}, originalImages=${_originalImages.length}, shouldUpdate=$shouldUpdateImages',
         );
+        await _ensureGalleryAssetIdsBeforeSave();
+        final editGalleryIds = _galleryAssetIdsForSave;
+        if (editGalleryIds.isNotEmpty) {
+          await DatabaseHelper.instance.recordImportedGalleryAssetIds(
+            _editingMemoryId!,
+            editGalleryIds,
+          );
+        }
+
         if (shouldUpdateImages) {
           debugPrint('MemoryView: handleSave - EDIT MODE - Updating images');
           await _updateMemoryImages(_editingMemoryId!);
@@ -1189,6 +1470,7 @@ class _MemoryViewState extends State<MemoryView> {
 
         debugPrint('MemoryView: handleSave - CREATE MODE - Saving memory to database');
         debugPrint('MemoryView: handleSave - CREATE MODE - Images: ${_selectedImagePaths.length}, Videos: ${_selectedVideoPaths.length}');
+        await _ensureGalleryAssetIdsBeforeSave();
         final imgOrders = <int>[];
         final vidOrders = <int>[];
         for (int i = 0; i < _orderedMedia.length; i++) {
@@ -1204,6 +1486,7 @@ class _MemoryViewState extends State<MemoryView> {
           videoOrders: vidOrders,
           tags: tags,
           mentions: mentions,
+          galleryAssetIds: _galleryAssetIdsForSave,
         );
         debugPrint('MemoryView: handleSave - CREATE MODE - Memory saved successfully (id: $newMemoryId)');
 
@@ -1223,29 +1506,23 @@ class _MemoryViewState extends State<MemoryView> {
         memoryController.clearAllData();
         debugPrint('MemoryView: handleSave - CREATE MODE - Controller data cleared');
 
-        // Incrementally update lists/map — avoid reloading 1000s of KMZ memories.
+        // Incrementally update lists — avoid re-filtering / redrawing 1000s of KMZ pins.
         debugPrint('MemoryView: handleSave - CREATE MODE - Incremental FilterController update');
         if (Get.isRegistered<FilterController>()) {
           final filterController = Get.find<FilterController>();
           filterController.resetFiltersExceptSearch();
-          await filterController.prependMemoryById(newMemoryId);
+          await filterController.prependMemoryById(
+            newMemoryId,
+            incremental: true,
+          );
           debugPrint(
             'MemoryView: handleSave - CREATE MODE - FilterController: ${filterController.filteredMemories.length} memories',
           );
-
-          if (Get.isRegistered<MapControllerNew>()) {
-            final mapController = Get.find<MapControllerNew>();
-            await mapController.loadMemoriesFromDB(
-              filterController.filteredMemories.toList(),
-            );
-            mapController.showLoadedDataOnMap();
-            debugPrint('MemoryView: handleSave - CREATE MODE - Map view updated (incremental)');
-          }
         }
 
-        // Show success snackbar before popping
-        debugPrint('MemoryView: handleSave - CREATE MODE - Showing success snackbar');
+        debugPrint('MemoryView: handleSave - CREATE MODE - Popping view');
         Get.back(result: true);
+        _scheduleDeferredMapRefreshAfterCreate();
 
         // ScaffoldMessenger.of(context).showSnackBar(
         //   SnackBar(
@@ -1257,18 +1534,17 @@ class _MemoryViewState extends State<MemoryView> {
         // );
         debugPrint('MemoryView: handleSave - CREATE MODE - Snackbar shown');
 
-        // Pop the view after showing snackbar
-        debugPrint('MemoryView: handleSave - CREATE MODE - Popping view with result: true');
-        debugPrint('MemoryView: handleSave - CREATE MODE - View popped successfully');
       }
 
       debugPrint('MemoryView: handleSave - Method completed successfully');
     } catch (e) {
       debugPrint('MemoryView: handleSave - ERROR CAUGHT: $e');
       debugPrint('MemoryView: handleSave - ERROR - Stack trace: ${StackTrace.current}');
-
-      Get.back(result: true);
-      debugPrint('MemoryView: handleSave - ERROR - View popped after error');
+      showTrSnackbar(
+        'snackbar_unable_to_load_3',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
       print('Error Log: $e');
       // ScaffoldMessenger.of(context).showSnackBar(
       //   SnackBar(content: Text('Unable to save memory. Please try again.')),
@@ -1384,7 +1660,10 @@ class _MemoryViewState extends State<MemoryView> {
                     final mapController = Get.find<MapControllerNew>();
                     final filterController = Get.find<FilterController>();
                     await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
-                    mapController.showLoadedDataOnMap();
+                    unawaited(mapController.showLoadedDataOnMap());
+                    // Deleting may remove the current latest memory, so re-focus
+                    // on the new latest (by memory date/time) like the add flow.
+                    await mapController.focusOnLatestMemory();
                     debugPrint('[MemoryView] ✅ Map view reloaded');
                   }
 
@@ -1632,7 +1911,7 @@ class _MemoryViewState extends State<MemoryView> {
     final controller = Get.find<UiController>();
 
     return PopScope(
-      canPop: !_isPopupOpen,
+      canPop: !_isPopupOpen && !_mediaStagingDialogOpen,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _isPopupOpen) {
           _descriptionFieldKey.currentState?.closePopup();
@@ -1656,19 +1935,11 @@ class _MemoryViewState extends State<MemoryView> {
         }
       },
       child: Obx(
-        () {
-          // Detect keyboard visibility
-          final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-          _isKeyboardVisible.value = keyboardHeight > 0;
-
-          // Set status bar color to match current main color
-          // Icons will be white in dark mode, black in light mode
-
-          return Scaffold(
+        () => Scaffold(
             resizeToAvoidBottomInset: true,
             backgroundColor:
                 controller.darkMode.value
-                    ? Colors.white.withOpacity(0.03)
+                    ? controller.darkBackgroundColor
                     : Colors.white,
             body: GestureDetector(
               // Dismiss keyboard when tapping outside text fields
@@ -1693,7 +1964,7 @@ class _MemoryViewState extends State<MemoryView> {
                           Container(
                             color:
                                 controller.darkMode.value
-                                    ? Colors.white.withOpacity(0.06)
+                                    ? controller.darkSurfaceColor
                                     : controller.getLightModeBackgroundColor(
                                           controller.mainColor.value,
                                         ),
@@ -1735,9 +2006,8 @@ class _MemoryViewState extends State<MemoryView> {
                                                     children: [
                                                       ClipRRect(
                                                         borderRadius: BorderRadius.circular(8),
-                                                        child: Image.file(
-                                                          File(path),
-                                                          fit: BoxFit.cover,
+                                                        child: _memoryImageFile(
+                                                          path,
                                                           width: 120,
                                                           height: 170,
                                                         ),
@@ -1915,17 +2185,16 @@ class _MemoryViewState extends State<MemoryView> {
                             onPlayPause: _handleAudioPlay,
                             onAudioDelete: _deleteAudioAtIndex,
                           ),
-                          if (_isKeyboardVisible.value)
+                          if (_keyboardVisible)
                             SizedBox(height: MediaQuery.of(context).size.height * 0.5),
                         ],
                       ),
                     ),
                   ),
                   // Bottom action buttons - hide when keyboard is visible
-                  Obx(
-                    () => _isKeyboardVisible.value
-                        ? const SizedBox.shrink()
-                        : Padding(
+                  _keyboardVisible
+                      ? const SizedBox.shrink()
+                      : Padding(
                             padding: const EdgeInsets.only(bottom: 20.0),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -2036,7 +2305,6 @@ class _MemoryViewState extends State<MemoryView> {
                       ],
                     ),
                   ),
-                  ), // Close Obx for bottom buttons
                 ],
               ),
             ),
@@ -2048,8 +2316,7 @@ class _MemoryViewState extends State<MemoryView> {
           //   mini: true,
           //   child: const Icon(Icons.bug_report, size: 20),
           // ),
-          );
-        },
+        ),
       ),
     );
   }
@@ -2225,35 +2492,50 @@ class _MemoryViewState extends State<MemoryView> {
         debugPrint('[ _saveDraft ]   ❌ No images in _selectedImagePaths list!');
       }
 
-      // Convert images to base64 for safe storage
-      List<String> imageBase64List = [];
-      debugPrint(
-        '[ _saveDraft ] Starting to convert ${_selectedImagePaths.length} images to base64',
-      );
-
-      for (int i = 0; i < _selectedImagePaths.length; i++) {
-        String imagePath = _selectedImagePaths[i];
+      // Serialize ALL media (images + videos) in the SAME order shown in the UI
+      // so the draft restores the exact ordering. Images are stored as base64;
+      // videos are too large for that, so they are copied into a persistent
+      // draft dir (survives page close, cleared only on upload / "No") and
+      // referenced by path.
+      final List<Map<String, dynamic>> draftMedia = [];
+      Directory? draftVideosDir;
+      for (int i = 0; i < _orderedMedia.length; i++) {
+        final item = _orderedMedia[i];
+        final type = (item['type'] as String?) ?? 'image';
+        final path = item['path'] as String?;
+        if (path == null || path.isEmpty) continue;
         try {
-          final file = File(imagePath);
-          if (await file.exists()) {
-            final bytes = await file.readAsBytes();
-            final base64String = base64Encode(bytes);
-            imageBase64List.add(base64String);
-            debugPrint(
-              '[ _saveDraft ] Image $i converted to base64 for draft: ${imagePath.split('/').last} (${bytes.length} bytes -> ${base64String.length} chars)',
-            );
-          } else {
-            debugPrint('[ _saveDraft ] Image file does not exist: $imagePath');
+          final file = File(path);
+          if (!await file.exists()) {
+            debugPrint('[ _saveDraft ] Media file missing, skipping: $path');
+            continue;
           }
+          if (type == 'video') {
+            draftVideosDir ??= await _ensureDraftVideosDir();
+            String storedPath;
+            if (path.startsWith(draftVideosDir.path)) {
+              // Already persisted (re-saving a restored draft) — reuse it.
+              storedPath = path;
+            } else {
+              final ext = path.contains('.') ? path.split('.').last : 'mp4';
+              final destName =
+                  'draft_video_${DateTime.now().millisecondsSinceEpoch}_$i.$ext';
+              final dest = File('${draftVideosDir.path}/$destName');
+              await file.copy(dest.path);
+              storedPath = dest.path;
+            }
+            draftMedia.add({'type': 'video', 'path': storedPath});
+          } else {
+            final bytes = await file.readAsBytes();
+            draftMedia.add({'type': 'image', 'base64': base64Encode(bytes)});
+          }
+          if (i.isOdd) await Future<void>.delayed(Duration.zero);
         } catch (e) {
-          debugPrint(
-            '[ _saveDraft ] Error converting image $i to base64 for draft: $e',
-          );
+          debugPrint('[ _saveDraft ] Error serializing media $i ($type): $e');
         }
       }
-
       debugPrint(
-        '[ _saveDraft ] Successfully converted ${imageBase64List.length} images to base64',
+        '[ _saveDraft ] Serialized ${draftMedia.length} ordered media items',
       );
 
       // Store audio file contents as base64 for safe storage
@@ -2320,23 +2602,15 @@ class _MemoryViewState extends State<MemoryView> {
         'selectedCategory': memoryController.selectedCategory.value,
         'tags': tags,
         'mentions': mentions,
-        'imageBase64List': imageBase64List,
+        'media': draftMedia,
         'audioDataList': audioDataList,
-        'originalImagePaths':
-            _selectedImagePaths.toList(), // Keep for reference
         'timestamp': DateTime.now().toIso8601String(),
       };
 
       debugPrint(
-        '[ _saveDraft ] About to save draft with ${imageBase64List.length} images and ${audioDataList.length} audio files',
+        '[ _saveDraft ] About to save draft with ${draftMedia.length} media items and ${audioDataList.length} audio files',
       );
       debugPrint('[ _saveDraft ] Draft data keys: ${draftData.keys.toList()}');
-      debugPrint(
-        '[ _saveDraft ] ImageBase64List length: ${(draftData['imageBase64List'] as List?)?.length ?? 0}',
-      );
-      debugPrint(
-        '[ _saveDraft ] AudioDataList length: ${(draftData['audioDataList'] as List?)?.length ?? 0}',
-      );
 
       try {
         final jsonString = jsonEncode(draftData);
@@ -2345,15 +2619,15 @@ class _MemoryViewState extends State<MemoryView> {
           '[ _saveDraft ] Draft JSON saved successfully. JSON length: ${jsonString.length} characters',
         );
         debugPrint(
-          '[ _saveDraft ] Draft saved successfully with ${imageBase64List.length} images and ${audioDataList.length} audio files',
+          '[ _saveDraft ] Draft saved successfully with ${draftMedia.length} media items and ${audioDataList.length} audio files',
         );
       } catch (jsonError) {
         debugPrint('[ _saveDraft ] Error encoding draft to JSON: $jsonError');
-        // Try saving without base64 data as fallback
+        // Try saving without base64 image data as fallback
         final fallbackData = Map<String, dynamic>.from(draftData);
-        fallbackData.remove('imageBase64List');
+        fallbackData.remove('media');
         fallbackData.remove('audioDataList');
-        fallbackData['hasImages'] = imageBase64List.isNotEmpty;
+        fallbackData['hasImages'] = draftMedia.isNotEmpty;
         fallbackData['hasAudio'] = audioDataList.isNotEmpty;
 
         try {
@@ -2447,39 +2721,83 @@ class _MemoryViewState extends State<MemoryView> {
         // Tags and mentions are embedded in the description text and will be
         // automatically parsed when the description field is initialized
 
-        // Restore images from base64 data
-        if (draftData['imageBase64List'] != null) {
+        // Restore media (images + videos) preserving the SAME order they were
+        // saved in / shown in the UI. Images come back from base64; videos are
+        // referenced by their persisted draft-dir path.
+        final mediaList = draftData['media'];
+        if (mediaList is List) {
+          debugPrint('Found ${mediaList.length} ordered media items in draft');
+          _orderedMedia.clear();
+
+          final appDir = await getApplicationDocumentsDirectory();
+          final tempImagesDir = Directory('${appDir.path}/temp_draft_images');
+          if (!await tempImagesDir.exists()) {
+            await tempImagesDir.create(recursive: true);
+          }
+
+          for (int i = 0; i < mediaList.length; i++) {
+            try {
+              final m = Map<String, dynamic>.from(mediaList[i] as Map);
+              final type = (m['type'] as String?) ?? 'image';
+              if (type == 'video') {
+                final path = m['path'] as String?;
+                if (path != null && await File(path).exists()) {
+                  _orderedMedia.add(
+                    {'type': 'video', 'path': path, 'order': i},
+                  );
+                  debugPrint('Restored video from draft: $path');
+                } else {
+                  debugPrint('Draft video missing, skipping: $path');
+                }
+              } else {
+                final base64Data = m['base64'] as String?;
+                if (base64Data == null) continue;
+                final bytes = base64Decode(base64Data);
+                final tempFileName =
+                    'draft_image_${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
+                final tempFile = File('${tempImagesDir.path}/$tempFileName');
+                await tempFile.writeAsBytes(bytes);
+                _orderedMedia.add(
+                  {'type': 'image', 'path': tempFile.path, 'order': i},
+                );
+                debugPrint('Restored image from draft: $tempFileName');
+              }
+              if (i.isOdd) {
+                await Future<void>.delayed(Duration.zero);
+              }
+            } catch (e) {
+              debugPrint('Error restoring media $i from draft: $e');
+            }
+          }
+        } else if (draftData['imageBase64List'] != null) {
+          // Legacy fallback: drafts saved before ordered media / video support.
           debugPrint(
-            'Found ${(draftData['imageBase64List'] as List).length} images in draft',
+            'Found ${(draftData['imageBase64List'] as List).length} legacy images in draft',
           );
           final imageBase64List = List<String>.from(
             draftData['imageBase64List'],
           );
           _orderedMedia.clear();
 
-          // Create temporary files from base64 data
           final appDir = await getApplicationDocumentsDirectory();
           final tempImagesDir = Directory('${appDir.path}/temp_draft_images');
-
           if (!await tempImagesDir.exists()) {
             await tempImagesDir.create(recursive: true);
           }
 
           for (int i = 0; i < imageBase64List.length; i++) {
             try {
-              final base64Data = imageBase64List[i];
-              final bytes = base64Decode(base64Data);
+              final bytes = base64Decode(imageBase64List[i]);
               final tempFileName =
                   'draft_image_${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
               final tempFile = File('${tempImagesDir.path}/$tempFileName');
-
               await tempFile.writeAsBytes(bytes);
               _orderedMedia.add({'type': 'image', 'path': tempFile.path});
-              debugPrint('Restored image from draft: $tempFileName');
-              debugPrint('Image file exists: ${await tempFile.exists()}');
-              debugPrint('Image file size: ${await tempFile.length()} bytes');
+              if (i.isOdd) {
+                await Future<void>.delayed(Duration.zero);
+              }
             } catch (e) {
-              debugPrint('Error restoring image from draft: $e');
+              debugPrint('Error restoring legacy image from draft: $e');
             }
           }
         }
@@ -2559,12 +2877,10 @@ class _MemoryViewState extends State<MemoryView> {
           debugPrint('  Audio $i: ${memoryController.recordedAudioPaths[i]}');
         }
 
-        setState(() {
-          // This will trigger a rebuild of the entire widget tree
-          // ensuring that MemoryImageWidget and MemoryAudioWidget
-          // pick up the restored image paths and audio paths
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
         });
-        debugPrint('🔄 setState called for UI refresh');
+        debugPrint('🔄 post-frame setState scheduled for UI refresh');
 
         // Show a snackbar to inform user that draft was restored
       }
@@ -2573,14 +2889,26 @@ class _MemoryViewState extends State<MemoryView> {
     }
   }
 
+  /// Persistent dir holding draft videos (too large to base64 into prefs). Kept
+  /// across page close so the draft survives; removed only when the draft is
+  /// cleared (upload / "No").
+  Future<Directory> _ensureDraftVideosDir() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final dir = Directory('${appDir.path}/temp_draft_videos');
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
   // Clear draft from SharedPreferences and clean up temporary files
   Future<void> _clearDraft() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('memory_draft');
 
-      // Clean up temporary draft files
-      await _cleanupDraftTempFiles();
+      // Clean up temporary draft files, including the persisted videos.
+      await _cleanupDraftTempFiles(includeVideos: true);
 
       debugPrint('Draft cleared successfully');
     } catch (e) {
@@ -2588,8 +2916,10 @@ class _MemoryViewState extends State<MemoryView> {
     }
   }
 
-  // Clean up temporary draft files
-  Future<void> _cleanupDraftTempFiles() async {
+  // Clean up temporary draft files. Videos are only removed when [includeVideos]
+  // is true (i.e. the draft is actually being cleared), NOT on plain page
+  // dispose — otherwise a saved draft would lose its videos on close.
+  Future<void> _cleanupDraftTempFiles({bool includeVideos = false}) async {
     try {
       final appDir = await getApplicationDocumentsDirectory();
 
@@ -2606,6 +2936,14 @@ class _MemoryViewState extends State<MemoryView> {
         await tempAudioDir.delete(recursive: true);
         debugPrint('Cleaned up temporary draft audio files');
       }
+
+      if (includeVideos) {
+        final tempVideosDir = Directory('${appDir.path}/temp_draft_videos');
+        if (await tempVideosDir.exists()) {
+          await tempVideosDir.delete(recursive: true);
+          debugPrint('Cleaned up draft videos');
+        }
+      }
     } catch (e) {
       debugPrint('Error cleaning up draft temp files: $e');
     }
@@ -2613,6 +2951,7 @@ class _MemoryViewState extends State<MemoryView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Clear audio and image data when screen is closed
     try {
       final memoryController = Get.find<MemoryController>();

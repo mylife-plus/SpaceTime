@@ -20,7 +20,12 @@ Future<void> refreshConsumersAfterTrackImportDeletion({
   String logTag = 'TrackImportDeletion',
 }) async {
   if (Get.isRegistered<FilterController>()) {
-    Get.find<FilterController>().resetFiltersExceptSearch();
+    final filter = Get.find<FilterController>();
+    // Reset filters WITHOUT re-applying to the stale cache, then reload the full
+    // memory list from the DB — otherwise deleted memories linger in
+    // FilterController.allMemories and keep showing after a past-upload delete.
+    filter.resetFiltersExceptSearch(applyFilters: false);
+    await filter.loadAndApplyFilters();
   }
   if (Get.isRegistered<AddMemoriesController>()) {
     await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();

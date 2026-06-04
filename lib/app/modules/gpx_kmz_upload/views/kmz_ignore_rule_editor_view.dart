@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/models/kmz_ignore_rule.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_inspector.dart';
-import 'package:spacetime/app/modules/gpx_kmz_upload/track_cluster_field_config.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/app/widgets/app_date_time_pickers.dart';
@@ -134,7 +133,7 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
 
     final decorated = Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       padding: contentPadding,
       decoration: BoxDecoration(
         color: isDark ? Colors.black : Colors.white,
@@ -146,7 +145,7 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label, style: AppFonts.medium(12, color: labelColor)),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           valueChild,
         ],
       ),
@@ -232,14 +231,6 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
     );
   }
 
-  void _addSelectedValue() {
-    final v = _valueFromList.trim();
-    if (v.isEmpty) return;
-    setState(() {
-      if (!_selectedValues.contains(v)) _selectedValues.add(v);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final ui = Get.find<UiController>();
@@ -271,7 +262,6 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
         backgroundColor: pageBg,
         appBar: CustomAppBar(
           title: 'gpx_ignore_rule_editor_title'.tr,
-          icon: const Icon(Icons.route, color: Colors.white, size: 22),
         ),
         body: ListView(
           padding: const EdgeInsets.only(bottom: 28),
@@ -279,10 +269,11 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
             _buildRowField(
               isDark: isDark,
               label: 'gpx_ignore_tag_label'.tr,
-              contentPadding: TrackClusterFieldConfig.dropdownContentPadding,
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   isExpanded: true,
+                  isDense: true,
+                  itemHeight: null,
                   value: selectedTagValue,
                   icon: const SizedBox.shrink(),
                   dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
@@ -308,10 +299,11 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
                 _buildRowField(
                   isDark: isDark,
                   label: 'gpx_ignore_value_label'.tr,
-                  contentPadding: TrackClusterFieldConfig.dropdownContentPadding,
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       isExpanded: true,
+                      isDense: true,
+                      itemHeight: null,
                       value: _selectedTimeIsoFromKmz,
                       icon: const SizedBox.shrink(),
                       dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
@@ -376,10 +368,11 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
               _buildRowField(
                 isDark: isDark,
                 label: 'gpx_ignore_condition_label'.tr,
-                contentPadding: TrackClusterFieldConfig.dropdownContentPadding,
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<KmzIgnoreCondition>(
                     isExpanded: true,
+                    isDense: true,
+                    itemHeight: null,
                     value: condOptions.contains(_condition)
                         ? _condition
                         : condOptions.first,
@@ -442,6 +435,8 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   isExpanded: true,
+                  isDense: true,
+                  itemHeight: null,
                   value: current,
                   icon: const SizedBox.shrink(),
                   dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
@@ -486,20 +481,6 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
                       _valueFromList = s;
                     });
                   },
-                ),
-              ),
-            ),
-            IconButton(
-              onPressed: _addSelectedValue,
-              icon: ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  isDark ? Colors.white : accent,
-                  BlendMode.srcIn,
-                ),
-                child: Image.asset(
-                  'assets/images/ic_add.png',
-                  width: 25,
-                  height: 25,
                 ),
               ),
             ),

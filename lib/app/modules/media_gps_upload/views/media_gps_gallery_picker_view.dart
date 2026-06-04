@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:photo_manager/photo_manager.dart';
+import 'package:spacetime/app/modules/media_gps_upload/views/media_gps_gallery_asset_pages.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
@@ -131,22 +129,61 @@ class MediaGpsGalleryPickerView extends GetView<MediaGpsUploadController> {
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 28),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    style: TrackUploadBottomBar.uploadButtonStyle(
-                      isDark,
-                      accent,
+              child: Obx(() {
+                final importing = controller.filesImporting.value;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: importing
+                          ? null
+                          : () => unawaited(controller.pickFilesFromDevice()),
+                      icon: importing
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: accent,
+                              ),
+                            )
+                          : Icon(Icons.folder_open, color: accent, size: 20),
+                      label: Text(
+                        importing
+                            ? 'media_gps_add_from_files_loading'.tr
+                            : 'media_gps_add_from_files'.tr,
+                        style: AppFonts.regular(15, color: accent),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: accent,
+                        side: BorderSide(color: accent.withValues(alpha: 0.6)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
                     ),
-                    onPressed: () => Get.back<void>(),
-                    child: Text(
-                      'text_done'.tr,
-                      style: TrackUploadBottomBar.uploadButtonTextStyle(accent),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          style: TrackUploadBottomBar.uploadButtonStyle(
+                            isDark,
+                            accent,
+                          ),
+                          onPressed: () => Get.back<void>(),
+                          child: Text(
+                            'text_done'.tr,
+                            style:
+                                TrackUploadBottomBar.uploadButtonTextStyle(accent),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              }),
             ),
           ],
         ),
@@ -313,7 +350,7 @@ class _GalleryBulkDragGridState extends State<_GalleryBulkDragGrid> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _ThumbTile(entity: a.entity),
+                        MediaGpsThumbTile(picked: a),
                         Positioned(
                           left: 4,
                           right: 40,
@@ -336,6 +373,51 @@ class _GalleryBulkDragGridState extends State<_GalleryBulkDragGrid> {
                             ),
                           ),
                         ),
+                        if (a.isFromFile)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () =>
+                                  widget.controller.removeFileAsset(a.id),
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade700
+                                      .withValues(alpha: 0.85),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (!a.hasGps)
+                          Positioned(
+                            top: 4,
+                            left: 4,
+                            child: IgnorePointer(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade700
+                                      .withValues(alpha: 0.82),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'media_gps_no_gps_badge'.tr,
+                                  style: AppFonts.bold(9, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
                         Positioned(
                           bottom: 4,
                           right: 4,
@@ -380,36 +462,3 @@ class _GalleryBulkDragGridState extends State<_GalleryBulkDragGrid> {
   }
 }
 
-class _ThumbTile extends StatelessWidget {
-  const _ThumbTile({required this.entity});
-
-  final AssetEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List?>(
-      future: entity.thumbnailDataWithSize(const ThumbnailSize(240, 240)),
-      builder: (context, snap) {
-        if (snap.hasData && snap.data != null && snap.data!.isNotEmpty) {
-          return Image.memory(
-            snap.data!,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-          );
-        }
-        return ColoredBox(
-          color: Colors.grey.shade300,
-          child: Icon(
-            entity.type == AssetType.video
-                ? Icons.videocam
-                : entity.type == AssetType.audio
-                    ? Icons.audiotrack
-                    : Icons.image,
-            size: 40,
-            color: Colors.grey.shade600,
-          ),
-        );
-      },
-    );
-  }
-}

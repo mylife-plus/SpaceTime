@@ -93,10 +93,8 @@ class SettingsTile extends StatelessWidget {
               Divider(
                 height: 1,
                 thickness: 1,
-                color:
-                    controller.darkMode.value
-                        ? Colors.white24
-                        : Colors.black.withOpacity(0.1),
+                // Same separator color in dark mode as in light mode.
+                color: Colors.black.withValues(alpha: 0.1),
                 indent: 16,
                 endIndent: 16,
               ),

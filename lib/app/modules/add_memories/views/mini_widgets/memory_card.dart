@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -7,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/audio_duration_list.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/image_viewer_screen.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_view_widget_new.dart';
 import 'package:spacetime/app/routes/memory_view_navigation.dart';
@@ -19,7 +21,9 @@ import '../../controllers/add_memories_controller.dart';
 import '../../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
+import 'package:spacetime/app/utils/memory_media_image_cache.dart';
 import 'package:spacetime/app/utils/search_utils.dart';
+import 'package:spacetime/app/widgets/keep_alive_page.dart';
 
 class MemoryCard extends StatefulWidget {
   final Map<String, dynamic> memoryData;
@@ -363,13 +367,41 @@ class _MemoryCardState extends State<MemoryCard> {
   final PageController _pageController = PageController();
   final controller = Get.find<UiController>();
   int _currentIndex = 0;
-  final Map<int, Widget> _imageCache = {};
   final Map<int, VideoPlayerController> _inlineVideoControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(MemoryMediaImageProviderCache.instance.ensureDocumentsRoot());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _precachePagerIndices([0, 1]);
+    });
+  }
+
+  void _precachePagerIndices(List<int> indices) {
+    final media = _buildOrderedMediaList();
+    final decodeW = MemoryMediaImageProviderCache.decodeWidthForLayout(
+      context,
+      layoutHeight: 260,
+    );
+    for (final i in indices) {
+      if (i < 0 || i >= media.length) continue;
+      final item = media[i];
+      if (item['type'] != 'image') continue;
+      unawaited(
+        MemoryMediaImageProviderCache.instance.precache(
+          context,
+          item['path'] as String,
+          cacheWidth: decodeW,
+        ),
+      );
+    }
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
-    _imageCache.clear();
     for (final vc in _inlineVideoControllers.values) {
       vc.dispose();
     }
@@ -448,6 +480,7 @@ class _MemoryCardState extends State<MemoryCard> {
                 setState(() {
                   _currentIndex = index;
                 });
+                _precachePagerIndices([index - 1, index, index + 1]);
               },
               itemCount: totalMediaCount,
               itemBuilder: (context, index) {
@@ -456,19 +489,32 @@ class _MemoryCardState extends State<MemoryCard> {
                 final path = item['path'] as String;
 
                 if (isImage) {
-                  final cached = _imageCache[index];
-                  if (cached != null) return cached;
-                  final built = GestureDetector(
-                    onTap: () {
-                      _openMediaViewer(images, videos, index, orderedMedia: orderedMedia);
-                    },
-                    behavior: HitTestBehavior.opaque,
-                    child: ClipRRect(child: _buildImageWidget(path)),
+                  return KeepAlivePage(
+                    child: GestureDetector(
+                      onTap: () {
+                        _openMediaViewer(
+                          images,
+                          videos,
+                          index,
+                          orderedMedia: orderedMedia,
+                        );
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: ClipRRect(
+                        child: _buildImageWidget(context, path),
+                      ),
+                    ),
                   );
-                  _imageCache[index] = built;
-                  return built;
                 } else {
-                  return _buildInlineVideoPlayer(path, index, images, videos, orderedMedia: orderedMedia);
+                  return KeepAlivePage(
+                    child: _buildInlineVideoPlayer(
+                      path,
+                      index,
+                      images,
+                      videos,
+                      orderedMedia: orderedMedia,
+                    ),
+                  );
                 }
               },
             ),
@@ -486,31 +532,43 @@ class _MemoryCardState extends State<MemoryCard> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      totalMediaCount,
-                      (index) => Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color:
-                              _currentIndex == index
-                                  ? controller.darkMode.value
-                                      ? controller.mainColor.value == 'blue'
-                                          ? controller.currentMainColor
-                                          : controller.primaryColorDark
-                                      : controller.mainColor.value == 'blue'
-                                      ? Colors.blue
-                                      : controller.primaryColor
-                                  : Colors.grey.withValues(alpha: 0.8),
+                  child: totalMediaCount > 12
+                      ? Text(
+                          '${_currentIndex + 1} / $totalMediaCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              totalMediaCount,
+                              (index) => Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color:
+                                      _currentIndex == index
+                                          ? controller.darkMode.value
+                                              ? controller.mainColor.value == 'blue'
+                                                  ? controller.currentMainColor
+                                                  : controller.primaryColorDark
+                                              : controller.mainColor.value == 'blue'
+                                              ? Colors.blue
+                                              : controller.primaryColor
+                                          : Colors.grey.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -519,63 +577,19 @@ class _MemoryCardState extends State<MemoryCard> {
     );
   }
 
-  // Build image widget that handles both file paths and base64 images
-  Widget _buildImageWidget(String imageData) {
-    // Check if it's a file path
-    if (_isFilePath(imageData)) {
-      return _buildFileImage(imageData);
-    } else {
-      return _buildBase64Image(imageData);
-    }
-  }
-
-  // Build image from file path (NEW - preserves quality)
-  Widget _buildFileImage(String filePath) {
-    final file = File(filePath);
-
+  Widget _buildImageWidget(BuildContext context, String imageData) {
     return SizedBox(
       width: double.infinity,
       height: 260,
-      child:
-          file.existsSync()
-              ? Image.file(
-                file,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: 260,
-                gaplessPlayback: true,
-                errorBuilder: (context, error, stackTrace) {
-                  debugPrint('Error loading file image: $error');
-                  return _buildErrorWidget('File not found');
-                },
-              )
-              : _buildErrorWidget('File does not exist'),
-    );
-  }
-
-  // Build image from base64 (LEGACY - for backward compatibility)
-  Widget _buildBase64Image(String base64Data) {
-    try {
-      final bytes = base64Decode(base64Data);
-      return SizedBox(
+      child: MemoryMediaImageProviderCache.instance.buildImage(
+        context: context,
+        imageData: imageData,
+        fit: BoxFit.cover,
         width: double.infinity,
         height: 260,
-        child: Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: 260,
-          gaplessPlayback: true,
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('Error loading base64 image: $error');
-            return _buildErrorWidget('Image failed to load');
-          },
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error decoding base64 image: $e');
-      return _buildErrorWidget('Invalid image data');
-    }
+        errorChild: _buildErrorWidget('Image failed to load'),
+      ),
+    );
   }
 
   // Helper method to check if string is a file path
@@ -762,40 +776,104 @@ class _MemoryCardState extends State<MemoryCard> {
     return '$m:$s';
   }
 
+  /// Lazily create + initialize the inline player when the user taps play.
+  /// Eagerly initializing a controller for every video card exhausted the
+  /// platform video players in a scrolling list (so the card span forever);
+  /// failures now fall back to the thumbnail instead of an endless spinner.
+  void _startInlineVideo(String videoPath, int index) {
+    final existing = _inlineVideoControllers[index];
+    if (existing != null) {
+      if (existing.value.isInitialized && !existing.value.isPlaying) {
+        existing.play();
+        if (mounted) setState(() {});
+      }
+      return;
+    }
+    final vc = VideoPlayerController.file(File(videoPath));
+    _inlineVideoControllers[index] = vc;
+    vc.initialize().then((_) {
+      if (!mounted) {
+        vc.dispose();
+        _inlineVideoControllers.remove(index);
+        return;
+      }
+      vc.addListener(() { if (mounted) setState(() {}); });
+      vc.play();
+      setState(() {});
+    }).catchError((Object e, StackTrace st) {
+      debugPrint('[MemoryCard] inline video init failed for $videoPath: $e');
+      _inlineVideoControllers.remove(index);
+      vc.dispose();
+      if (mounted) setState(() {}); // fall back to the thumbnail
+    });
+  }
+
   Widget _buildInlineVideoPlayer(String videoPath, int index, List<String> images, List<String> videos, {List<Map<String, dynamic>>? orderedMedia}) {
-    if (!_inlineVideoControllers.containsKey(index)) {
-      final vc = VideoPlayerController.file(File(videoPath));
-      _inlineVideoControllers[index] = vc;
-      vc.initialize().then((_) {
-        if (mounted) {
-          vc.addListener(() { if (mounted) setState(() {}); });
-          setState(() {});
-        }
-      });
-    }
     final vc = _inlineVideoControllers[index];
-    if (vc == null) {
-      return Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Colors.white)));
+
+    // Thumbnail-first: until the user taps play (or if init failed), show a
+    // generated thumbnail (which has its own error fallback) + a fullscreen
+    // button, rather than spinning up a heavy controller for every card.
+    if (vc == null || !vc.value.isInitialized) {
+      return LayoutBuilder(
+        builder: (ctx, constraints) {
+          final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 300.0;
+          final h =
+              constraints.maxHeight.isFinite ? constraints.maxHeight : 200.0;
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              VideoThumbnailWidget(
+                videoPath: videoPath,
+                width: w,
+                height: h,
+                onTap: () => _startInlineVideo(videoPath, index),
+                onPlayTap: () => _startInlineVideo(videoPath, index),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  onTap: () => _openMediaViewer(
+                    images,
+                    videos,
+                    index,
+                    orderedMedia: orderedMedia,
+                  ),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    child: const Icon(
+                      Icons.fullscreen,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
     }
-    final initialized = vc.value.isInitialized;
 
     return Stack(
       alignment: Alignment.center,
       children: [
-        initialized
-            ? SizedBox.expand(
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: vc.value.size.width,
-                    height: vc.value.size.height,
-                    child: VideoPlayer(vc),
-                  ),
-                ),
-              )
-            : Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Colors.white))),
-        if (initialized)
-          AnimatedOpacity(
+        SizedBox.expand(
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: vc.value.size.width,
+              height: vc.value.size.height,
+              child: VideoPlayer(vc),
+            ),
+          ),
+        ),
+        AnimatedOpacity(
             opacity: vc.value.isPlaying ? 0.0 : 1.0,
             duration: const Duration(milliseconds: 200),
             child: IconButton(
@@ -810,8 +888,7 @@ class _MemoryCardState extends State<MemoryCard> {
               ),
             ),
           ),
-        if (initialized)
-          Positioned(
+        Positioned(
             bottom: 0,
             left: 0,
             right: 0,
@@ -868,21 +945,6 @@ class _MemoryCardState extends State<MemoryCard> {
                     ],
                   ),
                 ],
-              ),
-            ),
-          ),
-        if (!initialized)
-          Positioned(
-            top: 8,
-            right: 8,
-            child: GestureDetector(
-              onTap: () {
-                _openMediaViewer(images, videos, index, orderedMedia: orderedMedia);
-              },
-              child: Container(
-                decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-                padding: const EdgeInsets.all(6),
-                child: const Icon(Icons.fullscreen, color: Colors.white, size: 22),
               ),
             ),
           ),

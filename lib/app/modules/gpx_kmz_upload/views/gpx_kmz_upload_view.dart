@@ -35,7 +35,7 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
     bool absorbChildPointers = false,
     EdgeInsets contentPadding = const EdgeInsets.fromLTRB(12, 6, 12, 6),
     EdgeInsets fieldMargin =
-        const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     VoidCallback? onInfoTap,
     VoidCallback? onTrashTap,
   }) {
@@ -57,7 +57,7 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label, style: AppFonts.medium(12, color: labelColor)),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         valueChild,
       ],
     );
@@ -219,12 +219,17 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
       return _buildRowField(
         isDark: isDark,
         label: label,
-        contentPadding: TrackClusterFieldConfig.dropdownContentPadding,
+        // Same default contentPadding as the date fields so this container's
+        // height matches them. isDense removes the outer 48px interactive floor;
+        // itemHeight: null stops the selected value from being wrapped in a 48px
+        // box, so the closed field hugs its single text line like the date fields.
         fieldMargin: fieldMargin,
         onInfoTap: onInfoTap,
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             isExpanded: true,
+            isDense: true,
+            itemHeight: null,
             value: value,
             icon: const SizedBox.shrink(),
             dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
@@ -326,6 +331,7 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
     return Obx(() {
       final _ = ui.selectedLanguage.value;
       final __busy = controller.isBusy.value;
+      final prepPreview = controller.isPreparingPreviewLocations.value;
       final isDark = ui.darkMode.value;
       final pageBg = isDark
           ? Colors.black
@@ -337,11 +343,6 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
         backgroundColor: pageBg,
         appBar: CustomAppBar(
           title: 'title_gpx_kmz_upload'.tr,
-          icon: Icon(
-            Icons.route,
-            color: Colors.white,
-            size: 22,
-          ),
         ),
         body: Stack(
           children: [
@@ -487,6 +488,7 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
                       return _buildRowField(
                         isDark: isDark,
                         label: 'gpx_label_date_from'.tr,
+                        contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                         fieldMargin:
                             TrackClusterFieldConfig.pairedFieldMarginStart,
                         onTap: () => controller.pickStartDate(context),
@@ -511,6 +513,7 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
                       return _buildRowField(
                         isDark: isDark,
                         label: 'gpx_label_date_to'.tr,
+                        contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                         fieldMargin:
                             TrackClusterFieldConfig.pairedFieldMarginEnd,
                         onTap: () => controller.pickEndDate(context),
@@ -531,12 +534,42 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
             _newMemoriesSummaryLine(accent),
             TrackUploadBottomBar(
               isDark: isDark,
-              busy: __busy,
-              showPreviewButton: false,
+              busy: __busy || prepPreview,
+              onPreview: controller.onPreviewTap,
               onUpload: controller.commitUploadToDatabase,
             ),
               ],
             ),
+            if (prepPreview)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: accent,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'text_preparing_your_map'.tr,
+                            textAlign: TextAlign.center,
+                            style: AppFonts.medium(16, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       );

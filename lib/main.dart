@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -25,6 +26,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:background_downloader/background_downloader.dart';
 
 import 'app/routes/app_pages.dart';
+import 'app/shared/widgets/restart_widget.dart';
 import 'app/services/memory_db.dart';
 import 'app/services/path_migration_helper.dart';
 import 'app/helpers/mapbox_zoom_helper.dart';
@@ -53,14 +55,20 @@ Future<void> main() async {
   Get.put(AppLockController(), permanent: true);
   Get.put(MemoryImportBlockingController(), permanent: true);
 
-  runApp(MyApp());
+  runApp(RestartWidget(child: MyApp()));
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _bootstrapAfterFirstPaint();
   });
 }
 
 Future<void> _bootstrapAfterFirstPaint() async {
-  FlutterNativeSplash.remove();
+  // Wait one extra frame so background images decode before splash lifts.
+  final splashCompleter = Completer<void>();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    FlutterNativeSplash.remove();
+    splashCompleter.complete();
+  });
+  await splashCompleter.future;
 
   try {
     await AppSystemUi.enableEdgeToEdge();
@@ -200,9 +208,55 @@ Future<void> _initializeBackgroundTileServer() async {
   }
 }
 
-class MyApp extends StatelessWidget {
-  MyApp({super.key});
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final UiController uiController = Get.find();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // App-level (iOS) lifecycle logging. iOS only reports `paused` on a full
+    // background and `resumed` on return; a system sheet / Settings round-trip
+    // often only reaches `inactive`/`hidden`, so log every state to make the
+    // real transition visible.
+    if (Platform.isIOS) {
+      switch (state) {
+        case AppLifecycleState.resumed:
+          debugPrint('📱 [APP][iOS] RESUMED (foregrounded / app opened)');
+          break;
+        case AppLifecycleState.inactive:
+          debugPrint('📱 [APP][iOS] INACTIVE (transitioning / system sheet)');
+          break;
+        case AppLifecycleState.hidden:
+          debugPrint('📱 [APP][iOS] HIDDEN');
+          break;
+        case AppLifecycleState.paused:
+          debugPrint('📱 [APP][iOS] PAUSED (backgrounded)');
+          break;
+        case AppLifecycleState.detached:
+          debugPrint('📱 [APP][iOS] DETACHED');
+          break;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/config/app_text.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
@@ -25,12 +26,18 @@ class DataView extends GetView<DataController> {
                 ),
         appBar: CustomAppBar(
           title: AppTexts.data,
-          icon: const Icon(Icons.storage_rounded, color: Colors.white, size: 22),
+          icon: Image.asset(AppImages.data),
         ),
         body: Stack(
           children: [
             ListView(
               children: [
+                Container(
+                  color: uiController.darkMode.value
+                      ? uiController.darkSurfaceColor
+                      : Colors.white,
+                  child: Column(
+                    children: [
                 DataTile(
                   title: trKey('apptexts_upload_kmz_gpx'),
                   onTap: busy ? null : controller.openKmzGpxUpload,
@@ -55,6 +62,10 @@ class DataView extends GetView<DataController> {
                   title: AppTexts.eraseAllData,
                   titleColor: Colors.red,
                   onTap: busy ? null : controller.eraseAllMemories,
+                  showDivider: false,
+                ),
+                    ],
+                  ),
                 ),
               ],
             ),
