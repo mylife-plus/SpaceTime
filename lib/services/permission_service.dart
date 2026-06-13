@@ -217,9 +217,12 @@ class PermissionService extends GetxController {
           TextButton(
             onPressed: () {
               if (Get.isRegistered<AppLockController>()) {
-                Get.find<AppLockController>().scheduleRestartOnNextResume();
+                Get.find<AppLockController>().openExternalSettings(
+                  Geolocator.openLocationSettings,
+                );
+              } else {
+                Geolocator.openLocationSettings();
               }
-              Geolocator.openLocationSettings();
               Get.back();
             },
             child: Text(
@@ -276,9 +279,12 @@ class PermissionService extends GetxController {
           TextButton(
             onPressed: () {
               if (Get.isRegistered<AppLockController>()) {
-                Get.find<AppLockController>().scheduleRestartOnNextResume();
+                Get.find<AppLockController>().openExternalSettings(
+                  Geolocator.openAppSettings,
+                );
+              } else {
+                Geolocator.openAppSettings();
               }
-              Geolocator.openAppSettings();
               Get.back();
             },
             child: Text(

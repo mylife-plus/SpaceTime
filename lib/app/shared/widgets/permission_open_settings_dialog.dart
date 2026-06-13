@@ -52,9 +52,10 @@ Future<void> showPermissionOpenSettingsDialog(
             onPressed: () {
               Navigator.of(ctx).pop();
               if (Get.isRegistered<AppLockController>()) {
-                Get.find<AppLockController>().scheduleRestartOnNextResume();
+                Get.find<AppLockController>().openExternalSettings(openAppSettings);
+              } else {
+                openAppSettings();
               }
-              openAppSettings();
             },
             child: Text(
               trForLang('text_open_settings_5', lang),

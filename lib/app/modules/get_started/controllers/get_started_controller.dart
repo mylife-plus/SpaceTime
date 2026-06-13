@@ -662,9 +662,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
               onPressed: () {
                 Get.back();
                 if (Get.isRegistered<AppLockController>()) {
-                  Get.find<AppLockController>().scheduleRestartOnNextResume();
+                  Get.find<AppLockController>().openExternalSettings(openAppSettings);
+                } else {
+                  openAppSettings();
                 }
-                openAppSettings();
                 if (!completer.isCompleted) completer.complete(true);
               },
               style: ElevatedButton.styleFrom(

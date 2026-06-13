@@ -422,9 +422,10 @@ class MbtilesDownloadService extends GetxController {
           TextButton(
             onPressed: () {
               if (Get.isRegistered<AppLockController>()) {
-                Get.find<AppLockController>().scheduleRestartOnNextResume();
+                Get.find<AppLockController>().openExternalSettings(openAppSettings);
+              } else {
+                openAppSettings();
               }
-              openAppSettings();
               Get.back();
             },
             child: Text(

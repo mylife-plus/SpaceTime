@@ -7,17 +7,28 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/media_gps_gallery_service.dart';
 import 'package:video_player/video_player.dart';
 
+/// Resolved phone/library metadata for a picked file path.
+class GalleryResolvedMetadata {
+  const GalleryResolvedMetadata({
+    this.assetId,
+    this.mediaCreatedAt,
+  });
+
+  final String? assetId;
+  final DateTime? mediaCreatedAt;
+}
+
 /// Links image_picker / file_picker outputs to [AssetEntity.id] for cross-flow dedupe.
 class GalleryAssetResolver {
   static const int _maxAlbumScan = 4000;
   static const int _batchSize = 400;
 
-  /// Maps absolute/normalized file path → gallery asset id (best effort).
-  static Future<Map<String, String>> resolveAssetIdsForPaths(
+  /// Maps absolute/normalized file path → gallery metadata (best effort).
+  static Future<Map<String, GalleryResolvedMetadata>> resolveMetadataForPaths(
     List<String> paths, {
     int maxAlbumScan = _maxAlbumScan,
   }) async {
-    final out = <String, String>{};
+    final out = <String, GalleryResolvedMetadata>{};
     if (paths.isEmpty || kIsWeb) return out;
     if (!await MediaGpsGalleryService.hasAuthorizedGalleryAccess()) {
       return out;
@@ -36,7 +47,14 @@ class GalleryAssetResolver {
 
     final albums =
         await PhotoManager.getAssetPathList(type: RequestType.common);
-    if (albums.isEmpty) return out;
+    if (albums.isEmpty) {
+      for (final entry in pending.entries) {
+        out[entry.key] = GalleryResolvedMetadata(
+          mediaCreatedAt: entry.value.captureTime,
+        );
+      }
+      return out;
+    }
 
     final album = albums.first;
     final total = await album.assetCountAsync;
@@ -54,12 +72,38 @@ class GalleryAssetResolver {
           }
         }
         for (final path in matches) {
-          out[path] = entity.id;
+          out[path] = GalleryResolvedMetadata(
+            assetId: entity.id,
+            mediaCreatedAt: entity.createDateTime.toUtc(),
+          );
           pending.remove(path);
         }
       }
     }
 
+    for (final entry in pending.entries) {
+      out[entry.key] = GalleryResolvedMetadata(
+        mediaCreatedAt: entry.value.captureTime,
+      );
+    }
+
+    return out;
+  }
+
+  /// Back-compat: asset id only.
+  static Future<Map<String, String>> resolveAssetIdsForPaths(
+    List<String> paths, {
+    int maxAlbumScan = _maxAlbumScan,
+  }) async {
+    final meta = await resolveMetadataForPaths(
+      paths,
+      maxAlbumScan: maxAlbumScan,
+    );
+    final out = <String, String>{};
+    for (final e in meta.entries) {
+      final id = e.value.assetId;
+      if (id != null && id.isNotEmpty) out[e.key] = id;
+    }
     return out;
   }
 
@@ -68,7 +112,6 @@ class GalleryAssetResolver {
     if (probe.isVideo != entityIsVideo) return false;
 
     if (probe.isVideo) {
-      // For videos: match by dimensions + duration (both sourced from VideoPlayerController)
       if (probe.width > 0 &&
           (entity.width != probe.width || entity.height != probe.height)) {
         return false;
@@ -77,24 +120,21 @@ class GalleryAssetResolver {
       if (dur > 0 && probe.videoDurationMs > 0) {
         if ((dur - probe.videoDurationMs).abs() > 1500) return false;
       }
-      // Require at least one usable signal for videos
       return probe.width > 0 || probe.videoDurationMs > 0;
     }
 
-    // For images: match by EXIF capture time (5s) + full-res dimensions
-    if (probe.modified != null) {
+    if (probe.captureTime != null) {
       final delta = entity.createDateTime
-          .difference(probe.modified!)
+          .difference(probe.captureTime!)
           .inSeconds
           .abs();
-      // EXIF DateTimeOriginal is capture-time (not copy-time), so 5s tolerance suffices
       if (delta > 5) return false;
     }
     if (probe.width > 0 &&
         (entity.width != probe.width || entity.height != probe.height)) {
       return false;
     }
-    return probe.width > 0 || probe.modified != null;
+    return probe.width > 0 || probe.captureTime != null;
   }
 
   static Future<_PickedFileProbe?> _probeFile(
@@ -115,7 +155,6 @@ class GalleryAssetResolver {
       ].any(lower.endsWith);
 
       if (isVideo) {
-        // Read dimensions + duration via VideoPlayerController for precise matching
         int vWidth = 0, vHeight = 0, vDurationMs = 0;
         VideoPlayerController? vc;
         try {
@@ -126,7 +165,6 @@ class GalleryAssetResolver {
           vHeight = sz.height.round();
           vDurationMs = vc.value.duration.inMilliseconds;
         } catch (_) {
-          // fall through with zeros — no match will be found
         } finally {
           await vc?.dispose();
         }
@@ -136,11 +174,10 @@ class GalleryAssetResolver {
           height: vHeight,
           isVideo: true,
           videoDurationMs: vDurationMs,
-          modified: null,
+          captureTime: null,
         );
       }
 
-      // For images: read EXIF to get capture time + full-res dimensions
       DateTime? exifDate;
       int exifWidth = 0, exifHeight = 0;
       try {
@@ -156,7 +193,7 @@ class GalleryAssetResolver {
                   .replaceFirst(':', '-')
                   .replaceFirst(':', '-')
                   .replaceAll(' ', 'T');
-              exifDate = DateTime.tryParse(normalized);
+              exifDate = DateTime.tryParse(normalized)?.toUtc();
             }
             final wTag = data['EXIF ExifImageWidth'] ?? data['Image ImageWidth'];
             final hTag = data['EXIF ExifImageLength'] ?? data['Image ImageLength'];
@@ -164,9 +201,7 @@ class GalleryAssetResolver {
             exifHeight = int.tryParse(hTag?.printable ?? '') ?? 0;
           }
         }
-      } catch (_) {
-        // EXIF unavailable (e.g. HEIF without EXIF) — fall through with nulls
-      }
+      } catch (_) {}
 
       return _PickedFileProbe(
         fileSize: fileSize,
@@ -174,7 +209,7 @@ class GalleryAssetResolver {
         height: exifHeight,
         isVideo: false,
         videoDurationMs: 0,
-        modified: exifDate,
+        captureTime: exifDate,
       );
     } catch (e, st) {
       debugPrint('[GalleryAssetResolver] probe $path: $e\n$st');
@@ -190,7 +225,7 @@ class _PickedFileProbe {
     required this.height,
     required this.isVideo,
     required this.videoDurationMs,
-    this.modified,
+    this.captureTime,
   });
 
   final int fileSize;
@@ -198,5 +233,5 @@ class _PickedFileProbe {
   final int height;
   final bool isVideo;
   final int videoDurationMs;
-  final DateTime? modified;
+  final DateTime? captureTime;
 }

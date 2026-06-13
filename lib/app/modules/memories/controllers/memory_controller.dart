@@ -752,7 +752,7 @@ class MemoryController extends GetxController {
     List<int>? videoOrders,
     List<String>? tags,
     List<String>? mentions,
-    List<String>? galleryAssetIds,
+    List<ImportedGalleryAssetRecord>? galleryAssetRecords,
   }) async {
     debugPrint(
       '💾 Saving memory with ${imagePaths?.length ?? 0} images, ${videoPaths?.length ?? 0} videos, and ${recordedAudioPaths.length} audio files',
@@ -978,10 +978,10 @@ class MemoryController extends GetxController {
       }
     }
 
-    if (galleryAssetIds != null && galleryAssetIds.isNotEmpty) {
-      await _databaseHelper.recordImportedGalleryAssetIds(
+    if (galleryAssetRecords != null && galleryAssetRecords.isNotEmpty) {
+      await _databaseHelper.recordImportedGalleryAssets(
         memoryId,
-        galleryAssetIds,
+        galleryAssetRecords,
       );
     }
 
@@ -1609,7 +1609,7 @@ class MemoryController extends GetxController {
     required List<String> videoAbsolutePaths,
     List<String> audioAbsolutePaths = const [],
     required String trackImportFingerprint,
-    List<String> galleryAssetIds = const [],
+    List<ImportedGalleryAssetRecord> galleryAssetRecords = const [],
     bool skipReverseGeocode = false,
     bool forceBackgroundImageCopy = false,
   }) async {
@@ -1746,10 +1746,10 @@ class MemoryController extends GetxController {
       imageOrders: imageOrders,
       videoOrders: videoOrders,
     );
-    if (galleryAssetIds.isNotEmpty) {
-      await _databaseHelper.recordImportedGalleryAssetIds(
+    if (galleryAssetRecords.isNotEmpty) {
+      await _databaseHelper.recordImportedGalleryAssets(
         memoryId,
-        galleryAssetIds,
+        galleryAssetRecords,
       );
     }
     return memoryId;
@@ -1821,7 +1821,7 @@ class MemoryController extends GetxController {
     required List<String> imageAbsolutePaths,
     required List<String> videoAbsolutePaths,
     List<String> audioAbsolutePaths = const [],
-    List<String> galleryAssetIds = const [],
+    List<ImportedGalleryAssetRecord> galleryAssetRecords = const [],
     bool forceBackgroundImageCopy = false,
   }) async {
     if (!await _databaseHelper.isDatabaseHealthy()) {
@@ -1888,10 +1888,10 @@ class MemoryController extends GetxController {
       }
     }
 
-    if (galleryAssetIds.isNotEmpty) {
-      await _databaseHelper.recordImportedGalleryAssetIds(
+    if (galleryAssetRecords.isNotEmpty) {
+      await _databaseHelper.recordImportedGalleryAssets(
         memoryId,
-        galleryAssetIds,
+        galleryAssetRecords,
       );
     }
 

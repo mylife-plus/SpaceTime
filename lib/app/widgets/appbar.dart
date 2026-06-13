@@ -14,6 +14,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Optional icon left of the title (omit for title-only bar).
   final Widget? icon;
   final VoidCallback? onBack;
+  /// Optional trailing widget (e.g. + action), aligned top-right like Places screen.
+  final Widget? trailing;
 
   CustomAppBar({
     super.key,
@@ -21,6 +23,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.titleWidget,
     this.icon,
     this.onBack,
+    this.trailing,
   }) : assert(
           title.isNotEmpty || titleWidget != null,
           'Provide title or titleWidget',
@@ -86,7 +89,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 48),
+            trailing ?? const SizedBox(width: 48),
           ],
         ),
       ),

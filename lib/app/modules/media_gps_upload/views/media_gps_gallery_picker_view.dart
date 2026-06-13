@@ -42,6 +42,35 @@ class MediaGpsGalleryPickerView extends GetView<MediaGpsUploadController> {
             AppImages.uploadFilesWhite,
             fit: BoxFit.contain,
           ),
+          trailing: Obx(() {
+            final importing = controller.filesImporting.value;
+            return IconButton(
+              onPressed: importing
+                  ? null
+                  : () => unawaited(controller.pickFilesFromDevice()),
+              icon: importing
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
+                      child: Image.asset(
+                        'assets/images/ic_add.png',
+                        width: 25,
+                        height: 25,
+                      ),
+                    ),
+              tooltip: 'media_gps_add_from_files'.tr,
+            );
+          }),
         ),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -129,61 +158,22 @@ class MediaGpsGalleryPickerView extends GetView<MediaGpsUploadController> {
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 28),
-              child: Obx(() {
-                final importing = controller.filesImporting.value;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: importing
-                          ? null
-                          : () => unawaited(controller.pickFilesFromDevice()),
-                      icon: importing
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: accent,
-                              ),
-                            )
-                          : Icon(Icons.folder_open, color: accent, size: 20),
-                      label: Text(
-                        importing
-                            ? 'media_gps_add_from_files_loading'.tr
-                            : 'media_gps_add_from_files'.tr,
-                        style: AppFonts.regular(15, color: accent),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: accent,
-                        side: BorderSide(color: accent.withValues(alpha: 0.6)),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                      ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    style: TrackUploadBottomBar.uploadButtonStyle(
+                      isDark,
+                      accent,
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton(
-                          style: TrackUploadBottomBar.uploadButtonStyle(
-                            isDark,
-                            accent,
-                          ),
-                          onPressed: () => Get.back<void>(),
-                          child: Text(
-                            'text_done'.tr,
-                            style:
-                                TrackUploadBottomBar.uploadButtonTextStyle(accent),
-                          ),
-                        ),
-                      ],
+                    onPressed: () => Get.back<void>(),
+                    child: Text(
+                      'text_done'.tr,
+                      style: TrackUploadBottomBar.uploadButtonTextStyle(accent),
                     ),
-                  ],
-                );
-              }),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

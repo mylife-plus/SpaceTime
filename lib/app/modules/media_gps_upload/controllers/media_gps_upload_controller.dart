@@ -63,6 +63,7 @@ class MediaGpsUploadController extends GetxController {
   List<MediaGpsClusterCandidate> _lastCandidates = [];
   Set<String> _existingTrackFingerprints = <String>{};
   Set<String> _importedGalleryAssetIds = <String>{};
+  Set<int> _importedGalleryMediaCreatedAtKeys = <int>{};
   List<Map<String, dynamic>> _existingCoordinateRows = const [];
 
   /// Long-press + drag bulk selection (gallery picker).
@@ -73,6 +74,8 @@ class MediaGpsUploadController extends GetxController {
 
   /// After bulk drag ends, skip one tap so fullscreen doesn’t open on finger up.
   bool suppressGalleryCellTap = false;
+
+  bool _autoDateRangeOnNextSync = false;
 
   int _galleryLoadGen = 0;
 
@@ -105,6 +108,36 @@ class MediaGpsUploadController extends GetxController {
   bool isGalleryAssetAlreadyImported(String assetId) =>
       _importedGalleryAssetIds.contains(assetId);
 
+  bool _isPickedAssetAlreadyImported(MediaGpsPickedAsset asset) {
+    if (_importedGalleryAssetIds.contains(asset.id)) return true;
+    if (!asset.isImage && !asset.isVideo) return false;
+    return _importedGalleryMediaCreatedAtKeys.contains(
+      DatabaseHelper.mediaCreatedAtDedupeKey(asset.createTime),
+    );
+  }
+
+  List<ImportedGalleryAssetRecord> _galleryRecordsForItems(
+    Iterable<MediaGpsPickedAsset> items,
+  ) {
+    final seenIds = <String>{};
+    final seenTimes = <int>{};
+    final out = <ImportedGalleryAssetRecord>[];
+    for (final it in items) {
+      if (!it.isImage && !it.isVideo) continue;
+      final timeKey = DatabaseHelper.mediaCreatedAtDedupeKey(it.createTime);
+      if (seenIds.contains(it.id) || seenTimes.contains(timeKey)) continue;
+      seenIds.add(it.id);
+      seenTimes.add(timeKey);
+      out.add(
+        ImportedGalleryAssetRecord(
+          assetId: it.id,
+          mediaCreatedAt: it.createTime.toUtc(),
+        ),
+      );
+    }
+    return out;
+  }
+
   Future<void> _refreshDedupeDataAndRecompute() async {
     try {
       final rows = await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
@@ -117,6 +150,8 @@ class MediaGpsUploadController extends GetxController {
       _existingCoordinateRows = rows;
       _importedGalleryAssetIds =
           await DatabaseHelper.instance.queryImportedGalleryAssetIds();
+      _importedGalleryMediaCreatedAtKeys =
+          await DatabaseHelper.instance.queryImportedGalleryMediaCreatedAtKeys();
     } catch (e, st) {
       debugPrint('[MediaGpsUpload] dedupe preload: $e\n$st');
     }
@@ -155,9 +190,12 @@ class MediaGpsUploadController extends GetxController {
 
   Future<void> openSystemPhotoLibrarySettings() async {
     if (Get.isRegistered<AppLockController>()) {
-      Get.find<AppLockController>().scheduleRestartOnNextResume();
+      await Get.find<AppLockController>().openExternalSettings(
+        PhotoManager.openSetting,
+      );
+    } else {
+      await PhotoManager.openSetting();
     }
-    await PhotoManager.openSetting();
   }
 
   Future<void> ensureGalleryLoaded({bool force = false}) async {
@@ -169,8 +207,7 @@ class MediaGpsUploadController extends GetxController {
       final list = await MediaGpsGalleryService.loadRecentAssets();
       if (gen != _galleryLoadGen) return;
       galleryAssets.assignAll(list);
-      _syncDateKeysFromGallery();
-      _refreshDedupeDataAndRecompute();
+      await _refreshDedupeDataAndRecompute();
       recomputeStats();
       await refreshPhotoLibraryAccessFlag();
     } catch (e, st) {
@@ -192,51 +229,39 @@ class MediaGpsUploadController extends GetxController {
     }
   }
 
-  void _syncDateKeysFromGallery() {
+  void _markSelectionChanged() {
+    _autoDateRangeOnNextSync = true;
+  }
+
+  static String _dateKeyFromDateTime(DateTime d) {
+    final l = d.toLocal();
+    return '${l.year.toString().padLeft(4, '0')}-'
+        '${l.month.toString().padLeft(2, '0')}-'
+        '${l.day.toString().padLeft(2, '0')}';
+  }
+
+  List<String> _sortedDateKeysFromAssets(Iterable<MediaGpsPickedAsset> assets) {
     final set = <String>{};
-    for (final a in galleryAssets) {
-      final d = a.createTime.toUtc();
-      set.add(
-        '${d.year.toString().padLeft(4, '0')}-'
-        '${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}',
-      );
+    for (final a in assets) {
+      set.add(_dateKeyFromDateTime(a.createTime));
     }
-    final keys = set.toList()..sort();
+    return set.toList()..sort();
+  }
+
+  /// Start/end bounds and picker keys come from selected media that will actually
+  /// upload: has GPS, not already imported, and not dropped as duplicate clusters.
+  void _syncDateKeysFromRemainingAssets(Iterable<MediaGpsPickedAsset> remaining) {
+    final keys = _sortedDateKeysFromAssets(remaining);
     availableDateKeys.value = keys;
     if (keys.isEmpty) {
       selectedStartDateKey.value = '';
       selectedEndDateKey.value = '';
       return;
     }
-    if (!keys.contains(selectedStartDateKey.value)) {
+    if (_autoDateRangeOnNextSync) {
+      _autoDateRangeOnNextSync = false;
       selectedStartDateKey.value = keys.first;
-    }
-    if (!keys.contains(selectedEndDateKey.value)) {
       selectedEndDateKey.value = keys.last;
-    }
-    if (selectedStartDateKey.value.compareTo(selectedEndDateKey.value) > 0) {
-      selectedEndDateKey.value = keys.last;
-    }
-  }
-
-  void _syncDateKeysFromSelection() {
-    final set = <String>{};
-    for (final id in selectedAssetIds) {
-      final a = _assetById(id);
-      if (a == null || !a.hasGps) continue;
-      final d = a.createTime.toUtc();
-      set.add(
-        '${d.year.toString().padLeft(4, '0')}-'
-        '${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}',
-      );
-    }
-    final keys = set.toList()..sort();
-    availableDateKeys.value = keys;
-    if (keys.isEmpty) {
-      selectedStartDateKey.value = '';
-      selectedEndDateKey.value = '';
       return;
     }
     if (!keys.contains(selectedStartDateKey.value)) {
@@ -267,10 +292,7 @@ class MediaGpsUploadController extends GetxController {
   String? _nearestDateKey(DateTime picked, {required bool forStart}) {
     final keys = availableDateKeys;
     if (keys.isEmpty) return null;
-    final pickedKey =
-        '${picked.year.toString().padLeft(4, '0')}-'
-        '${picked.month.toString().padLeft(2, '0')}-'
-        '${picked.day.toString().padLeft(2, '0')}';
+    final pickedKey = _dateKeyFromDateTime(picked);
     if (keys.contains(pickedKey)) return pickedKey;
     if (forStart) {
       for (final k in keys) {
@@ -285,14 +307,15 @@ class MediaGpsUploadController extends GetxController {
   }
 
   Future<void> pickStartDate(BuildContext context) async {
-    final keys = availableDateKeys;
+    final keys = availableDateKeys.toList();
     if (keys.isEmpty) return;
     final first = _dateFromKey(keys.first);
     final last = _dateFromKey(keys.last);
     final initial = _dateFromKey(selectedStartDateKey.value) ?? first;
     if (first == null || last == null || initial == null) return;
+    final navContext = Get.overlayContext ?? Get.context ?? context;
     final picked = await showAppDatePicker(
-      context: context,
+      context: navContext,
       initialDate:
           initial.isBefore(first) ? first : (initial.isAfter(last) ? last : initial),
       firstDate: first,
@@ -304,14 +327,15 @@ class MediaGpsUploadController extends GetxController {
   }
 
   Future<void> pickEndDate(BuildContext context) async {
-    final keys = availableDateKeys;
+    final keys = availableDateKeys.toList();
     if (keys.isEmpty) return;
     final first = _dateFromKey(keys.first);
     final last = _dateFromKey(keys.last);
     final initial = _dateFromKey(selectedEndDateKey.value) ?? last;
     if (first == null || last == null || initial == null) return;
+    final navContext = Get.overlayContext ?? Get.context ?? context;
     final picked = await showAppDatePicker(
-      context: context,
+      context: navContext,
       initialDate:
           initial.isBefore(first) ? first : (initial.isAfter(last) ? last : initial),
       firstDate: first,
@@ -348,6 +372,7 @@ class MediaGpsUploadController extends GetxController {
     // Open UI immediately; Limited Library + GPS scans can be slow if awaited here.
     unawaited(ensureGalleryLoaded(force: true));
     await Get.to<void>(() => const MediaGpsGalleryPickerView());
+    _markSelectionChanged();
     recomputeStats();
   }
 
@@ -380,7 +405,7 @@ class MediaGpsUploadController extends GetxController {
       }
 
       _mergeFilePickedAssets(result.withGps);
-      _syncDateKeysFromGallery();
+      _markSelectionChanged();
       recomputeStats();
 
       if (result.withoutGps > 0) {
@@ -411,6 +436,7 @@ class MediaGpsUploadController extends GetxController {
   void removeFileAsset(String id) {
     galleryAssets.removeWhere((a) => a.id == id && a.isFromFile);
     selectedAssetIds.remove(id);
+    _markSelectionChanged();
     recomputeStats();
   }
 
@@ -465,11 +491,13 @@ class MediaGpsUploadController extends GetxController {
     } else {
       selectedAssetIds.addAll(ids);
     }
+    _markSelectionChanged();
     recomputeStats();
   }
 
   void unselectAllInGallery() {
     selectedAssetIds.clear();
+    _markSelectionChanged();
     recomputeStats();
   }
 
@@ -483,6 +511,7 @@ class MediaGpsUploadController extends GetxController {
       }
       selectedAssetIds.add(id);
     }
+    _markSelectionChanged();
     recomputeStats();
   }
 
@@ -493,6 +522,7 @@ class MediaGpsUploadController extends GetxController {
     for (final item in candidate.items) {
       selectedAssetIds.remove(item.id);
     }
+    _markSelectionChanged();
     recomputeStats();
   }
 
@@ -536,6 +566,7 @@ class MediaGpsUploadController extends GetxController {
     if (!_bulkDragActive) return;
     _bulkDragActive = false;
     _bulkDragLastIndex = null;
+    _markSelectionChanged();
     recomputeStats();
     suppressGalleryCellTap = true;
     Future<void>.delayed(const Duration(milliseconds: 280), () {
@@ -548,7 +579,6 @@ class MediaGpsUploadController extends GetxController {
   void setGalleryFocusCell(int? index) => galleryFocusCellIndex.value = index;
 
   void recomputeStats() {
-    _syncDateKeysFromSelection();
     rawFileCount.value = selectedAssetIds.length;
 
     var noGps = 0;
@@ -560,14 +590,30 @@ class MediaGpsUploadController extends GetxController {
         noGps++;
         continue;
       }
-      if (_importedGalleryAssetIds.contains(id)) {
+      if (_isPickedAssetAlreadyImported(a)) {
         dupAssets++;
       }
     }
     noGpsCount.value = noGps;
 
-    final candidates = _buildClusterCandidates();
-    final filtered = <MediaGpsClusterCandidate>[];
+    // Date range reflects remaining uploadable media (before the date filter).
+    final remainingBeforeDateFilter = _filterNewClusterCandidates(
+      _buildClusterCandidates(applyDateRange: false),
+    );
+    _syncDateKeysFromRemainingAssets(
+      remainingBeforeDateFilter.expand((c) => c.items),
+    );
+
+    final candidates = _buildClusterCandidates(applyDateRange: true);
+    final filtered = _filterNewClusterCandidates(candidates);
+    final dup = _countClusterDuplicates(candidates) + dupAssets;
+
+    duplicateHintCount.value = dup;
+    _lastCandidates = filtered;
+    newMemoriesCount.value = filtered.length;
+  }
+
+  int _countClusterDuplicates(List<MediaGpsClusterCandidate> candidates) {
     final seen = <String>{};
     var dup = 0;
     for (final c in candidates) {
@@ -588,12 +634,32 @@ class MediaGpsUploadController extends GetxController {
         continue;
       }
       seen.add(fp);
+    }
+    return dup;
+  }
+
+  List<MediaGpsClusterCandidate> _filterNewClusterCandidates(
+    List<MediaGpsClusterCandidate> candidates,
+  ) {
+    final filtered = <MediaGpsClusterCandidate>[];
+    final seen = <String>{};
+    for (final c in candidates) {
+      final fp = c.fingerprint;
+      if (seen.contains(fp)) continue;
+      if (_existingTrackFingerprints.contains(fp) ||
+          _matchesExistingCoordinateRow(
+            _existingCoordinateRows,
+            c.when,
+            c.latitude,
+            c.longitude,
+            fp,
+          )) {
+        continue;
+      }
+      seen.add(fp);
       filtered.add(c);
     }
-
-    duplicateHintCount.value = dup + dupAssets;
-    _lastCandidates = filtered;
-    newMemoriesCount.value = filtered.length;
+    return filtered;
   }
 
   bool _matchesExistingCoordinateRow(
@@ -632,7 +698,9 @@ class MediaGpsUploadController extends GetxController {
     return null;
   }
 
-  List<MediaGpsClusterCandidate> _buildClusterCandidates() {
+  List<MediaGpsClusterCandidate> _buildClusterCandidates({
+    bool applyDateRange = true,
+  }) {
     final startKey = selectedStartDateKey.value;
     final endKey = selectedEndDateKey.value;
 
@@ -641,14 +709,11 @@ class MediaGpsUploadController extends GetxController {
     for (final id in selectedAssetIds) {
       final asset = _assetById(id);
       if (asset == null || !asset.hasGps) continue;
-      if (_importedGalleryAssetIds.contains(id)) continue;
+      if (_isPickedAssetAlreadyImported(asset)) continue;
 
-      final d = asset.createTime.toUtc();
-      final key =
-          '${d.year.toString().padLeft(4, '0')}-'
-          '${d.month.toString().padLeft(2, '0')}-'
-          '${d.day.toString().padLeft(2, '0')}';
-      if (startKey.isNotEmpty &&
+      final key = _dateKeyFromDateTime(asset.createTime);
+      if (applyDateRange &&
+          startKey.isNotEmpty &&
           endKey.isNotEmpty &&
           (key.compareTo(startKey) < 0 || key.compareTo(endKey) > 0)) {
         continue;
@@ -1018,8 +1083,7 @@ class MediaGpsUploadController extends GetxController {
             maxM: maxM,
           );
 
-          final clusterAssetIds =
-              c.items.map((it) => it.id).where((id) => id.isNotEmpty).toList();
+          final clusterAssetRecords = _galleryRecordsForItems(c.items);
 
           late final int memoryId;
           if (mergeId != null) {
@@ -1028,7 +1092,7 @@ class MediaGpsUploadController extends GetxController {
               imageAbsolutePaths: imagePaths,
               videoAbsolutePaths: videoPaths,
               audioAbsolutePaths: audioPaths,
-              galleryAssetIds: clusterAssetIds,
+              galleryAssetRecords: clusterAssetRecords,
               forceBackgroundImageCopy: true,
             );
             memoryId = mergeId;
@@ -1041,7 +1105,7 @@ class MediaGpsUploadController extends GetxController {
               videoAbsolutePaths: videoPaths,
               audioAbsolutePaths: audioPaths,
               trackImportFingerprint: c.fingerprint,
-              galleryAssetIds: clusterAssetIds,
+              galleryAssetRecords: clusterAssetRecords,
               skipReverseGeocode: false,
               forceBackgroundImageCopy: true,
             );
@@ -1058,8 +1122,14 @@ class MediaGpsUploadController extends GetxController {
             ];
           }
           fpLive.add(c.fingerprint);
-          for (final assetId in clusterAssetIds) {
-            _importedGalleryAssetIds.add(assetId);
+          for (final record in clusterAssetRecords) {
+            final id = record.assetId;
+            if (id != null && id.isNotEmpty) {
+              _importedGalleryAssetIds.add(id);
+            }
+            _importedGalleryMediaCreatedAtKeys.add(
+              DatabaseHelper.mediaCreatedAtDedupeKey(record.mediaCreatedAt),
+            );
           }
           inserted++;
           insertedMemoryIds.add(memoryId);

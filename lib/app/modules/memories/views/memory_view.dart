@@ -68,11 +68,52 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   List<String> get _selectedVideoPaths =>
       _orderedMedia.where((m) => m['type'] == 'video').map((m) => m['path'] as String).toList();
 
-  List<String> get _galleryAssetIdsForSave => _orderedMedia
-      .map((m) => m['galleryAssetId'] as String?)
-      .whereType<String>()
-      .where((id) => id.isNotEmpty)
-      .toList();
+  List<ImportedGalleryAssetRecord> get _galleryAssetRecordsForSave {
+    final out = <ImportedGalleryAssetRecord>[];
+    final seenIds = <String>{};
+    final seenTimes = <int>{};
+    for (final m in _orderedMedia) {
+      final type = m['type'] as String?;
+      if (type != 'image' && type != 'video') continue;
+      final id = m['galleryAssetId'] as String?;
+      final rawTime = m['galleryMediaCreatedAt'] as String?;
+      DateTime? createdAt;
+      if (rawTime != null && rawTime.isNotEmpty) {
+        createdAt = DateTime.tryParse(rawTime)?.toUtc();
+      }
+      if ((id == null || id.isEmpty) && createdAt == null) continue;
+      final timeKey = createdAt != null
+          ? DatabaseHelper.mediaCreatedAtDedupeKey(createdAt)
+          : null;
+      if (id != null && id.isNotEmpty && seenIds.contains(id)) continue;
+      if (timeKey != null && seenTimes.contains(timeKey)) continue;
+      if (id != null && id.isNotEmpty) seenIds.add(id);
+      if (timeKey != null) seenTimes.add(timeKey);
+      out.add(
+        ImportedGalleryAssetRecord(
+          assetId: (id != null && id.isNotEmpty) ? id : null,
+          mediaCreatedAt: createdAt ??
+              DateTime.parse(
+                DatabaseHelper.importedGalleryMediaCreatedAtUnknownSentinel,
+              ),
+        ),
+      );
+    }
+    return out;
+  }
+
+  void _applyGalleryMetadataToItem(
+    Map<String, dynamic> item,
+    GalleryResolvedMetadata? meta,
+  ) {
+    if (meta == null) return;
+    final aid = meta.assetId;
+    if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+    final t = meta.mediaCreatedAt;
+    if (t != null) {
+      item['galleryMediaCreatedAt'] = t.toUtc().toIso8601String();
+    }
+  }
 
   final List<String> _existingTags = [
     'travel',
@@ -244,7 +285,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       }
 
       // Resolve while picker cache files still exist (needed for GPS-upload dedupe).
-      final assetIdByPath = await GalleryAssetResolver.resolveAssetIdsForPaths(
+      final metadataByPath = await GalleryAssetResolver.resolveMetadataForPaths(
         [...images, ...videos],
         maxAlbumScan: 2000,
       );
@@ -261,16 +302,14 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       for (var i = 0; i < staged.images.length; i++) {
         final item = <String, dynamic>{'type': 'image', 'path': staged.images[i]};
         if (i < images.length) {
-          final aid = assetIdByPath[images[i]];
-          if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+          _applyGalleryMetadataToItem(item, metadataByPath[images[i]]);
         }
         newItems.add(item);
       }
       for (var i = 0; i < staged.videos.length; i++) {
         final item = <String, dynamic>{'type': 'video', 'path': staged.videos[i]};
         if (i < videos.length) {
-          final aid = assetIdByPath[videos[i]];
-          if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+          _applyGalleryMetadataToItem(item, metadataByPath[videos[i]]);
         }
         newItems.add(item);
       }
@@ -287,11 +326,17 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       final missingPaths = <String>[];
       for (var i = 0; i < images.length; i++) {
         if (i >= staged.images.length) break;
-        if (!assetIdByPath.containsKey(images[i])) missingPaths.add(staged.images[i]);
+        final meta = metadataByPath[images[i]];
+        if (meta?.assetId == null || meta!.assetId!.isEmpty) {
+          missingPaths.add(staged.images[i]);
+        }
       }
       for (var i = 0; i < videos.length; i++) {
         if (i >= staged.videos.length) break;
-        if (!assetIdByPath.containsKey(videos[i])) missingPaths.add(staged.videos[i]);
+        final meta = metadataByPath[videos[i]];
+        if (meta?.assetId == null || meta!.assetId!.isEmpty) {
+          missingPaths.add(staged.videos[i]);
+        }
       }
       if (missingPaths.isNotEmpty) {
         unawaited(_backfillGalleryAssetIdsFromStagedPaths(missingPaths));
@@ -303,40 +348,46 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   }
 
   Future<void> _backfillGalleryAssetIdsFromStagedPaths(List<String> stagedPaths) async {
-    final assetIdByPath = await GalleryAssetResolver.resolveAssetIdsForPaths(
+    final metadataByPath = await GalleryAssetResolver.resolveMetadataForPaths(
       stagedPaths,
       maxAlbumScan: 2000,
     );
-    if (!mounted || assetIdByPath.isEmpty) return;
+    if (!mounted || metadataByPath.isEmpty) return;
 
     for (final item in _orderedMedia) {
-      if ((item['galleryAssetId'] as String?)?.isNotEmpty == true) continue;
       final path = item['path'] as String?;
       if (path == null) continue;
-      final aid = assetIdByPath[path];
-      if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+      final meta = metadataByPath[path];
+      if (meta == null) continue;
+      if ((item['galleryAssetId'] as String?)?.isEmpty ?? true) {
+        _applyGalleryMetadataToItem(item, meta);
+      } else if ((item['galleryMediaCreatedAt'] as String?)?.isEmpty ?? true) {
+        _applyGalleryMetadataToItem(item, meta);
+      }
     }
     _orderedMedia.refresh();
   }
 
   Future<void> _ensureGalleryAssetIdsBeforeSave() async {
-    final pathsNeedingId = <String>[];
+    final pathsNeedingMeta = <String>[];
     for (final item in _orderedMedia) {
-      if ((item['galleryAssetId'] as String?)?.isNotEmpty == true) continue;
+      final hasId = (item['galleryAssetId'] as String?)?.isNotEmpty == true;
+      final hasTime =
+          (item['galleryMediaCreatedAt'] as String?)?.isNotEmpty == true;
+      if (hasId && hasTime) continue;
       final path = item['path'] as String?;
-      if (path != null && path.isNotEmpty) pathsNeedingId.add(path);
+      if (path != null && path.isNotEmpty) pathsNeedingMeta.add(path);
     }
-    if (pathsNeedingId.isEmpty) return;
+    if (pathsNeedingMeta.isEmpty) return;
 
-    final assetIdByPath = await GalleryAssetResolver.resolveAssetIdsForPaths(
-      pathsNeedingId,
+    final metadataByPath = await GalleryAssetResolver.resolveMetadataForPaths(
+      pathsNeedingMeta,
       maxAlbumScan: 2000,
     );
     for (final item in _orderedMedia) {
       final path = item['path'] as String?;
       if (path == null) continue;
-      final aid = assetIdByPath[path];
-      if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
+      _applyGalleryMetadataToItem(item, metadataByPath[path]);
     }
   }
 
@@ -915,6 +966,11 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   Future<void> _sortMediaByCreationDate(List<Map<String, dynamic>> newItems) async {
     final List<MapEntry<Map<String, dynamic>, DateTime>> withDates = [];
     for (final item in newItems) {
+      final rawTime = item['galleryMediaCreatedAt'] as String?;
+      if (rawTime != null && rawTime.isNotEmpty) {
+        withDates.add(MapEntry(item, DateTime.parse(rawTime)));
+        continue;
+      }
       try {
         final file = File(
           MemoryController.normalizeLocalFilePath(item['path'] as String),
@@ -1359,11 +1415,11 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           'MemoryView: handleSave - EDIT MODE - Image update check: selectedPaths=${_selectedImagePaths.length}, deletedIndices=${_deletedImageIndices.length}, originalImages=${_originalImages.length}, shouldUpdate=$shouldUpdateImages',
         );
         await _ensureGalleryAssetIdsBeforeSave();
-        final editGalleryIds = _galleryAssetIdsForSave;
-        if (editGalleryIds.isNotEmpty) {
-          await DatabaseHelper.instance.recordImportedGalleryAssetIds(
+        final editGalleryRecords = _galleryAssetRecordsForSave;
+        if (editGalleryRecords.isNotEmpty) {
+          await DatabaseHelper.instance.recordImportedGalleryAssets(
             _editingMemoryId!,
-            editGalleryIds,
+            editGalleryRecords,
           );
         }
 
@@ -1486,7 +1542,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           videoOrders: vidOrders,
           tags: tags,
           mentions: mentions,
-          galleryAssetIds: _galleryAssetIdsForSave,
+          galleryAssetRecords: _galleryAssetRecordsForSave,
         );
         debugPrint('MemoryView: handleSave - CREATE MODE - Memory saved successfully (id: $newMemoryId)');
 

@@ -7,14 +7,34 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:spacetime/app/constants/place_categories_data.dart';
 
+/// One gallery/file item recorded for GPS-upload dedupe (asset id and/or capture time).
+class ImportedGalleryAssetRecord {
+  const ImportedGalleryAssetRecord({
+    this.assetId,
+    required this.mediaCreatedAt,
+  });
+
+  final String? assetId;
+  final DateTime mediaCreatedAt;
+}
+
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      17; // imported_gallery_assets for GPS upload dedupe
+      18; // imported_gallery_assets.media_created_at for GPS dedupe
 
   static const tableImportedGalleryAssets = 'imported_gallery_assets';
+  static const columnGalleryAssetRowId = 'row_id';
   static const columnGalleryAssetId = 'asset_id';
+  static const columnGalleryAssetMediaCreatedAt = 'media_created_at';
   static const columnGalleryAssetMemoryId = 'memory_id';
+
+  /// Legacy migrated rows — datetime dedupe ignores this sentinel.
+  static const importedGalleryMediaCreatedAtUnknownSentinel =
+      '1970-01-01T00:00:00.000Z';
+
+  static int mediaCreatedAtDedupeKey(DateTime dt) =>
+      dt.toUtc().millisecondsSinceEpoch ~/ 1000;
 
   /// Stored on [tableTrackImportLog] rows — filters past uploads by screen.
   static const String trackImportSourceGpxKmz = 'gpx_kmz';
@@ -309,10 +329,21 @@ class DatabaseHelper {
 
     await db.execute('''
       CREATE TABLE $tableImportedGalleryAssets (
-        $columnGalleryAssetId TEXT PRIMARY KEY,
+        $columnGalleryAssetRowId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $columnGalleryAssetId TEXT,
+        $columnGalleryAssetMediaCreatedAt TEXT NOT NULL,
         $columnGalleryAssetMemoryId INTEGER NOT NULL,
         FOREIGN KEY ($columnGalleryAssetMemoryId) REFERENCES $tableMemories ($columnId) ON DELETE CASCADE
       )
+    ''');
+    await db.execute('''
+      CREATE UNIQUE INDEX idx_imported_gallery_asset_id
+      ON $tableImportedGalleryAssets($columnGalleryAssetId)
+      WHERE $columnGalleryAssetId IS NOT NULL AND $columnGalleryAssetId != ''
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_imported_gallery_media_created_at
+      ON $tableImportedGalleryAssets($columnGalleryAssetMediaCreatedAt)
     ''');
 
     // Create images table
@@ -685,6 +716,44 @@ class DatabaseHelper {
       ''');
       debugPrint('✅ imported_gallery_assets');
     }
+
+    if (oldVersion < 18) {
+      await db.execute('''
+        CREATE TABLE imported_gallery_assets_v18 (
+          $columnGalleryAssetRowId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $columnGalleryAssetId TEXT,
+          $columnGalleryAssetMediaCreatedAt TEXT NOT NULL,
+          $columnGalleryAssetMemoryId INTEGER NOT NULL,
+          FOREIGN KEY ($columnGalleryAssetMemoryId) REFERENCES $tableMemories ($columnId) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('''
+        INSERT INTO imported_gallery_assets_v18 (
+          $columnGalleryAssetId,
+          $columnGalleryAssetMediaCreatedAt,
+          $columnGalleryAssetMemoryId
+        )
+        SELECT
+          $columnGalleryAssetId,
+          '$importedGalleryMediaCreatedAtUnknownSentinel',
+          $columnGalleryAssetMemoryId
+        FROM $tableImportedGalleryAssets
+      ''');
+      await db.execute('DROP TABLE $tableImportedGalleryAssets');
+      await db.execute(
+        'ALTER TABLE imported_gallery_assets_v18 RENAME TO $tableImportedGalleryAssets',
+      );
+      await db.execute('''
+        CREATE UNIQUE INDEX idx_imported_gallery_asset_id
+        ON $tableImportedGalleryAssets($columnGalleryAssetId)
+        WHERE $columnGalleryAssetId IS NOT NULL AND $columnGalleryAssetId != ''
+      ''');
+      await db.execute('''
+        CREATE INDEX idx_imported_gallery_media_created_at
+        ON $tableImportedGalleryAssets($columnGalleryAssetMediaCreatedAt)
+      ''');
+      debugPrint('✅ imported_gallery_assets.media_created_at');
+    }
   }
 
   // Migrate existing image data from memories table to images table
@@ -804,24 +873,49 @@ class DatabaseHelper {
         .toSet();
   }
 
-  Future<void> recordImportedGalleryAssetIds(
+  Future<Set<int>> queryImportedGalleryMediaCreatedAtKeys() async {
+    final db = await database;
+    final rows = await db.query(
+      tableImportedGalleryAssets,
+      columns: [columnGalleryAssetMediaCreatedAt],
+    );
+    final out = <int>{};
+    for (final r in rows) {
+      final raw = r[columnGalleryAssetMediaCreatedAt] as String?;
+      if (raw == null ||
+          raw.isEmpty ||
+          raw == importedGalleryMediaCreatedAtUnknownSentinel) {
+        continue;
+      }
+      final dt = DateTime.tryParse(raw);
+      if (dt != null) out.add(mediaCreatedAtDedupeKey(dt));
+    }
+    return out;
+  }
+
+  Future<void> recordImportedGalleryAssets(
     int memoryId,
-    Iterable<String> assetIds,
+    Iterable<ImportedGalleryAssetRecord> records,
   ) async {
-    final ids = assetIds.where((id) => id.trim().isNotEmpty).toSet();
-    if (ids.isEmpty) return;
     final db = await database;
     final batch = db.batch();
-    for (final id in ids) {
+    var count = 0;
+    for (final record in records) {
+      final id = record.assetId?.trim();
       batch.insert(
         tableImportedGalleryAssets,
         {
-          columnGalleryAssetId: id,
+          columnGalleryAssetId:
+              (id != null && id.isNotEmpty) ? id : null,
+          columnGalleryAssetMediaCreatedAt:
+              record.mediaCreatedAt.toUtc().toIso8601String(),
           columnGalleryAssetMemoryId: memoryId,
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+      count++;
     }
+    if (count == 0) return;
     await batch.commit(noResult: true);
   }
 

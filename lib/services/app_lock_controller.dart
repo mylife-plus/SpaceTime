@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:spacetime/app/routes/app_pages.dart';
 import 'package:spacetime/app/shared/widgets/restart_widget.dart';
 
 /// Locks the app with device biometrics / PIN when enabled in Security settings.
@@ -14,14 +15,14 @@ import 'package:spacetime/app/shared/widgets/restart_widget.dart';
 /// **Android:** PIN/biometric app lock is disabled (no overlay, no [LocalAuthentication]).
 ///
 /// After a cold start, requires auth immediately if lock is enabled.
-/// After [paused] → [resumed], requires auth only if the app was in background
-/// for at least [_lockAfterBackgroundDuration].
+/// After leaving the app (Settings / background), iOS may SIGKILL on permission
+/// changes — a persisted settings round-trip flag triggers recovery before lock UI.
 class AppLockController extends GetxController with WidgetsBindingObserver {
   final isLocked = false.obs;
   final authError = RxnString();
 
-  bool _wentToBackground = false;
   DateTime? _lastPausedAt;
+  DateTime? _lastExternalAbsenceAt;
   bool _bootstrapDone = false;
 
   /// True while [authenticate] is in flight (prevents overlapping system dialogs).
@@ -37,13 +38,21 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   /// permission-settings round-trips when app lock is active to avoid hangs).
   bool _restartOnNextResume = false;
 
+  /// True while a soft restart is scheduled or in progress — suppresses lock/auth
+  /// during the resume transition and widget rebuild.
+  bool _softRestartPending = false;
+
+  Timer? _softRestartWatchdog;
+
+  static const Duration _settingsResumeRestartThreshold = Duration(seconds: 2);
+  static const Duration _settingsRoundTripMaxAge = Duration(minutes: 15);
+  static const Duration _softRestartWatchdogDelay = Duration(seconds: 3);
+
   /// True while an in-app flow has intentionally launched an external OS picker
   /// (e.g. the file/document picker). While active, app resume does NOT trigger
   /// the lock. Unlike [scheduleRestartOnNextResume] this does not restart, so the
   /// picker's awaited result survives the round-trip.
   bool _externalPickerActive = false;
-
-  static const Duration _lockAfterBackgroundDuration = Duration(minutes: 10);
 
   final LocalAuthentication _localAuth = LocalAuthentication();
 
@@ -58,6 +67,7 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   @override
   void onClose() {
+    _softRestartWatchdog?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.onClose();
   }
@@ -70,15 +80,27 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       }
       final prefs = await SharedPreferences.getInstance();
       final enabled = prefs.getBool(_prefsKey) ?? false;
-      if (enabled) {
-        if (await _wasRecentlyAuthenticated()) {
-          debugPrint('[AppLockController] bootstrap: skipping lock — authenticated within 10 min');
-          isLocked.value = false;
-          return;
-        }
-        isLocked.value = true;
-        _scheduleColdStartAuthentication();
+      if (!enabled) {
+        isLocked.value = false;
+        return;
       }
+
+      // iOS SIGKILL on permission change wipes in-memory flags — recover from
+      // persisted settings round-trip before showing the lock overlay.
+      if (Platform.isIOS && await _consumeSettingsRoundTrip()) {
+        debugPrint(
+          '[AppLockController] bootstrap: post-settings cold launch — recovering',
+        );
+        isLocked.value = false;
+        _authInProgress = false;
+        authError.value = null;
+        _skipLockOnceAfterExternalSettings = true;
+        _runSoftRestart(relockAfter: true);
+        return;
+      }
+
+      isLocked.value = true;
+      _scheduleColdStartAuthentication();
     } catch (e) {
       debugPrint('[AppLockController] bootstrap: $e');
     } finally {
@@ -98,21 +120,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  Future<bool> _wasRecentlyAuthenticated() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final ms = prefs.getInt(_prefsKeyLastAuthAt);
-      if (ms == null) return false;
-      final elapsed = DateTime.now().difference(
-        DateTime.fromMillisecondsSinceEpoch(ms),
-      );
-      return elapsed < _lockAfterBackgroundDuration;
-    } catch (e) {
-      debugPrint('[AppLockController] check recent auth: $e');
-      return false;
-    }
-  }
-
   /// iOS can hang if [LocalAuthentication.authenticate] runs before the first frame
   /// (e.g. right after enabling PIN, on cold start, when Face ID permission appears).
   void _scheduleColdStartAuthentication() {
@@ -120,9 +127,12 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     _coldStartUnlockScheduled = true;
 
     void runAfterUiReady() {
-      Future<void>.delayed(const Duration(milliseconds: 800), () {
+      Future<void>.delayed(const Duration(milliseconds: 800), () async {
+        if (_softRestartPending) return;
         if (!isLocked.value || _authInProgress) return;
-        unawaited(authenticate(isColdStart: true));
+        if (await _biometricReadyForAutoUnlock()) {
+          unawaited(authenticate(isColdStart: true));
+        }
       });
     }
 
@@ -135,12 +145,42 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   }
 
   static const _prefsKey = 'app_lock_enabled';
+  static const _prefsKeySettingsRoundTrip = 'app_lock_settings_round_trip_ms';
   /// Set after the user completes [authenticate] once (Face ID permission granted).
   static const biometricReadyPrefsKey = 'app_lock_biometric_ready';
+  static const lastAuthAtPrefsKey = 'app_lock_last_auth_at';
   static const _prefsBiometricReadyKey = biometricReadyPrefsKey;
-  static const _prefsKeyLastAuthAt = 'app_lock_last_auth_at';
+  static const _prefsKeyLastAuthAt = lastAuthAtPrefsKey;
 
   static const Duration _authenticateTimeout = Duration(seconds: 90);
+
+  Future<void> _persistSettingsRoundTrip() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+        _prefsKeySettingsRoundTrip,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } catch (e) {
+      debugPrint('[AppLockController] persist settings round-trip: $e');
+    }
+  }
+
+  Future<bool> _consumeSettingsRoundTrip() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ms = prefs.getInt(_prefsKeySettingsRoundTrip);
+      await prefs.remove(_prefsKeySettingsRoundTrip);
+      if (ms == null) return false;
+      final elapsed = DateTime.now().difference(
+        DateTime.fromMillisecondsSinceEpoch(ms),
+      );
+      return elapsed <= _settingsRoundTripMaxAge;
+    } catch (e) {
+      debugPrint('[AppLockController] consume settings round-trip: $e');
+      return false;
+    }
+  }
 
   /// Call immediately before [openAppSettings] from permission flows so returning
   /// from Settings does not require unlock unless the 10‑minute rule applies later.
@@ -153,6 +193,26 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   void scheduleRestartOnNextResume() {
     _skipLockOnceAfterExternalSettings = true;
     _restartOnNextResume = true;
+    _softRestartPending = true;
+    unawaited(_persistSettingsRoundTrip());
+  }
+
+  Future<bool> _isAppLockEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_prefsKey) ?? false;
+    } catch (e) {
+      debugPrint('[AppLockController] isAppLockEnabled: $e');
+      return false;
+    }
+  }
+
+  /// Opens system Settings and schedules a soft restart on resume when app lock is on.
+  Future<void> openExternalSettings(Future<Object?> Function() openSettings) async {
+    if (!_appLockDisabledOnAndroid && await _isAppLockEnabled()) {
+      scheduleRestartOnNextResume();
+    }
+    await openSettings();
   }
 
   /// Call immediately BEFORE launching an external OS picker that returns a
@@ -170,10 +230,31 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     _externalPickerActive = false;
   }
 
+  void _noteExternalAbsenceStarted() {
+    _lastExternalAbsenceAt ??= DateTime.now();
+  }
+
+  void _clearExternalAbsenceMarkers() {
+    _lastPausedAt = null;
+    _lastExternalAbsenceAt = null;
+  }
+
+  DateTime? _externalAbsenceStartedAt() {
+    final paused = _lastPausedAt;
+    final inactive = _lastExternalAbsenceAt;
+    if (paused == null) return inactive;
+    if (inactive == null) return paused;
+    return paused.isAfter(inactive) ? paused : inactive;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (Platform.isIOS &&
+        (state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.hidden)) {
+      _noteExternalAbsenceStarted();
+    }
     if (state == AppLifecycleState.paused) {
-      _wentToBackground = true;
       _lastPausedAt = DateTime.now();
       return;
     }
@@ -184,29 +265,78 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
         _performScheduledRestart();
         return;
       }
+      if (_softRestartPending) return;
       unawaited(_onAppResumed());
       _recoverFromStuckAuthentication();
     }
   }
 
-  /// iOS hangs if [Restart.restartApp] runs synchronously inside the resume
-  /// transition (same "before the first frame" failure mode as cold-start
-  /// auth). Defer to after the next frame + a short settle delay so the app is
-  /// fully foregrounded before the view controller is torn down and rebuilt.
   void _performScheduledRestart() {
+    _runSoftRestart(relockAfter: false);
+  }
+
+  void _finishSoftRestart({required bool relockAfter}) {
+    _softRestartWatchdog?.cancel();
+    _softRestartWatchdog = null;
+    _softRestartPending = false;
+    _clearExternalAbsenceMarkers();
+
+    if (!relockAfter || _appLockDisabledOnAndroid) return;
+
+    unawaited(() async {
+      if (!await _isAppLockEnabled()) return;
+      isLocked.value = true;
+      _coldStartUnlockScheduled = false;
+      _scheduleColdStartAuthentication();
+    }());
+  }
+
+  void _armSoftRestartWatchdog({required bool relockAfter}) {
+    _softRestartWatchdog?.cancel();
+    _softRestartWatchdog = Timer(_softRestartWatchdogDelay, () {
+      if (!_softRestartPending) return;
+      debugPrint(
+        '[AppLockController] soft restart watchdog — retrying recovery',
+      );
+      _runSoftRestart(relockAfter: relockAfter, isRetry: true);
+    });
+  }
+
+  /// iOS hangs if restart runs synchronously inside the resume transition.
+  /// Defer to after the next frame + settle delay so the app is foregrounded first.
+  void _runSoftRestart({required bool relockAfter, bool isRetry = false}) {
+    if (!isRetry) {
+      _softRestartPending = true;
+      _authInProgress = false;
+      isLocked.value = false;
+      authError.value = null;
+      _skipLockOnceAfterExternalSettings = true;
+    }
+
+    _armSoftRestartWatchdog(relockAfter: relockAfter);
+
     void run() {
-      Future<void>.delayed(const Duration(milliseconds: 300), () async {
+      final settleMs = Platform.isIOS ? 600 : 300;
+      Future<void>.delayed(Duration(milliseconds: settleMs), () async {
         try {
           if (Platform.isIOS) {
-            // `Restart.restartApp()` is unreliable on iOS (Apple forbids true
-            // programmatic restarts) and leaves the app stuck on the same page.
-            // Soft-restart by rebuilding the widget tree from the initial route.
             RestartWidget.restartApp();
+            Future<void>.delayed(const Duration(milliseconds: 500), () {
+              try {
+                Get.offAllNamed(AppPages.INITIAL);
+              } catch (e) {
+                debugPrint('[AppLockController] route reset after restart: $e');
+              } finally {
+                _finishSoftRestart(relockAfter: relockAfter);
+              }
+            });
           } else {
             await Restart.restartApp();
+            _finishSoftRestart(relockAfter: relockAfter);
           }
         } catch (e) {
-          debugPrint('[AppLockController] scheduled restart failed: $e');
+          debugPrint('[AppLockController] soft restart failed: $e');
+          _finishSoftRestart(relockAfter: relockAfter);
         }
       });
     }
@@ -221,8 +351,10 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   /// iOS can leave [authenticate] pending after the Face ID permission sheet.
   void _recoverFromStuckAuthentication() {
+    if (_softRestartPending) return;
     if (!_authInProgress || !isLocked.value) return;
     Future<void>.delayed(const Duration(milliseconds: 400), () {
+      if (_softRestartPending) return;
       if (!_authInProgress || !isLocked.value) return;
       debugPrint(
         '[AppLockController] clearing stuck auth after resume — tap Unlock to retry',
@@ -266,58 +398,52 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _onAppResumed() async {
     if (!_bootstrapDone) return;
+    if (_softRestartPending) return;
     if (_authInProgress) return;
     if (_appLockDisabledOnAndroid) return;
 
-    // An external picker (file/document picker) is/was open — don't lock on its
-    // return. Consume the one-shot flag too so it can't skip an unrelated resume.
     if (_externalPickerActive) {
       _skipLockOnceAfterExternalSettings = false;
-      _wentToBackground = false;
-      _lastPausedAt = null;
+      _clearExternalAbsenceMarkers();
       return;
     }
 
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_prefsKey) ?? false;
     if (!enabled) {
-      _wentToBackground = false;
-      _lastPausedAt = null;
+      _clearExternalAbsenceMarkers();
       return;
     }
 
-    if (!_wentToBackground) return;
+    final absenceStarted = _externalAbsenceStartedAt();
+    if (absenceStarted == null) return;
 
-    _wentToBackground = false;
+    final inBackground = DateTime.now().difference(absenceStarted);
+    _clearExternalAbsenceMarkers();
+
+    if (inBackground >= _settingsResumeRestartThreshold) {
+      debugPrint(
+        '[AppLockController] resume after ${inBackground.inSeconds}s with lock on — soft restart',
+      );
+      unawaited(_persistSettingsRoundTrip());
+      unawaited(_saveLastAuthTimestamp());
+      _performScheduledRestart();
+      return;
+    }
 
     if (_skipLockOnceAfterExternalSettings) {
       _skipLockOnceAfterExternalSettings = false;
-      _lastPausedAt = null;
-      return;
-    }
-
-    final pausedAt = _lastPausedAt;
-    _lastPausedAt = null;
-
-    if (pausedAt == null) return;
-
-    final inBackground = DateTime.now().difference(pausedAt);
-    if (inBackground < _lockAfterBackgroundDuration) {
-      debugPrint(
-        '[AppLockController] resume after ${inBackground.inSeconds}s — skip lock (< 10 min)',
-      );
       return;
     }
 
     debugPrint(
-      '[AppLockController] resume after ${inBackground.inMinutes}m — showing lock',
+      '[AppLockController] resume after ${inBackground.inSeconds}s — skip lock (< 2s)',
     );
-    isLocked.value = true;
-    unawaited(authenticate(isColdStart: false));
   }
 
   /// Call when user taps Unlock on the overlay (or after cold-start UI is ready).
   Future<void> authenticate({bool isColdStart = false}) async {
+    if (_softRestartPending) return;
     if (_authInProgress) return;
 
     authError.value = null;
@@ -335,7 +461,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
     _authInProgress = true;
     try {
-      // Ensure a mounted view exists before presenting the system sheet.
       if (isColdStart) {
         await Future<void>.delayed(const Duration(milliseconds: 100));
       }
@@ -380,5 +505,23 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     isLocked.value = false;
     authError.value = null;
     unawaited(_clearBiometricReady());
+    unawaited(_clearLastAuthTimestamp());
+  }
+
+  /// Called when the user turns app lock on in Security settings.
+  Future<void> onAppLockEnabledInSettings() async {
+    if (_appLockDisabledOnAndroid) return;
+    await _clearLastAuthTimestamp();
+    authError.value = null;
+    isLocked.value = true;
+  }
+
+  static Future<void> _clearLastAuthTimestamp() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsKeyLastAuthAt);
+    } catch (e) {
+      debugPrint('[AppLockController] clear last auth timestamp: $e');
+    }
   }
 }

@@ -518,6 +518,7 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                           return _buildRowField(
                             isDark: isDark,
                             label: 'gpx_label_date_from'.tr,
+                            absorbChildPointers: true,
                             contentPadding:
                                 const EdgeInsets.fromLTRB(12, 8, 12, 8),
                             fieldMargin:
@@ -544,6 +545,7 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                           return _buildRowField(
                             isDark: isDark,
                             label: 'gpx_label_date_to'.tr,
+                            absorbChildPointers: true,
                             contentPadding:
                                 const EdgeInsets.fromLTRB(12, 8, 12, 8),
                             fieldMargin:

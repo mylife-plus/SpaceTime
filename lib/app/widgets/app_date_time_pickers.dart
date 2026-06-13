@@ -149,6 +149,7 @@ Future<DateTime?> showAppDatePicker({
   final ui = Get.find<UiController>();
   return showDatePicker(
     context: context,
+    useRootNavigator: true,
     locale: appPickerLocale(ui),
     initialDate: initialDate,
     firstDate: firstDate,
