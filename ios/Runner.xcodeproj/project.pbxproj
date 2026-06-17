@@ -15,8 +15,8 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
-		A7D9E1072CF9000F00123455 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A7D9E1022CF9000F00123450 /* InfoPlist.strings */; };
 		A442D27E2A2B57075F0B44C0 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8616C83580B5AD1466F2E2B4 /* Pods_Runner.framework */; };
+		A7D9E1072CF9000F00123455 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A7D9E1022CF9000F00123450 /* InfoPlist.strings */; };
 		D197A014738A25F617A30827 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6223D364DED9BD37FD7C9A03 /* Pods_RunnerTests.framework */; };
 /* End PBXBuildFile section */
 

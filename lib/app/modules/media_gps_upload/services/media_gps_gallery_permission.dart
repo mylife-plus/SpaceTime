@@ -5,7 +5,6 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/media_gps_gallery_service.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
-import 'package:spacetime/services/app_lock_controller.dart';
 
 String _appLangCode() {
   if (Get.isRegistered<UiController>()) {
@@ -63,15 +62,9 @@ Future<bool> ensureMediaGalleryPermissionForPicker(BuildContext context) async {
           child: Text(trForLang('text_cancel', lang)),
         ),
         TextButton(
-          onPressed: () async {
+          onPressed: () {
             Navigator.pop(ctx);
-            if (Get.isRegistered<AppLockController>()) {
-              await Get.find<AppLockController>().openExternalSettings(
-                PhotoManager.openSetting,
-              );
-            } else {
-              await PhotoManager.openSetting();
-            }
+            PhotoManager.openSetting();
           },
           child: Text(trForLang('label_open_settings', lang)),
         ),

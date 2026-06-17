@@ -516,6 +516,7 @@ class GpxKmzUploadController extends GetxController {
   List<String> _extractDateKeys(List<KmzTrackPoint> pts) {
     final set = <String>{};
     for (final p in pts) {
+      if (!p.hasSourceTimestamp) continue;
       final when = p.when;
       if (when == null) continue;
       final d = when.toUtc();
@@ -552,6 +553,7 @@ class GpxKmzUploadController extends GetxController {
     final endKey = selectedEndDateKey.value;
     if (startKey.isEmpty || endKey.isEmpty) return pts;
     return pts.where((p) {
+      if (!p.hasSourceTimestamp) return false;
       final w = p.when;
       if (w == null) return false;
       final d = w.toUtc();
@@ -561,6 +563,12 @@ class GpxKmzUploadController extends GetxController {
           '${d.day.toString().padLeft(2, '0')}';
       return key.compareTo(startKey) >= 0 && key.compareTo(endKey) <= 0;
     }).toList();
+  }
+
+  String _dateKeyFromDateTime(DateTime d) {
+    return '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
   }
 
   String formatDateKeyForUi(String key) {
@@ -575,26 +583,6 @@ class GpxKmzUploadController extends GetxController {
     final d = int.tryParse(key.substring(8, 10));
     if (y == null || m == null || d == null) return null;
     return DateTime(y, m, d);
-  }
-
-  String? _nearestDateKey(DateTime picked, {required bool forStart}) {
-    final keys = availableMemoryDateKeys;
-    if (keys.isEmpty) return null;
-    final pickedKey =
-        '${picked.year.toString().padLeft(4, '0')}-'
-        '${picked.month.toString().padLeft(2, '0')}-'
-        '${picked.day.toString().padLeft(2, '0')}';
-    if (keys.contains(pickedKey)) return pickedKey;
-    if (forStart) {
-      for (final k in keys) {
-        if (k.compareTo(pickedKey) >= 0) return k;
-      }
-      return keys.last;
-    }
-    for (var i = keys.length - 1; i >= 0; i--) {
-      if (keys[i].compareTo(pickedKey) <= 0) return keys[i];
-    }
-    return keys.first;
   }
 
   Future<void> pickStartDate(BuildContext context) async {
@@ -613,8 +601,7 @@ class GpxKmzUploadController extends GetxController {
       lastDate: last,
     );
     if (picked == null) return;
-    final key = _nearestDateKey(picked, forStart: true);
-    if (key != null) onStartDateChanged(key);
+    onStartDateChanged(_dateKeyFromDateTime(picked));
   }
 
   Future<void> pickEndDate(BuildContext context) async {
@@ -633,8 +620,7 @@ class GpxKmzUploadController extends GetxController {
       lastDate: last,
     );
     if (picked == null) return;
-    final key = _nearestDateKey(picked, forStart: false);
-    if (key != null) onEndDateChanged(key);
+    onEndDateChanged(_dateKeyFromDateTime(picked));
   }
 
   void onStartDateChanged(String key) {

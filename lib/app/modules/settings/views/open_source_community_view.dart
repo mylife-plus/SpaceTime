@@ -10,9 +10,12 @@ import 'open_source_community_detail_view.dart';
 class OpenSourceCommunityView extends StatelessWidget {
   OpenSourceCommunityView({super.key});
 
-  static const String _progressUrl = 'https://github.com/';
-  static const String _expendituresUrl = 'https://opencollective.com/';
-  static const String _feedbacksUrl = 'https://meta.discourse.org/';
+  static const String _progressUrl =
+      'https://github.com/mylife-plus/SpaceTime/issues';
+  static const String _expendituresUrl =
+      'https://docs.fileverse.io/d/020026850001#k=wp0bbBQO78bpwxXivDEtKY-XT_lq2M-dexBZxi2Mex0';
+  static const String _feedbacksUrl =
+      'https://docs.fileverse.io/d/020026850000#k=Qe6uSoq9yVsfwLghMIdipb_Q94WD_uYru_0ElZHiDRs';
 
   @override
   Widget build(BuildContext context) {

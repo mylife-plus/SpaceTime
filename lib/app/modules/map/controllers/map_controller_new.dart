@@ -18,7 +18,6 @@ import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
 import 'package:spacetime/utils/cluster_icon_generator.dart';
 import '../../../../services/permission_service.dart';
 import '../../../../services/connectivity_service.dart';
-import '../../../../services/app_lock_controller.dart';
 import '../../../repositories/memory_repository.dart';
 import '../../../repositories/cluster_repository.dart';
 import '../../../services/map_marker_service.dart';
@@ -484,11 +483,7 @@ class MapControllerNew extends GetxController {
   /// Open app settings for location permission
   Future<void> openLocationSettings() async {
     try {
-      if (Get.isRegistered<AppLockController>()) {
-        await Get.find<AppLockController>().openExternalSettings(openAppSettings);
-      } else {
-        await openAppSettings();
-      }
+      await openAppSettings();
     } catch (e) {
       debugPrint('[MapControllerNew] Error opening settings: $e');
     }

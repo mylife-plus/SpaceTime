@@ -10,12 +10,15 @@ class KmzTrackPoint {
     required this.longitude,
     this.when,
     this.tags = const {},
+    this.hasSourceTimestamp = false,
   });
 
   final double latitude;
   final double longitude;
   final DateTime? when;
   final Map<String, List<String>> tags;
+  /// True when [when] came from a timestamp field on the point (not estimated).
+  final bool hasSourceTimestamp;
 }
 
 /// Extracts [KmzTrackPoint] from a `.kmz` (zip with `doc.kml` or any `.kml`).
@@ -81,11 +84,7 @@ class KmzKmlParser {
     final lat = latS == null ? null : double.tryParse(latS);
     final lon = lonS == null ? null : double.tryParse(lonS);
     if (lat == null || lon == null) return null;
-    final whenRaw = RegExp(
-      r'<(?:\w+:)?time>\s*([^<]+?)\s*</(?:\w+:)?time>',
-      caseSensitive: false,
-    ).firstMatch(body)?.group(1);
-    final when = whenRaw == null ? null : parseKmlWhenString(whenRaw);
+
     final tags = <String, List<String>>{};
     void addTag(String key, String? value) {
       final v = (value ?? '').trim();
@@ -103,10 +102,59 @@ class KmzKmlParser {
       caseSensitive: false,
     ).allMatches(body)) {
       final key = (ext.group(1) ?? '').trim();
-      if (key.isEmpty || key.toLowerCase().endsWith('time')) continue;
+      if (key.isEmpty) continue;
       addTag(key, ext.group(2));
     }
-    return KmzTrackPoint(latitude: lat, longitude: lon, when: when, tags: tags);
+
+    final when = resolveTimestampFromFields(
+      attrs: attrs,
+      body: body,
+      tags: tags,
+    );
+    return KmzTrackPoint(
+      latitude: lat,
+      longitude: lon,
+      when: when,
+      tags: tags,
+      hasSourceTimestamp: when != null,
+    );
+  }
+
+  /// Scans standard time tags, all XML text fields, attributes, and [tags].
+  static DateTime? resolveTimestampFromFields({
+    String attrs = '',
+    String body = '',
+    Map<String, List<String>> tags = const {},
+  }) {
+    final timeTagRe = RegExp(
+      r'<(?:\w+:)?(time|when|begin|end|timestamp|created|creationtime|datetime|date)\b[^>]*>\s*([^<]+?)\s*</(?:\w+:)?\1>',
+      caseSensitive: false,
+    );
+    for (final m in timeTagRe.allMatches(body)) {
+      final t = parseKmlWhenString(m.group(2)!);
+      if (t != null) return t;
+    }
+    for (final m in RegExp(
+      r'<((?:\w+:)?[A-Za-z_][\w:.-]*)>\s*([^<]+?)\s*</\1>',
+      caseSensitive: false,
+    ).allMatches(body)) {
+      final t = parseKmlWhenString(m.group(2)!);
+      if (t != null) return t;
+    }
+    for (final m in RegExp(
+      r'''(\w+)\s*=\s*["']([^"']+)["']''',
+      caseSensitive: false,
+    ).allMatches(attrs)) {
+      final t = parseKmlWhenString(m.group(2)!);
+      if (t != null) return t;
+    }
+    for (final values in tags.values) {
+      for (final v in values) {
+        final t = parseKmlWhenString(v);
+        if (t != null) return t;
+      }
+    }
+    return null;
   }
 
   /// KML/GPX-style instant strings → UTC [DateTime], or null if unknown.
@@ -184,7 +232,12 @@ class KmzKmlParser {
       final when = parseKmlWhenString(whens[i]);
       final p = _parseLonLatTriple(coords[i]);
       if (p != null) {
-        out.add(KmzTrackPoint(latitude: p.$2, longitude: p.$1, when: when));
+        out.add(KmzTrackPoint(
+          latitude: p.$2,
+          longitude: p.$1,
+          when: when,
+          hasSourceTimestamp: when != null,
+        ));
       }
     }
     return out;
@@ -220,7 +273,12 @@ class KmzKmlParser {
       if (triplets.length == 1) {
         final p = _parseLonLatTriple(triplets.first);
         if (p != null) {
-          out.add(KmzTrackPoint(latitude: p.$2, longitude: p.$1, when: begin));
+          out.add(KmzTrackPoint(
+            latitude: p.$2,
+            longitude: p.$1,
+            when: begin,
+            hasSourceTimestamp: true,
+          ));
         }
         continue;
       }
@@ -234,7 +292,12 @@ class KmzKmlParser {
           final wi = DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
           final p = _parseLonLatTriple(triplets[i]);
           if (p != null) {
-            out.add(KmzTrackPoint(latitude: p.$2, longitude: p.$1, when: wi));
+            out.add(KmzTrackPoint(
+              latitude: p.$2,
+              longitude: p.$1,
+              when: wi,
+              hasSourceTimestamp: true,
+            ));
           }
         }
       } else {
@@ -242,7 +305,12 @@ class KmzKmlParser {
           final wi = begin.add(Duration(seconds: i));
           final p = _parseLonLatTriple(triplets[i]);
           if (p != null) {
-            out.add(KmzTrackPoint(latitude: p.$2, longitude: p.$1, when: wi));
+            out.add(KmzTrackPoint(
+              latitude: p.$2,
+              longitude: p.$1,
+              when: wi,
+              hasSourceTimestamp: true,
+            ));
           }
         }
       }

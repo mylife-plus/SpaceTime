@@ -471,7 +471,13 @@ class KmzImportPipeline {
     return withIndex.map((e) {
       final p = e.$2;
       final t = p.when?.toUtc() ?? anchorUtc.add(missingStep * (++seq));
-      return KmzTrackPoint(latitude: p.latitude, longitude: p.longitude, when: t, tags: p.tags);
+      return KmzTrackPoint(
+        latitude: p.latitude,
+        longitude: p.longitude,
+        when: t,
+        tags: p.tags,
+        hasSourceTimestamp: p.hasSourceTimestamp,
+      );
     }).toList();
   }
 
