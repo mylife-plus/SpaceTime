@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/models/kmz_ignore_rule.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_parser.dart';
 
 DateTime? _parseKmlWhenForInspect(String raw) {
@@ -109,7 +110,7 @@ class KmzKmlInspector {
       }
       p.tags.forEach((k, values) {
         final key = k.trim();
-        if (key.isEmpty || key.toLowerCase().endsWith('time')) return;
+        if (KmzIgnoreRule.isExcludedDateTimeTagKey(key)) return;
         final set = dynamicTagValues.putIfAbsent(key, () => <String>{});
         for (final value in values) {
           final v = value.trim();
@@ -216,9 +217,11 @@ class KmzKmlInspector {
   ) {
     final out = <String, Set<String>>{};
     void add(String key, String value) {
+      final k = key.trim();
+      if (k.isEmpty || KmzIgnoreRule.isExcludedDateTimeTagKey(k)) return;
       final v = value.trim();
-      if (key.trim().isEmpty || v.isEmpty) return;
-      out.putIfAbsent(key, () => <String>{}).add(v);
+      if (v.isEmpty) return;
+      out.putIfAbsent(k, () => <String>{}).add(v);
     }
 
     final styleUrl = RegExp(

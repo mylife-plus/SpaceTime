@@ -120,27 +120,55 @@ class KmzKmlParser {
     );
   }
 
-  /// Scans standard time tags, all XML text fields, attributes, and [tags].
+  /// GPX/KMZ point timestamp resolution priority:
+  /// 1. `when` → `timestamp` → `created` → `datetime` → `date`
+  /// 2. Remaining tags (`time`, `begin`, `end`, …), attributes, then [tags].
+  ///
+  /// Date filter uses [KmzTrackPoint.hasSourceTimestamp] + source [when] only.
+  /// Clustering uses [KmzImportPipeline.normalizeTimes] output. Memory [createdAt]
+  /// is the cluster representative's normalized [when] (UTC).
+  static const List<String> _timestampTagPriority = [
+    'when',
+    'timestamp',
+    'created',
+    'creationtime',
+    'datetime',
+    'date',
+  ];
+
+  static const List<String> _timestampTagRemainingPriority = [
+    'time',
+    'begin',
+    'end',
+  ];
+
   static DateTime? resolveTimestampFromFields({
     String attrs = '',
     String body = '',
     Map<String, List<String>> tags = const {},
   }) {
-    final timeTagRe = RegExp(
-      r'<(?:\w+:)?(time|when|begin|end|timestamp|created|creationtime|datetime|date)\b[^>]*>\s*([^<]+?)\s*</(?:\w+:)?\1>',
-      caseSensitive: false,
-    );
-    for (final m in timeTagRe.allMatches(body)) {
-      final t = parseKmlWhenString(m.group(2)!);
+    final byLocalName = _collectXmlElementValuesByLocalName(body);
+
+    for (final name in _timestampTagPriority) {
+      final t = _firstParseableTimestamp(byLocalName[name]);
       if (t != null) return t;
     }
-    for (final m in RegExp(
-      r'<((?:\w+:)?[A-Za-z_][\w:.-]*)>\s*([^<]+?)\s*</\1>',
-      caseSensitive: false,
-    ).allMatches(body)) {
-      final t = parseKmlWhenString(m.group(2)!);
+
+    for (final name in _timestampTagRemainingPriority) {
+      final t = _firstParseableTimestamp(byLocalName[name]);
       if (t != null) return t;
     }
+
+    for (final entry in byLocalName.entries) {
+      final key = entry.key;
+      if (_timestampTagPriority.contains(key) ||
+          _timestampTagRemainingPriority.contains(key)) {
+        continue;
+      }
+      final t = _firstParseableTimestamp(entry.value);
+      if (t != null) return t;
+    }
+
     for (final m in RegExp(
       r'''(\w+)\s*=\s*["']([^"']+)["']''',
       caseSensitive: false,
@@ -148,11 +176,37 @@ class KmzKmlParser {
       final t = parseKmlWhenString(m.group(2)!);
       if (t != null) return t;
     }
+
     for (final values in tags.values) {
-      for (final v in values) {
-        final t = parseKmlWhenString(v);
-        if (t != null) return t;
-      }
+      final t = _firstParseableTimestamp(values);
+      if (t != null) return t;
+    }
+    return null;
+  }
+
+  static Map<String, List<String>> _collectXmlElementValuesByLocalName(
+    String body,
+  ) {
+    final out = <String, List<String>>{};
+    for (final m in RegExp(
+      r'<((?:\w+:)?[A-Za-z_][\w:.-]*)>\s*([^<]+?)\s*</\1>',
+      caseSensitive: false,
+    ).allMatches(body)) {
+      final fullName = (m.group(1) ?? '').trim();
+      if (fullName.isEmpty) continue;
+      final local = fullName.contains(':')
+          ? fullName.split(':').last.toLowerCase()
+          : fullName.toLowerCase();
+      out.putIfAbsent(local, () => <String>[]).add(m.group(2)!.trim());
+    }
+    return out;
+  }
+
+  static DateTime? _firstParseableTimestamp(List<String>? values) {
+    if (values == null) return null;
+    for (final raw in values) {
+      final t = parseKmlWhenString(raw);
+      if (t != null) return t;
     }
     return null;
   }

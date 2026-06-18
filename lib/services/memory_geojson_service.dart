@@ -6,6 +6,13 @@ import 'package:get/get_rx/src/rx_types/rx_types.dart';
 
 /// Service for converting memories to GeoJSON format for MapBox native clustering
 class MemoryGeoJsonService {
+  static double? _toDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   /// Convert memories to GeoJSON FeatureCollection for MapBox clustering
   static String createGeoJsonFromMemories(List<Map<String, dynamic>> memories, RxList<Map<String, dynamic>> allMemoriesWithoutFilter) {
     final features = <Map<String, dynamic>>[];
@@ -15,8 +22,8 @@ class MemoryGeoJsonService {
     print('🎨 Using latest memory year as base: $baseYear');
 
     for (final memory in memories) {
-      final lat = memory['location_latitude'] as double?;
-      final lng = memory['location_longitude'] as double?;
+      final lat = _toDouble(memory['location_latitude']);
+      final lng = _toDouble(memory['location_longitude']);
 
       if (lat == null || lng == null) continue;
       print('Memory Year ${memory['year']}');

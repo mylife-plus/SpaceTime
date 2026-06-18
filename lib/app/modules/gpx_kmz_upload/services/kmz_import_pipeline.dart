@@ -443,8 +443,8 @@ class KmzImportPipeline {
     }
   }
 
-  /// Preserves parsed KML times; fills missing `when` after the latest parsed instant
-  /// (or file mtime) so imports do not all look like "now".
+  /// Fills missing [KmzTrackPoint.when] for clustering; preserves [hasSourceTimestamp]
+  /// so date filtering still uses only source timestamps (not synthesized times).
   static List<KmzTrackPoint> normalizeTimes(
     List<KmzTrackPoint> raw, {
     DateTime? baseUtc,

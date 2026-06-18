@@ -144,16 +144,25 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
     return Obx(() {
       final _ = uiController.selectedLanguage.value;
       final isDark = uiController.darkMode.value;
+      final filterOrSearchOpen =
+          controller.isFilterOpen.value || controller.isSearchActive.value;
 
       return AnnotatedRegion<SystemUiOverlayStyle>(
-        // Light mode: status-bar area uses the current main color (matching the
-        // Header app bar) with white icons. Dark mode: unchanged.
+        // Light mode: main-color status bar on the list; white when filter/search
+        // overlay is open (matches pre–#7 behavior).
         value: isDark
             ? AppSystemUi.overlayStyle(dark: true)
+            : filterOrSearchOpen
+            ? AppSystemUi.overlayStyle(
+                dark: false,
+                statusBarColor: Colors.white,
+              )
             : AppSystemUi.overlayStyleLightStatusIcons(dark: false),
         child: ColoredBox(
           color: isDark
               ? uiController.darkBackgroundColor
+              : filterOrSearchOpen
+              ? Colors.white
               : uiController.currentMainColor,
           child: SafeArea(
             bottom: false,

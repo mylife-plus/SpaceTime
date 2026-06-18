@@ -6,7 +6,6 @@ import 'package:spacetime/app/modules/gpx_kmz_upload/models/kmz_ignore_rule.dart
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_inspector.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
-import 'package:spacetime/app/widgets/app_date_time_pickers.dart';
 
 class KmzIgnoreRuleEditorView extends StatefulWidget {
   const KmzIgnoreRuleEditorView({super.key, required this.inspect});
@@ -18,33 +17,15 @@ class KmzIgnoreRuleEditorView extends StatefulWidget {
 }
 
 class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
-  static const String _timeTagId = '__track_point_time__';
-
   TextStyle _valueStyle(Color valueColor) {
     return AppFonts.regular(16, color: valueColor).copyWith(height: 1.2);
   }
 
   late String _selectedTagId;
-  late KmzIgnoreCondition _condition;
   String _valueFromList = '';
   final List<String> _selectedValues = <String>[];
-  DateTime? _pickedDateTime;
-  String? _selectedTimeIsoFromKmz;
   final Map<String, List<String>> _tagValues = <String, List<String>>{};
 
-  static Color _kmlAbgrToColor(String hex) {
-    final h = hex.trim().toLowerCase();
-    if (h.length != 8) return Colors.grey;
-    final aa = int.parse(h.substring(0, 2), radix: 16);
-    final bb = int.parse(h.substring(2, 4), radix: 16);
-    final gg = int.parse(h.substring(4, 6), radix: 16);
-    final rr = int.parse(h.substring(6, 8), radix: 16);
-    return Color.fromARGB(aa, rr, gg, bb);
-  }
-
-  bool get _isTimeTag => _selectedTagId == _timeTagId;
-  KmzIgnoreTagKey get _resolvedTag =>
-      _isTimeTag ? KmzIgnoreTagKey.trackPointTime : KmzIgnoreTagKey.dynamicTag;
   List<String> get _currentTextValues => _tagValues[_selectedTagId] ?? const <String>[];
 
   @override
@@ -53,40 +34,19 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
     final entries = widget.inspect.tagValues.entries.toList()
       ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
     for (final e in entries) {
+      if (KmzIgnoreRule.isExcludedDateTimeTagKey(e.key)) continue;
       final vals = e.value.where((v) => v.trim().isNotEmpty).toList();
       if (vals.isNotEmpty) _tagValues[e.key] = vals;
     }
     final tagIds = _availableTagIds();
-    _selectedTagId = tagIds.isNotEmpty ? tagIds.first : _timeTagId;
-    _condition = _isTimeTag
-        ? KmzIgnoreCondition.dateIgnoreAfter
-        : KmzIgnoreCondition.textEquals;
+    _selectedTagId = tagIds.isNotEmpty ? tagIds.first : '';
     _valueFromList = _currentTextValues.isNotEmpty ? _currentTextValues.first : '';
-    _pickedDateTime = widget.inspect.maxWhen?.toLocal() ??
-        widget.inspect.minWhen?.toLocal() ??
-        DateTime.now();
-    _selectedTimeIsoFromKmz = widget.inspect.trackWhenValuesIso.isNotEmpty
-        ? widget.inspect.trackWhenValuesIso.first
-        : null;
-    _syncConditionDefault();
   }
 
   List<String> _availableTagIds() {
     final ids = _tagValues.keys.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    if (widget.inspect.trackWhenValuesIso.isNotEmpty ||
-        widget.inspect.minWhen != null ||
-        widget.inspect.maxWhen != null) {
-      ids.add(_timeTagId);
-    }
     return ids;
-  }
-
-  void _syncConditionDefault() {
-    final opts = KmzIgnoreRule.conditionsForTag(_resolvedTag);
-    if (!opts.contains(_condition)) {
-      _condition = opts.first;
-    }
   }
 
   void _onTagChanged(String? id) {
@@ -94,23 +54,8 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
     setState(() {
       _selectedTagId = id;
       _selectedValues.clear();
-      if (_isTimeTag) {
-        _pickedDateTime = widget.inspect.maxWhen?.toLocal() ??
-            widget.inspect.minWhen?.toLocal() ??
-            DateTime.now();
-        _selectedTimeIsoFromKmz = widget.inspect.trackWhenValuesIso.isNotEmpty
-            ? widget.inspect.trackWhenValuesIso.first
-            : null;
-      } else {
-        _valueFromList = _currentTextValues.isNotEmpty ? _currentTextValues.first : '';
-      }
-      _syncConditionDefault();
+      _valueFromList = _currentTextValues.isNotEmpty ? _currentTextValues.first : '';
     });
-  }
-
-  String _tagLabel(String id) {
-    if (id == _timeTagId) return 'gpx_tag_track_point_time'.tr;
-    return id;
   }
 
   Widget _buildRowField({
@@ -160,75 +105,34 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
     );
   }
 
-  String _conditionLabel(KmzIgnoreCondition c) {
-    switch (c) {
-      case KmzIgnoreCondition.textContains:
-        return 'gpx_cond_text_contains'.tr;
-      case KmzIgnoreCondition.textEquals:
-        return 'gpx_cond_text_equals'.tr;
-      case KmzIgnoreCondition.textStartsWith:
-        return 'gpx_cond_text_starts_with'.tr;
-      case KmzIgnoreCondition.dateIgnoreAfter:
-        return 'gpx_cond_date_ignore_after'.tr;
-      case KmzIgnoreCondition.dateIgnoreBefore:
-        return 'gpx_cond_date_ignore_before'.tr;
-      case KmzIgnoreCondition.dateIgnoreOnOrAfter:
-        return 'gpx_cond_date_ignore_on_or_after'.tr;
-      case KmzIgnoreCondition.dateIgnoreOnOrBefore:
-        return 'gpx_cond_date_ignore_on_or_before'.tr;
-    }
-  }
-
   String _effectiveValue() {
-    if (_isTimeTag) {
-      if (_selectedTimeIsoFromKmz != null && _selectedTimeIsoFromKmz!.isNotEmpty) {
-        return _selectedTimeIsoFromKmz!;
-      }
-      final d = _pickedDateTime ?? DateTime.now();
-      return d.toUtc().toIso8601String();
-    }
     final vals = <String>{..._selectedValues};
     if (vals.isNotEmpty) return vals.join('\n');
     if (_valueFromList.trim().isNotEmpty) return _valueFromList.trim();
     return '';
   }
 
-  Future<void> _pickDateTime() async {
-    final ctx = context;
-    final now = DateTime.now();
-    final d0 = _pickedDateTime ?? now;
-    final d = await showAppDatePicker(
-      context: ctx,
-      initialDate: DateTime(d0.year, d0.month, d0.day),
-      firstDate: DateTime(1970),
-      lastDate: DateTime(now.year + 2),
-    );
-    if (!ctx.mounted || d == null) return;
-    final t = await showAppTimePicker(
-      context: ctx,
-      initialTime: TimeOfDay(hour: d0.hour, minute: d0.minute),
-    );
-    if (!ctx.mounted || t == null) return;
-    setState(() {
-      _pickedDateTime = DateTime(d.year, d.month, d.day, t.hour, t.minute);
-    });
-  }
-
   void _save() {
     final v = _effectiveValue();
-    if (v.isEmpty) return;
-    final tag = _resolvedTag;
-    final condition = _isTimeTag
-        ? _condition
-        : KmzIgnoreCondition.textEquals;
+    if (v.isEmpty || _selectedTagId.isEmpty) return;
     Get.back(
       result: KmzIgnoreRule(
-        tag: tag,
-        tagKey: tag == KmzIgnoreTagKey.dynamicTag ? _selectedTagId : null,
+        tag: KmzIgnoreTagKey.dynamicTag,
+        tagKey: _selectedTagId,
         value: v,
-        condition: condition,
+        condition: KmzIgnoreCondition.textEquals,
       ),
     );
+  }
+
+  static Color _kmlAbgrToColor(String hex) {
+    final h = hex.trim().toLowerCase();
+    if (h.length != 8) return Colors.grey;
+    final aa = int.parse(h.substring(0, 2), radix: 16);
+    final bb = int.parse(h.substring(2, 4), radix: 16);
+    final gg = int.parse(h.substring(4, 6), radix: 16);
+    final rr = int.parse(h.substring(6, 8), radix: 16);
+    return Color.fromARGB(aa, rr, gg, bb);
   }
 
   @override
@@ -239,11 +143,11 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
       final pageBg = isDark ? Colors.black : ui.getLightModeBackgroundColor(ui.mainColor.value);
       final valueColor = isDark ? Colors.white : Colors.black87;
       final accent = ui.currentMainColor;
-      final condOptions = KmzIgnoreRule.conditionsForTag(_resolvedTag);
       final tagIds = _availableTagIds();
+      final hasTags = tagIds.isNotEmpty;
       final selectedTagValue = tagIds.contains(_selectedTagId)
           ? _selectedTagId
-          : (tagIds.isNotEmpty ? tagIds.first : _timeTagId);
+          : (tagIds.isNotEmpty ? tagIds.first : null);
 
       final bg = isDark ? Colors.white.withValues(alpha: 0.2) : Colors.white;
       const saveFg = Colors.blue;
@@ -266,95 +170,44 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
         body: ListView(
           padding: const EdgeInsets.only(bottom: 28),
           children: [
-            _buildRowField(
-              isDark: isDark,
-              label: 'gpx_ignore_tag_label'.tr,
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  isExpanded: true,
-                  isDense: true,
-                  itemHeight: null,
-                  value: selectedTagValue,
-                  icon: const SizedBox.shrink(),
-                  dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+            if (!hasTags)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'gpx_ignore_no_tags_available'.tr,
                   style: _valueStyle(valueColor),
-                  items: tagIds
-                      .map(
-                        (id) => DropdownMenuItem(
-                          value: id,
-                          child: Text(
-                            _tagLabel(id),
-                            overflow: TextOverflow.ellipsis,
-                            style: _valueStyle(valueColor),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else ...[
+              _buildRowField(
+                isDark: isDark,
+                label: 'gpx_ignore_tag_label'.tr,
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    isDense: true,
+                    itemHeight: null,
+                    value: selectedTagValue,
+                    icon: const SizedBox.shrink(),
+                    dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                    style: _valueStyle(valueColor),
+                    items: tagIds
+                        .map(
+                          (id) => DropdownMenuItem(
+                            value: id,
+                            child: Text(
+                              id,
+                              overflow: TextOverflow.ellipsis,
+                              style: _valueStyle(valueColor),
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _onTagChanged,
+                        )
+                        .toList(),
+                    onChanged: _onTagChanged,
+                  ),
                 ),
               ),
-            ),
-            if (_isTimeTag) ...[
-              if (widget.inspect.trackWhenValuesIso.isNotEmpty)
-                _buildRowField(
-                  isDark: isDark,
-                  label: 'gpx_ignore_value_label'.tr,
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      isDense: true,
-                      itemHeight: null,
-                      value: _selectedTimeIsoFromKmz,
-                      icon: const SizedBox.shrink(),
-                      dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                      style: _valueStyle(valueColor),
-                      items: widget.inspect.trackWhenValuesIso
-                          .map(
-                            (iso) => DropdownMenuItem<String>(
-                              value: iso,
-                              child: Text(
-                                iso,
-                                overflow: TextOverflow.ellipsis,
-                                style: _valueStyle(valueColor),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        setState(() {
-                          _selectedTimeIsoFromKmz = v;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-              if (widget.inspect.trackWhenValuesIso.isEmpty)
-                _buildRowField(
-                  isDark: isDark,
-                  label: 'gpx_ignore_value_label'.tr,
-                  onTap: _pickDateTime,
-                  child: Text(
-                    _pickedDateTime?.toLocal().toString() ?? '—',
-                    style: _valueStyle(valueColor),
-                  ),
-                ),
-              if (widget.inspect.trackWhenValuesIso.isNotEmpty)
-                _buildRowField(
-                  isDark: isDark,
-                  label: 'gpx_ignore_pick_date_time'.tr,
-                  onTap: () async {
-                    await _pickDateTime();
-                    if (!mounted) return;
-                    setState(() {
-                      _selectedTimeIsoFromKmz = null;
-                    });
-                  },
-                  child: Text(
-                    _pickedDateTime?.toLocal().toString() ?? '—',
-                    style: _valueStyle(valueColor),
-                  ),
-                ),
-            ] else ...[
               _buildRowField(
                 isDark: isDark,
                 label: 'gpx_ignore_value_label'.tr,
@@ -364,46 +217,12 @@ class _KmzIgnoreRuleEditorViewState extends State<KmzIgnoreRuleEditorView> {
                 ),
               ),
             ],
-            if (_isTimeTag) ...[
-              _buildRowField(
-                isDark: isDark,
-                label: 'gpx_ignore_condition_label'.tr,
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<KmzIgnoreCondition>(
-                    isExpanded: true,
-                    isDense: true,
-                    itemHeight: null,
-                    value: condOptions.contains(_condition)
-                        ? _condition
-                        : condOptions.first,
-                    icon: const SizedBox.shrink(),
-                    dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                    style: _valueStyle(valueColor),
-                    items: condOptions
-                        .map(
-                          (c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(
-                              _conditionLabel(c),
-                              overflow: TextOverflow.ellipsis,
-                              style: _valueStyle(valueColor),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (c) {
-                      if (c != null) setState(() => _condition = c);
-                    },
-                  ),
-                ),
-              ),
-            ],
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 28),
               child: Center(
                 child: ElevatedButton(
                   style: saveStyle,
-                  onPressed: _save,
+                  onPressed: hasTags && _effectiveValue().isNotEmpty ? _save : null,
                   child: Text(
                     'gpx_ignore_save_rule'.tr,
                     style: GoogleFonts.kumbhSans(

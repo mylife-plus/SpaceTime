@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/modules/memories/views/memory_view.dart';
 
-/// Fade-in push — lighter than Cupertino on dark mode (less compositing during motion).
-const Duration memoryViewRouteDuration = Duration(milliseconds: 220);
+/// Cupertino slide — fully opaque over map/add-memories (fadeIn showed map tiles underneath).
+const Duration memoryViewRouteDuration = Duration(milliseconds: 320);
 
-/// Pushes [MemoryView]. Heavy init is deferred until after [memoryViewRouteDuration].
+/// Pushes [MemoryView] with the same transition from map, add-memories, and memory card edit.
 Future<T?> openMemoryView<T>({
   bool editMode = false,
   Map<String, dynamic>? memoryData,
@@ -14,9 +14,9 @@ Future<T?> openMemoryView<T>({
   final route = Get.to<T>(
     () => MemoryView(editMode: editMode, memoryData: memoryData),
     binding: binding,
-    transition: Transition.fadeIn,
+    transition: Transition.cupertino,
     duration: memoryViewRouteDuration,
-    curve: Curves.easeOut,
+    curve: Curves.easeOutCubic,
     opaque: true,
   );
   return route ?? Future<T?>.value(null);

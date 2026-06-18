@@ -378,11 +378,11 @@ class MapControllerNew extends GetxController {
 
   /// Handle style loaded callback
   void onStyleLoaded(mapbox.StyleLoadedEventData data) {
-    Future.delayed(Duration(milliseconds: 1), () async {
+    Future.delayed(const Duration(milliseconds: 1), () async {
       isStyleReady.value = true;
       _initializeMapAfterCreation();
       await loadMemoriesFromDB();
-      showLoadedDataOnMap();
+      await showLoadedDataOnMap();
     });
   }
 
@@ -4572,8 +4572,8 @@ class MapControllerNew extends GetxController {
     final List<Map<String, dynamic>> memoriesWithoutLocation = [];
 
     for (final memory in memories) {
-      final lat = memory['location_latitude'] as double?;
-      final lng = memory['location_longitude'] as double?;
+      final lat = _toDouble(memory['location_latitude']);
+      final lng = _toDouble(memory['location_longitude']);
 
       // Keep memories without location data separate
       if (lat == null || lng == null) {
@@ -4604,8 +4604,12 @@ class MapControllerNew extends GetxController {
 
         for (int i = 0; i < group.length; i++) {
           final memory = Map<String, dynamic>.from(group[i]);
-          final originalLat = memory['location_latitude'] as double;
-          final originalLng = memory['location_longitude'] as double;
+          final originalLat = _toDouble(memory['location_latitude']);
+          final originalLng = _toDouble(memory['location_longitude']);
+          if (originalLat == null || originalLng == null) {
+            spreadMemories.add(memory);
+            continue;
+          }
 
           // Calculate offset in meters (approximately 20 meters)
           // 1 degree latitude ≈ 111,320 meters

@@ -55,8 +55,10 @@ class MediaGpsUploadController extends GetxController {
   final RxString selectedEndDateKey = ''.obs;
 
   final RxInt rawFileCount = 0.obs;
+  final RxInt ignoredEntryCount = 0.obs;
   final RxInt duplicateHintCount = 0.obs;
   final RxInt noGpsCount = 0.obs;
+  final RxInt totalEntryCount = 0.obs;
   final RxInt newMemoriesCount = 0.obs;
   final RxInt pastUploadLogCount = 0.obs;
 
@@ -583,6 +585,12 @@ class MediaGpsUploadController extends GetxController {
 
     var noGps = 0;
     var dupAssets = 0;
+    var outsideDateRange = 0;
+
+    final startKey = selectedStartDateKey.value;
+    final endKey = selectedEndDateKey.value;
+    final hasDateRange = startKey.isNotEmpty && endKey.isNotEmpty;
+
     for (final id in selectedAssetIds) {
       final a = _assetById(id);
       if (a == null) continue;
@@ -592,11 +600,18 @@ class MediaGpsUploadController extends GetxController {
       }
       if (_isPickedAssetAlreadyImported(a)) {
         dupAssets++;
+        continue;
+      }
+      if (hasDateRange) {
+        final key = _dateKeyFromDateTime(a.createTime);
+        if (key.compareTo(startKey) < 0 || key.compareTo(endKey) > 0) {
+          outsideDateRange++;
+        }
       }
     }
     noGpsCount.value = noGps;
 
-    // Date range reflects remaining uploadable media (before the date filter).
+    // Date picker keys: eligible files before the date filter (GPS, not imported).
     final remainingBeforeDateFilter = _filterNewClusterCandidates(
       _buildClusterCandidates(applyDateRange: false),
     );
@@ -605,10 +620,20 @@ class MediaGpsUploadController extends GetxController {
     );
 
     final candidates = _buildClusterCandidates(applyDateRange: true);
-    final filtered = _filterNewClusterCandidates(candidates);
-    final dup = _countClusterDuplicates(candidates) + dupAssets;
+    var ignoredByCluster = 0;
+    for (final c in candidates) {
+      ignoredByCluster += c.items.length - 1;
+    }
 
-    duplicateHintCount.value = dup;
+    final filtered = _filterNewClusterCandidates(candidates);
+    final dupClusters = _countClusterDuplicates(candidates);
+
+    ignoredEntryCount.value = noGps + outsideDateRange + ignoredByCluster;
+    duplicateHintCount.value = dupClusters + dupAssets;
+    totalEntryCount.value = (rawFileCount.value -
+            ignoredEntryCount.value -
+            duplicateHintCount.value)
+        .clamp(0, 1 << 30);
     _lastCandidates = filtered;
     newMemoriesCount.value = filtered.length;
   }
@@ -1156,7 +1181,7 @@ class MediaGpsUploadController extends GetxController {
           final logId = await DatabaseHelper.instance.insertTrackImportLog(
             fileName: 'Media GPS $stamp',
             rawCount: rawFileCount.value,
-            ignoredCount: noGpsCount.value + duplicateHintCount.value,
+            ignoredCount: ignoredEntryCount.value,
             dupCount: dupRuntime,
             newCount: inserted,
             importSource: DatabaseHelper.trackImportSourceMediaGps,
@@ -1275,11 +1300,6 @@ class MediaGpsUploadController extends GetxController {
     return bestId;
   }
 
-  /// Remaining entries shown to the user:
-  /// raw selected − files without GPS − duplicate entries.
-  int get totalUsableSelected {
-    final n =
-        rawFileCount.value - noGpsCount.value - duplicateHintCount.value;
-    return n < 0 ? 0 : n;
-  }
+  /// Remaining entries = raw − ignored − duplicates (same as GPX/KMZ upload).
+  int get totalUsableSelected => totalEntryCount.value;
 }

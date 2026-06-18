@@ -79,4 +79,32 @@ class KmzIgnoreRule {
         return '$k:$v$suffix';
     }
   }
+
+  /// Timestamp/date/time fields are excluded from the ignore-rule tag picker.
+  static const Set<String> _excludedDateTimeTagKeys = {
+    'when',
+    'timestamp',
+    'created',
+    'creationtime',
+    'datetime',
+    'date',
+    'time',
+    'begin',
+    'end',
+    'start',
+    'stop',
+    'started',
+    'ended',
+  };
+
+  static bool isExcludedDateTimeTagKey(String key) {
+    final k = key.trim().toLowerCase();
+    if (k.isEmpty) return true;
+    if (_excludedDateTimeTagKeys.contains(k)) return true;
+    if (k.endsWith('time') || k.endsWith('date') || k.endsWith('timestamp')) {
+      return true;
+    }
+    if (k.contains('timestamp') || k.contains('datetime')) return true;
+    return false;
+  }
 }

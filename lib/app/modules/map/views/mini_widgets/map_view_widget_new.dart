@@ -222,8 +222,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           final filterOpen = controller.isFilterOpen.value;
           final filterStatusBarColor = isDark
               ? uiController.darkBackgroundColor
-              : uiController
-                  .getLightModeBackgroundColor(uiController.mainColor.value);
+              : Colors.white;
           return AnnotatedRegion<SystemUiOverlayStyle>(
             // Transparent status bar; the map renders edge-to-edge underneath it.
             value: AppSystemUi.overlayStyle(
@@ -432,8 +431,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           controller.handleMapTap1(c);
           //
         },
-        onStyleLoadedListener: (_) {
-          controller.isStyleReady.value = true;
+        onStyleLoadedListener: (styleLoadedEventData) {
+          controller.onStyleLoaded(styleLoadedEventData);
         },
       );
     }
@@ -493,8 +492,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           textureView:
               io.Platform.isAndroid, // Only use texture view on Android
           onMapCreated: (mapboxMap) async {
-            controller.mapboxMap = mapboxMap;
-
             debugPrint(
               '[MapViewWidgetNew] 🗺️ onMapCreated callback triggered',
             );
@@ -506,6 +503,9 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             debugPrint(
               '[MapViewWidgetNew] 🌐 Online mode ENABLED - localhost tile server can now be accessed',
             );
+
+            // Before loadStyleJson so onStyleLoaded cannot be undone by a late onMapCreated.
+            controller.onMapCreated(mapboxMap);
 
             // Load the custom style JSON with local tile server URLs
             debugPrint(
@@ -531,8 +531,6 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             debugPrint(
               '[MapViewWidgetNew] ✅ Custom style JSON loaded into Mapbox successfully',
             );
-
-            controller.onMapCreated(mapboxMap);
           },
           onStyleLoadedListener: (styleLoadedEventData) async {
             debugPrint(

@@ -328,35 +328,33 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
     final red = Colors.red.shade700;
     return Obx(() {
       final raw = controller.rawFileCount.value;
-      final noGps = controller.noGpsCount.value;
+      final ign = controller.ignoredEntryCount.value;
       final dup = controller.duplicateHintCount.value;
-      final usable = controller.totalUsableSelected;
+      final tot = controller.totalEntryCount.value;
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Column(
           children: [
             Text(
-              trKey('media_gps_stats_raw_files', [raw]),
+              trKey('gpx_entries_line', [raw]),
               style: AppFonts.regular(16, color: normal),
               textAlign: TextAlign.center,
             ),
-            if (noGps > 0) ...[
-              const SizedBox(height: 4),
-              Text(
-                trKey('media_gps_stats_without_gps', [noGps]),
-                style: AppFonts.regular(16, color: Colors.orange.shade800),
-                textAlign: TextAlign.center,
-              ),
-            ],
             const SizedBox(height: 4),
             Text(
-              trKey('media_gps_stats_duplicate_files', [dup]),
+              trKey('gpx_ignored_entries_line', [ign]),
+              style: AppFonts.regular(16, color: red),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              trKey('gpx_duplicate_entries_line', [dup]),
               style: AppFonts.regular(16, color: red),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Text(
-              trKey('media_gps_stats_total_usable', [usable]),
+              trKey('gpx_total_entries_line', [tot]),
               style: AppFonts.bold(16, color: normal),
               textAlign: TextAlign.center,
             ),

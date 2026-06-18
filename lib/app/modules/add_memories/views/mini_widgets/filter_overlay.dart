@@ -15,26 +15,6 @@ import '../../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
 
-Color _memoriesFilterOverlayBackground(UiController ui) {
-  if (ui.darkMode.value) {
-    return ui.darkBackgroundColor;
-  }
-  return ui.getLightModeBackgroundColor(ui.mainColor.value);
-}
-
-Color _filterSectionSurface(UiController ui) {
-  if (ui.darkMode.value) {
-    return ui.darkSurfaceColor;
-  }
-  return Colors.white;
-}
-
-Color _filterChipBackground(UiController ui) {
-  return ui.darkMode.value
-      ? Colors.white.withValues(alpha: 0.12)
-      : ui.currentMainColor.withValues(alpha: 0.12);
-}
-
 class MemoriesFilterOverlay extends StatefulWidget {
   final bool isOpenedFromMap;
   const MemoriesFilterOverlay({super.key, required this.isOpenedFromMap});
@@ -214,12 +194,19 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
             : null;
     final uiController = Get.find<UiController>();
     controller.isOpenedFromMap = widget.isOpenedFromMap;
-    return Obx(() {
-      final bg = _memoriesFilterOverlayBackground(uiController);
-      return Scaffold(
-        backgroundColor: bg,
-        body: Container(
-          color: bg,
+    return Scaffold(
+      body: Obx(
+        () => Container(
+          decoration: BoxDecoration(
+            color:
+                uiController.darkMode.value
+                    ? uiController.mainColor.value == 'blue'
+                        ? const Color(0xFF001937)
+                        : uiController.iconColor2
+                    : uiController.mainColor.value == 'blue'
+                    ? const Color(0xFF92C3FF)
+                    : uiController.primaryColor,
+          ),
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,
           child: Padding(
@@ -376,9 +363,12 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                               .toList(), // Pass previously selected categories
                                       isInFilterMode:
                                           true, // Remove bottom padding in filter mode
-                                      backgroundColor: _filterSectionSurface(
-                                        uiController,
-                                      ),
+                                      backgroundColor:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(
+                                                alpha: 0.2,
+                                              )
+                                              : Colors.white,
                                       borderRadius: 5,
                                     ),
 
@@ -423,9 +413,17 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                                     );
                                                   },
                                                   backgroundColor:
-                                                      _filterChipBackground(
-                                                        uiController,
-                                                      ),
+                                                      uiController
+                                                              .darkMode
+                                                              .value
+                                                          ? Colors.white
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              )
+                                                          : Colors.blue
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
                                                 );
                                               }).toList(),
                                         ),
@@ -483,9 +481,12 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                               .toList(), // Pass previously selected hashtags
                                       isInFilterMode:
                                           true, // Remove bottom padding in filter mode
-                                      backgroundColor: _filterSectionSurface(
-                                        uiController,
-                                      ),
+                                      backgroundColor:
+                                          uiController.darkMode.value
+                                              ? Colors.white.withValues(
+                                                alpha: 0.2,
+                                              )
+                                              : Colors.white,
                                       borderRadius: 5,
                                     ),
 
@@ -529,9 +530,17 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                                     );
                                                   },
                                                   backgroundColor:
-                                                      _filterChipBackground(
-                                                        uiController,
-                                                      ),
+                                                      uiController
+                                                              .darkMode
+                                                              .value
+                                                          ? Colors.white
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              )
+                                                          : Colors.blue
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
                                                 );
                                               }).toList(),
                                         ),
@@ -577,9 +586,10 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                       .toList(), // Pass previously selected contacts
                               isInFilterMode:
                                   true, // Remove bottom padding in filter mode
-                              backgroundColor: _filterSectionSurface(
-                                uiController,
-                              ),
+                              backgroundColor:
+                                  uiController.darkMode.value
+                                      ? Colors.white.withValues(alpha: 0.2)
+                                      : Colors.white,
                               borderRadius: 5,
                             ),
                           ),
@@ -612,9 +622,14 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
                                           );
                                           controller.removeContact(contact);
                                         },
-                                        backgroundColor: _filterChipBackground(
-                                          uiController,
-                                        ),
+                                        backgroundColor:
+                                            uiController.darkMode.value
+                                                ? Colors.white.withValues(
+                                                  alpha: 0.2,
+                                                )
+                                                : Colors.blue.withValues(
+                                                  alpha: 0.1,
+                                                ),
                                       );
                                     }).toList(),
                               ),
@@ -630,8 +645,8 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
             ),
           ),
         ),
-      );
-    });
+      ),
+    );
   }
 
   Future<void> closefilterAndReset(
