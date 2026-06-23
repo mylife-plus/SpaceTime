@@ -16,6 +16,16 @@ Future<void> refreshTrackUploadScreensPastCounts() async {
   }
 }
 
+/// Reload in-memory duplicate caches on upload screens after memories are deleted.
+Future<void> refreshUploadDedupeCachesAfterMemoryDeletion() async {
+  if (Get.isRegistered<MediaGpsUploadController>()) {
+    await Get.find<MediaGpsUploadController>().reloadDedupeFromDatabase();
+  }
+  if (Get.isRegistered<GpxKmzUploadController>()) {
+    await Get.find<GpxKmzUploadController>().reloadDedupeFromDatabase();
+  }
+}
+
 Future<void> refreshConsumersAfterTrackImportDeletion({
   String logTag = 'TrackImportDeletion',
 }) async {
@@ -40,4 +50,5 @@ Future<void> refreshConsumersAfterTrackImportDeletion({
     }
   }
   await refreshTrackUploadScreensPastCounts();
+  await refreshUploadDedupeCachesAfterMemoryDeletion();
 }

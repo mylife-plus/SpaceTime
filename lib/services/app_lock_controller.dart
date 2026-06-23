@@ -11,8 +11,6 @@ import 'package:spacetime/app/shared/widgets/restart_widget.dart';
 /// Locks the app with device biometrics / PIN when enabled in Security settings.
 /// Persists [app_lock_enabled] (same key as [UiController.phoneVerificationEnabled]).
 ///
-/// **Android:** PIN/biometric app lock is disabled (no overlay, no [LocalAuthentication]).
-///
 /// After a cold start, requires auth immediately if lock is enabled.
 /// After [paused] → [resumed], requires auth only if the app was in background
 /// for at least [_lockAfterBackgroundDuration].
@@ -54,13 +52,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
   final LocalAuthentication _localAuth = LocalAuthentication();
 
-  bool get _appLockDisabledOnAndroid {
-    _log('_appLockDisabledOnAndroid', 'enter');
-    final disabled = Platform.isAndroid;
-    _log('_appLockDisabledOnAndroid', 'exit', 'disabled=$disabled');
-    return disabled;
-  }
-
   @override
   void onInit() {
     _log('onInit', 'enter');
@@ -84,12 +75,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   Future<void> _bootstrap() async {
     _log('_bootstrap', 'enter');
     try {
-      if (_appLockDisabledOnAndroid) {
-        _log('_bootstrap', 'android disabled — clearing lock');
-        isLocked.value = false;
-        _log('_bootstrap', 'exit early', 'isLocked=${isLocked.value}');
-        return;
-      }
       _log('_bootstrap', 'before SharedPreferences.getInstance');
       final prefs = await SharedPreferences.getInstance();
       _log('_bootstrap', 'after SharedPreferences.getInstance');
@@ -419,10 +404,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       _log('_onAppResumed', 'exit early', 'auth in progress');
       return;
     }
-    if (_appLockDisabledOnAndroid) {
-      _log('_onAppResumed', 'exit early', 'android disabled');
-      return;
-    }
 
     // An external picker (file/document picker) is/was open — don't lock on its
     // return. Consume the one-shot flag too so it can't skip an unrelated resume.
@@ -501,15 +482,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
 
     authError.value = null;
     _log('authenticate', 'after authError cleared');
-
-    if (_appLockDisabledOnAndroid) {
-      _log('authenticate', 'android disabled — unlocking');
-      isLocked.value = false;
-      _log('authenticate', 'after isLocked=false');
-      authError.value = null;
-      _log('authenticate', 'exit', 'android bypass');
-      return;
-    }
 
     if (!Platform.isAndroid && !Platform.isIOS) {
       _log('authenticate', 'unsupported platform — unlocking');
@@ -596,10 +568,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   /// User enabled app lock in Security settings — show lock, require manual unlock.
   Future<void> onAppLockEnabledInSettings() async {
     _log('onAppLockEnabledInSettings', 'enter');
-    if (_appLockDisabledOnAndroid) {
-      _log('onAppLockEnabledInSettings', 'exit early', 'android disabled');
-      return;
-    }
     try {
       _log('onAppLockEnabledInSettings', 'before SharedPreferences.getInstance');
       final prefs = await SharedPreferences.getInstance();

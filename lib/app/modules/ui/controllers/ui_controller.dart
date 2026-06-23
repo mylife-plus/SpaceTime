@@ -72,21 +72,7 @@ class UiController extends GetxController {
   }
 
   /// App lock (biometrics / device PIN). Synced with [AppLockController].
-  /// Not available on Android (PIN/biometric gate disabled there).
   Future<void> setAppLockEnabled(bool value) async {
-    if (Platform.isAndroid) {
-      phoneVerificationEnabled.value = false;
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('app_lock_enabled', false);
-      } catch (e) {
-        debugPrint('[UiController] Error saving app lock: $e');
-      }
-      if (Get.isRegistered<AppLockController>()) {
-        Get.find<AppLockController>().clearLockIfDisabled();
-      }
-      return;
-    }
     phoneVerificationEnabled.value = value;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -146,14 +132,7 @@ class UiController extends GetxController {
       mainColor.value = savedMainColor;
 
       final savedAppLock = prefs.getBool('app_lock_enabled') ?? false;
-      if (Platform.isAndroid) {
-        phoneVerificationEnabled.value = false;
-        if (savedAppLock) {
-          await prefs.setBool('app_lock_enabled', false);
-        }
-      } else {
-        phoneVerificationEnabled.value = savedAppLock;
-      }
+      phoneVerificationEnabled.value = savedAppLock;
 
       final savedLang = prefs.getString('selected_language') ?? 'en';
       if (kSupportedLanguages.any((l) => l.code == savedLang)) {

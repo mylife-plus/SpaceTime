@@ -25,6 +25,7 @@ import 'package:spacetime/app/utils/concurrency.dart';
 import 'package:spacetime/services/app_lock_controller.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
 import 'package:spacetime/services/memory_import_blocking_controller.dart';
+import 'package:spacetime/app/utils/memory_sort.dart';
 import 'package:spacetime/app/widgets/app_date_time_pickers.dart';
 
 class MediaGpsUploadController extends GetxController {
@@ -141,6 +142,10 @@ class MediaGpsUploadController extends GetxController {
   }
 
   Future<void> _refreshDedupeDataAndRecompute() async {
+    _existingTrackFingerprints = {};
+    _existingCoordinateRows = [];
+    _importedGalleryAssetIds = {};
+    _importedGalleryMediaCreatedAtKeys = {};
     try {
       final rows = await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
       final fp = <String>{};
@@ -811,8 +816,10 @@ class MediaGpsUploadController extends GetxController {
       _showNoNewMemoriesToUploadSnackbar();
       return;
     }
-    final sorted = [..._lastCandidates]
-      ..sort((a, b) => a.when.compareTo(b.when));
+    final sorted = MemorySort.sortedByWhenNewestFirst(
+      _lastCandidates,
+      (c) => c.when,
+    );
     final coords = sorted
         .map((e) => (lat: e.latitude, lng: e.longitude))
         .toList();

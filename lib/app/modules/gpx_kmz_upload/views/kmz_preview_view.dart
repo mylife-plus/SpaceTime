@@ -5,6 +5,7 @@ import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/controllers/gpx_kmz_upload_controller.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_import_pipeline.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/utils/memory_sort.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/app/widgets/track_upload_refresh_icon.dart';
 
@@ -173,8 +174,11 @@ class _KmzPreviewViewState extends State<KmzPreviewView> {
       candidates.length == locationLines.length,
       'locationLines must align with candidates',
     );
-    final from = candidates.isEmpty ? null : candidates.first.when.toLocal();
-    final to = candidates.isEmpty ? null : candidates.last.when.toLocal();
+    final rangeDates = MemorySort.whenRange(
+      candidates.map((c) => c.when.toLocal()),
+    );
+    final from = rangeDates.from;
+    final to = rangeDates.to;
     final range = (from == null || to == null)
         ? '-'
         : '${_dateLabel(from)} – ${_dateLabel(to)}';

@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:spacetime/app/modules/gpx_kmz_upload/models/kmz_ignore_rule.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_inspector.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/spacetime_backup_zip.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_parser.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 
@@ -194,6 +195,9 @@ class KmzImportPipeline {
     }
 
     final archive = _decodeZipArchive(bytes);
+    if (archive != null && SpaceTimeBackupZip.archiveIsBackup(archive)) {
+      throw InvalidTrackFileException('spacetime_backup');
+    }
     if (archive == null || !_archiveHasTrackData(archive)) {
       throw InvalidTrackFileException('zip_no_track_data');
     }

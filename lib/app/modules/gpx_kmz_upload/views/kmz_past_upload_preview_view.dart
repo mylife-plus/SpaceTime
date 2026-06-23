@@ -12,6 +12,7 @@ import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_import_delet
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_preview_geocode.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'package:spacetime/app/utils/memory_sort.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/app/widgets/track_past_upload_delete_confirm_dialog.dart';
 import 'package:spacetime/app/widgets/track_upload_refresh_icon.dart';
@@ -94,6 +95,7 @@ class _PastPreviewThumb {
 
 class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
   late final UiController _ui;
+  late final List<Map<String, dynamic>> items;
   final Map<int, String> _resolvedLocations = <int, String>{};
   final Map<int, List<_PastPreviewThumb>> _mediaByMemoryId =
       <int, List<_PastPreviewThumb>>{};
@@ -124,6 +126,7 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
   void initState() {
     super.initState();
     _ui = Get.find<UiController>();
+    items = MemorySort.trackLogItemsNewestFirst(widget.items);
     _bootstrap();
   }
 
@@ -137,13 +140,13 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
 
   Future<void> _preloadLocationsProgressive() async {
     const batchSize = 12;
-    for (var start = 0; start < widget.items.length; start += batchSize) {
-      final end = (start + batchSize > widget.items.length)
-          ? widget.items.length
+    for (var start = 0; start < items.length; start += batchSize) {
+      final end = (start + batchSize > items.length)
+          ? items.length
           : start + batchSize;
       final tasks = <Future<void>>[];
       for (var i = start; i < end; i++) {
-        tasks.add(_resolveAndStoreLocation(i, widget.items[i]));
+        tasks.add(_resolveAndStoreLocation(i, items[i]));
       }
       await Future.wait(tasks);
       if (mounted) setState(() {});
@@ -174,7 +177,7 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
     final root = appDir.path;
     final db = DatabaseHelper.instance;
     final ids = <int>{};
-    for (final item in widget.items) {
+    for (final item in items) {
       final mid = _memoryIdFrom(item);
       if (mid != null) ids.add(mid);
     }
@@ -230,13 +233,15 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
   Widget build(BuildContext context) {
     final count =
         (widget.logRow[DatabaseHelper.columnTrackLogNewCount] ?? 0) as int;
-    final parsed = widget.items
-        .map((e) => DateTime.tryParse((e[DatabaseHelper.columnTrackLogItemWhen] ?? '').toString())?.toLocal())
-        .whereType<DateTime>()
-        .toList()
-      ..sort();
-    final from = parsed.isEmpty ? null : parsed.first;
-    final to = parsed.isEmpty ? null : parsed.last;
+    final rangeDates = MemorySort.whenRange(
+      items.map(
+        (e) => DateTime.tryParse(
+          (e[DatabaseHelper.columnTrackLogItemWhen] ?? '').toString(),
+        )?.toLocal(),
+      ).whereType<DateTime>(),
+    );
+    final from = rangeDates.from;
+    final to = rangeDates.to;
     final range = (from == null || to == null)
         ? '-'
         : '${_dateLabel(from)} – ${_dateLabel(to)}';
@@ -254,7 +259,7 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
         ),
         backgroundColor: pageBg,
         body: ListView.builder(
-          itemCount: 1 + widget.items.length,
+          itemCount: 1 + items.length,
           itemBuilder: (context, index) {
             if (index == 0) {
               return TrackPreviewSummaryCard(
@@ -267,9 +272,9 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
             final i = index - 1;
             return _buildReadOnlyMemoryStyleCard(
               ui: _ui,
-              item: widget.items[i],
+              item: items[i],
               locationText: _resolvedLocations[i] ?? 'Region',
-              memoryId: _memoryIdFrom(widget.items[i]),
+              memoryId: _memoryIdFrom(items[i]),
             );
           },
         ),

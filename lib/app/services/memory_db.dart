@@ -898,6 +898,27 @@ class DatabaseHelper {
     Iterable<ImportedGalleryAssetRecord> records,
   ) async {
     final db = await database;
+    await _insertImportedGalleryAssetRecords(db, memoryId, records);
+  }
+
+  /// Replaces gallery image/video dedupe rows for [memoryId] only — other
+  /// memories' dedupe entries are never touched.
+  Future<void> replaceImportedGalleryDedupeForMemory(
+    int memoryId,
+    Iterable<ImportedGalleryAssetRecord> records,
+  ) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await purgeImportedGalleryDedupeForMemory(txn, memoryId);
+      await _insertImportedGalleryAssetRecords(txn, memoryId, records);
+    });
+  }
+
+  Future<void> _insertImportedGalleryAssetRecords(
+    DatabaseExecutor db,
+    int memoryId,
+    Iterable<ImportedGalleryAssetRecord> records,
+  ) async {
     final batch = db.batch();
     var count = 0;
     for (final record in records) {
@@ -917,6 +938,18 @@ class DatabaseHelper {
     }
     if (count == 0) return;
     await batch.commit(noResult: true);
+  }
+
+  /// Removes gallery image/video dedupe rows for [memoryId] only.
+  Future<int> purgeImportedGalleryDedupeForMemory(
+    DatabaseExecutor db,
+    int memoryId,
+  ) async {
+    return db.delete(
+      tableImportedGalleryAssets,
+      where: '$columnGalleryAssetMemoryId = ?',
+      whereArgs: [memoryId],
+    );
   }
 
   Future<List<Map<String, dynamic>>> queryMemoriesGalleryMergeCandidates() async {
@@ -1060,7 +1093,7 @@ class DatabaseHelper {
       tableTrackImportLogItems,
       where: '$columnTrackLogItemLogId = ?',
       whereArgs: [logId],
-      orderBy: '$columnTrackLogItemWhen ASC',
+      orderBy: '$columnTrackLogItemWhen DESC',
     );
   }
 
@@ -1352,11 +1385,14 @@ class DatabaseHelper {
   Future<int> deleteMemory(int id) async {
     await purgeMemoryMediaFilesFromDisk(id);
     final Database db = await instance.database;
-    return db.delete(
-      tableMemories,
-      where: '$columnId = ?',
-      whereArgs: [id],
-    );
+    return db.transaction((txn) async {
+      await purgeImportedGalleryDedupeForMemory(txn, id);
+      return txn.delete(
+        tableMemories,
+        where: '$columnId = ?',
+        whereArgs: [id],
+      );
+    });
   }
 
   // Image operations

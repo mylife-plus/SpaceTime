@@ -16,11 +16,13 @@ import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_inspector.
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_parser.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_ignore_rule_editor_view.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_past_uploads_view.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/spacetime_backup_zip.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_preview_geocode.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/kmz_preview_view.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'package:spacetime/app/utils/memory_sort.dart';
 import 'package:spacetime/app/widgets/app_date_time_pickers.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
 import 'package:spacetime/services/memory_import_blocking_controller.dart';
@@ -150,6 +152,15 @@ class GpxKmzUploadController extends GetxController {
 
   Future<void> refreshPastUploadCount() => _reloadPastUploadCount();
 
+  /// Reload duplicate detection after memories are deleted or erased.
+  Future<void> reloadDedupeFromDatabase() async {
+    if (_kmzPath != null && filePathController.text.trim().isNotEmpty) {
+      await runPreview();
+    } else {
+      duplicateEntryCount.value = 0;
+    }
+  }
+
   /// Opens picker once when entering from Settings (no file yet).
   Future<void> pickKmzFileFromSettingsEntry() async {
     if (_kmzPath != null && _kmzPath!.isNotEmpty) return;
@@ -177,8 +188,16 @@ class GpxKmzUploadController extends GetxController {
       _showInvalidTrackFileSnackbar();
       return;
     }
+    if (SpaceTimeBackupZip.isBackupFileName(f.name)) {
+      _showInvalidTrackFileSnackbar();
+      return;
+    }
     final path = f.path;
     if (path != null && path.isNotEmpty) {
+      if (await SpaceTimeBackupZip.isBackupZipFile(path)) {
+        _showInvalidTrackFileSnackbar();
+        return;
+      }
       _kmzPath = path;
       _excludedFingerprints.clear(); // fresh file → no carried-over deletions
       filePathController.text = p.basename(path);
@@ -486,8 +505,10 @@ class GpxKmzUploadController extends GetxController {
       );
       return;
     }
-    final sorted = [...stats.candidates]
-      ..sort((a, b) => a.when.compareTo(b.when));
+    final sorted = MemorySort.sortedByWhenNewestFirst(
+      stats.candidates,
+      (c) => c.when,
+    );
     final coords = sorted
         .map((e) => (lat: e.latitude, lng: e.longitude))
         .toList();

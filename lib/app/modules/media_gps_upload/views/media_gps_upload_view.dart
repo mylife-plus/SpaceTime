@@ -328,7 +328,6 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
     final red = Colors.red.shade700;
     return Obx(() {
       final raw = controller.rawFileCount.value;
-      final ign = controller.ignoredEntryCount.value;
       final dup = controller.duplicateHintCount.value;
       final tot = controller.totalEntryCount.value;
       return Padding(
@@ -338,12 +337,6 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
             Text(
               trKey('gpx_entries_line', [raw]),
               style: AppFonts.regular(16, color: normal),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              trKey('gpx_ignored_entries_line', [ign]),
-              style: AppFonts.regular(16, color: red),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),

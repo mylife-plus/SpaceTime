@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/models/kmz_ignore_rule.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_parser.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/spacetime_backup_zip.dart';
 
 DateTime? _parseKmlWhenForInspect(String raw) {
   var s = raw.trim();
@@ -78,6 +79,10 @@ class KmzKmlInspector {
       archive = ZipDecoder().decodeBytes(bytes);
     } catch (e, st) {
       debugPrint('[KmzKmlInspector] zip decode failed: $e\n$st');
+      return null;
+    }
+    if (SpaceTimeBackupZip.isBackupFileName(kmzPath) ||
+        SpaceTimeBackupZip.archiveIsBackup(archive)) {
       return null;
     }
     ArchiveFile? kmlFile;

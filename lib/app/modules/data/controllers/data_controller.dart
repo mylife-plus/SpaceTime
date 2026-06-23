@@ -12,10 +12,9 @@ import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/modules/data/services/full_backup_service.dart';
 import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/bindings/gpx_kmz_upload_binding.dart';
-import 'package:spacetime/app/modules/gpx_kmz_upload/controllers/gpx_kmz_upload_controller.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/gpx_kmz_upload_view.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_import_deletion_refresh.dart';
 import 'package:spacetime/app/modules/media_gps_upload/bindings/media_gps_upload_binding.dart';
-import 'package:spacetime/app/modules/media_gps_upload/controllers/media_gps_upload_controller.dart';
 import 'package:spacetime/app/modules/media_gps_upload/views/media_gps_upload_view.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/services/memory_db.dart';
@@ -337,14 +336,9 @@ class DataController extends GetxController {
         map.showLoadedDataOnMap();
       }
 
-      // Refresh the GPS-upload dedupe caches; otherwise an already-open upload
-      // screen keeps flagging the now-deleted memories as duplicates.
-      if (Get.isRegistered<MediaGpsUploadController>()) {
-        await Get.find<MediaGpsUploadController>().reloadDedupeFromDatabase();
-      }
-      if (Get.isRegistered<GpxKmzUploadController>()) {
-        await Get.find<GpxKmzUploadController>().refreshPastUploadCount();
-      }
+      // Refresh upload dedupe caches on open upload screens.
+      await refreshUploadDedupeCachesAfterMemoryDeletion();
+      await refreshTrackUploadScreensPastCounts();
 
       showTrSnackbar(
         'backup_snackbar_erase_success',

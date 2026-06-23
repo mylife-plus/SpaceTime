@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_text.dart';
@@ -31,10 +29,7 @@ class SecurityView extends GetView<SecurityController> {
         () => SecurityTile(
           title: AppTexts.activePhoneVerification,
           isActive: controller.phoneVerificationEnabled.value,
-          onChanged:
-              Platform.isAndroid
-                  ? null
-                  : (value) => controller.setAppLockEnabled(value),
+          onChanged: (value) => controller.setAppLockEnabled(value),
         ),
       ),
     );

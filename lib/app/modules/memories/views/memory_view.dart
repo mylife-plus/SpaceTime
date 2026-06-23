@@ -1416,12 +1416,10 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         );
         await _ensureGalleryAssetIdsBeforeSave();
         final editGalleryRecords = _galleryAssetRecordsForSave;
-        if (editGalleryRecords.isNotEmpty) {
-          await DatabaseHelper.instance.recordImportedGalleryAssets(
-            _editingMemoryId!,
-            editGalleryRecords,
-          );
-        }
+        await DatabaseHelper.instance.replaceImportedGalleryDedupeForMemory(
+          _editingMemoryId!,
+          editGalleryRecords,
+        );
 
         if (shouldUpdateImages) {
           debugPrint('MemoryView: handleSave - EDIT MODE - Updating images');

@@ -6,6 +6,7 @@ import 'package:spacetime/app/modules/media_gps_upload/controllers/media_gps_upl
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_cluster_candidate.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_picked_asset.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
+import 'package:spacetime/app/utils/memory_sort.dart';
 import 'package:spacetime/app/widgets/appbar.dart';
 import 'package:spacetime/app/widgets/track_upload_refresh_icon.dart';
 
@@ -208,8 +209,11 @@ class _MediaGpsPreviewViewState extends State<MediaGpsPreviewView> {
       candidates.length == locationLines.length,
       'locationLines must align with candidates',
     );
-    final from = candidates.isEmpty ? null : candidates.first.when.toLocal();
-    final to = candidates.isEmpty ? null : candidates.last.when.toLocal();
+    final rangeDates = MemorySort.whenRange(
+      candidates.map((c) => c.when.toLocal()),
+    );
+    final from = rangeDates.from;
+    final to = rangeDates.to;
     final range = (from == null || to == null)
         ? '-'
         : '${_dateLabel(from)} – ${_dateLabel(to)}';
