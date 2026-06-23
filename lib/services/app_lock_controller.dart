@@ -12,8 +12,8 @@ import 'package:spacetime/app/shared/widgets/restart_widget.dart';
 /// Persists [app_lock_enabled] (same key as [UiController.phoneVerificationEnabled]).
 ///
 /// After a cold start, requires auth immediately if lock is enabled.
-/// After [paused] → [resumed], requires auth only if the app was in background
-/// for at least [_lockAfterBackgroundDuration].
+/// After [paused] → [resumed] (app still in memory), requires auth only if
+/// backgrounded for at least [_lockAfterBackgroundDuration].
 class AppLockController extends GetxController with WidgetsBindingObserver {
   static const _tag = '[AppLockController]';
 
@@ -81,16 +81,13 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       final enabled = prefs.getBool(_prefsKey) ?? false;
       _log('_bootstrap', 'after read prefs', 'enabled=$enabled');
       if (enabled) {
-        _log('_bootstrap', 'before _wasRecentlyAuthenticated');
-        final recent = await _wasRecentlyAuthenticated();
-        _log('_bootstrap', 'after _wasRecentlyAuthenticated', 'recent=$recent');
-        if (recent) {
-          _log('_bootstrap', 'skipping lock — authenticated within 10 min');
+        if (await _consumeSkipColdStartLockOnce()) {
+          _log('_bootstrap', 'skipping lock — one-shot after permission restart');
           isLocked.value = false;
           _log('_bootstrap', 'exit early', 'isLocked=${isLocked.value}');
           return;
         }
-        _log('_bootstrap', 'setting isLocked=true');
+        _log('_bootstrap', 'setting isLocked=true (cold start)');
         isLocked.value = true;
         _log('_bootstrap', 'before _scheduleColdStartAuthentication');
         _scheduleColdStartAuthentication();
@@ -103,48 +100,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       _log('_bootstrap', 'finally', '_bootstrapDone=true');
     }
     _log('_bootstrap', 'exit', 'isLocked=${isLocked.value}');
-  }
-
-  Future<void> _saveLastAuthTimestamp() async {
-    _log('_saveLastAuthTimestamp', 'enter');
-    try {
-      _log('_saveLastAuthTimestamp', 'before SharedPreferences.getInstance');
-      final prefs = await SharedPreferences.getInstance();
-      _log('_saveLastAuthTimestamp', 'after SharedPreferences.getInstance');
-      final now = DateTime.now().millisecondsSinceEpoch;
-      _log('_saveLastAuthTimestamp', 'before setInt', 'ms=$now');
-      await prefs.setInt(_prefsKeyLastAuthAt, now);
-      _log('_saveLastAuthTimestamp', 'after setInt');
-    } catch (e) {
-      _log('_saveLastAuthTimestamp', 'catch', e);
-    }
-    _log('_saveLastAuthTimestamp', 'exit');
-  }
-
-  Future<bool> _wasRecentlyAuthenticated() async {
-    _log('_wasRecentlyAuthenticated', 'enter');
-    try {
-      _log('_wasRecentlyAuthenticated', 'before SharedPreferences.getInstance');
-      final prefs = await SharedPreferences.getInstance();
-      _log('_wasRecentlyAuthenticated', 'after SharedPreferences.getInstance');
-      final ms = prefs.getInt(_prefsKeyLastAuthAt);
-      _log('_wasRecentlyAuthenticated', 'after getInt', 'ms=$ms');
-      if (ms == null) {
-        _log('_wasRecentlyAuthenticated', 'exit', 'result=false (no timestamp)');
-        return false;
-      }
-      final elapsed = DateTime.now().difference(
-        DateTime.fromMillisecondsSinceEpoch(ms),
-      );
-      _log('_wasRecentlyAuthenticated', 'elapsed computed', 'elapsed=${elapsed.inSeconds}s');
-      final result = elapsed < _lockAfterBackgroundDuration;
-      _log('_wasRecentlyAuthenticated', 'exit', 'result=$result');
-      return result;
-    } catch (e) {
-      _log('_wasRecentlyAuthenticated', 'catch', e);
-      _log('_wasRecentlyAuthenticated', 'exit', 'result=false');
-      return false;
-    }
   }
 
   /// iOS can hang if [LocalAuthentication.authenticate] runs before the first frame
@@ -190,8 +145,29 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   /// Set after the user completes [authenticate] once (Face ID permission granted).
   static const biometricReadyPrefsKey = 'app_lock_biometric_ready';
   static const lastAuthAtPrefsKey = 'app_lock_last_auth_at';
+  static const _prefsSkipColdStartLockOnceKey = 'app_lock_skip_cold_start_once';
   static const _prefsBiometricReadyKey = biometricReadyPrefsKey;
-  static const _prefsKeyLastAuthAt = lastAuthAtPrefsKey;
+
+  Future<void> _setSkipColdStartLockOnce() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefsSkipColdStartLockOnceKey, true);
+    } catch (e) {
+      _log('_setSkipColdStartLockOnce', 'catch', e);
+    }
+  }
+
+  Future<bool> _consumeSkipColdStartLockOnce() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_prefsSkipColdStartLockOnceKey) != true) return false;
+      await prefs.remove(_prefsSkipColdStartLockOnceKey);
+      return true;
+    } catch (e) {
+      _log('_consumeSkipColdStartLockOnce', 'catch', e);
+      return false;
+    }
+  }
 
   static const Duration _authenticateTimeout = Duration(seconds: 90);
 
@@ -248,8 +224,8 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       if (_restartOnNextResume) {
         _restartOnNextResume = false;
         _log('didChangeAppLifecycleState', 'after _restartOnNextResume=false');
-        unawaited(_saveLastAuthTimestamp());
-        _log('didChangeAppLifecycleState', 'after _saveLastAuthTimestamp scheduled');
+        unawaited(_setSkipColdStartLockOnce());
+        _log('didChangeAppLifecycleState', 'after _setSkipColdStartLockOnce scheduled');
         _performScheduledRestart();
         _log('didChangeAppLifecycleState', 'exit', 'scheduled restart');
         return;
@@ -534,8 +510,6 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
         _log('authenticate', 'after authError cleared');
         await _markBiometricReady();
         _log('authenticate', 'after _markBiometricReady');
-        unawaited(_saveLastAuthTimestamp());
-        _log('authenticate', 'after _saveLastAuthTimestamp scheduled');
       } else {
         _log('authenticate', 'failure/cancel branch');
         authError.value = 'app_lock_error_unlock_cancelled';
@@ -572,8 +546,9 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       _log('onAppLockEnabledInSettings', 'before SharedPreferences.getInstance');
       final prefs = await SharedPreferences.getInstance();
       _log('onAppLockEnabledInSettings', 'after SharedPreferences.getInstance');
-      await prefs.remove(_prefsKeyLastAuthAt);
-      _log('onAppLockEnabledInSettings', 'after remove last auth timestamp');
+      await prefs.remove(lastAuthAtPrefsKey);
+      await prefs.remove(_prefsSkipColdStartLockOnceKey);
+      _log('onAppLockEnabledInSettings', 'after remove cold-start skip prefs');
     } catch (e) {
       _log('onAppLockEnabledInSettings', 'catch', e);
     }
