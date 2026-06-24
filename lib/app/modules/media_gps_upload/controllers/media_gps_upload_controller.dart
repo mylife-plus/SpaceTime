@@ -864,6 +864,12 @@ class MediaGpsUploadController extends GetxController {
   }
 
   Future<void> _showStorageAlert(String l10nKey) async {
+    if (Get.isRegistered<MemoryImportBlockingController>()) {
+      Get.find<MemoryImportBlockingController>().importing.value = false;
+    }
+    isBusy.value = false;
+    await Future<void>.delayed(const Duration(milliseconds: 32));
+
     var raw = l10nKey.tr;
     const split = '@@@';
     final i = raw.indexOf(split);
@@ -951,14 +957,9 @@ class MediaGpsUploadController extends GetxController {
       return;
     }
 
-    // Show the blocking loader BEFORE any heavy work (stats rebuild, DB reads,
-    // storage check, file resolution/copy). Previously these ran first and
-    // blocked the main isolate for several seconds, so the tap felt frozen and
-    // the overlay only appeared once the work was nearly done.
     final importBlock = Get.find<MemoryImportBlockingController>();
-    importBlock.importing.value = true;
     isBusy.value = true;
-    // Yield so the overlay paints a frame before heavy synchronous work begins.
+    // Yield so the upload button loading state paints before preflight work.
     await Future<void>.delayed(const Duration(milliseconds: 16));
 
     try {
@@ -991,9 +992,13 @@ class MediaGpsUploadController extends GetxController {
         return;
       }
 
+      // Full-screen loader only after storage passes — keeps the alert above it.
       if (!await ensureEnoughStorageForUpload(pendingAssets)) {
         return;
       }
+
+      importBlock.importing.value = true;
+      await Future<void>.delayed(const Duration(milliseconds: 16));
 
       final mem = Get.find<MemoryController>();
 

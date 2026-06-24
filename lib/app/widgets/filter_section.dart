@@ -292,9 +292,6 @@ class _FilterPanelState extends State<FilterPanel>
   // ─────────────────────────────────────────────
 
   Widget _buildHeader(UiController controller) {
-    final isDark = controller.darkMode.value;
-    final backColor = isDark ? Colors.white : Colors.black87;
-
     return SizedBox(
       width: double.infinity,
       height: 32,
@@ -312,7 +309,7 @@ class _FilterPanelState extends State<FilterPanel>
                   AppImages.arrowBack,
                   width: 24,
                   height: 24,
-                  color: backColor,
+                  color: Colors.white,
                 ),
               ),
             ),

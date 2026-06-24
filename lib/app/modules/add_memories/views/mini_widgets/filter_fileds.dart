@@ -188,10 +188,9 @@ controller.setRadius(radius.toDouble().toStringAsFixed(1));
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
-            color:
-                controller2.darkMode.value
-                    ? controller2.darkSurfaceColor
-                    : Colors.white,
+            color: controller2.darkMode.value
+                ? Colors.white.withValues(alpha: 0.2)
+                : Colors.white,
             borderRadius: widget.borderRadius != null
                 ? BorderRadius.circular(widget.borderRadius!)
                 : null,

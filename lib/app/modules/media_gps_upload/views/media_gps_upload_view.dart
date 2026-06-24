@@ -557,11 +557,14 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                   ),
                 ),
                 _newMemoriesSummaryLine(accent),
-                TrackUploadBottomBar(
-                  isDark: isDark,
-                  busy: busy || prepPreview,
-                  onPreview: controller.onPreviewTap,
-                  onUpload: controller.commitUpload,
+                Obx(
+                  () => TrackUploadBottomBar(
+                    isDark: isDark,
+                    busy: controller.isBusy.value ||
+                        controller.isPreparingPreviewLocations.value,
+                    onPreview: controller.onPreviewTap,
+                    onUpload: controller.commitUpload,
+                  ),
                 ),
               ],
             ),

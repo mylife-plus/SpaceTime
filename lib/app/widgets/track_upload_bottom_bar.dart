@@ -89,10 +89,19 @@ class TrackUploadBottomBar extends StatelessWidget {
               ElevatedButton(
                 style: uploadStyle,
                 onPressed: busy ? null : onUpload,
-                child: Text(
-                  'gpx_button_upload'.tr,
-                  style: uploadButtonTextStyle(ui.currentMainColor),
-                ),
+                child: busy
+                    ? SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: ui.currentMainColor,
+                        ),
+                      )
+                    : Text(
+                        'gpx_button_upload'.tr,
+                        style: uploadButtonTextStyle(ui.currentMainColor),
+                      ),
               ),
             ],
           ),
