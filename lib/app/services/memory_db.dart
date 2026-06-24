@@ -1106,6 +1106,80 @@ class DatabaseHelper {
     );
   }
 
+  /// Removes past-upload rows for [memoryId] and deletes the parent log when no
+  /// memories from that upload remain.
+  Future<void> purgeTrackImportLogEntriesForMemory(
+    DatabaseExecutor db,
+    int memoryId,
+  ) async {
+    final affected = await db.query(
+      tableTrackImportLogItems,
+      columns: [columnTrackLogItemLogId],
+      where: '$columnTrackLogItemMemoryId = ?',
+      whereArgs: [memoryId],
+    );
+    final logIds = <int>{};
+    for (final row in affected) {
+      final v = row[columnTrackLogItemLogId];
+      if (v is int) {
+        logIds.add(v);
+      } else if (v is num) {
+        logIds.add(v.toInt());
+      }
+    }
+    if (logIds.isEmpty) return;
+
+    await db.delete(
+      tableTrackImportLogItems,
+      where: '$columnTrackLogItemMemoryId = ?',
+      whereArgs: [memoryId],
+    );
+
+    for (final logId in logIds) {
+      await _deleteTrackImportLogIfNoMemoriesRemain(db, logId);
+    }
+  }
+
+  Future<void> _deleteTrackImportLogIfNoMemoriesRemain(
+    DatabaseExecutor db,
+    int logId,
+  ) async {
+    final items = await db.query(
+      tableTrackImportLogItems,
+      columns: [columnTrackLogItemMemoryId],
+      where: '$columnTrackLogItemLogId = ?',
+      whereArgs: [logId],
+    );
+    if (items.isEmpty) {
+      await db.delete(
+        tableTrackImportLog,
+        where: '$columnTrackLogId = ?',
+        whereArgs: [logId],
+      );
+      return;
+    }
+
+    for (final item in items) {
+      final mid = item[columnTrackLogItemMemoryId];
+      if (mid == null) continue;
+      final memId = mid is int ? mid : (mid as num).toInt();
+      final mem = await db.query(
+        tableMemories,
+        columns: [columnId],
+        where: '$columnId = ?',
+        whereArgs: [memId],
+        limit: 1,
+      );
+      if (mem.isNotEmpty) return;
+    }
+
+    await db.delete(
+      tableTrackImportLog,
+      where: '$columnTrackLogId = ?',
+      whereArgs: [logId],
+    );
+  }
+
   Future<void> deleteTrackImportLogAndMemories(int logId) async {
     final db = await database;
     final items = await db.query(
@@ -1387,6 +1461,7 @@ class DatabaseHelper {
     final Database db = await instance.database;
     return db.transaction((txn) async {
       await purgeImportedGalleryDedupeForMemory(txn, id);
+      await purgeTrackImportLogEntriesForMemory(txn, id);
       return txn.delete(
         tableMemories,
         where: '$columnId = ?',

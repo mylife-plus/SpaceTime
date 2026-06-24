@@ -293,44 +293,40 @@ class _FilterPanelState extends State<FilterPanel>
 
   Widget _buildHeader(UiController controller) {
     final isDark = controller.darkMode.value;
-    final backAndNeutralFg =
-        isDark ? Colors.white : Colors.black87;
-    final accentFg =
-        isDark ? Colors.white : controller.currentMainColor;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween ,
-      // alignment: Alignment.center,
-      children: [
-        if (widget.onBack != null)
-             InkWell(
-              onTap: widget.onBack,
-              child: Image.asset(
-                AppImages.arrowBack,
-                width: 24,
-                height: 24,
-                color: backAndNeutralFg,
-              ),
-            ),
-        Image.asset(
-        AppImages.filter,
-        width: 24,
-        height: 24,
-        color: accentFg,
+    final backColor = isDark ? Colors.white : Colors.black87;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 32,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (widget.onBack != null)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: InkWell(
+                onTap: widget.onBack,
+                child: Image.asset(
+                  AppImages.arrowBack,
+                  width: 24,
+                  height: 24,
+                  color: backColor,
                 ),
-                 if (widget.onBack != null)
-          Visibility(
-            visible: false,
-            child: InkWell(
-              onTap: widget.onBack,
-              child: Image.asset(
-                AppImages.arrowBack,
-                width: 24,
-                height: 24,
-                color: backAndNeutralFg,
               ),
             ),
-          )
-      ],
+          ColorFiltered(
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            child: Image.asset(
+              AppImages.filter,
+              width: 24,
+              height: 24,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

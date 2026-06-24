@@ -1107,6 +1107,7 @@ class MemoryController extends GetxController {
   Future<int> deleteMemory(int id) async {
     final deleted = await _databaseHelper.deleteMemory(id);
     await refreshUploadDedupeCachesAfterMemoryDeletion();
+    await refreshTrackUploadScreensPastCounts();
     return deleted;
   }
 
