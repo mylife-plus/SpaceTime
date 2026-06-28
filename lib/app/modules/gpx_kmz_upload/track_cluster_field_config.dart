@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Single place to adjust **max time apart** / **max distance apart** on every upload screen.
+/// Single place to adjust **min time apart** / **min distance apart** on every upload screen.
 ///
 /// | What | Where |
 /// |------|--------|
-/// | Choice list keys | [maxTimeApartOptionKeys], [maxMeterApartOptionKeys] |
-/// | Label copy | `assets/l10n/*.json` → [l10nKeyMaxTimeApart], [l10nKeyMaxMeterApart] |
+/// | Choice list keys | [minTimeApartOptionKeys], [minMeterApartOptionKeys] |
+/// | Label copy | `assets/l10n/*.json` → [l10nKeyMinTimeApart], [l10nKeyMinMeterApart] |
 /// | Field padding / row spacing | [dropdownContentPadding], [pairGap], [pairRowPadding], [pairedFieldMarginStart], [pairedFieldMarginEnd] |
 /// | Default dropdown selection | [defaultClusterOptionIndex] (same index for both lists) |
 /// | Time → duration | `kmz_import_pipeline.dart` → [KmzImportPipeline.durationForTimeKey] |
@@ -16,8 +16,8 @@ abstract final class TrackClusterFieldConfig {
   /// Initial selection for both dropdowns (`0` = first option).
   static const int defaultClusterOptionIndex = 2;
 
-  static const String l10nKeyMaxTimeApart = 'gpx_label_max_time_apart';
-  static const String l10nKeyMaxMeterApart = 'gpx_label_max_meter_apart';
+  static const String l10nKeyMinTimeApart = 'gpx_label_min_time_apart';
+  static const String l10nKeyMinMeterApart = 'gpx_label_min_meter_apart';
 
   static const EdgeInsets dropdownContentPadding =
       EdgeInsets.fromLTRB(12, 1, 12, 1);
@@ -36,7 +36,7 @@ abstract final class TrackClusterFieldConfig {
   static const EdgeInsets pairedFieldMarginEnd =
       EdgeInsets.fromLTRB(2, 2, 0, 2);
 
-  static const List<String> maxTimeApartOptionKeys = [
+  static const List<String> minTimeApartOptionKeys = [
     'gpx_dd_time_1m',
     'gpx_dd_time_2m',
     'gpx_dd_time_5m',
@@ -46,7 +46,7 @@ abstract final class TrackClusterFieldConfig {
     'gpx_dd_time_1h',
   ];
 
-  static const List<String> maxMeterApartOptionKeys = [
+  static const List<String> minMeterApartOptionKeys = [
     'gpx_dd_dist_10m',
     'gpx_dd_dist_25m',
     'gpx_dd_dist_50m',

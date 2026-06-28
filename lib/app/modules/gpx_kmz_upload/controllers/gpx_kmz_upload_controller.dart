@@ -33,12 +33,12 @@ class GpxKmzUploadController extends GetxController {
   final TextEditingController ignoreMarkerController = TextEditingController();
   final TextEditingController ignoreContainsController = TextEditingController();
 
-  final RxString selectedMaxTimeApartKey =
-      TrackClusterFieldConfig.maxTimeApartOptionKeys[
+  final RxString selectedMinTimeApartKey =
+      TrackClusterFieldConfig.minTimeApartOptionKeys[
               TrackClusterFieldConfig.defaultClusterOptionIndex]
           .obs;
-  final RxString selectedMaxMeterApartKey =
-      TrackClusterFieldConfig.maxMeterApartOptionKeys[
+  final RxString selectedMinMeterApartKey =
+      TrackClusterFieldConfig.minMeterApartOptionKeys[
               TrackClusterFieldConfig.defaultClusterOptionIndex]
           .obs;
   final RxList<String> availableMemoryDateKeys = <String>[].obs;
@@ -82,7 +82,7 @@ class GpxKmzUploadController extends GetxController {
     }
   }
 
-  /// Subtract user-excluded candidates from the displayed new/remaining counts.
+  /// Subtract user-excluded candidates from the displayed new-memory count only.
   void _applyExclusionsToCounts() {
     if (_lastStats == null || _excludedFingerprints.isEmpty) return;
     final excluded = _lastStats!.candidates
@@ -91,11 +91,6 @@ class GpxKmzUploadController extends GetxController {
     if (excluded == 0) return;
     newMemoriesCount.value =
         (_lastStats!.newMemories - excluded).clamp(0, 1 << 30);
-    totalEntryCount.value = (rawEntryCount.value -
-            ignoredEntryCount.value -
-            duplicateEntryCount.value -
-            excluded)
-        .clamp(0, 1 << 30);
   }
 
   Future<T> _retry<T>(Future<T> Function() fn, {String label = 'op'}) async {
@@ -267,8 +262,6 @@ class GpxKmzUploadController extends GetxController {
       _syncDateSelection(dateKeys);
       final filteredByDate = _filterPointsBySelectedDateRange(pts);
       final ignoredByRules = (rawPts.length - pts.length).clamp(0, 1 << 30);
-      final ignoredByDate =
-          (pts.length - filteredByDate.length).clamp(0, 1 << 30);
       final rows =
           await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
       final fpSet = <String>{};
@@ -277,27 +270,25 @@ class GpxKmzUploadController extends GetxController {
         if (fp != null && fp.isNotEmpty) fpSet.add(fp);
       }
 
-      final maxT = KmzImportPipeline.durationForTimeKey(
-        selectedMaxTimeApartKey.value,
+      final minT = KmzImportPipeline.durationForTimeKey(
+        selectedMinTimeApartKey.value,
       );
-      final maxM = KmzImportPipeline.metersForDistanceKey(
-        selectedMaxMeterApartKey.value,
+      final minM = KmzImportPipeline.metersForDistanceKey(
+        selectedMinMeterApartKey.value,
       );
 
       _lastStats = KmzImportPipeline.buildStats(
         points: filteredByDate,
-        maxTimeApart: maxT,
-        maxMetersApart: maxM,
+        minTimeApart: minT,
+        minMetersApart: minM,
         existingFingerprints: fpSet,
         existingCoordinateRows: rows,
       );
 
       rawEntryCount.value = rawPts.length;
-      ignoredEntryCount.value =
-          _lastStats!.ignoredEntries + ignoredByRules + ignoredByDate;
+      // Ignored = ignore rules only. Clustering + date range affect new memories.
+      ignoredEntryCount.value = ignoredByRules;
       duplicateEntryCount.value = _lastStats!.duplicateEntries;
-      // Remaining entries = total − ignored − duplicates (keep the displayed
-      // stat math consistent with the rows shown above it).
       totalEntryCount.value = (rawEntryCount.value -
               ignoredEntryCount.value -
               duplicateEntryCount.value)
@@ -428,7 +419,7 @@ class GpxKmzUploadController extends GetxController {
       final logId = await DatabaseHelper.instance.insertTrackImportLog(
         fileName: fileName,
         rawCount: _lastStats!.rawEntries,
-        ignoredCount: _lastStats!.ignoredEntries,
+        ignoredCount: ignoredEntryCount.value,
         dupCount: _lastStats!.duplicateEntries + dupRuntime,
         newCount: inserted,
         importSource: DatabaseHelper.trackImportSourceGpxKmz,
@@ -673,6 +664,7 @@ class GpxKmzUploadController extends GetxController {
       ),
     );
     await _reloadPastUploadCount();
+    await reloadDedupeFromDatabase();
   }
 
   Future<void> onAddIgnoreRuleTap() async {

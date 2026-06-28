@@ -66,9 +66,8 @@ class SearchOverlay extends StatelessWidget {
                             controller.searchQuery.value = val;
                             controller.generateSearchSuggestions(val);
                           },
-                          onSubmitted: (val) {
-                            // Perform search and hide keyboard
-                            controller.performSearch();
+                          onSubmitted: (val) async {
+                            await controller.performSearch();
                             controller.isSearchActive.value = false;
                             FocusScope.of(context).unfocus();
                           },
@@ -97,31 +96,22 @@ class SearchOverlay extends StatelessWidget {
                                   : Color(0xFF9A9A9A),
                         ),
                         onPressed: () async {
-                          // Unfocus keyboard first (before async operations)
                           FocusScope.of(context).unfocus();
-
-                          debugPrint('[SearchOverlay] 🔄 Clearing ONLY search filter...');
-
-                          // Clear ONLY the search filter from FilterController
-                          final filterController = Get.find<FilterController>();
-                          filterController.clearSearchedTextKeyword();
-
-                          debugPrint('[SearchOverlay] ✅ Search filter cleared (other filters preserved)');
-
-                          // Close search UI
+                          debugPrint('[SearchOverlay] 🔄 Clearing search filter...');
                           controller.closeSearch();
-
-                          // Reload memories with remaining filters (if any)
-                          await controller.loadMemoriesFromDatabase();
-
-                          // If opened from map, reload map with filtered memories
                           if (controller.isOpenedFromMap) {
-                            final mapController = Get.find<MapControllerNew>();
-                            debugPrint('[SearchOverlay] 🗺️ Reloading map with ${filterController.filteredMemories.length} memories...');
-                            await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
-                            mapController.showLoadedDataOnMap();
-                            Navigator.of(Get.context!).pop(true);
-                            debugPrint('[SearchOverlay] ✅ Map reloaded successfully');
+                            await controller.reloadMapFromSearchFilter();
+                          } else {
+                            await controller.loadMemoriesFromDatabase();
+                            if (Get.isRegistered<MapControllerNew>()) {
+                              final mapController = Get.find<MapControllerNew>();
+                              await mapController.loadMemoriesFromDB(
+                                Get.find<FilterController>()
+                                    .filteredMemories
+                                    .toList(),
+                              );
+                              await mapController.showLoadedDataOnMap();
+                            }
                           }
                         },
                       ),

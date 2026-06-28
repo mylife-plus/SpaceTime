@@ -44,7 +44,15 @@ import 'services/memory_geojson_service.dart';
 import 'package:spacetime/services/geocoding_isolate_service.dart';
 import 'app/modules/get_started/controllers/get_started_controller.dart';
 
+/// True after [main] runs until the app enters [AppLifecycleState.paused].
+/// Reset only on a new process start (not on resume from background).
+class AppProcessLaunch {
+  static bool isFreshLaunch = false;
+}
+
 Future<void> main() async {
+  AppProcessLaunch.isFreshLaunch = true;
+
   final binding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: binding);
   await L10nLoader.init();
@@ -233,6 +241,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      AppProcessLaunch.isFreshLaunch = false;
+    }
     // App-level (iOS) lifecycle logging. iOS only reports `paused` on a full
     // background and `resumed` on return; a system sheet / Settings round-trip
     // often only reaches `inactive`/`hidden`, so log every state to make the

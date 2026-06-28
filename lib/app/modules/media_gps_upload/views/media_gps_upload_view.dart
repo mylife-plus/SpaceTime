@@ -154,7 +154,10 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
             importSource: DatabaseHelper.trackImportSourceMediaGps,
           ),
         );
-        if (mounted) await controller.refreshPastUploadCount();
+        if (mounted) {
+          await controller.refreshPastUploadCount();
+          await controller.reloadDedupeFromDatabase();
+        }
       },
       child: Container(
         width: double.infinity,
@@ -455,19 +458,19 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                         child: _buildDropdownField(
                           isDark: isDark,
                           label: trForLang(
-                            TrackClusterFieldConfig.l10nKeyMaxTimeApart,
+                            TrackClusterFieldConfig.l10nKeyMinTimeApart,
                             ui.selectedLanguage.value,
                           ),
                           optionKeys:
-                              TrackClusterFieldConfig.maxTimeApartOptionKeys,
-                          selectedKey: controller.selectedMaxTimeApartKey,
+                              TrackClusterFieldConfig.minTimeApartOptionKeys,
+                          selectedKey: controller.selectedMinTimeApartKey,
                           valueColor: valueColor,
                           onPicked: (_) => controller.recomputeStats(),
                           fieldMargin:
                               TrackClusterFieldConfig.pairedFieldMarginStart,
                           onInfoTap: () => showTrackFieldInfoDialog(
-                            'gpx_help_max_time_apart_title',
-                            'gpx_help_max_time_apart_body',
+                            'gpx_help_min_time_apart_title',
+                            'gpx_help_min_time_apart_body',
                           ),
                         ),
                       ),
@@ -476,19 +479,19 @@ class _MediaGpsUploadViewState extends State<MediaGpsUploadView>
                         child: _buildDropdownField(
                           isDark: isDark,
                           label: trForLang(
-                            TrackClusterFieldConfig.l10nKeyMaxMeterApart,
+                            TrackClusterFieldConfig.l10nKeyMinMeterApart,
                             ui.selectedLanguage.value,
                           ),
                           optionKeys:
-                              TrackClusterFieldConfig.maxMeterApartOptionKeys,
-                          selectedKey: controller.selectedMaxMeterApartKey,
+                              TrackClusterFieldConfig.minMeterApartOptionKeys,
+                          selectedKey: controller.selectedMinMeterApartKey,
                           valueColor: valueColor,
                           onPicked: (_) => controller.recomputeStats(),
                           fieldMargin:
                               TrackClusterFieldConfig.pairedFieldMarginEnd,
                           onInfoTap: () => showTrackFieldInfoDialog(
-                            'gpx_help_max_meter_apart_title',
-                            'gpx_help_max_meter_apart_body',
+                            'gpx_help_min_meter_apart_title',
+                            'gpx_help_min_meter_apart_body',
                           ),
                         ),
                       ),

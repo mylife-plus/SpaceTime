@@ -90,26 +90,42 @@ class AppLockGate extends StatelessWidget {
                                   ),
                                 ),
                               const SizedBox(height: 24),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () =>
-                                      lock.authenticate(isColdStart: false),
-                                  style: ElevatedButton.styleFrom(
-                                    elevation: 0,
-                                    backgroundColor: accent,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                              Obx(() {
+                                final busy = lock.authInProgress.value;
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: busy
+                                        ? null
+                                        : () => lock.authenticateFromUserTap(),
+                                    style: ElevatedButton.styleFrom(
+                                      elevation: 0,
+                                      backgroundColor: accent,
+                                      foregroundColor: Colors.white,
+                                      disabledBackgroundColor:
+                                          accent.withValues(alpha: 0.55),
+                                      disabledForegroundColor: Colors.white70,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
                                     ),
+                                    child: busy
+                                        ? SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Text(
+                                            'app_lock_button_unlock'.tr,
+                                            style: AppFonts.bold(16, color: Colors.white),
+                                          ),
                                   ),
-                                  child: Text(
-                                    'app_lock_button_unlock'.tr,
-                                    style: AppFonts.bold(16, color: Colors.white),
-                                  ),
-                                ),
-                              ),
+                                );
+                              }),
                             ],
                           ),
                         ),

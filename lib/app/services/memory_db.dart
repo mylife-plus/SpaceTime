@@ -1202,7 +1202,30 @@ class DatabaseHelper {
       await deleteMemory(id);
     }
 
-    await deleteTrackImportLog(logId);
+    // Drop leftover log rows even when legacy items had no memory_id.
+    await db.delete(
+      tableTrackImportLogItems,
+      where: '$columnTrackLogItemLogId = ?',
+      whereArgs: [logId],
+    );
+    await db.delete(
+      tableTrackImportLog,
+      where: '$columnTrackLogId = ?',
+      whereArgs: [logId],
+    );
+
+    await purgeOrphanedImportedGalleryDedupe();
+  }
+
+  /// Gallery dedupe rows whose memory was removed without a full [deleteMemory] pass.
+  Future<void> purgeOrphanedImportedGalleryDedupe() async {
+    final db = await database;
+    await db.rawDelete('''
+      DELETE FROM $tableImportedGalleryAssets
+      WHERE $columnGalleryAssetMemoryId NOT IN (
+        SELECT $columnId FROM $tableMemories
+      )
+    ''');
   }
 
   // Memory operations

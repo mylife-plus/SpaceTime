@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
@@ -487,8 +486,8 @@ class KmzImportPipeline {
 
   static KmzImportStats buildStats({
     required List<KmzTrackPoint> points,
-    required Duration maxTimeApart,
-    required double maxMetersApart,
+    required Duration minTimeApart,
+    required double minMetersApart,
     required Set<String> existingFingerprints,
     required List<Map<String, dynamic>> existingCoordinateRows,
   }) {
@@ -506,11 +505,9 @@ class KmzImportPipeline {
     final timed = points;
     final rawCount = timed.length;
 
-    final clusters = _clusterPoints(timed, maxTimeApart, maxMetersApart);
+    final clusters = _clusterPoints(timed, minTimeApart, minMetersApart);
     final clusterReps = <KmzTrackPoint>[];
-    var ignoredByCluster = 0;
     for (final c in clusters) {
-      ignoredByCluster += c.length - 1;
       clusterReps.add(c.first);
     }
 
@@ -537,11 +534,10 @@ class KmzImportPipeline {
       );
     }
 
-    final ignored = ignoredByCluster;
     final totalAfter = candidates.length + dup;
     return KmzImportStats(
       rawEntries: rawCount,
-      ignoredEntries: ignored,
+      ignoredEntries: 0,
       duplicateEntries: dup,
       totalAfterFilter: totalAfter,
       newMemories: candidates.length,
@@ -577,25 +573,28 @@ class KmzImportPipeline {
   /// area grouping + time/distance clustering rules.
   static List<List<KmzTrackPoint>> clusterTrackPoints(
     List<KmzTrackPoint> points,
-    Duration maxTimeApart,
-    double maxMetersApart,
+    Duration minTimeApart,
+    double minMetersApart,
   ) {
-    return _clusterPoints(points, maxTimeApart, maxMetersApart);
+    return _clusterPoints(points, minTimeApart, minMetersApart);
   }
 
-  /// Cluster: walk sorted by time; start new cluster if gap > thresholds.
+  /// Cluster: walk points in chronological order; start a new cluster when the
+  /// gap to the previous kept point is at least [minDt] or at least [minM].
   static List<List<KmzTrackPoint>> _clusterPoints(
-    List<KmzTrackPoint> sorted,
-    Duration maxDt,
-    double maxM,
+    List<KmzTrackPoint> points,
+    Duration minDt,
+    double minM,
   ) {
-    final byAreaThenTime = _rearrangeByAreaThenTime(sorted, maxM);
+    if (points.isEmpty) return [];
+    final byTime = List<KmzTrackPoint>.from(points)
+      ..sort((a, b) => a.when!.toUtc().compareTo(b.when!.toUtc()));
 
     final out = <List<KmzTrackPoint>>[];
     List<KmzTrackPoint>? cur;
     KmzTrackPoint? lastKept;
 
-    for (final p in byAreaThenTime) {
+    for (final p in byTime) {
       final t = p.when!.toUtc();
       if (cur == null || lastKept == null) {
         cur = [p];
@@ -603,68 +602,23 @@ class KmzImportPipeline {
         continue;
       }
       final lt = lastKept.when!.toUtc();
-      final dt = t.difference(lt).abs();
+      final dt = t.difference(lt);
       final m = _distance.as(
         LengthUnit.Meter,
         LatLng(lastKept.latitude, lastKept.longitude),
         LatLng(p.latitude, p.longitude),
       );
-      if (dt > maxDt || m > maxM) {
+      if (dt >= minDt || m >= minM) {
         out.add(cur);
         cur = [p];
         lastKept = p;
       } else {
         cur.add(p);
-        // Continue cluster walk from the latest accepted point so time/distance
-        // thresholds are evaluated per consecutive memory timestamp + lat/lng.
+        // Evaluate thresholds from the latest accepted point in the chain.
         lastKept = p;
       }
     }
     if (cur != null) out.add(cur);
     return out;
-  }
-
-  /// Reorder points so same-area memories are adjacent before clustering.
-  static List<KmzTrackPoint> _rearrangeByAreaThenTime(
-    List<KmzTrackPoint> points,
-    double maxM,
-  ) {
-    if (points.length <= 1) return points;
-    final cellMeters = maxM <= 0 ? 25.0 : maxM;
-    final areaBuckets = <String, List<KmzTrackPoint>>{};
-
-    for (final p in points) {
-      final key = _areaBucketKey(p.latitude, p.longitude, cellMeters);
-      areaBuckets.putIfAbsent(key, () => <KmzTrackPoint>[]).add(p);
-    }
-
-    final sortedBuckets = areaBuckets.entries.toList()
-      ..sort((a, b) {
-        final at = a.value
-            .map((p) => p.when!.toUtc())
-            .reduce((x, y) => x.isBefore(y) ? x : y);
-        final bt = b.value
-            .map((p) => p.when!.toUtc())
-            .reduce((x, y) => x.isBefore(y) ? x : y);
-        return at.compareTo(bt);
-      });
-
-    final out = <KmzTrackPoint>[];
-    for (final bucket in sortedBuckets) {
-      final pts = bucket.value..sort((a, b) => a.when!.toUtc().compareTo(b.when!.toUtc()));
-      out.addAll(pts);
-    }
-    return out;
-  }
-
-  static String _areaBucketKey(double lat, double lng, double cellMeters) {
-    const metersPerDegLat = 111320.0;
-    final latMeters = lat * metersPerDegLat;
-    final cosLat = math.cos(lat * math.pi / 180.0).abs().clamp(0.01, 1.0);
-    final metersPerDegLng = metersPerDegLat * cosLat;
-    final lngMeters = lng * metersPerDegLng;
-    final latBucket = (latMeters / cellMeters).floor();
-    final lngBucket = (lngMeters / cellMeters).floor();
-    return '$latBucket:$lngBucket';
   }
 }

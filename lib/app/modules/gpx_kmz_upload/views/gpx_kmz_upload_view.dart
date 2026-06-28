@@ -439,17 +439,17 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
                     child: _buildDropdownField(
                       isDark: isDark,
                       label: trForLang(
-                        TrackClusterFieldConfig.l10nKeyMaxTimeApart,
+                        TrackClusterFieldConfig.l10nKeyMinTimeApart,
                         ui.selectedLanguage.value,
                       ),
-                      optionKeys: TrackClusterFieldConfig.maxTimeApartOptionKeys,
-                      selectedKey: controller.selectedMaxTimeApartKey,
+                      optionKeys: TrackClusterFieldConfig.minTimeApartOptionKeys,
+                      selectedKey: controller.selectedMinTimeApartKey,
                       valueColor: valueColor,
                       fieldMargin:
                           TrackClusterFieldConfig.pairedFieldMarginStart,
                       onInfoTap: () => showTrackFieldInfoDialog(
-                        'gpx_help_max_time_apart_title',
-                        'gpx_help_max_time_apart_body',
+                        'gpx_help_min_time_apart_title',
+                        'gpx_help_min_time_apart_body',
                       ),
                     ),
                   ),
@@ -458,16 +458,16 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
                     child: _buildDropdownField(
                       isDark: isDark,
                       label: trForLang(
-                        TrackClusterFieldConfig.l10nKeyMaxMeterApart,
+                        TrackClusterFieldConfig.l10nKeyMinMeterApart,
                         ui.selectedLanguage.value,
                       ),
-                      optionKeys: TrackClusterFieldConfig.maxMeterApartOptionKeys,
-                      selectedKey: controller.selectedMaxMeterApartKey,
+                      optionKeys: TrackClusterFieldConfig.minMeterApartOptionKeys,
+                      selectedKey: controller.selectedMinMeterApartKey,
                       valueColor: valueColor,
                       fieldMargin: TrackClusterFieldConfig.pairedFieldMarginEnd,
                       onInfoTap: () => showTrackFieldInfoDialog(
-                        'gpx_help_max_meter_apart_title',
-                        'gpx_help_max_meter_apart_body',
+                        'gpx_help_min_meter_apart_title',
+                        'gpx_help_min_meter_apart_body',
                       ),
                     ),
                   ),

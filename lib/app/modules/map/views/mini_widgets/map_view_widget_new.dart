@@ -345,11 +345,14 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   }
 
   Widget _buildOverlays(MapControllerNew controller) {
+    final addMemoriesController = Get.find<AddMemoriesController>();
     return Stack(
       children: [
-        // Dark overlay when filter is open
+        // Dim map when filter or search overlay is open.
         Obx(() {
-          if (!controller.isFilterOpen.value) {
+          final searchOpen = addMemoriesController.isSearchActive.value &&
+              addMemoriesController.isOpenedFromMap;
+          if (!controller.isFilterOpen.value && !searchOpen) {
             return const SizedBox.shrink();
           }
           final ui = Get.find<UiController>();
@@ -361,16 +364,18 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           );
         }),
 
-        // Top buttons and FAB (hidden when filter is open)
+        // Top buttons and FAB (hidden when filter or search is open)
         Obx(() {
-          if (controller.isFilterOpen.value) {
+          final searchOpen = addMemoriesController.isSearchActive.value &&
+              addMemoriesController.isOpenedFromMap;
+          if (controller.isFilterOpen.value || searchOpen) {
             return const SizedBox.shrink();
           }
           return const Stack(children: [MapTopButtons(), MapFab()]);
         }),
 
         Positioned(top: 60, left: 0, right: 0, child: SearchIndicator()),
-       
+
         const Positioned(top: 60, left: 0, right: 0, child: FilterIndicator()),
 
         // Filter overlay
@@ -381,6 +386,14 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           maintainSize: true,
           child: const MapFilterOverlay(),
         ),
+
+        // Search overlay (same in-place pattern as filter — map stays mounted)
+        Obx(() {
+          final searchOpen = addMemoriesController.isSearchActive.value &&
+              addMemoriesController.isOpenedFromMap;
+          if (!searchOpen) return const SizedBox.shrink();
+          return const SearchOverlay();
+        }),
       ],
     );
   }

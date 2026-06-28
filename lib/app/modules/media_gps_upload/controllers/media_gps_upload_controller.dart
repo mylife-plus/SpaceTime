@@ -42,12 +42,12 @@ class MediaGpsUploadController extends GetxController {
   final RxSet<String> selectedAssetIds = <String>{}.obs;
   final Rxn<int> galleryFocusCellIndex = Rxn<int>();
 
-  final RxString selectedMaxTimeApartKey =
-      TrackClusterFieldConfig.maxTimeApartOptionKeys[
+  final RxString selectedMinTimeApartKey =
+      TrackClusterFieldConfig.minTimeApartOptionKeys[
               TrackClusterFieldConfig.defaultClusterOptionIndex]
           .obs;
-  final RxString selectedMaxMeterApartKey =
-      TrackClusterFieldConfig.maxMeterApartOptionKeys[
+  final RxString selectedMinMeterApartKey =
+      TrackClusterFieldConfig.minMeterApartOptionKeys[
               TrackClusterFieldConfig.defaultClusterOptionIndex]
           .obs;
 
@@ -205,6 +205,18 @@ class MediaGpsUploadController extends GetxController {
     }
   }
 
+  void _assignGalleryListPreservingFilePicks(List<MediaGpsPickedAsset> galleryList) {
+    final filePicked =
+        galleryAssets.where((a) => a.isFromFile).toList(growable: false);
+    final byId = {for (final a in galleryList) a.id: a};
+    for (final a in filePicked) {
+      byId[a.id] = a;
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) => b.createTime.compareTo(a.createTime));
+    galleryAssets.assignAll(merged);
+  }
+
   Future<void> ensureGalleryLoaded({bool force = false}) async {
     if (!force && galleryAssets.isNotEmpty) return;
 
@@ -213,7 +225,7 @@ class MediaGpsUploadController extends GetxController {
     try {
       final list = await MediaGpsGalleryService.loadRecentAssets();
       if (gen != _galleryLoadGen) return;
-      galleryAssets.assignAll(list);
+      _assignGalleryListPreservingFilePicks(list);
       await _refreshDedupeDataAndRecompute();
       recomputeStats();
       await refreshPhotoLibraryAccessFlag();
@@ -590,7 +602,6 @@ class MediaGpsUploadController extends GetxController {
 
     var noGps = 0;
     var dupAssets = 0;
-    var outsideDateRange = 0;
 
     final startKey = selectedStartDateKey.value;
     final endKey = selectedEndDateKey.value;
@@ -610,7 +621,7 @@ class MediaGpsUploadController extends GetxController {
       if (hasDateRange) {
         final key = _dateKeyFromDateTime(a.createTime);
         if (key.compareTo(startKey) < 0 || key.compareTo(endKey) > 0) {
-          outsideDateRange++;
+          continue;
         }
       }
     }
@@ -625,15 +636,12 @@ class MediaGpsUploadController extends GetxController {
     );
 
     final candidates = _buildClusterCandidates(applyDateRange: true);
-    var ignoredByCluster = 0;
-    for (final c in candidates) {
-      ignoredByCluster += c.items.length - 1;
-    }
 
     final filtered = _filterNewClusterCandidates(candidates);
     final dupClusters = _countClusterDuplicates(candidates);
 
-    ignoredEntryCount.value = noGps + outsideDateRange + ignoredByCluster;
+    // Ignored = no GPS only. Date range + clustering affect new memories only.
+    ignoredEntryCount.value = noGps;
     duplicateHintCount.value = dupClusters + dupAssets;
     totalEntryCount.value = (rawFileCount.value -
             ignoredEntryCount.value -
@@ -765,10 +773,10 @@ class MediaGpsUploadController extends GetxController {
 
     if (tagged.isEmpty) return [];
 
-    final maxT = KmzImportPipeline.durationForTimeKey(selectedMaxTimeApartKey.value);
-    final maxM = KmzImportPipeline.metersForDistanceKey(selectedMaxMeterApartKey.value);
+    final minT = KmzImportPipeline.durationForTimeKey(selectedMinTimeApartKey.value);
+    final minM = KmzImportPipeline.metersForDistanceKey(selectedMinMeterApartKey.value);
     final points = tagged.map((e) => e.p).toList();
-    final clusters = KmzImportPipeline.clusterTrackPoints(points, maxT, maxM);
+    final clusters = KmzImportPipeline.clusterTrackPoints(points, minT, minM);
 
     final out = <MediaGpsClusterCandidate>[];
     for (final c in clusters) {
@@ -963,7 +971,7 @@ class MediaGpsUploadController extends GetxController {
     await Future<void>.delayed(const Duration(milliseconds: 16));
 
     try {
-      recomputeStats();
+      await _refreshDedupeDataAndRecompute();
       if (_lastCandidates.isEmpty) {
         _showNoNewMemoriesToUploadSnackbar();
         return;
@@ -1004,11 +1012,11 @@ class MediaGpsUploadController extends GetxController {
 
       var galleryMergeRows =
           await DatabaseHelper.instance.queryMemoriesGalleryMergeCandidates();
-      final maxT = KmzImportPipeline.durationForTimeKey(
-        selectedMaxTimeApartKey.value,
+      final minT = KmzImportPipeline.durationForTimeKey(
+        selectedMinTimeApartKey.value,
       );
-      final maxM = KmzImportPipeline.metersForDistanceKey(
-        selectedMaxMeterApartKey.value,
+      final minM = KmzImportPipeline.metersForDistanceKey(
+        selectedMinMeterApartKey.value,
       );
 
       var inserted = 0;
@@ -1116,8 +1124,8 @@ class MediaGpsUploadController extends GetxController {
           final mergeId = _findMergeTargetGalleryMemoryId(
             c: c,
             galleryRows: galleryMergeRows,
-            maxT: maxT,
-            maxM: maxM,
+            minT: minT,
+            minM: minM,
           );
 
           final clusterAssetRecords = _galleryRecordsForItems(c.items);
@@ -1272,12 +1280,12 @@ class MediaGpsUploadController extends GetxController {
     // memories are inserted with location already filled — no deferred backfill.
   }
 
-  /// Same place (~5 m) or within import max time + max distance as existing gallery memory.
+  /// Same place (~5 m) or closer than import min time + min distance as existing gallery memory.
   int? _findMergeTargetGalleryMemoryId({
     required MediaGpsClusterCandidate c,
     required List<Map<String, dynamic>> galleryRows,
-    required Duration maxT,
-    required double maxM,
+    required Duration minT,
+    required double minM,
   }) {
     const sameSpotMeters = 5.0;
     int? bestId;
@@ -1301,7 +1309,7 @@ class MediaGpsUploadController extends GetxController {
       if (memWhen == null) continue;
       final dt = c.when.toUtc().difference(memWhen.toUtc()).abs();
       final sameSpot = m <= sameSpotMeters;
-      final inWindow = m <= maxM && dt <= maxT;
+      final inWindow = m < minM && dt < minT;
       if (!sameSpot && !inWindow) continue;
       final score = m + dt.inMilliseconds / 1e6;
       if (score < bestScore) {

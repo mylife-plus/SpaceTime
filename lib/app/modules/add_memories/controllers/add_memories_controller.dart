@@ -905,10 +905,6 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     String suggestion, {
     Map<String, dynamic>? suggestionData,
   }) async {
-
-     if (isOpenedFromMap) {
-      Navigator.of(Get.context!).pop();
-    }
     const String tag = '[SearchController][selectSuggestion]';
 
     debugPrint('$tag ▶ Called with suggestion="$suggestion"');
@@ -970,13 +966,18 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
         isSearching.value = false; // Set to false to prevent search indicator
         filteredMemories.value = _filterController.filteredMemories.toList();
 
-        // Sync to map
-        final mapController = Get.find<MapControllerNew>();
-        await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
-        mapController.showLoadedDataOnMap();
+        if (isOpenedFromMap) {
+          await reloadMapFromSearchFilter();
+        } else {
+          final mapController = Get.find<MapControllerNew>();
+          await mapController.loadMemoriesFromDB(
+            _filterController.filteredMemories.toList(),
+          );
+          await mapController.showLoadedDataOnMap();
+          onAgainInit();
+        }
 
         debugPrint('$tag ✅ Hashtag filter applied: $hashtag | Results: ${filteredMemories.length}');
-        onAgainInit();
 
         isSearchActive.value = false;
         return;
@@ -1003,12 +1004,16 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
         isSearching.value = false; // Set to false to prevent search indicator
         filteredMemories.value = _filterController.filteredMemories.toList();
 
-        // Sync to map
-        final mapController = Get.find<MapControllerNew>();
-        await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
-        mapController.showLoadedDataOnMap();
-
-        onAgainInit();
+        if (isOpenedFromMap) {
+          await reloadMapFromSearchFilter();
+        } else {
+          final mapController = Get.find<MapControllerNew>();
+          await mapController.loadMemoriesFromDB(
+            _filterController.filteredMemories.toList(),
+          );
+          await mapController.showLoadedDataOnMap();
+          onAgainInit();
+        }
 
         debugPrint('$tag ✅ Mention filter applied: $mention | Results: ${filteredMemories.length}');
 
@@ -1020,7 +1025,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     debugPrint('$tag 🔄 Performing keyword search (blue indicator)');
 
     // For other types, perform normal keyword search
-    performSearch();
+    await performSearch();
 
     isSearchActive.value = false;
 
@@ -1076,10 +1081,14 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     debugPrint('$tag 🔍 FilterController.hasActiveSearch: ${_filterController.hasActiveSearch}');
 
     // Sync search results to MapController with filtered memories
-    // This keeps the search as a text-based search, not an ID filter
-    final c1 = Get.find<MapControllerNew>();
-    await c1.loadMemoriesFromDB(_filterController.filteredMemories.toList());
-    c1.showLoadedDataOnMap();
+    if (isOpenedFromMap) {
+      await reloadMapFromSearchFilter();
+      isSearchActive.value = false;
+    } else {
+      final c1 = Get.find<MapControllerNew>();
+      await c1.loadMemoriesFromDB(_filterController.filteredMemories.toList());
+      await c1.showLoadedDataOnMap();
+    }
 
     debugPrint(
       '$tag 🏁 Search completed | Query="$query" | Results=${filteredMemories.length} | isSearching=${isSearching.value} | Filters=${hasActiveFilters.value ? "ON" : "OFF"}',
@@ -1116,6 +1125,16 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     }
 
     debugPrint('[AddMemoriesController] closeSearch() completed - isSearching: ${isSearching.value}, hasActiveFilters: ${hasActiveFilters.value}');
+  }
+
+  /// Lightweight map refresh after search apply/clear (same path as filter overlay).
+  Future<void> reloadMapFromSearchFilter() async {
+    if (!isOpenedFromMap || !Get.isRegistered<MapControllerNew>()) return;
+    filteredMemories.value = _filterController.filteredMemories.toList();
+    rebuildDisplayList();
+    final map = Get.find<MapControllerNew>();
+    await map.loadMemoriesFromDB(_filterController.filteredMemories.toList());
+    await map.showLoadedDataOnMap();
   }
 
   void seeAllMemories() {
@@ -2500,9 +2519,6 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
     
   Future<void> selectHashtagOrMentionSuggestion(suggestion, {required Map<String, dynamic> suggestionData}) async {
-     if (isOpenedFromMap) {
-      Navigator.of(Get.context!).pop();
-    }
     const String tag = '[SearchController][selectHashtagOrMentionSuggestion]';
 
     debugPrint('$tag ▶ Called with suggestion="$suggestion"');
@@ -2552,9 +2568,15 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
         debugPrint('$tag 🔍 filteredMemories count: ${filteredMemories.length}');
 
         // Sync to map
-        final mapController = Get.find<MapControllerNew>();
-        await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
-        mapController.showLoadedDataOnMap();
+        if (isOpenedFromMap) {
+          await reloadMapFromSearchFilter();
+        } else {
+          final mapController = Get.find<MapControllerNew>();
+          await mapController.loadMemoriesFromDB(
+            _filterController.filteredMemories.toList(),
+          );
+          await mapController.showLoadedDataOnMap();
+        }
 
         debugPrint('$tag ✅ Hashtag filter applied: $hashtag | Results: ${filteredMemories.length}');
 
@@ -2590,9 +2612,15 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
         debugPrint('$tag 🔍 filteredMemories count: ${filteredMemories.length}');
 
         // Sync to map
-        final mapController = Get.find<MapControllerNew>();
-        await mapController.loadMemoriesFromDB(_filterController.filteredMemories.toList());
-        mapController.showLoadedDataOnMap();
+        if (isOpenedFromMap) {
+          await reloadMapFromSearchFilter();
+        } else {
+          final mapController = Get.find<MapControllerNew>();
+          await mapController.loadMemoriesFromDB(
+            _filterController.filteredMemories.toList(),
+          );
+          await mapController.showLoadedDataOnMap();
+        }
 
         debugPrint('$tag ✅ Mention filter applied: $mention | Results: ${filteredMemories.length}');
 
