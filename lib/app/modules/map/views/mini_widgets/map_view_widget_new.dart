@@ -216,18 +216,20 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       builder: (controller) {
         return Obx(() {
           final isDark = uiController.darkMode.value;
-          // While the memory filter overlay is open, tint the status bar to
-          // match the overlay surface; revert to transparent once it closes
-          // (back / reset / apply all flip isFilterOpen back to false).
+          final addMemoriesController = Get.find<AddMemoriesController>();
+          // Tint the status bar to match filter/search overlay surfaces (same as
+          // add-memories screen); revert to transparent when both are closed.
           final filterOpen = controller.isFilterOpen.value;
-          final filterStatusBarColor = isDark
-              ? uiController.darkBackgroundColor
-              : Colors.white;
+          final searchOpen = addMemoriesController.isSearchActive.value &&
+              addMemoriesController.isOpenedFromMap;
+          final overlayChromeOpen = filterOpen || searchOpen;
+          final overlayStatusBarColor =
+              isDark ? uiController.darkBackgroundColor : Colors.white;
           return AnnotatedRegion<SystemUiOverlayStyle>(
             // Transparent status bar; the map renders edge-to-edge underneath it.
             value: AppSystemUi.overlayStyle(
               dark: isDark,
-              statusBarColor: filterOpen ? filterStatusBarColor : null,
+              statusBarColor: overlayChromeOpen ? overlayStatusBarColor : null,
             ),
             child: ColoredBox(
               color: isDark ? uiController.darkBackgroundColor : Colors.white,
@@ -253,19 +255,17 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                       ),
 
                     // In edge-to-edge mode Android ignores statusBarColor, so we
-                    // paint the status-bar inset ourselves while the filter
-                    // overlay is open (back / reset / apply close it again).
+                    // paint the status-bar inset ourselves while filter or search
+                    // overlay is open (matches add-memories search appearance).
                     // Keep this child Positioned so the Stack stays full-size.
                     Positioned(
                       top: 0,
                       left: 0,
                       right: 0,
                       height: MediaQuery.of(context).padding.top,
-                      child: Obx(
-                        () => controller.isFilterOpen.value
-                            ? ColoredBox(color: filterStatusBarColor)
-                            : const SizedBox.shrink(),
-                      ),
+                      child: overlayChromeOpen
+                          ? ColoredBox(color: overlayStatusBarColor)
+                          : const SizedBox.shrink(),
                     ),
                   ],
                 ),
