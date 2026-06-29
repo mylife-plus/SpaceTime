@@ -215,6 +215,21 @@ class UiController extends GetxController {
   /// Centralized dark palette (used across the app for uniformity).
   Color get darkBackgroundColor => Colors.black;
 
+  /// Full-screen filter overlay surface (matches [MemoriesFilterOverlay]).
+  Color get filterOverlayBackgroundColor {
+    final isDark = darkMode.value;
+    if (isDark) {
+      if (mainColor.value == 'blue') return const Color(0xFF001937);
+      return iconColor2 ?? darkBackgroundColor;
+    }
+    if (mainColor.value == 'blue') return const Color(0xFF92C3FF);
+    return primaryColor ?? currentMainColor;
+  }
+
+  /// Search overlay bar + suggestions surface (matches [SearchOverlay]).
+  Color get searchOverlayBackgroundColor =>
+      darkMode.value ? darkBackgroundColor : Colors.white;
+
   /// Base "surface" used for cards/tiles in dark mode.
   Color get darkSurfaceColor => Colors.grey[850]!;
 

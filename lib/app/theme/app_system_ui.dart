@@ -46,6 +46,26 @@ class AppSystemUi {
     );
   }
 
+  /// Status bar fill matched to a specific surface (filter/search overlays).
+  static SystemUiOverlayStyle overlayStyleMatchingSurface({
+    required Color surface,
+    required bool darkTheme,
+  }) {
+    final lightStatusIcons = surface.computeLuminance() < 0.5;
+    final navBg = darkTheme ? Colors.black : Colors.white;
+    final navIconBrightness = darkTheme ? Brightness.light : Brightness.dark;
+    return SystemUiOverlayStyle(
+      statusBarColor: surface,
+      statusBarIconBrightness:
+          lightStatusIcons ? Brightness.light : Brightness.dark,
+      statusBarBrightness:
+          lightStatusIcons ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: navBg,
+      systemNavigationBarIconBrightness: navIconBrightness,
+      systemNavigationBarContrastEnforced: false,
+    );
+  }
+
   /// Keeps Android navigation bar + status icons aligned with app theme.
   static void syncTheme(bool dark) {
     SystemChrome.setSystemUIOverlayStyle(overlayStyle(dark: dark));

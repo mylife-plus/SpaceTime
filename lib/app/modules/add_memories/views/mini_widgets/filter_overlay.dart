@@ -198,14 +198,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
       body: Obx(
         () => Container(
           decoration: BoxDecoration(
-            color:
-                uiController.darkMode.value
-                    ? uiController.mainColor.value == 'blue'
-                        ? const Color(0xFF001937)
-                        : uiController.iconColor2
-                    : uiController.mainColor.value == 'blue'
-                    ? const Color(0xFF92C3FF)
-                    : uiController.primaryColor,
+            color: uiController.filterOverlayBackgroundColor,
           ),
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,

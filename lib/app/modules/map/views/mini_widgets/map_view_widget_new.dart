@@ -217,20 +217,23 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         return Obx(() {
           final isDark = uiController.darkMode.value;
           final addMemoriesController = Get.find<AddMemoriesController>();
-          // Tint the status bar to match filter/search overlay surfaces (same as
-          // add-memories screen); revert to transparent when both are closed.
           final filterOpen = controller.isFilterOpen.value;
           final searchOpen = addMemoriesController.isSearchActive.value &&
               addMemoriesController.isOpenedFromMap;
           final overlayChromeOpen = filterOpen || searchOpen;
-          final overlayStatusBarColor =
-              isDark ? uiController.darkBackgroundColor : Colors.white;
+          final overlayStatusBarColor = filterOpen
+              ? uiController.filterOverlayBackgroundColor
+              : uiController.searchOverlayBackgroundColor;
+
+          final SystemUiOverlayStyle systemUi = overlayChromeOpen
+              ? AppSystemUi.overlayStyleMatchingSurface(
+                  surface: overlayStatusBarColor,
+                  darkTheme: isDark,
+                )
+              : AppSystemUi.overlayStyle(dark: isDark);
+
           return AnnotatedRegion<SystemUiOverlayStyle>(
-            // Transparent status bar; the map renders edge-to-edge underneath it.
-            value: AppSystemUi.overlayStyle(
-              dark: isDark,
-              statusBarColor: overlayChromeOpen ? overlayStatusBarColor : null,
-            ),
+            value: systemUi,
             child: ColoredBox(
               color: isDark ? uiController.darkBackgroundColor : Colors.white,
               child: Scaffold(
@@ -254,10 +257,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                         ),
                       ),
 
-                    // In edge-to-edge mode Android ignores statusBarColor, so we
-                    // paint the status-bar inset ourselves while filter or search
-                    // overlay is open (matches add-memories search appearance).
-                    // Keep this child Positioned so the Stack stays full-size.
+                    // Android edge-to-edge: paint the status-bar inset to match the
+                    // open filter or search overlay surface.
                     Positioned(
                       top: 0,
                       left: 0,

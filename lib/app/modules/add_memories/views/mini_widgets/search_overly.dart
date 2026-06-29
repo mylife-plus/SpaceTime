@@ -20,6 +20,8 @@ class SearchOverlay extends StatelessWidget {
       text: controller.isSearchActive.value ? '' : controller.searchQuery.value,
     );
 
+    final searchSurface = controller2.searchOverlayBackgroundColor;
+
     return Positioned.fill(
       child: GestureDetector(
         onTap: () {
@@ -40,8 +42,7 @@ class SearchOverlay extends StatelessWidget {
                 onTap: () {},
                 child: Container(
                   height: 61,
-                  color:
-                      controller2.darkMode.value ? Colors.black : Colors.white,
+                  color: searchSurface,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 5,
                     vertical: 8,
@@ -132,10 +133,7 @@ class SearchOverlay extends StatelessWidget {
                   child: Container(
                     
                        decoration: BoxDecoration(
-                      color:
-                          controller2.darkMode.value
-                              ? Colors.black
-                              : Colors.white,
+                      color: searchSurface,
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.11),
@@ -170,10 +168,7 @@ class SearchOverlay extends StatelessWidget {
                   ),
                   width: MediaQuery.sizeOf(context).width,
                   decoration: BoxDecoration(
-                    color:
-                        controller2.darkMode.value
-                            ? Colors.black
-                            : Colors.white,
+                    color: searchSurface,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.11),
