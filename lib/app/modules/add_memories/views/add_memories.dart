@@ -175,7 +175,7 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: systemUi,
         child: ColoredBox(
-          color: shellColor,
+          color: shellColor.withValues(alpha: 1.0),
           child: SafeArea(
             bottom: false,
             child: Scaffold(

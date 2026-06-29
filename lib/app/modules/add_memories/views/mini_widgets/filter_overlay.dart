@@ -198,7 +198,9 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
       body: Obx(
         () => Container(
           decoration: BoxDecoration(
-            color: uiController.filterOverlayBackgroundColor,
+            color: uiController.filterOverlayBackgroundColor.withValues(
+              alpha: 1.0,
+            ),
           ),
           height: MediaQuery.of(context).size.height,
           width: MediaQuery.of(context).size.width,

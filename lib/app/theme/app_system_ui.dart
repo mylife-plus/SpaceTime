@@ -51,11 +51,13 @@ class AppSystemUi {
     required Color surface,
     required bool darkTheme,
   }) {
-    final lightStatusIcons = surface.computeLuminance() < 0.5;
+    // Force full opacity — light-mode filter used to pass 0.7-alpha colors.
+    final opaque = surface.withValues(alpha: 1.0);
+    final lightStatusIcons = opaque.computeLuminance() < 0.5;
     final navBg = darkTheme ? Colors.black : Colors.white;
     final navIconBrightness = darkTheme ? Brightness.light : Brightness.dark;
     return SystemUiOverlayStyle(
-      statusBarColor: surface,
+      statusBarColor: opaque,
       statusBarIconBrightness:
           lightStatusIcons ? Brightness.light : Brightness.dark,
       statusBarBrightness:

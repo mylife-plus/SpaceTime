@@ -216,14 +216,27 @@ class UiController extends GetxController {
   Color get darkBackgroundColor => Colors.black;
 
   /// Full-screen filter overlay surface (matches [MemoriesFilterOverlay]).
+  /// Light mode uses fully opaque colors for every accent (blue uses a fixed
+  /// hex; others use [secondaryColor], which alpha-blends to an opaque tint).
   Color get filterOverlayBackgroundColor {
     final isDark = darkMode.value;
-    if (isDark) {
-      if (mainColor.value == 'blue') return const Color(0xFF001937);
-      return iconColor2 ?? darkBackgroundColor;
+    switch (mainColor.value) {
+      case 'blue':
+        return isDark
+            ? const Color(0xFF001937)
+            : const Color(0xFF92C3FF);
+      case 'red':
+      case 'green':
+      case 'purple':
+        if (isDark) {
+          return iconColor2 ?? curentHomeIconColorsDark;
+        }
+        return secondaryColor ?? currentMainColor;
+      default:
+        return isDark
+            ? const Color(0xFF001937)
+            : const Color(0xFF92C3FF);
     }
-    if (mainColor.value == 'blue') return const Color(0xFF92C3FF);
-    return primaryColor ?? currentMainColor;
   }
 
   /// Search overlay bar + suggestions surface (matches [SearchOverlay]).

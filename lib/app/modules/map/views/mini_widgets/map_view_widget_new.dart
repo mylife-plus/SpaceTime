@@ -257,15 +257,17 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                         ),
                       ),
 
-                    // Android edge-to-edge: paint the status-bar inset to match the
-                    // open filter or search overlay surface.
+                    // Android edge-to-edge: paint an opaque status-bar inset to
+                    // match the open filter or search overlay surface.
                     Positioned(
                       top: 0,
                       left: 0,
                       right: 0,
                       height: MediaQuery.of(context).padding.top,
                       child: overlayChromeOpen
-                          ? ColoredBox(color: overlayStatusBarColor)
+                          ? ColoredBox(
+                              color: overlayStatusBarColor.withValues(alpha: 1.0),
+                            )
                           : const SizedBox.shrink(),
                     ),
                   ],
