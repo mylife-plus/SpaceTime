@@ -1,5 +1,5 @@
 {
-  "apptexts_active_phone_verification_pin": "Pin de verificación de teléfono activo",
+  "apptexts_active_phone_verification_pin": "Activar PIN / FaceID",
   "apptexts_backup_memories": "Memorias de respaldo",
   "backup_confirm_erase": "Borrar",
   "backup_confirm_import": "Importar",
@@ -900,6 +900,8 @@
   "text_no_internet_connection_2": "Sin conexión a Internet",
   "text_no_locations_found": "No se encontraron ubicaciones",
   "text_no_memories_found": "No se encontraron recuerdos",
+  "text_today": "Hoy",
+  "text_yesterday": "Ayer",
   "text_no_memories_found_2": "No se encontraron recuerdos",
   "text_no_memories_yet": "Aún no hay recuerdos",
   "text_no_place_categories_found": "No se encontraron categorías de lugares",

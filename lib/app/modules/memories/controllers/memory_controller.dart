@@ -19,7 +19,6 @@ import 'dart:ui' as ui;
 import '../../../services/memory_db.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_cluster_candidate.dart';
-import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_import_deletion_refresh.dart';
 import 'package:spacetime/app/utils/memory_images_copy_compute.dart';
 import 'package:spacetime/app/utils/concurrency.dart';
 
@@ -1105,10 +1104,7 @@ class MemoryController extends GetxController {
   }
 
   Future<int> deleteMemory(int id) async {
-    final deleted = await _databaseHelper.deleteMemory(id);
-    await refreshUploadDedupeCachesAfterMemoryDeletion();
-    await refreshTrackUploadScreensPastCounts();
-    return deleted;
+    return _databaseHelper.deleteMemory(id);
   }
 
   Future<void> addNewTag(String tag) async {

@@ -367,14 +367,19 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           );
         }),
 
-        // Top buttons and FAB (hidden when filter or search is open)
+        // Top buttons and FAB — fade instead of unmounting to avoid bottom jank.
         Obx(() {
           final searchOpen = addMemoriesController.isSearchActive.value &&
               addMemoriesController.isOpenedFromMap;
-          if (controller.isFilterOpen.value || searchOpen) {
-            return const SizedBox.shrink();
-          }
-          return const Stack(children: [MapTopButtons(), MapFab()]);
+          final hidden = controller.isFilterOpen.value || searchOpen;
+          return IgnorePointer(
+            ignoring: hidden,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: hidden ? 0.0 : 1.0,
+              child: const Stack(children: [MapTopButtons(), MapFab()]),
+            ),
+          );
         }),
 
         Positioned(top: 60, left: 0, right: 0, child: SearchIndicator()),

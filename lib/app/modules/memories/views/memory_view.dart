@@ -27,6 +27,7 @@ import '../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/gallery_asset_resolver.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_import_deletion_refresh.dart';
 import 'package:spacetime/app/routes/memory_view_navigation.dart';
 import 'package:spacetime/app/utils/memory_media_image_cache.dart';
 
@@ -1685,54 +1686,40 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
             ),
             TextButton(
               onPressed: () async {
+                final memoryId = _editingMemoryId!;
                 Get.back();
 
                 try {
-                  debugPrint('[MemoryView] 🗑️ Deleting memory ID: $_editingMemoryId');
+                  debugPrint('[MemoryView] 🗑️ Deleting memory ID: $memoryId');
 
                   final memoryController = Get.find<MemoryController>();
-                  await memoryController.deleteMemory(_editingMemoryId!);
+                  await memoryController.deleteMemory(memoryId);
 
                   debugPrint('[MemoryView] ✅ Memory deleted from database');
 
-                  // Reload data from FilterController (single source of truth)
-                  if (Get.isRegistered<FilterController>()) {
-                    final filterController = Get.find<FilterController>();
-                    await filterController.loadAndApplyFilters();
-                    debugPrint('[MemoryView] 📊 FilterController reloaded: ${filterController.filteredMemories.length} memories');
-                  }
+                  Get.back(result: true);
 
-                  // Refresh AddMemories view
-                  if (Get.isRegistered<AddMemoriesController>()) {
-                    final addMemoriesController = Get.find<AddMemoriesController>();
-                    await addMemoriesController.loadMemoriesFromDatabase();
-                    debugPrint('[MemoryView] ✅ AddMemories view reloaded');
-                  }
+                  unawaited(
+                    refreshConsumersAfterMemoryDeletion(
+                      memoryId: memoryId,
+                      focusMapOnLatest: true,
+                    ),
+                  );
 
-                  // Refresh Map view
-                  if (Get.isRegistered<MapControllerNew>()) {
-                    final mapController = Get.find<MapControllerNew>();
-                    final filterController = Get.find<FilterController>();
-                    await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
-                    unawaited(mapController.showLoadedDataOnMap());
-                    // Deleting may remove the current latest memory, so re-focus
-                    // on the new latest (by memory date/time) like the add flow.
-                    await mapController.focusOnLatestMemory();
-                    debugPrint('[MemoryView] ✅ Map view reloaded');
-                  }
-
-                  // Show success message
-                  showTrSnackbar('snackbar_success_21', 
+                  showTrSnackbar(
+                    'snackbar_success_21',
                     backgroundColor: Colors.red.withValues(alpha: 0.8),
                     colorText: Colors.white,
-                    duration: const Duration(seconds: 2),);
-                  Get.back(result: true);
+                    duration: const Duration(seconds: 2),
+                  );
                 } catch (e) {
                   debugPrint('[MemoryView] ❌ Error deleting memory: $e');
-                  showTrSnackbar('snackbar_unable_to_delete_10', 
+                  showTrSnackbar(
+                    'snackbar_unable_to_delete_10',
                     backgroundColor: Colors.red,
                     colorText: Colors.white,
-                    duration: const Duration(seconds: 2),);
+                    duration: const Duration(seconds: 2),
+                  );
                 }
               },
               child: Text(

@@ -1,10 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../ui/controllers/ui_controller.dart';
-import '../../../map/controllers/map_controller_new.dart';
-import '../../../filter/controllers/filter_controller.dart';
 
 class SearchIndicator extends StatelessWidget {
   const SearchIndicator({super.key});
@@ -84,22 +84,7 @@ class SearchIndicator extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () async {
-                debugPrint('[SearchIndicator] 🔄 Clearing search filter...');
-                controller.closeSearch();
-                if (controller.isOpenedFromMap) {
-                  await controller.reloadMapFromSearchFilter();
-                } else {
-                  await controller.loadMemoriesFromDatabase();
-                  if (Get.isRegistered<MapControllerNew>()) {
-                    final mapController = Get.find<MapControllerNew>();
-                    await mapController.loadMemoriesFromDB(
-                      Get.find<FilterController>().filteredMemories.toList(),
-                    );
-                    await mapController.showLoadedDataOnMap();
-                  }
-                }
-              },
+              onTap: () => unawaited(controller.closeSearchAndMaybeReloadMap()),
               child: Container(
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(

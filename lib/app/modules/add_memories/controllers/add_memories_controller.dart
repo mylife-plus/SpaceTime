@@ -1127,6 +1127,23 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     debugPrint('[AddMemoriesController] closeSearch() completed - isSearching: ${isSearching.value}, hasActiveFilters: ${hasActiveFilters.value}');
   }
 
+  /// Dismiss search UI; reload consumers only when an applied search filter is cleared.
+  Future<void> closeSearchAndMaybeReloadMap() async {
+    final hadAppliedSearch = isSearching.value ||
+        _filterController.searchedTextKeyword.value.isNotEmpty;
+    closeSearch();
+    if (!hadAppliedSearch) return;
+
+    await Future<void>.delayed(Duration.zero);
+
+    if (isOpenedFromMap && Get.isRegistered<MapControllerNew>()) {
+      await reloadMapFromSearchFilter();
+      return;
+    }
+
+    await loadMemoriesFromDatabase();
+  }
+
   /// Lightweight map refresh after search apply/clear (same path as filter overlay).
   Future<void> reloadMapFromSearchFilter() async {
     if (!isOpenedFromMap || !Get.isRegistered<MapControllerNew>()) return;

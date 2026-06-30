@@ -39,8 +39,11 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
   Timer? _coldStartAuthTimer;
   DateTime? _authStartedAt;
 
-  /// Cold-start unlock is scheduled after the first frame — not during [onInit].
+  /// Cold-start unlock is scheduled after the lock overlay is painted — not during [onInit].
   bool _coldStartUnlockScheduled = false;
+
+  /// Prevents scheduling duplicate cold-start auth from the overlay.
+  bool _coldStartAuthAttempted = false;
 
   /// Next resume after opening system Settings (e.g. permission flow) skips lock once.
   bool _skipLockOnceAfterExternalSettings = false;
@@ -102,9 +105,7 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
         _log('_bootstrap', 'setting isLocked=true');
         isLocked.value = true;
         _coldStartLockActive = true;
-        _log('_bootstrap', 'before _scheduleColdStartAuthentication');
-        _scheduleColdStartAuthentication();
-        _log('_bootstrap', 'after _scheduleColdStartAuthentication');
+        _log('_bootstrap', 'cold-start lock — auth deferred to AppLockGate overlay');
       }
     } catch (e) {
       _log('_bootstrap', 'catch', e);
@@ -157,45 +158,43 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// iOS can hang if [LocalAuthentication.authenticate] runs before the first frame
-  /// (e.g. right after enabling PIN, on cold start, when Face ID permission appears).
-  void _scheduleColdStartAuthentication() {
-    _log('_scheduleColdStartAuthentication', 'enter', '_coldStartUnlockScheduled=$_coldStartUnlockScheduled');
-    if (_coldStartUnlockScheduled) {
-      _log('_scheduleColdStartAuthentication', 'exit early', 'already scheduled');
+  /// Called once from [AppLockGate] after the lock overlay has been painted.
+  /// iOS crashes if [LocalAuthentication.authenticate] runs before a mounted
+  /// view exists — defer until the overlay is on screen.
+  void scheduleAuthenticationFromOverlay() {
+    _log('scheduleAuthenticationFromOverlay', 'enter',
+        'coldStart=$_coldStartLockActive attempted=$_coldStartAuthAttempted');
+    if (!isLocked.value || _authInProgress || !_coldStartLockActive) {
+      _log('scheduleAuthenticationFromOverlay', 'exit early', 'not eligible');
+      return;
+    }
+    if (_coldStartAuthAttempted || _coldStartUnlockScheduled) {
+      _log('scheduleAuthenticationFromOverlay', 'exit early', 'already scheduled');
       return;
     }
     _coldStartUnlockScheduled = true;
-    _log('_scheduleColdStartAuthentication', 'after _coldStartUnlockScheduled=true');
+    _coldStartAuthAttempted = true;
 
     void runAfterUiReady() {
-      _log('_scheduleColdStartAuthentication.runAfterUiReady', 'enter');
       _coldStartAuthTimer?.cancel();
-      _coldStartAuthTimer = Timer(const Duration(milliseconds: 800), () {
+      _coldStartAuthTimer = Timer(const Duration(milliseconds: 600), () {
         _coldStartAuthTimer = null;
-        _log('_scheduleColdStartAuthentication.runAfterUiReady', 'delayed callback', 'isLocked=${isLocked.value} _authInProgress=$_authInProgress');
         if (!isLocked.value || _authInProgress) {
-          _log('_scheduleColdStartAuthentication.runAfterUiReady', 'skip authenticate');
+          _log('scheduleAuthenticationFromOverlay', 'timer skip');
           return;
         }
-        _log('_scheduleColdStartAuthentication.runAfterUiReady', 'calling authenticate(isColdStart: true)');
+        _log('scheduleAuthenticationFromOverlay', 'calling authenticate');
         unawaited(authenticate(isColdStart: true));
       });
-      _log('_scheduleColdStartAuthentication.runAfterUiReady', 'exit', 'delay scheduled');
     }
 
-    final binding = WidgetsBinding.instance;
-    _log('_scheduleColdStartAuthentication', 'views.isNotEmpty=${binding.platformDispatcher.views.isNotEmpty}');
-    if (binding.platformDispatcher.views.isNotEmpty) {
-      binding.addPostFrameCallback((_) {
-        _log('_scheduleColdStartAuthentication', 'postFrameCallback fired');
+    // Two frames + delay so Face ID never runs during the first paint.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         runAfterUiReady();
       });
-      _log('_scheduleColdStartAuthentication', 'exit', 'postFrameCallback registered');
-    } else {
-      Future<void>.delayed(const Duration(milliseconds: 300), runAfterUiReady);
-      _log('_scheduleColdStartAuthentication', 'exit', '300ms delay scheduled (no views)');
-    }
+    });
+    _log('scheduleAuthenticationFromOverlay', 'exit', 'post-frame chain scheduled');
   }
 
   static const _prefsKey = 'app_lock_enabled';
@@ -322,6 +321,11 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     _log('_recoverFromStuckAuthentication', 'enter', '_authInProgress=$_authInProgress isLocked=${isLocked.value}');
     if (!_authInProgress || !isLocked.value) {
       _log('_recoverFromStuckAuthentication', 'exit early', 'no recovery needed');
+      return;
+    }
+    // Face ID on cold start triggers inactive/resumed; don't tear down auth mid-sheet.
+    if (_coldStartLockActive) {
+      _log('_recoverFromStuckAuthentication', 'exit early', 'cold-start session');
       return;
     }
     Future<void>.delayed(const Duration(milliseconds: 400), () {
@@ -496,7 +500,12 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     _log('_onAppResumed', 'showing lock after ${inBackground.inMinutes}m background');
     isLocked.value = true;
     _log('_onAppResumed', 'after isLocked=true');
-    unawaited(authenticate(isColdStart: false));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 300), () {
+        if (!isLocked.value || _authInProgress) return;
+        unawaited(authenticate(isColdStart: false));
+      });
+    });
     _log('_onAppResumed', 'exit', 'authenticate scheduled');
   }
 
@@ -509,6 +518,7 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     }
 
     _cancelScheduledColdStartAuth();
+    _coldStartUnlockScheduled = true;
     authError.value = null;
     _log('authenticate', 'after authError cleared');
 
@@ -524,12 +534,22 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     _authStartedAt = DateTime.now();
     _log('authenticate', 'after _authInProgress=true');
     try {
+      // Clear any stale iOS LocalAuthentication session before a new attempt.
+      try {
+        await _localAuth.stopAuthentication();
+      } catch (_) {}
+
       // iOS hangs if authenticate runs before the lock overlay has settled.
       final needsUiSettle = isColdStart || _coldStartLockActive;
       if (needsUiSettle) {
-        _log('authenticate', 'UI settle — delaying 100ms');
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+        _log('authenticate', 'UI settle — delaying 350ms');
+        await Future<void>.delayed(const Duration(milliseconds: 350));
         _log('authenticate', 'after UI settle delay');
+      }
+
+      if (!isLocked.value) {
+        _log('authenticate', 'exit early', 'unlocked during settle');
+        return;
       }
 
       _log('authenticate', 'before isDeviceSupported');
@@ -542,10 +562,10 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       }
 
       _log('authenticate', 'before LocalAuthentication.authenticate');
-      
+
       final ok = await _localAuth
           .authenticate(
-            localizedReason: 'app_lock_localized_reason'.tr,
+            localizedReason: _localizedAuthReason(),
             options: const AuthenticationOptions(
               biometricOnly: false,
               stickyAuth: true,
@@ -562,6 +582,7 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
         _log('authenticate', 'success branch');
         isLocked.value = false;
         _coldStartLockActive = false;
+        _coldStartAuthAttempted = false;
         _log('authenticate', 'after isLocked=false');
         authError.value = null;
         _log('authenticate', 'after authError cleared');
@@ -583,6 +604,9 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       authError.value = 'app_lock_error_generic';
       _log('authenticate', 'after authError=generic');
     } finally {
+      try {
+        await _localAuth.stopAuthentication();
+      } catch (_) {}
       _setAuthInProgress(false);
       _authStartedAt = null;
       _log('authenticate', 'finally', '_authInProgress=false isLocked=${isLocked.value}');
@@ -590,8 +614,18 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     _log('authenticate', 'exit', 'authError=${authError.value}');
   }
 
-  /// User tapped Unlock — use cold-start settle when the app just launched locked.
+  String _localizedAuthReason() {
+    try {
+      return 'app_lock_localized_reason'.tr;
+    } catch (_) {
+      return 'Unlock SpaceTime to continue.';
+    }
+  }
+
+  /// User tapped Unlock — retry after auto-auth failed or was cancelled.
   Future<void> authenticateFromUserTap() async {
+    if (_authInProgress) return;
+    _cancelScheduledColdStartAuth();
     await authenticate(isColdStart: _coldStartLockActive);
   }
 
@@ -626,6 +660,8 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
     _log('clearLockIfDisabled', 'enter', 'isLocked=${isLocked.value}');
     _cancelScheduledColdStartAuth();
     _coldStartLockActive = false;
+    _coldStartAuthAttempted = false;
+    _coldStartUnlockScheduled = false;
     isLocked.value = false;
     _log('clearLockIfDisabled', 'after isLocked=false');
     authError.value = null;

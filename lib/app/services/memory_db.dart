@@ -161,7 +161,23 @@ class DatabaseHelper {
   static Database? _database;
   static bool _isInitializing = false;
 
+  /// True while [memories.db] is being replaced on disk (backup restore).
+  /// [database] waits so concurrent readers don't hit a closed handle.
+  static bool _databaseReplacementInProgress = false;
+  static const Duration _replacementWaitTimeout = Duration(minutes: 2);
+
   Future<Database> get database async {
+    final deadline = DateTime.now().add(_replacementWaitTimeout);
+    while (_databaseReplacementInProgress) {
+      if (DateTime.now().isAfter(deadline)) {
+        debugPrint(
+          '[DatabaseHelper] database replacement wait timed out — proceeding',
+        );
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 25));
+    }
+
     if (_database != null && _database!.isOpen) {
       return _database!;
     }
@@ -2527,6 +2543,7 @@ class DatabaseHelper {
 
   /// Close DB without reopening — use before replacing [memories.db] on disk (e.g. restore).
   Future<void> closeDatabaseOnly() async {
+    _databaseReplacementInProgress = true;
     try {
       if (_database != null && _database!.isOpen) {
         debugPrint('[DatabaseHelper] Closing database (no reopen)');
@@ -2567,6 +2584,7 @@ class DatabaseHelper {
 
     // Reinitialize
     debugPrint('[DatabaseHelper] Reinitializing database connection');
+    _databaseReplacementInProgress = false;
     await database;
   }
 

@@ -1,5 +1,5 @@
 {
-  "apptexts_active_phone_verification_pin": "Aktive Telefonbestätigungs-PIN",
+  "apptexts_active_phone_verification_pin": "PIN / FaceID aktivieren",
   "apptexts_backup_memories": "Backup-Speicher",
   "backup_confirm_erase": "Löschen",
   "backup_confirm_import": "Importieren",
@@ -868,6 +868,8 @@
   "text_no_internet_connection_2": "Keine Internetverbindung",
   "text_no_locations_found": "Keine Standorte gefunden",
   "text_no_memories_found": "Keine Erinnerungen gefunden",
+  "text_today": "Heute",
+  "text_yesterday": "Gestern",
   "text_no_memories_found_2": "Keine Erinnerungen gefunden",
   "text_no_memories_yet": "Noch keine Erinnerungen",
   "text_no_place_categories_found": "Keine Ortskategorien gefunden",

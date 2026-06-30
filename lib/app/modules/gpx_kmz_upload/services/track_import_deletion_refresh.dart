@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
@@ -26,6 +28,28 @@ Future<void> refreshUploadDedupeCachesAfterMemoryDeletion() async {
   }
 }
 
+/// Reload filter, memories list, map, and upload dedupe caches after a full backup restore.
+Future<void> refreshConsumersAfterDatabaseRestore({
+  String logTag = 'BackupImport',
+}) async {
+  if (Get.isRegistered<FilterController>()) {
+    Get.find<FilterController>().resetFilters();
+  }
+  if (Get.isRegistered<AddMemoriesController>()) {
+    await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
+  }
+  if (Get.isRegistered<MapControllerNew>()) {
+    final map = Get.find<MapControllerNew>();
+    try {
+      await map.reloadDisplayedMemoriesWithRetry();
+    } catch (e, st) {
+      debugPrint('[$logTag] map reload after restore: $e\n$st');
+    }
+  }
+  await refreshUploadDedupeCachesAfterMemoryDeletion();
+  await refreshTrackUploadScreensPastCounts();
+}
+
 Future<void> refreshConsumersAfterTrackImportDeletion({
   String logTag = 'TrackImportDeletion',
 }) async {
@@ -51,4 +75,31 @@ Future<void> refreshConsumersAfterTrackImportDeletion({
   }
   await refreshTrackUploadScreensPastCounts();
   await refreshUploadDedupeCachesAfterMemoryDeletion();
+}
+
+/// Fast path after deleting a single memory — patch in-memory lists, refresh map.
+Future<void> refreshConsumersAfterMemoryDeletion({
+  required int memoryId,
+  bool focusMapOnLatest = false,
+  String logTag = 'MemoryDeletion',
+}) async {
+  if (Get.isRegistered<FilterController>()) {
+    Get.find<FilterController>().removeMemoryById(memoryId);
+  }
+  if (Get.isRegistered<MapControllerNew>() &&
+      Get.isRegistered<FilterController>()) {
+    final map = Get.find<MapControllerNew>();
+    final fc = Get.find<FilterController>();
+    try {
+      await map.loadMemoriesFromDB(fc.filteredMemories.toList());
+      await map.showLoadedDataOnMap();
+      if (focusMapOnLatest) {
+        unawaited(map.focusOnLatestMemory());
+      }
+    } catch (e, st) {
+      debugPrint('[$logTag] map refresh: $e\n$st');
+    }
+  }
+  unawaited(refreshUploadDedupeCachesAfterMemoryDeletion());
+  unawaited(refreshTrackUploadScreensPastCounts());
 }

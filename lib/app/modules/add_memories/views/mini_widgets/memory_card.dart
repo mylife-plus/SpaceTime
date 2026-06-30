@@ -9,6 +9,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/audio_duration_list.dart';
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/image_viewer_screen.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_import_deletion_refresh.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_view_widget_new.dart';
 import 'package:spacetime/app/routes/memory_view_navigation.dart';
@@ -1085,48 +1086,34 @@ class _MemoryCardState extends State<MemoryCard> {
             ),
             TextButton(
               onPressed: () async {
-                Get.back(); // Close dialog
+                Get.back();
+
+                final memoryId = widget.id;
+                if (memoryId == null) return;
 
                 try {
-                  debugPrint('[MemoryCard] 🗑️ Deleting memory ID: ${widget.id}');
+                  debugPrint('[MemoryCard] 🗑️ Deleting memory ID: $memoryId');
 
                   final memoryController = Get.find<MemoryController>();
-                  await memoryController.deleteMemory(widget.id!);
+                  await memoryController.deleteMemory(memoryId);
 
                   debugPrint('[MemoryCard] ✅ Memory deleted from database');
 
-                  // Reload data from FilterController (single source of truth)
-                  if (Get.isRegistered<FilterController>()) {
-                    final filterController = Get.find<FilterController>();
-                    filterController.resetFilters();
-                    filterController.resetFiltersExceptSearch();
-                    // await filterController.loadAndApplyFilters();
-                    debugPrint('[MemoryCard] 📊 FilterController reloaded: ${filterController.filteredMemories.length} memories');
-                  }
+                  unawaited(
+                    refreshConsumersAfterMemoryDeletion(memoryId: memoryId),
+                  );
 
-                  // Refresh AddMemories view
-                  if (Get.isRegistered<AddMemoriesController>()) {
-                    final addMemoriesController = Get.find<AddMemoriesController>();
-                    await addMemoriesController.loadMemoriesFromDatabase();
-                    debugPrint('[MemoryCard] ✅ AddMemories view reloaded');
-                  }
-
-                  // Refresh Map view
-                  if (Get.isRegistered<MapControllerNew>()) {
-                    final mapController = Get.find<MapControllerNew>();
-                    final filterController = Get.find<FilterController>();
-                    await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
-                    mapController.showLoadedDataOnMap();
-                    debugPrint('[MemoryCard] ✅ Map view reloaded');
-                  }
-
-                  showTrSnackbar('snackbar_success_2', 
+                  showTrSnackbar(
+                    'snackbar_success_2',
                     backgroundColor: Colors.red.withValues(alpha: 0.8),
                     colorText: Colors.white,
-                    duration: const Duration(seconds: 2),);
+                    duration: const Duration(seconds: 2),
+                  );
                 } catch (e) {
                   debugPrint('[MemoryCard] ❌ Error deleting memory: $e');
-                  showTrSnackbar('snackbar_error_4', args: [e], 
+                  showTrSnackbar(
+                    'snackbar_error_4',
+                    args: [e],
                     backgroundColor: Colors.red,
                     colorText: Colors.white,
                     duration: const Duration(seconds: 2),);
@@ -1156,6 +1143,8 @@ class _MemoryCardState extends State<MemoryCard> {
     return Obx(() {
       final _ = controller.selectedLanguage.value;
       controller.darkMode.value;
+      final dayLabel = getDayOrDate(widget.date, widget.year);
+      final hideYear = _isTodayOrYesterday(widget.date, widget.year);
       return Container(
       color: (!controller.darkMode.value ? Colors.white : Colors.transparent),
 
@@ -1204,7 +1193,7 @@ class _MemoryCardState extends State<MemoryCard> {
                     Row(
                       children: [
                         Text(
-                          '${getDayOrDate(widget.date, widget.year)} ',
+                          '$dayLabel ',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -1216,11 +1205,7 @@ class _MemoryCardState extends State<MemoryCard> {
                         ),
 
                         Text(
-                          (getDayOrDate(widget.date, widget.year) != 'Today' &&
-                                  getDayOrDate(widget.date, widget.year) !=
-                                      'Yesterday')
-                              ? widget.year
-                              : '',
+                          hideYear ? '' : widget.year,
 
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
@@ -1419,13 +1404,27 @@ class _MemoryCardState extends State<MemoryCard> {
     final input = DateTime(date.year, date.month, date.day);
 
     if (input == today) {
-      return "Today";
+      return 'text_today'.tr;
     }
     if (input == today.subtract(const Duration(days: 1))) {
-      return "Yesterday";
+      return 'text_yesterday'.tr;
     }
 
     return d; // Return original format
+  }
+
+  bool _isTodayOrYesterday(String date, String year) {
+    if (date.isEmpty || year.isEmpty) return false;
+    try {
+      final parsed = _parseDate('$date $year');
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final input = DateTime(parsed.year, parsed.month, parsed.day);
+      return input == today ||
+          input == today.subtract(const Duration(days: 1));
+    } catch (_) {
+      return false;
+    }
   }
 
   DateTime _parseDate(String dateString) {

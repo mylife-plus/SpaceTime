@@ -505,6 +505,19 @@ class KmzImportPipeline {
     final timed = points;
     final rawCount = timed.length;
 
+    // Duplicates = track points already in the library (per-point, before clustering).
+    // Clustering only affects how many new memories are created.
+    var dup = 0;
+    for (final p in timed) {
+      if (_isDuplicateOfExisting(
+        p,
+        existingFingerprints,
+        existingCoordinateRows,
+      )) {
+        dup++;
+      }
+    }
+
     final clusters = _clusterPoints(timed, minTimeApart, minMetersApart);
     final clusterReps = <KmzTrackPoint>[];
     for (final c in clusters) {
@@ -512,18 +525,16 @@ class KmzImportPipeline {
     }
 
     final candidates = <KmzMemoryCandidate>[];
-    var dup = 0;
     for (final p in clusterReps) {
+      if (_isDuplicateOfExisting(
+        p,
+        existingFingerprints,
+        existingCoordinateRows,
+      )) {
+        continue;
+      }
       final w = p.when!.toUtc();
       final fp = fingerprintFor(w, p.latitude, p.longitude);
-      if (existingFingerprints.contains(fp)) {
-        dup++;
-        continue;
-      }
-      if (_matchesExistingCoordinateRow(existingCoordinateRows, w, p.latitude, p.longitude, fp)) {
-        dup++;
-        continue;
-      }
       candidates.add(
         KmzMemoryCandidate(
           latitude: p.latitude,
@@ -534,7 +545,7 @@ class KmzImportPipeline {
       );
     }
 
-    final totalAfter = candidates.length + dup;
+    final totalAfter = (rawCount - dup).clamp(0, 1 << 30);
     return KmzImportStats(
       rawEntries: rawCount,
       ignoredEntries: 0,
@@ -542,6 +553,23 @@ class KmzImportPipeline {
       totalAfterFilter: totalAfter,
       newMemories: candidates.length,
       candidates: candidates,
+    );
+  }
+
+  static bool _isDuplicateOfExisting(
+    KmzTrackPoint p,
+    Set<String> existingFingerprints,
+    List<Map<String, dynamic>> existingCoordinateRows,
+  ) {
+    final w = p.when!.toUtc();
+    final fp = fingerprintFor(w, p.latitude, p.longitude);
+    if (existingFingerprints.contains(fp)) return true;
+    return _matchesExistingCoordinateRow(
+      existingCoordinateRows,
+      w,
+      p.latitude,
+      p.longitude,
+      fp,
     );
   }
 

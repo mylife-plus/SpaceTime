@@ -18,6 +18,7 @@ import 'package:spacetime/app/modules/media_gps_upload/bindings/media_gps_upload
 import 'package:spacetime/app/modules/media_gps_upload/views/media_gps_upload_view.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'package:spacetime/services/app_lock_controller.dart';
 
 class DataController extends GetxController {
   final RxBool isBusy = false.obs;
@@ -267,20 +268,17 @@ class DataController extends GetxController {
     if (confirm != true) return;
 
     isBusy.value = true;
+    final appLock = Get.isRegistered<AppLockController>()
+        ? Get.find<AppLockController>()
+        : null;
+    appLock?.beginExternalPickerSession();
     try {
       final res = await FullBackupService.importFullBackup();
       if (res.ok) {
-        if (Get.isRegistered<FilterController>()) {
-          Get.find<FilterController>().resetFilters();
-        }
-        if (Get.isRegistered<AddMemoriesController>()) {
-          await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
-        }
-        if (Get.isRegistered<MapControllerNew>() && Get.isRegistered<FilterController>()) {
-          final map = Get.find<MapControllerNew>();
-          final fc = Get.find<FilterController>();
-          await map.loadMemoriesFromDB(fc.filteredMemories.toList());
-          map.showLoadedDataOnMap();
+        try {
+          await refreshConsumersAfterDatabaseRestore();
+        } catch (e, st) {
+          debugPrint('[DataController] post-import refresh: $e\n$st');
         }
       }
       showTrSnackbar(
@@ -290,7 +288,17 @@ class DataController extends GetxController {
         colorText: Colors.white,
         duration: const Duration(seconds: 5),
       );
+    } catch (e, st) {
+      debugPrint('[DataController] importFullData: $e\n$st');
+      showTrSnackbar(
+        'backup_err_import_failed',
+        args: [e],
+        backgroundColor: Colors.red.shade700,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 6),
+      );
     } finally {
+      appLock?.endExternalPickerSession();
       isBusy.value = false;
     }
   }

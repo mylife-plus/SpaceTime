@@ -11,7 +11,7 @@ class AppTexts {
   static String get places => 'apptexts_places'.tr;
   static String get feedBack => 'apptexts_feedback'.tr;
 
-  /// security page text
+  /// Security page — app lock toggle
   static String get activePhoneVerification =>
       'apptexts_active_phone_verification_pin'.tr;
 

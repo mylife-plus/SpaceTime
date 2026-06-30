@@ -899,6 +899,31 @@ List<Map<String, dynamic>> _applyDateFilter(
     }
   }
 
+  /// Remove one memory from in-memory lists without reloading the full library.
+  void removeMemoryById(int memoryId) {
+    bool matchesId(Map<String, dynamic> m) {
+      final id = m['id'];
+      if (id == memoryId) return true;
+      if (id != null && id.toString() == memoryId.toString()) return true;
+      return false;
+    }
+
+    allMemories.removeWhere(matchesId);
+    filteredMemories.removeWhere(matchesId);
+    selectedMemoryIds.remove(memoryId.toString());
+
+    totalResults.value = filteredMemories.length;
+    updateFilterStatus();
+
+    if (Get.isRegistered<AddMemoriesController>()) {
+      Get.find<AddMemoriesController>().rebuildDisplayList();
+    }
+
+    debugPrint(
+      '$tag removeMemoryById: removed $memoryId (${allMemories.length} total)',
+    );
+  }
+
   void _mergeFilterOptionsFromUiMemory(Map<String, dynamic> memory) {
     final tags = memory['tags'] as String?;
     if (tags != null && tags.isNotEmpty) {

@@ -286,7 +286,8 @@ class GpxKmzUploadController extends GetxController {
       );
 
       rawEntryCount.value = rawPts.length;
-      // Ignored = ignore rules only. Clustering + date range affect new memories.
+      // Ignored = ignore rules only. Date range affects new memories.
+      // Duplicate entries = per-point DB matches (stable when clustering changes).
       ignoredEntryCount.value = ignoredByRules;
       duplicateEntryCount.value = _lastStats!.duplicateEntries;
       totalEntryCount.value = (rawEntryCount.value -

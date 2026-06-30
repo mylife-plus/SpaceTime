@@ -187,6 +187,7 @@ class FullBackupService {
   }
 
   static Future<FullBackupResult> importFullBackup() async {
+    var dbClosedForReplace = false;
     try {
       final picked = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -207,9 +208,13 @@ class FullBackupService {
         );
       }
 
-      final zipBytes = await File(zipPath).readAsBytes();
-      // verify: false — some third-party zips trip strict CRC; our layout is still validated below.
-      final archive = ZipDecoder().decodeBytes(zipBytes, verify: false);
+      final input = InputFileStream(zipPath);
+      final Archive archive;
+      try {
+        archive = ZipDecoder().decodeBuffer(input, verify: false);
+      } finally {
+        await input.close();
+      }
 
       ArchiveFile? dbEntryInFolder;
       ArchiveFile? dbEntryAtRoot;
@@ -277,6 +282,7 @@ class FullBackupService {
       // Must release the singleton handle before delete/replace, or SQLite sees
       // two connections / stale inode and BEGIN can throw disk I/O errors.
       await DatabaseHelper.instance.closeDatabaseOnly();
+      dbClosedForReplace = true;
 
       final dbFile = File(dbPath);
       if (await dbFile.exists()) {
@@ -304,7 +310,8 @@ class FullBackupService {
       }
 
       await _remapMediaPaths(dbPath, oldToNewPath);
-      await DatabaseHelper.instance.database;
+      await DatabaseHelper.instance.resetDatabaseConnection();
+      dbClosedForReplace = false;
 
       return FullBackupResult(
         ok: true,
@@ -313,6 +320,15 @@ class FullBackupService {
       );
     } catch (e, st) {
       debugPrint('[FullBackupService] import failed: $e\n$st');
+      if (dbClosedForReplace) {
+        try {
+          await DatabaseHelper.instance.resetDatabaseConnection();
+        } catch (recoveryError) {
+          debugPrint(
+            '[FullBackupService] DB reopen after failed import: $recoveryError',
+          );
+        }
+      }
       return FullBackupResult(
         ok: false,
         messageKey: 'backup_err_import_failed',
