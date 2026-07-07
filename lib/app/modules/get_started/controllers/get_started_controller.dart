@@ -147,6 +147,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   }
 
   @override
+  void onReady() {
+    super.onReady();
+    // [main] bootstrap may finish before this controller exists (e.g. app lock on launch).
+    runStartupInitialization();
+  }
+
+  @override
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
     super.onClose();
@@ -184,13 +191,40 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> _initializeEverything() async {
-    isInitializing.value = true;
-    await _initializeBackgroundServices();
-    _initializeServices();
-    // Render Get Started UI first, then begin tile checks.
-    isInitializing.value = false;
-    await _waitForUiFrame();
-    await _checkIfShouldShowGetStarted();
+    try {
+      isInitializing.value = true;
+      await _initializeBackgroundServices();
+      _initializeServices();
+      // Render Get Started UI first, then begin tile checks.
+      isInitializing.value = false;
+      await _waitForUiFrame();
+      await _checkIfShouldShowGetStarted();
+    } catch (e, st) {
+      debugPrint('[GetStartedController] Startup initialization failed: $e\n$st');
+      hideStartButtonDuringTileCheck.value = false;
+      isCheckingTiles.value = false;
+      showDownloadUI.value = true;
+    } finally {
+      isInitializing.value = false;
+    }
+  }
+
+  /// Do not mount Mapbox / route to the map until Face ID or PIN completes.
+  Future<void> _waitUntilAppUnlocked() async {
+    if (!Get.isRegistered<AppLockController>()) return;
+    final lock = Get.find<AppLockController>();
+    if (!lock.isLocked.value) return;
+
+    debugPrint('[GetStartedController] Waiting for app unlock before map routing...');
+    final completer = Completer<void>();
+    late Worker subscription;
+    subscription = ever(lock.isLocked, (locked) {
+      if (!locked) {
+        subscription.dispose();
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+    await completer.future;
   }
 
   Future<void> _waitForUiFrame() async {
@@ -271,11 +305,52 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     }
 
     await _checkAndRequestLocationPermissions();
+    await _waitUntilAppUnlocked();
 
     if (_mbtilesDownloadService != null) {
+      final serviceDownloaded =
+          await _mbtilesDownloadService!.isMbtilesDownloaded();
+      final servicePath = _mbtilesDownloadService!.getLocalMbtilesPath();
+      if (serviceDownloaded &&
+          servicePath != null &&
+          servicePath.isNotEmpty) {
+        debugPrint(
+          '[GetStartedController] ✅ Tiles already on device — routing to map',
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('mbtiles_download_completed', true);
+        await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
+        await prefs.setString(PREFS_KEY_MBTILES_PATH, servicePath);
+        final styleJsonExists =
+            await (_styleJsonDownloadService?.isStyleJsonDownloaded() ??
+                Future<bool>.value(false));
+        tilesAlreadyDownloaded.value = true;
+        _prepareLoaderOnlyState();
+        final serverStarted = await _startTileServer(servicePath);
+        if (!serverStarted) {
+          hideStartButtonDuringTileCheck.value = false;
+          isCheckingTiles.value = false;
+          showDownloadUI.value = true;
+          hasError.value = true;
+          errorMessage.value = 'get_started_error_tile_server_failed'.tr;
+          _setStatusText('get_started_status_tile_server_unavailable');
+          return;
+        }
+        unawaited(
+          _recoverStyleJsonInBackground(servicePath, styleJsonExists, prefs),
+        );
+        await _navigateToMainFromStartup();
+        return;
+      }
+
       final prefs = await SharedPreferences.getInstance();
 
-      var downloadCompleted = prefs.getBool('mbtiles_download_completed') ?? false;
+      var downloadCompleted =
+          prefs.getBool('mbtiles_download_completed') ?? false;
+      if (!downloadCompleted) {
+        downloadCompleted =
+            prefs.getBool(PREFS_KEY_MBTILES_DOWNLOADED) ?? false;
+      }
       final savedPath = prefs.getString(PREFS_KEY_MBTILES_PATH);
 
       debugPrint('[GetStartedController] 🔍 Initial preference check:');
@@ -1193,6 +1268,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     _navigateToMapRequested = true;
 
     try {
+      await _waitUntilAppUnlocked();
       debugPrint('[GetStartedController] Navigating to MapViewWidgetNew...');
 
       // Start tile server if tiles are downloaded

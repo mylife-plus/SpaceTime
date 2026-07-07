@@ -64,6 +64,13 @@ class GpxKmzUploadController extends GetxController {
   String? _kmzPath;
   int _previewGeneration = 0;
 
+  /// Parsed track points kept after the last full preview (ignore rules applied).
+  List<KmzTrackPoint> _cachedFilteredPoints = const [];
+  int _cachedRawPointCount = 0;
+  int _cachedIgnoredByRules = 0;
+  List<Map<String, dynamic>> _cachedDedupeRows = const [];
+  Set<String> _cachedFingerprints = const {};
+
   /// Candidate fingerprints the user removed from the preview. They are skipped
   /// on commit and subtracted from the displayed new/remaining counts.
   /// `commitUploadToDatabase` re-derives candidates from the file, so this set
@@ -260,7 +267,6 @@ class GpxKmzUploadController extends GetxController {
       if (gen != _previewGeneration) return;
       final dateKeys = _extractDateKeys(pts);
       _syncDateSelection(dateKeys);
-      final filteredByDate = _filterPointsBySelectedDateRange(pts);
       final ignoredByRules = (rawPts.length - pts.length).clamp(0, 1 << 30);
       final rows =
           await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
@@ -270,32 +276,14 @@ class GpxKmzUploadController extends GetxController {
         if (fp != null && fp.isNotEmpty) fpSet.add(fp);
       }
 
-      final minT = KmzImportPipeline.durationForTimeKey(
-        selectedMinTimeApartKey.value,
-      );
-      final minM = KmzImportPipeline.metersForDistanceKey(
-        selectedMinMeterApartKey.value,
-      );
+      _cachedFilteredPoints = pts;
+      _cachedRawPointCount = rawPts.length;
+      _cachedIgnoredByRules = ignoredByRules;
+      _cachedDedupeRows = rows;
+      _cachedFingerprints = fpSet;
 
-      _lastStats = KmzImportPipeline.buildStats(
-        points: filteredByDate,
-        minTimeApart: minT,
-        minMetersApart: minM,
-        existingFingerprints: fpSet,
-        existingCoordinateRows: rows,
-      );
-
-      rawEntryCount.value = rawPts.length;
-      // Ignored = ignore rules only. Date range affects new memories.
-      // Duplicate entries = per-point DB matches (stable when clustering changes).
-      ignoredEntryCount.value = ignoredByRules;
-      duplicateEntryCount.value = _lastStats!.duplicateEntries;
-      totalEntryCount.value = (rawEntryCount.value -
-              ignoredEntryCount.value -
-              duplicateEntryCount.value)
-          .clamp(0, 1 << 30);
-      newMemoriesCount.value = _lastStats!.newMemories;
-      _applyExclusionsToCounts();
+      if (gen != _previewGeneration) return;
+      _applyClusterStatsFromCache(gen);
     } on InvalidTrackFileException {
       _applyEmptyStats();
       rethrow;
@@ -326,8 +314,61 @@ class GpxKmzUploadController extends GetxController {
     _clearImportedTrackFile();
   }
 
+  /// Rebuild clustering / new-memory counts from cached parse results when only
+  /// min time, min distance, or date range changes (no file reload).
+  void recomputeClusterStats() {
+    _applyClusterStatsFromCache(_previewGeneration);
+  }
+
+  void _applyClusterStatsFromCache(int gen) {
+    if (gen != _previewGeneration) return;
+    if (_cachedFilteredPoints.isEmpty) {
+      if (_kmzPath == null || _kmzPath!.isEmpty) {
+        _applyEmptyStats();
+      } else {
+        newMemoriesCount.value = 0;
+        _lastStats = null;
+      }
+      return;
+    }
+
+    final filteredByDate =
+        _filterPointsBySelectedDateRange(_cachedFilteredPoints);
+    final minT = KmzImportPipeline.durationForTimeKey(
+      selectedMinTimeApartKey.value,
+    );
+    final minM = KmzImportPipeline.metersForDistanceKey(
+      selectedMinMeterApartKey.value,
+    );
+
+    _lastStats = KmzImportPipeline.buildStats(
+      points: filteredByDate,
+      minTimeApart: minT,
+      minMetersApart: minM,
+      existingFingerprints: _cachedFingerprints,
+      existingCoordinateRows: _cachedDedupeRows,
+    );
+
+    rawEntryCount.value = _cachedRawPointCount;
+    // Ignored = ignore rules only. Date range affects new memories.
+    // Duplicate entries = per-point DB matches (stable when clustering changes).
+    ignoredEntryCount.value = _cachedIgnoredByRules;
+    duplicateEntryCount.value = _lastStats!.duplicateEntries;
+    totalEntryCount.value = (rawEntryCount.value -
+            ignoredEntryCount.value -
+            duplicateEntryCount.value)
+        .clamp(0, 1 << 30);
+    newMemoriesCount.value = _lastStats!.newMemories;
+    _applyExclusionsToCounts();
+  }
+
   void _applyEmptyStats() {
     _lastStats = null;
+    _cachedFilteredPoints = const [];
+    _cachedRawPointCount = 0;
+    _cachedIgnoredByRules = 0;
+    _cachedDedupeRows = const [];
+    _cachedFingerprints = const {};
     _excludedFingerprints.clear();
     availableMemoryDateKeys.clear();
     selectedStartDateKey.value = '';
@@ -644,7 +685,7 @@ class GpxKmzUploadController extends GetxController {
           ? key
           : availableMemoryDateKeys.last;
     }
-    runPreview();
+    recomputeClusterStats();
   }
 
   void onEndDateChanged(String key) {
@@ -655,7 +696,7 @@ class GpxKmzUploadController extends GetxController {
           ? key
           : availableMemoryDateKeys.first;
     }
-    runPreview();
+    recomputeClusterStats();
   }
 
   Future<void> onPastUploadsTap() async {

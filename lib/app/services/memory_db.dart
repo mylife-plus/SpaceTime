@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:intl/intl.dart';
@@ -1496,9 +1497,8 @@ class DatabaseHelper {
   }
 
   Future<int> deleteMemory(int id) async {
-    await purgeMemoryMediaFilesFromDisk(id);
     final Database db = await instance.database;
-    return db.transaction((txn) async {
+    final deleted = await db.transaction((txn) async {
       await purgeImportedGalleryDedupeForMemory(txn, id);
       await purgeTrackImportLogEntriesForMemory(txn, id);
       return txn.delete(
@@ -1507,6 +1507,13 @@ class DatabaseHelper {
         whereArgs: [id],
       );
     });
+    // Media file cleanup is slow — run after the DB row is gone so delete feels instant.
+    unawaited(
+      purgeMemoryMediaFilesFromDisk(id).catchError((Object e, StackTrace st) {
+        debugPrint('[DatabaseHelper] background media purge for $id: $e\n$st');
+      }),
+    );
+    return deleted;
   }
 
   // Image operations

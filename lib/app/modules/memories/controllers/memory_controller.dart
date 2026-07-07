@@ -846,7 +846,7 @@ class MemoryController extends GetxController {
       DatabaseHelper.columnMentions: mentions?.join(
         ',',
       ), // From MemoryDescriptionField
-      DatabaseHelper.columnCreatedAt: DateTime.now().toIso8601String(),
+      DatabaseHelper.columnCreatedAt: selectedDateTime.toIso8601String(),
     };
 
     if (locationLatitudeSnap != null && locationLongitudeSnap != null) {

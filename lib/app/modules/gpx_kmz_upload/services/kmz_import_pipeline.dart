@@ -608,7 +608,8 @@ class KmzImportPipeline {
   }
 
   /// Cluster: walk points in chronological order; start a new cluster when the
-  /// gap to the previous kept point is at least [minDt] or at least [minM].
+  /// gap to the current cluster anchor (its first / representative point) is at
+  /// least [minDt] or at least [minM]. Merged points do not move the anchor.
   static List<List<KmzTrackPoint>> _clusterPoints(
     List<KmzTrackPoint> points,
     Duration minDt,
@@ -619,34 +620,28 @@ class KmzImportPipeline {
       ..sort((a, b) => a.when!.toUtc().compareTo(b.when!.toUtc()));
 
     final out = <List<KmzTrackPoint>>[];
-    List<KmzTrackPoint>? cur;
-    KmzTrackPoint? lastKept;
+    var cur = <KmzTrackPoint>[byTime.first];
+    var anchor = byTime.first;
 
-    for (final p in byTime) {
+    for (var i = 1; i < byTime.length; i++) {
+      final p = byTime[i];
       final t = p.when!.toUtc();
-      if (cur == null || lastKept == null) {
-        cur = [p];
-        lastKept = p;
-        continue;
-      }
-      final lt = lastKept.when!.toUtc();
-      final dt = t.difference(lt);
+      final anchorTime = anchor.when!.toUtc();
+      final dt = t.difference(anchorTime);
       final m = _distance.as(
         LengthUnit.Meter,
-        LatLng(lastKept.latitude, lastKept.longitude),
+        LatLng(anchor.latitude, anchor.longitude),
         LatLng(p.latitude, p.longitude),
       );
       if (dt >= minDt || m >= minM) {
         out.add(cur);
         cur = [p];
-        lastKept = p;
+        anchor = p;
       } else {
         cur.add(p);
-        // Evaluate thresholds from the latest accepted point in the chain.
-        lastKept = p;
       }
     }
-    if (cur != null) out.add(cur);
+    out.add(cur);
     return out;
   }
 }

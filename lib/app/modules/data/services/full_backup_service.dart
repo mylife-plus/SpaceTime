@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:file_picker/file_picker.dart';
@@ -9,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:spacetime/app/modules/gpx_kmz_upload/services/spacetime_backup_zip.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 
 class FullBackupResult {
@@ -187,34 +187,50 @@ class FullBackupService {
   }
 
   static Future<FullBackupResult> importFullBackup() async {
+    final zipPath = await pickBackupZipPath();
+    if (zipPath == null) {
+      return const FullBackupResult(
+        ok: false,
+        messageKey: 'backup_err_no_file_selected',
+      );
+    }
+    return importFullBackupFromPath(zipPath);
+  }
+
+  /// Opens the system file picker and returns a stable temp path to the zip.
+  static Future<String?> pickBackupZipPath() async {
+    try {
+      final picked = await _pickBackupZipFile();
+      if (picked == null || picked.files.isEmpty) return null;
+      final file = picked.files.first;
+      if (!_isZipFileName(file.name)) return null;
+      return await _materializePickedZipToTemp(file);
+    } catch (e, st) {
+      debugPrint('[FullBackupService] pick backup zip: $e\n$st');
+      rethrow;
+    }
+  }
+
+  static Future<FullBackupResult> importFullBackupFromPath(String zipPath) async {
     var dbClosedForReplace = false;
     try {
-      final picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['zip'],
-        withData: false,
-      );
-      if (picked == null || picked.files.isEmpty) {
-        return const FullBackupResult(
-          ok: false,
-          messageKey: 'backup_err_no_file_selected',
-        );
-      }
-      final zipPath = picked.files.first.path;
-      if (zipPath == null || zipPath.isEmpty) {
+      final zipFile = File(zipPath);
+      if (!await zipFile.exists()) {
         return const FullBackupResult(
           ok: false,
           messageKey: 'backup_err_path_missing',
         );
       }
 
-      final input = InputFileStream(zipPath);
-      final Archive archive;
-      try {
-        archive = ZipDecoder().decodeBuffer(input, verify: false);
-      } finally {
-        await input.close();
+      // readAsBytes worked reliably before; stream decode can fail on iOS picker paths.
+      final zipBytes = await zipFile.readAsBytes();
+      if (zipBytes.isEmpty) {
+        return const FullBackupResult(
+          ok: false,
+          messageKey: 'backup_err_invalid_db',
+        );
       }
+      final archive = ZipDecoder().decodeBytes(zipBytes, verify: false);
 
       ArchiveFile? dbEntryInFolder;
       ArchiveFile? dbEntryAtRoot;
@@ -231,6 +247,13 @@ class FullBackupService {
       final dbEntry = dbEntryInFolder ?? dbEntryAtRoot;
 
       if (dbEntry == null) {
+        return const FullBackupResult(
+          ok: false,
+          messageKey: 'backup_err_invalid_db',
+        );
+      }
+
+      if (!SpaceTimeBackupZip.archiveIsBackup(archive)) {
         return const FullBackupResult(
           ok: false,
           messageKey: 'backup_err_invalid_db',
@@ -335,6 +358,55 @@ class FullBackupService {
         messageArgs: [e],
       );
     }
+  }
+
+  /// iOS: [FileType.any] so zips appear in Recents; Android keeps zip filter.
+  static Future<FilePickerResult?> _pickBackupZipFile() {
+    if (!kIsWeb && Platform.isIOS) {
+      return FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: false,
+        withReadStream: false,
+      );
+    }
+    return FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['zip'],
+      withData: false,
+      withReadStream: false,
+    );
+  }
+
+  static bool _isZipFileName(String name) {
+    final base = name.replaceAll(r'\', '/').split('/').last.toLowerCase();
+    return base.endsWith('.zip');
+  }
+
+  /// Copy picker output into app temp — iOS security-scoped paths expire after pick.
+  static Future<String> _materializePickedZipToTemp(PlatformFile file) async {
+    final tmpDir = await getTemporaryDirectory();
+    final safeName = _isZipFileName(file.name)
+        ? file.name.replaceAll(r'\', '/').split('/').last
+        : 'spacetime_import.zip';
+    final destPath = p.join(
+      tmpDir.path,
+      'import_${DateTime.now().millisecondsSinceEpoch}_$safeName',
+    );
+
+    if (file.path != null && file.path!.isNotEmpty) {
+      final src = File(file.path!);
+      if (await src.exists()) {
+        await src.copy(destPath);
+        return destPath;
+      }
+    }
+
+    if (file.bytes != null && file.bytes!.isNotEmpty) {
+      await File(destPath).writeAsBytes(file.bytes!, flush: true);
+      return destPath;
+    }
+
+    throw StateError('Unable to read selected backup file');
   }
 
   /// One row may contribute two pairs (video path + thumbnail); same stored path deduped.

@@ -261,7 +261,7 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
             onChanged: (k) {
               if (k != null) {
                 selectedKey.value = k;
-                controller.runPreview();
+                controller.recomputeClusterStats();
               }
             },
           ),

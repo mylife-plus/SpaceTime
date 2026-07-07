@@ -77,7 +77,7 @@ Future<void> refreshConsumersAfterTrackImportDeletion({
   await refreshUploadDedupeCachesAfterMemoryDeletion();
 }
 
-/// Fast path after deleting a single memory — patch in-memory lists, refresh map.
+/// Fast path after deleting a single memory — patch in-memory lists; map redraw is deferred.
 Future<void> refreshConsumersAfterMemoryDeletion({
   required int memoryId,
   bool focusMapOnLatest = false,
@@ -86,20 +86,37 @@ Future<void> refreshConsumersAfterMemoryDeletion({
   if (Get.isRegistered<FilterController>()) {
     Get.find<FilterController>().removeMemoryById(memoryId);
   }
+
   if (Get.isRegistered<MapControllerNew>() &&
       Get.isRegistered<FilterController>()) {
-    final map = Get.find<MapControllerNew>();
-    final fc = Get.find<FilterController>();
-    try {
-      await map.loadMemoriesFromDB(fc.filteredMemories.toList());
-      await map.showLoadedDataOnMap();
-      if (focusMapOnLatest) {
-        unawaited(map.focusOnLatestMemory());
-      }
-    } catch (e, st) {
-      debugPrint('[$logTag] map refresh: $e\n$st');
-    }
+    unawaited(_deferredSingleMemoryMapRefresh(
+      focusMapOnLatest: focusMapOnLatest,
+      logTag: logTag,
+    ));
   }
+
   unawaited(refreshUploadDedupeCachesAfterMemoryDeletion());
   unawaited(refreshTrackUploadScreensPastCounts());
+}
+
+Future<void> _deferredSingleMemoryMapRefresh({
+  required bool focusMapOnLatest,
+  required String logTag,
+}) async {
+  await Future<void>.delayed(Duration.zero);
+  if (!Get.isRegistered<MapControllerNew>() ||
+      !Get.isRegistered<FilterController>()) {
+    return;
+  }
+  final map = Get.find<MapControllerNew>();
+  final fc = Get.find<FilterController>();
+  try {
+    await map.loadMemoriesFromDB(fc.filteredMemories.toList());
+    unawaited(map.showLoadedDataOnMap());
+    if (focusMapOnLatest) {
+      unawaited(map.focusOnLatestMemory());
+    }
+  } catch (e, st) {
+    debugPrint('[$logTag] deferred map refresh: $e\n$st');
+  }
 }

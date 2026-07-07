@@ -1702,7 +1702,6 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                   unawaited(
                     refreshConsumersAfterMemoryDeletion(
                       memoryId: memoryId,
-                      focusMapOnLatest: true,
                     ),
                   );
 

@@ -267,13 +267,17 @@ class DataController extends GetxController {
     );
     if (confirm != true) return;
 
-    isBusy.value = true;
     final appLock = Get.isRegistered<AppLockController>()
         ? Get.find<AppLockController>()
         : null;
     appLock?.beginExternalPickerSession();
     try {
-      final res = await FullBackupService.importFullBackup();
+      // Pick before showing the busy overlay so the file picker stays usable.
+      final zipPath = await FullBackupService.pickBackupZipPath();
+      if (zipPath == null) return;
+
+      isBusy.value = true;
+      final res = await FullBackupService.importFullBackupFromPath(zipPath);
       if (res.ok) {
         try {
           await refreshConsumersAfterDatabaseRestore();

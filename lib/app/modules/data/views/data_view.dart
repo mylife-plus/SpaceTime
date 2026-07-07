@@ -17,6 +17,7 @@ class DataView extends GetView<DataController> {
 
     return Obx(() {
       final busy = controller.isBusy.value;
+      final _ = uiController.selectedLanguage.value;
       return Scaffold(
         backgroundColor:
             uiController.darkMode.value
@@ -49,12 +50,12 @@ class DataView extends GetView<DataController> {
                   showDivider: true,
                 ),
                 DataTile(
-                  title: AppTexts.backupMemories,
+                  title: trKey('apptexts_backup_memories'),
                   onTap: busy ? null : controller.exportFullData,
                   showDivider: true,
                 ),
                 DataTile(
-                  title: AppTexts.uploadMemories,
+                  title: trKey('apptexts_upload_memories'),
                   onTap: busy ? null : controller.importFullData,
                   showDivider: true,
                 ),

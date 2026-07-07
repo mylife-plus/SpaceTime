@@ -15,6 +15,7 @@ import '../../../services/place_category_service.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
 import 'dart:math';
 import 'package:spacetime/app/utils/search_utils.dart';
+import 'package:spacetime/app/utils/memory_sort.dart';
 import '../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 
@@ -281,7 +282,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     final source = _listUsesFilteredSource
         ? filteredMemories.toList()
         : allMemories.toList();
-    displayMemories.value = _sortMemoriesNewestFirst(source);
+    displayMemories.value = MemorySort.memoriesNewestFirst(source);
     final total = displayMemories.length;
     loadedDisplayCount.value = total == 0
         ? 0
@@ -321,27 +322,6 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   }
 
   void loadMoreDisplayItems() => scheduleLoadMoreDisplayItems();
-
-  List<Map<String, dynamic>> _sortMemoriesNewestFirst(
-    List<Map<String, dynamic>> memories,
-  ) {
-    final list = List<Map<String, dynamic>>.from(memories);
-    list.sort(
-      (a, b) => _memorySortKey(b).compareTo(_memorySortKey(a)),
-    );
-    return list;
-  }
-
-  String _memorySortKey(Map<String, dynamic> memory) {
-    final created = memory['created_at'];
-    if (created is String && created.isNotEmpty) return created;
-    final updated = memory['updated_at'];
-    if (updated is String && updated.isNotEmpty) return updated;
-    final year = memory['year']?.toString() ?? '';
-    final date = memory['date']?.toString() ?? '';
-    final time = memory['time']?.toString() ?? '';
-    return '$year|$date|$time';
-  }
 
   /// Sync filter values from FilterController to local state
   void _syncFilterValuesFromFilterController() {

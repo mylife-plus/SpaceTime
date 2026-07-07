@@ -1,10 +1,40 @@
+import 'package:intl/intl.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 
-/// Shared newest-first ordering (same rules as add-memories list).
+/// Shared newest-first ordering (same rules as add-memories list and map focus).
 class MemorySort {
   MemorySort._();
 
+  /// User-selected memory date/time from UI fields (`date`, `year`, `time`).
+  /// Matches map timeline / camera focus ordering — not row insertion time.
+  static DateTime? parseMemoryDateTime(Map<String, dynamic> memory) {
+    final date = (memory['date'] as String?) ?? '';
+    final year = (memory['year'] as String?) ?? '';
+    final time = (memory['time'] as String?) ?? '';
+    try {
+      if (date.isNotEmpty && year.isNotEmpty) {
+        if (time.isNotEmpty) {
+          final format = time.toLowerCase().contains('am') ||
+                  time.toLowerCase().contains('pm')
+              ? 'd. MMMM yyyy hh:mm a'
+              : 'd. MMMM yyyy HH:mm';
+          return DateFormat(format).parse('$date $year $time');
+        }
+        return DateFormat('d. MMMM yyyy').parse('$date $year');
+      }
+      if (date.isNotEmpty) {
+        final parsed = DateTime.tryParse(date);
+        if (parsed != null) return parsed;
+      }
+    } catch (_) {
+      // Fall through to created_at / legacy key.
+    }
+    return null;
+  }
+
   static String memorySortKey(Map<String, dynamic> memory) {
+    final when = parseMemoryDateTime(memory);
+    if (when != null) return when.toUtc().toIso8601String();
     final created = memory['created_at'];
     if (created is String && created.isNotEmpty) return created;
     final updated = memory['updated_at'];
@@ -15,11 +45,23 @@ class MemorySort {
     return '$year|$date|$time';
   }
 
+  static int compareMemoriesNewestFirst(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+  ) {
+    final ad = parseMemoryDateTime(a);
+    final bd = parseMemoryDateTime(b);
+    if (ad != null && bd != null) return bd.compareTo(ad);
+    if (ad != null) return -1;
+    if (bd != null) return 1;
+    return memorySortKey(b).compareTo(memorySortKey(a));
+  }
+
   static List<Map<String, dynamic>> memoriesNewestFirst(
     List<Map<String, dynamic>> memories,
   ) {
     final list = List<Map<String, dynamic>>.from(memories);
-    list.sort((a, b) => memorySortKey(b).compareTo(memorySortKey(a)));
+    list.sort(compareMemoriesNewestFirst);
     return list;
   }
 
