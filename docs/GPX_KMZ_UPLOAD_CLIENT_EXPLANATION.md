@@ -43,20 +43,23 @@ Two settings control how points are grouped:
 
 **Default:** 5 minutes and 50 meters.
 
-### The rule (OR, not AND)
+### The rule (AND to start a new memory)
 
 Points are sorted by time. The app walks through them in order.
 
-A **new memory** starts when the next point is **either**:
+Points **stay in the same memory** when they are still:
 
-- at least **X** apart in time from the **first point of the current group** (the "anchor"), **or**
-- at least **Y** meters away on the map from that **same anchor**
+- within **X** of the current group start in time, **or**
+- within **Y** meters of that same anchor on the map
 
-If **both** time **and** distance are **below** your chosen limits, the point is **merged** into the current memory.
+A **new memory** starts only when the next point is **both**:
+
+- at least **X** apart in time from the group start, **and**
+- at least **Y** meters away on the map from that same anchor
 
 In short:
 
-> Start a new memory when the next stop is far enough in **time** **or** far enough in **distance**.
+> Merge while still within min time *or* min distance. Start a new memory only when far enough in **time and distance**.
 
 Each memory uses the **first point** in its group (time + location) as its representative.
 
@@ -69,9 +72,9 @@ Each memory uses the **first point** in its group (time + location) as its repre
 | Point | Time from anchor | Distance from anchor | Result |
 |-------|------------------|----------------------|--------|
 | A | — | — | Memory 1 starts (anchor = A) |
-| B | 2 min | 15 m | Merged (both under limits) |
-| C | 4 min | 22 m | Merged (still under 25 m and 5 min from A) |
-| D | 6 min | 30 m | **New memory** (6 min ≥ 5 min **or** 30 m ≥ 25 m) |
+| B | 2 min | 100 m | Merged (still within 5 min, even though > 25 m) |
+| C | 6 min | 10 m | Merged (still within 25 m, even though > 5 min) |
+| D | 6 min | 30 m | **New memory** (6 min ≥ 5 min **and** 30 m ≥ 25 m) |
 
 **Result:** 2 memories from 4 points.
 
@@ -111,7 +114,7 @@ Even when points look far apart, the count can be 0 for these reasons:
 
 ## Summary (one paragraph)
 
-SpaceTime groups nearby track points into single memories using your **Min time apart** and **Min distance apart** settings. A new memory starts when a point is far enough in time **or** distance from the start of the current group — not from the previous point. **New memories** is the number of those groups that do not already exist in your library, not the raw number of GPS points in the file.
+SpaceTime groups nearby track points into single memories using your **Min time apart** and **Min distance apart** settings. Points stay in one memory while they are still within the min time *or* the min distance of the group start. A new memory starts only when a point is far enough in **both** time and distance. **New memories** is the number of those groups that do not already exist in your library, not the raw number of GPS points in the file.
 
 ---
 

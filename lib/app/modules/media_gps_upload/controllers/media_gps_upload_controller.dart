@@ -1280,7 +1280,8 @@ class MediaGpsUploadController extends GetxController {
     // memories are inserted with location already filled — no deferred backfill.
   }
 
-  /// Same place (~5 m) or closer than import min time + min distance as existing gallery memory.
+  /// Same place (~5 m), or still within min time **or** min distance of an
+  /// existing gallery memory (matches GPX/KMZ AND-to-split clustering).
   int? _findMergeTargetGalleryMemoryId({
     required MediaGpsClusterCandidate c,
     required List<Map<String, dynamic>> galleryRows,
@@ -1309,7 +1310,9 @@ class MediaGpsUploadController extends GetxController {
       if (memWhen == null) continue;
       final dt = c.when.toUtc().difference(memWhen.toUtc()).abs();
       final sameSpot = m <= sameSpotMeters;
-      final inWindow = m < minM && dt < minT;
+      // Dual of cluster AND-to-split: merge if still within min time OR
+      // within min distance (do not create a separate memory under those limits).
+      final inWindow = m < minM || dt < minT;
       if (!sameSpot && !inWindow) continue;
       final score = m + dt.inMilliseconds / 1e6;
       if (score < bestScore) {

@@ -77,10 +77,14 @@ Future<void> refreshConsumersAfterTrackImportDeletion({
   await refreshUploadDedupeCachesAfterMemoryDeletion();
 }
 
-/// Fast path after deleting a single memory — patch in-memory lists; map redraw is deferred.
+/// Fast path after deleting a single memory — patch in-memory lists.
+///
+/// When [waitForMap] is true (Memory View loader), list + map refresh are
+/// awaited so the UI can stay busy until everything is ready.
 Future<void> refreshConsumersAfterMemoryDeletion({
   required int memoryId,
   bool focusMapOnLatest = false,
+  bool waitForMap = false,
   String logTag = 'MemoryDeletion',
 }) async {
   if (Get.isRegistered<FilterController>()) {
@@ -89,21 +93,37 @@ Future<void> refreshConsumersAfterMemoryDeletion({
 
   if (Get.isRegistered<MapControllerNew>() &&
       Get.isRegistered<FilterController>()) {
-    unawaited(_deferredSingleMemoryMapRefresh(
+    final mapFuture = _deferredSingleMemoryMapRefresh(
       focusMapOnLatest: focusMapOnLatest,
+      waitForMap: waitForMap,
       logTag: logTag,
-    ));
+    );
+    if (waitForMap) {
+      await mapFuture;
+    } else {
+      unawaited(mapFuture);
+    }
   }
 
-  unawaited(refreshUploadDedupeCachesAfterMemoryDeletion());
-  unawaited(refreshTrackUploadScreensPastCounts());
+  if (waitForMap) {
+    await Future.wait([
+      refreshUploadDedupeCachesAfterMemoryDeletion(),
+      refreshTrackUploadScreensPastCounts(),
+    ]);
+  } else {
+    unawaited(refreshUploadDedupeCachesAfterMemoryDeletion());
+    unawaited(refreshTrackUploadScreensPastCounts());
+  }
 }
 
 Future<void> _deferredSingleMemoryMapRefresh({
   required bool focusMapOnLatest,
+  bool waitForMap = false,
   required String logTag,
 }) async {
-  await Future<void>.delayed(Duration.zero);
+  if (!waitForMap) {
+    await Future<void>.delayed(Duration.zero);
+  }
   if (!Get.isRegistered<MapControllerNew>() ||
       !Get.isRegistered<FilterController>()) {
     return;
@@ -112,9 +132,16 @@ Future<void> _deferredSingleMemoryMapRefresh({
   final fc = Get.find<FilterController>();
   try {
     await map.loadMemoriesFromDB(fc.filteredMemories.toList());
-    unawaited(map.showLoadedDataOnMap());
-    if (focusMapOnLatest) {
-      unawaited(map.focusOnLatestMemory());
+    if (waitForMap) {
+      await map.showLoadedDataOnMap();
+      if (focusMapOnLatest) {
+        await map.focusOnLatestMemory();
+      }
+    } else {
+      unawaited(map.showLoadedDataOnMap());
+      if (focusMapOnLatest) {
+        unawaited(map.focusOnLatestMemory());
+      }
     }
   } catch (e, st) {
     debugPrint('[$logTag] deferred map refresh: $e\n$st');

@@ -607,9 +607,13 @@ class KmzImportPipeline {
     return _clusterPoints(points, minTimeApart, minMetersApart);
   }
 
-  /// Cluster: walk points in chronological order; start a new cluster when the
-  /// gap to the current cluster anchor (its first / representative point) is at
-  /// least [minDt] or at least [minM]. Merged points do not move the anchor.
+  /// Cluster: walk points in chronological order. A new cluster starts only when
+  /// the gap to the cluster anchor meets **both** thresholds (AND gate):
+  /// at least [minDt] **and** at least [minM].
+  ///
+  /// So if still within min time *or* within min distance, the point merges into
+  /// the current memory (client: no individual memories under those limits).
+  /// Merged points do not move the anchor.
   static List<List<KmzTrackPoint>> _clusterPoints(
     List<KmzTrackPoint> points,
     Duration minDt,
@@ -633,7 +637,11 @@ class KmzImportPipeline {
         LatLng(anchor.latitude, anchor.longitude),
         LatLng(p.latitude, p.longitude),
       );
-      if (dt >= minDt || m >= minM) {
+      // AND: need both time *and* distance apart to start a new memory.
+      // Still within min time OR still within min distance → stay in cluster.
+      final farEnoughInTime = dt >= minDt;
+      final farEnoughInDistance = m >= minM;
+      if (farEnoughInTime && farEnoughInDistance) {
         out.add(cur);
         cur = [p];
         anchor = p;

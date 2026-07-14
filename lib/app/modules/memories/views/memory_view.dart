@@ -54,6 +54,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   bool _deferredCreateInitStarted = false;
   bool _mediaStagingDialogOpen = false;
   bool _isImportingPickedMedia = false;
+  /// Blocks UI during save/delete while list/map refresh settles.
+  bool _isBusy = false;
 
   List<Map<String, dynamic>> _originalImages = [];
   List<Map<String, dynamic>> _originalVideos = [];
@@ -247,6 +249,18 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     final nav = Navigator.of(context, rootNavigator: true);
     if (nav.canPop()) nav.pop();
     _mediaStagingDialogOpen = false;
+  }
+
+  void _setBusy(bool value) {
+    if (!mounted || _isBusy == value) return;
+    setState(() => _isBusy = value);
+  }
+
+  /// Let the busy overlay paint + start animating before heavy work (otherwise
+  /// the spinner freezes because the UI isolate is already busy).
+  Future<void> _waitForBusyOverlayPaint() async {
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(milliseconds: 32));
   }
 
   /// iOS image_picker cache files can disappear within seconds — copy before UI.
@@ -1216,38 +1230,33 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     // FocusScope.of(context).unfocus();
   }
 
-  /// Map GeoJSON rebuild for 1000+ KMZ imports is expensive — run after pop.
-  void _scheduleDeferredMapRefreshAfterCreate() {
+  /// Reload list + map after creating a memory. Awaited while the loader is shown.
+  Future<void> _refreshListAndMapAfterCreate() async {
     if (!Get.isRegistered<FilterController>()) return;
-    unawaited(() async {
-      await Future<void>.delayed(Duration.zero);
-      try {
-        final filterController = Get.find<FilterController>();
-        if (Get.isRegistered<AddMemoriesController>()) {
-          await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
-        }
-        if (Get.isRegistered<MapControllerNew>()) {
-          final mapController = Get.find<MapControllerNew>();
-          await mapController.loadMemoriesFromDB(
-            filterController.filteredMemories.toList(),
-          );
-          unawaited(mapController.showLoadedDataOnMap());
-          // The incremental loadMemoriesFromDB path doesn't reposition the
-          // camera, so focus on the latest memory (by its date/time) explicitly.
-          await mapController.focusOnLatestMemory();
-        }
-        debugPrint(
-          'MemoryView: deferred map/list refresh (${filterController.filteredMemories.length} memories)',
-        );
-      } catch (e, st) {
-        debugPrint('MemoryView: deferred map refresh failed: $e\n$st');
+    try {
+      final filterController = Get.find<FilterController>();
+      if (Get.isRegistered<AddMemoriesController>()) {
+        await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
       }
-    }());
+      if (Get.isRegistered<MapControllerNew>()) {
+        final mapController = Get.find<MapControllerNew>();
+        await mapController.loadMemoriesFromDB(
+          filterController.filteredMemories.toList(),
+        );
+        await mapController.showLoadedDataOnMap();
+        await mapController.focusOnLatestMemory();
+      }
+      debugPrint(
+        'MemoryView: list/map refresh done (${filterController.filteredMemories.length} memories)',
+      );
+    } catch (e, st) {
+      debugPrint('MemoryView: list/map refresh failed: $e\n$st');
+    }
   }
 
   void _handleSave() async {
     try {
-      if (_isImportingPickedMedia) return;
+      if (_isImportingPickedMedia || _isBusy) return;
 
       debugPrint('MemoryView: handleSave - Method called');
       final memoryController = Get.find<MemoryController>();
@@ -1523,6 +1532,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           return;
         }
 
+        _setBusy(true);
+        await _waitForBusyOverlayPaint();
+
         debugPrint('MemoryView: handleSave - CREATE MODE - Saving memory to database');
         debugPrint('MemoryView: handleSave - CREATE MODE - Images: ${_selectedImagePaths.length}, Videos: ${_selectedVideoPaths.length}');
         await _ensureGalleryAssetIdsBeforeSave();
@@ -1561,7 +1573,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         memoryController.clearAllData();
         debugPrint('MemoryView: handleSave - CREATE MODE - Controller data cleared');
 
-        // Incrementally update lists — avoid re-filtering / redrawing 1000s of KMZ pins.
+        // Update list + map while loader is visible, then close.
         debugPrint('MemoryView: handleSave - CREATE MODE - Incremental FilterController update');
         if (Get.isRegistered<FilterController>()) {
           final filterController = Get.find<FilterController>();
@@ -1575,24 +1587,19 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           );
         }
 
+        debugPrint('MemoryView: handleSave - CREATE MODE - Refreshing list/map');
+        await _refreshListAndMapAfterCreate();
+        if (!mounted) return;
         debugPrint('MemoryView: handleSave - CREATE MODE - Popping view');
         Get.back(result: true);
-        _scheduleDeferredMapRefreshAfterCreate();
 
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(
-        //     content: const Text('Memory created successfully!'),
-        //     backgroundColor: Colors.green.shade400,
-        //     margin: const EdgeInsets.all(12),
-        //     behavior: SnackBarBehavior.floating,
-        //   ),
-        // );
-        debugPrint('MemoryView: handleSave - CREATE MODE - Snackbar shown');
+        debugPrint('MemoryView: handleSave - CREATE MODE - Done');
 
       }
 
       debugPrint('MemoryView: handleSave - Method completed successfully');
     } catch (e) {
+      _setBusy(false);
       debugPrint('MemoryView: handleSave - ERROR CAUGHT: $e');
       debugPrint('MemoryView: handleSave - ERROR - Stack trace: ${StackTrace.current}');
       showTrSnackbar(
@@ -1686,24 +1693,28 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
             ),
             TextButton(
               onPressed: () async {
+                if (_isBusy) return;
                 final memoryId = _editingMemoryId!;
                 Get.back();
 
                 try {
                   debugPrint('[MemoryView] 🗑️ Deleting memory ID: $memoryId');
+                  _setBusy(true);
+                  await _waitForBusyOverlayPaint();
 
                   final memoryController = Get.find<MemoryController>();
                   await memoryController.deleteMemory(memoryId);
 
                   debugPrint('[MemoryView] ✅ Memory deleted from database');
 
-                  Get.back(result: true);
-
-                  unawaited(
-                    refreshConsumersAfterMemoryDeletion(
-                      memoryId: memoryId,
-                    ),
+                  // Keep loader until list + map refresh finishes.
+                  await refreshConsumersAfterMemoryDeletion(
+                    memoryId: memoryId,
+                    waitForMap: true,
                   );
+
+                  if (!mounted) return;
+                  Get.back(result: true);
 
                   showTrSnackbar(
                     'snackbar_success_21',
@@ -1712,6 +1723,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                     duration: const Duration(seconds: 2),
                   );
                 } catch (e) {
+                  _setBusy(false);
                   debugPrint('[MemoryView] ❌ Error deleting memory: $e');
                   showTrSnackbar(
                     'snackbar_unable_to_delete_10',
@@ -1951,7 +1963,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     final controller = Get.find<UiController>();
 
     return PopScope(
-      canPop: !_isPopupOpen && !_mediaStagingDialogOpen,
+      canPop: !_isPopupOpen && !_mediaStagingDialogOpen && !_isBusy,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _isPopupOpen) {
           _descriptionFieldKey.currentState?.closePopup();
@@ -1981,9 +1993,12 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                 controller.darkMode.value
                     ? controller.darkBackgroundColor
                     : Colors.white,
-            body: GestureDetector(
+            body: Stack(
+              children: [
+                GestureDetector(
               // Dismiss keyboard when tapping outside text fields
               onTap: () {
+                if (_isBusy) return;
                 FocusScope.of(context).unfocus();
               },
               child: SafeArea(bottom: false,
@@ -2241,7 +2256,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                               children: [
                                 TickCrossActionButton(
                                   iconPath: 'assets/images/ic_cross.png',
-                                  onTap: () {
+                                  onTap: _isBusy
+                                      ? () {}
+                                      : () {
                                     _handleCancel(
                                       memoryController.recordedAudioPaths,
                                       _selectedImagePaths,
@@ -2262,7 +2279,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                         if (widget.editMode) ...[
                           const SizedBox(width: 20),
                           InkWell(
-                            onTap: _handleDelete,
+                            onTap: _isBusy ? null : _handleDelete,
                             child: Container(
                               width: 60,
                               height: 60,
@@ -2340,7 +2357,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
 
                         TickCrossActionButton(
                           iconPath: 'assets/images/ic_tick.png',
-                          onTap: _handleSave,
+                          onTap: _isBusy ? () {} : _handleSave,
                         ),
                       ],
                     ),
@@ -2349,6 +2366,22 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
               ),
             ),
           ), // Close GestureDetector
+                if (_isBusy)
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: controller.darkMode.value
+                          ? Colors.black.withValues(alpha: 0.55)
+                          : Colors.black.withValues(alpha: 0.35),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: controller.currentMainColor,
+                          strokeWidth: 2.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           /// TODO: UnComment whenever you want to see your database tables. <UKDev>
           // floatingActionButton: FloatingActionButton(
           //   heroTag: 'debug_button',
