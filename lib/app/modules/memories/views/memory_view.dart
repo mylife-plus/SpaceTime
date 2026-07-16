@@ -263,6 +263,22 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     await Future<void>.delayed(const Duration(milliseconds: 32));
   }
 
+  /// Pop Memory View first; run list/map refresh shortly after so the UI feels instant.
+  static const Duration _postPopRefreshDelay = Duration(milliseconds: 50);
+
+  void _schedulePostPopListAndMapRefresh(Future<void> Function() work) {
+    unawaited(
+      () async {
+        await Future<void>.delayed(_postPopRefreshDelay);
+        try {
+          await work();
+        } catch (e, st) {
+          debugPrint('MemoryView: post-pop list/map refresh failed: $e\n$st');
+        }
+      }(),
+    );
+  }
+
   /// iOS image_picker cache files can disappear within seconds — copy before UI.
   Future<List<String>> _existingNormalizedPickerPaths(List<String> paths) async {
     final out = <String>[];
@@ -1230,7 +1246,20 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     // FocusScope.of(context).unfocus();
   }
 
-  /// Reload list + map after creating a memory. Awaited while the loader is shown.
+  /// Same list + map refresh as create, including incremental FilterController update.
+  Future<void> _runListAndMapRefreshAfterCreate(int newMemoryId) async {
+    if (Get.isRegistered<FilterController>()) {
+      final filterController = Get.find<FilterController>();
+      filterController.resetFiltersExceptSearch();
+      await filterController.prependMemoryById(
+        newMemoryId,
+        incremental: true,
+      );
+    }
+    await _refreshListAndMapAfterCreate();
+  }
+
+  /// Reload list + map after creating a memory.
   Future<void> _refreshListAndMapAfterCreate() async {
     if (!Get.isRegistered<FilterController>()) return;
     try {
@@ -1573,25 +1602,14 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         memoryController.clearAllData();
         debugPrint('MemoryView: handleSave - CREATE MODE - Controller data cleared');
 
-        // Update list + map while loader is visible, then close.
-        debugPrint('MemoryView: handleSave - CREATE MODE - Incremental FilterController update');
-        if (Get.isRegistered<FilterController>()) {
-          final filterController = Get.find<FilterController>();
-          filterController.resetFiltersExceptSearch();
-          await filterController.prependMemoryById(
-            newMemoryId,
-            incremental: true,
-          );
-          debugPrint(
-            'MemoryView: handleSave - CREATE MODE - FilterController: ${filterController.filteredMemories.length} memories',
-          );
-        }
-
-        debugPrint('MemoryView: handleSave - CREATE MODE - Refreshing list/map');
-        await _refreshListAndMapAfterCreate();
+        _setBusy(false);
         if (!mounted) return;
         debugPrint('MemoryView: handleSave - CREATE MODE - Popping view');
         Get.back(result: true);
+
+        _schedulePostPopListAndMapRefresh(
+          () => _runListAndMapRefreshAfterCreate(newMemoryId),
+        );
 
         debugPrint('MemoryView: handleSave - CREATE MODE - Done');
 
@@ -1699,19 +1717,11 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
 
                 try {
                   debugPrint('[MemoryView] 🗑️ Deleting memory ID: $memoryId');
-                  _setBusy(true);
-                  await _waitForBusyOverlayPaint();
 
                   final memoryController = Get.find<MemoryController>();
                   await memoryController.deleteMemory(memoryId);
 
                   debugPrint('[MemoryView] ✅ Memory deleted from database');
-
-                  // Keep loader until list + map refresh finishes.
-                  await refreshConsumersAfterMemoryDeletion(
-                    memoryId: memoryId,
-                    waitForMap: true,
-                  );
 
                   if (!mounted) return;
                   Get.back(result: true);
@@ -1722,8 +1732,14 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                     colorText: Colors.white,
                     duration: const Duration(seconds: 2),
                   );
+
+                  _schedulePostPopListAndMapRefresh(
+                    () => refreshConsumersAfterMemoryDeletion(
+                      memoryId: memoryId,
+                      waitForMap: false,
+                    ),
+                  );
                 } catch (e) {
-                  _setBusy(false);
                   debugPrint('[MemoryView] ❌ Error deleting memory: $e');
                   showTrSnackbar(
                     'snackbar_unable_to_delete_10',
