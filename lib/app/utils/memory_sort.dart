@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'dart:isolate';
 
 /// Shared newest-first ordering (same rules as add-memories list and map focus).
 class MemorySort {
@@ -14,10 +15,11 @@ class MemorySort {
     try {
       if (date.isNotEmpty && year.isNotEmpty) {
         if (time.isNotEmpty) {
-          final format = time.toLowerCase().contains('am') ||
-                  time.toLowerCase().contains('pm')
-              ? 'd. MMMM yyyy hh:mm a'
-              : 'd. MMMM yyyy HH:mm';
+          final format =
+              time.toLowerCase().contains('am') ||
+                      time.toLowerCase().contains('pm')
+                  ? 'd. MMMM yyyy hh:mm a'
+                  : 'd. MMMM yyyy HH:mm';
           return DateFormat(format).parse('$date $year $time');
         }
         return DateFormat('d. MMMM yyyy').parse('$date $year');
@@ -35,6 +37,10 @@ class MemorySort {
   static String memorySortKey(Map<String, dynamic> memory) {
     final when = parseMemoryDateTime(memory);
     if (when != null) return when.toUtc().toIso8601String();
+    return _fallbackSortKey(memory);
+  }
+
+  static String _fallbackSortKey(Map<String, dynamic> memory) {
     final created = memory['created_at'];
     if (created is String && created.isNotEmpty) return created;
     final updated = memory['updated_at'];
@@ -61,8 +67,32 @@ class MemorySort {
     List<Map<String, dynamic>> memories,
   ) {
     final list = List<Map<String, dynamic>>.from(memories);
-    list.sort(compareMemoriesNewestFirst);
+    final parsedDates = Map<Map<String, dynamic>, DateTime?>.identity();
+    final fallbackKeys = Map<Map<String, dynamic>, String>.identity();
+    for (final memory in list) {
+      parsedDates[memory] = parseMemoryDateTime(memory);
+      fallbackKeys[memory] = _fallbackSortKey(memory);
+    }
+    list.sort((a, b) {
+      final ad = parsedDates[a];
+      final bd = parsedDates[b];
+      if (ad != null && bd != null) return bd.compareTo(ad);
+      if (ad != null) return -1;
+      if (bd != null) return 1;
+      return fallbackKeys[b]!.compareTo(fallbackKeys[a]!);
+    });
     return list;
+  }
+
+  /// Sort off the UI isolate when the library is large.
+  static Future<List<Map<String, dynamic>>> memoriesNewestFirstAsync(
+    List<Map<String, dynamic>> memories, {
+    int isolateThreshold = 80,
+  }) async {
+    if (memories.length < isolateThreshold) {
+      return memoriesNewestFirst(memories);
+    }
+    return Isolate.run(() => memoriesNewestFirst(memories));
   }
 
   static List<T> sortedByWhenNewestFirst<T>(

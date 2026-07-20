@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:get/get_rx/src/rx_types/rx_types.dart';
 
 /// Service for converting memories to GeoJSON format for MapBox native clustering
 class MemoryGeoJsonService {
@@ -13,23 +11,27 @@ class MemoryGeoJsonService {
     return null;
   }
 
-  /// Convert memories to GeoJSON FeatureCollection for MapBox clustering
-  static String createGeoJsonFromMemories(List<Map<String, dynamic>> memories, RxList<Map<String, dynamic>> allMemoriesWithoutFilter) {
+  /// Convert memories to GeoJSON FeatureCollection for MapBox clustering.
+  ///
+  /// Uses plain [Iterable]s so this can run inside an isolate (no GetX Rx types).
+  static String createGeoJsonFromMemories(
+    List<Map<String, dynamic>> memories,
+    Iterable<Map<String, dynamic>> allMemoriesWithoutFilter,
+  ) {
     final features = <Map<String, dynamic>>[];
-
-    // Calculate the latest memory year to use as base for color mapping
-    final baseYear = getLatestMemoryYear(memories);
-    print('🎨 Using latest memory year as base: $baseYear');
+    final colorIndexes = buildColorIndexLookup(allMemoriesWithoutFilter);
 
     for (final memory in memories) {
       final lat = _toDouble(memory['location_latitude']);
       final lng = _toDouble(memory['location_longitude']);
 
       if (lat == null || lng == null) continue;
-      print('Memory Year ${memory['year']}');
       // Extract memory properties for styling and interaction
       final memoryDate =
-          DateTime.tryParse('${memory['memory_date']} ${ memory['year']}' ?? '') ?? DateTime.now();
+          DateTime.tryParse(
+            '${memory['memory_date'] ?? ''} ${memory['year'] ?? ''}',
+          ) ??
+          DateTime.now();
       final yearStr = memory['year']?.toString() ?? '';
       final yearInt = int.tryParse(yearStr) ?? memoryDate.year;
       final year = yearInt.toString();
@@ -38,12 +40,9 @@ class MemoryGeoJsonService {
           memory['text'] as String? ?? memory['description'] as String? ?? '';
       final images = memory['images'] as List<dynamic>? ?? [];
       final audios = memory['audios'] as List<dynamic>? ?? [];
+      final colorIndex = colorIndexes[yearInt] ?? yearInt.abs() % colors.length;
 
-  var endDate = DateTime.tryParse(memory['date'] ?? '') ?? DateTime.now();
-      // final toMemoryYear = endDate.year; // e.g., 2023
-
-
-        // Create GeoJSON feature
+      // Create GeoJSON feature
       final feature = {
         'type': 'Feature',
         'geometry': {
@@ -58,18 +57,16 @@ class MemoryGeoJsonService {
           'memory_date': memory['date'],
           'has_images': images.isNotEmpty,
           'timestamp': memoryDate.millisecondsSinceEpoch, // 👈 ADD
-          'color_index': getColorIndexForYear(yearInt, allMemoriesWithoutFilter),
+          'color_index': colorIndex,
           'memory_timestamp': memoryDate.millisecondsSinceEpoch,
           'has_audios': audios.isNotEmpty,
-          'color': colors[getColorIndexForYear(yearInt, allMemoriesWithoutFilter)],
+          'color': colors[colorIndex],
           'image_count': images.length,
           'audio_count': audios.length,
           'location_name': memory['location_name'] ?? '',
           'location_address': memory['location_address'] ?? '',
           'location_city': memory['location_city'] ?? '',
           'location_country': memory['location_country'] ?? '',
-          // 'color_index': getColorIndexForYear(year),
-          'memory_data': memory,
           'toMemoryYear': yearInt,
         },
       };
@@ -94,13 +91,17 @@ class MemoryGeoJsonService {
 
     // If already initialized with the same base year, skip
     if (_isInitialized && _cacheBaseYear == base) {
-      debugPrint('🎨 Year color index cache already initialized with base year $base, skipping...');
+      debugPrint(
+        '🎨 Year color index cache already initialized with base year $base, skipping...',
+      );
       return;
     }
 
     // If base year changed, re-initialize
     if (_isInitialized && _cacheBaseYear != base) {
-      debugPrint('🎨 Base year changed from $_cacheBaseYear to $base, re-initializing cache...');
+      debugPrint(
+        '🎨 Base year changed from $_cacheBaseYear to $base, re-initializing cache...',
+      );
     }
 
     debugPrint('🎨 Initializing year color index cache with base year: $base');
@@ -117,39 +118,39 @@ class MemoryGeoJsonService {
     }
 
     _isInitialized = true;
-    debugPrint('🎨 Year color index cache initialized with ${_yearColorIndexCache!.length} entries (${base - 100} to ${base + 20})');
+    debugPrint(
+      '🎨 Year color index cache initialized with ${_yearColorIndexCache!.length} entries (${base - 100} to ${base + 20})',
+    );
   }
 
-  static int getColorIndexForYear(int year, RxList<Map<String, dynamic>> allMemoriesWithoutFilter) {
-   
-   final Set<int> uniqueYears = {};
-for (final memory in allMemoriesWithoutFilter) {
-  if (memory['year'] != null) {
-    final y = int.tryParse(memory['year'].toString());
-    if (y != null) uniqueYears.add(y);
+  static int getColorIndexForYear(
+    int year,
+    Iterable<Map<String, dynamic>> allMemoriesWithoutFilter,
+  ) {
+    return buildColorIndexLookup(allMemoriesWithoutFilter)[year] ??
+        year.abs() % colors.length;
   }
-}
 
-if (uniqueYears.isEmpty) {
-  return year.abs() % colors.length;
-}
+  /// Computes the complete year palette once for a map refresh.
+  ///
+  /// Previously every marker and arrow rescanned every memory, making refresh
+  /// O(n²) and blocking Flutter's UI isolate for large libraries.
+  static Map<int, int> buildColorIndexLookup(
+    Iterable<Map<String, dynamic>> memories,
+  ) {
+    final uniqueYears = <int>{};
+    for (final memory in memories) {
+      final year = int.tryParse(memory['year']?.toString() ?? '');
+      if (year != null) uniqueYears.add(year);
+    }
+    if (uniqueYears.isEmpty) return const {};
 
-int minYear = uniqueYears.reduce((a, b) => a < b ? a : b);
-int maxYear = uniqueYears.reduce((a, b) => a > b ? a : b);
-int range = (maxYear - minYear) + 1;
-
-// Assuming 'targetYear' is the year you are currently processing
-int targetYear = year; 
-if(range > 20) {
-  range = 20;
-}
-// 3. Calculate index based on range (0 to range-1)
-int yearDifference = targetYear - minYear;
-int colorIndex = (yearDifference % range).abs();
-
-// 4. Cache it
-_yearColorIndexCache![targetYear] = colorIndex;
-    return colorIndex;
+    final minYear = uniqueYears.reduce(min);
+    final maxYear = uniqueYears.reduce(max);
+    final range = min(20, (maxYear - minYear) + 1);
+    return {
+      for (final year in uniqueYears) year: ((year - minYear) % range).abs(),
+    };
   }
 
   /// Get the latest (most recent) year from a list of memories
@@ -174,39 +175,36 @@ _yearColorIndexCache![targetYear] = colorIndex;
     return latestYear;
   }
 
-// - [ ] memory colors are not in the correct order they are random but they should have always the same rainbow 🌈 order
+  // - [ ] memory colors are not in the correct order they are random but they should have always the same rainbow 🌈 order
 
-
-
- static const colors = [
-  '#0080FF', // 1
-  '#0051FF', // 2
-  '#2200FF', // 3
-  '#5E00FF', // 4
-  '#7700FF', // 5
-  '#A100FF', // 6
-  '#E500FF', // 7
-  '#FF00AE', // 8
-  '#FF0073', // 9
-  '#FF001E', // 10
-  '#FF5100', // 11
-  '#FFA100', // 12
-  '#FFD900', // 13
-  '#BBFF00', // 14
-  '#66FF00', // 15
-  '#00FF73', // 16
-  '#00EEFF', // 17
-  '#00A6FF', // 18
-  '#004D99', // 19 (deep navy blue - new)
-  '#6600CC', // 20 (royal violet - new)
-  '#FF2D55', // 21 (premium pink-red - new)
-];
+  static const colors = [
+    '#0080FF', // 1
+    '#0051FF', // 2
+    '#2200FF', // 3
+    '#5E00FF', // 4
+    '#7700FF', // 5
+    '#A100FF', // 6
+    '#E500FF', // 7
+    '#FF00AE', // 8
+    '#FF0073', // 9
+    '#FF001E', // 10
+    '#FF5100', // 11
+    '#FFA100', // 12
+    '#FFD900', // 13
+    '#BBFF00', // 14
+    '#66FF00', // 15
+    '#00FF73', // 16
+    '#00EEFF', // 17
+    '#00A6FF', // 18
+    '#004D99', // 19 (deep navy blue - new)
+    '#6600CC', // 20 (royal violet - new)
+    '#FF2D55', // 21 (premium pink-red - new)
+  ];
 
   /// Create year-based color expression for MapBox styling
   static List<dynamic> createYearColorExpression() {
     // MapBox expression for year-based colors
     // Uses the exact same 20-color system as map controller
-    
 
     final List<dynamic> expression = ['case'];
 
@@ -262,19 +260,6 @@ _yearColorIndexCache![targetYear] = colorIndex;
       50,
       '#F44336', // Red for large clusters (50+)
     ];
-  }
-
-  /// Extract memories from GeoJSON for arrow generation
-  static List<Map<String, dynamic>> extractMemoriesFromGeoJson(
-    String geoJsonString,
-  ) {
-    final geoJson = jsonDecode(geoJsonString) as Map<String, dynamic>;
-    final features = geoJson['features'] as List<dynamic>;
-
-    return features.map((feature) {
-      final properties = feature['properties'] as Map<String, dynamic>;
-      return properties['memory_data'] as Map<String, dynamic>;
-    }).toList();
   }
 
   /// Create chronological arrows from memories (earliest to latest)

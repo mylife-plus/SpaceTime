@@ -150,7 +150,7 @@ class FilterController extends GetxController {
     List<Map<String, dynamic>> result = List.from(allMemories);
     filteredMemories.clear();
     // Apply each filter type in sequence
-        result = _applyDateFilter(result);
+    result = _applyDateFilter(result);
     result = _applySearchedTextFilter(result);
 
     // result = _applyTextFilters(result);
@@ -188,7 +188,7 @@ class FilterController extends GetxController {
 
     // Apply each filter type in sequence to narrow down results
     result = _applySearchedTextFilter(result);
-    
+
     result = _applyTextFilters(result);
     result = _applyHashtagFilters(result);
     result = _applyContactFilters(result);
@@ -258,11 +258,9 @@ class FilterController extends GetxController {
           '$description $tags @$tags #$mentions $mentions $category $categoryHaystack $locationAddress $locationCity $locationCountry'
               .toLowerCase();
 
-      if(keyword[0] == '@' || keyword[0] =='#') {
-
-      var contains = searchableText.contains(keyword.substring(1));
-      return contains;
-
+      if (keyword[0] == '@' || keyword[0] == '#') {
+        var contains = searchableText.contains(keyword.substring(1));
+        return contains;
       }
 
       var contains = searchableText.contains(keyword);
@@ -275,115 +273,111 @@ class FilterController extends GetxController {
     }).toList();
   }
 
-/// Apply date range filter (FROM date inclusive, TO date inclusive)
-List<Map<String, dynamic>> _applyDateFilter(
-  List<Map<String, dynamic>> memories,
-) {
-  final fromDateStr = filterValues['from date'];
-  final toDateStr = filterValues['to date'];
+  /// Apply date range filter (FROM date inclusive, TO date inclusive)
+  List<Map<String, dynamic>> _applyDateFilter(
+    List<Map<String, dynamic>> memories,
+  ) {
+    final fromDateStr = filterValues['from date'];
+    final toDateStr = filterValues['to date'];
 
-  // No date filters → return all
-  if ((fromDateStr == null || fromDateStr.isEmpty) &&
-      (toDateStr == null || toDateStr.isEmpty)) {
-    debugPrint('$tag ⏭️ No date filters to apply');
-    return memories;
-  }
-
-  debugPrint(
-    '$tag 📅 Applying date filter | from="$fromDateStr" | to="$toDateStr"',
-  );
-
-  return memories.where((memory) {
-    try {
-      final memoryDateText = memory['date'] as String? ?? '';
-      final memoryYearText = memory['year'] as String? ?? '';
-
-      if (memoryDateText.isEmpty || memoryYearText.isEmpty) {
-        debugPrint('$tag ⚠️ Memory has no date, skipping');
-        return false;
-      }
-
-      // ---- Parse memory date: "15. January" + "2026"
-      final parts = memoryDateText.split('.');
-      if (parts.length < 2) {
-        debugPrint('$tag ⚠️ Invalid memory date format: $memoryDateText');
-        return false;
-      }
-
-      const months = {
-        'january': 1,
-        'february': 2,
-        'march': 3,
-        'april': 4,
-        'may': 5,
-        'june': 6,
-        'july': 7,
-        'august': 8,
-        'september': 9,
-        'october': 10,
-        'november': 11,
-        'december': 12,
-      };
-
-      final day = int.tryParse(parts[0].trim());
-      final monthName = parts[1].trim().toLowerCase();
-      final month = months[monthName];
-      final year = int.tryParse(memoryYearText);
-
-      if (day == null || month == null || year == null) {
-        debugPrint(
-          '$tag ⚠️ Failed to parse memory date: $memoryDateText $memoryYearText',
-        );
-        return false;
-      }
-
-      final memoryDate = DateTime(year, month, day);
-
-      // ---- FROM date (start of day)
-      if (fromDateStr != null && fromDateStr.isNotEmpty) {
-        final from = DateTime.parse(fromDateStr);
-        final fromDateStart = DateTime(from.year, from.month, from.day);
-
-        if (memoryDate.isBefore(fromDateStart)) {
-          debugPrint(
-            '$tag ❌ Memory $memoryDate is before FROM $fromDateStart',
-          );
-          return false;
-        }
-      }
-
-      // ---- TO date (end of day)
-      if (toDateStr != null && toDateStr != "null"&& toDateStr.isNotEmpty) {
-        final to = DateTime.parse(toDateStr);
-        final toDateEnd = DateTime(
-          to.year,
-          to.month,
-          to.day,
-          23,
-          59,
-          59,
-          999,
-        );
-
-        if (memoryDate.isAfter(toDateEnd)) {
-          debugPrint(
-            '$tag ❌ Memory $memoryDate is after TO $toDateEnd',
-          );
-          return false;
-        }
-      }
-
-      // ---- Passed all filters
-      debugPrint(
-        '$tag ✅ Memory $memoryDate passed date filter',
-      );
-      return true;
-    } catch (e) {
-      debugPrint('$tag ⚠️ Error in date filter: $e');
-      return false;
+    // No date filters → return all
+    if ((fromDateStr == null || fromDateStr.isEmpty) &&
+        (toDateStr == null || toDateStr.isEmpty)) {
+      debugPrint('$tag ⏭️ No date filters to apply');
+      return memories;
     }
-  }).toList();
-}
+
+    debugPrint(
+      '$tag 📅 Applying date filter | from="$fromDateStr" | to="$toDateStr"',
+    );
+
+    return memories.where((memory) {
+      try {
+        final memoryDateText = memory['date'] as String? ?? '';
+        final memoryYearText = memory['year'] as String? ?? '';
+
+        if (memoryDateText.isEmpty || memoryYearText.isEmpty) {
+          debugPrint('$tag ⚠️ Memory has no date, skipping');
+          return false;
+        }
+
+        // ---- Parse memory date: "15. January" + "2026"
+        final parts = memoryDateText.split('.');
+        if (parts.length < 2) {
+          debugPrint('$tag ⚠️ Invalid memory date format: $memoryDateText');
+          return false;
+        }
+
+        const months = {
+          'january': 1,
+          'february': 2,
+          'march': 3,
+          'april': 4,
+          'may': 5,
+          'june': 6,
+          'july': 7,
+          'august': 8,
+          'september': 9,
+          'october': 10,
+          'november': 11,
+          'december': 12,
+        };
+
+        final day = int.tryParse(parts[0].trim());
+        final monthName = parts[1].trim().toLowerCase();
+        final month = months[monthName];
+        final year = int.tryParse(memoryYearText);
+
+        if (day == null || month == null || year == null) {
+          debugPrint(
+            '$tag ⚠️ Failed to parse memory date: $memoryDateText $memoryYearText',
+          );
+          return false;
+        }
+
+        final memoryDate = DateTime(year, month, day);
+
+        // ---- FROM date (start of day)
+        if (fromDateStr != null && fromDateStr.isNotEmpty) {
+          final from = DateTime.parse(fromDateStr);
+          final fromDateStart = DateTime(from.year, from.month, from.day);
+
+          if (memoryDate.isBefore(fromDateStart)) {
+            debugPrint(
+              '$tag ❌ Memory $memoryDate is before FROM $fromDateStart',
+            );
+            return false;
+          }
+        }
+
+        // ---- TO date (end of day)
+        if (toDateStr != null && toDateStr != "null" && toDateStr.isNotEmpty) {
+          final to = DateTime.parse(toDateStr);
+          final toDateEnd = DateTime(
+            to.year,
+            to.month,
+            to.day,
+            23,
+            59,
+            59,
+            999,
+          );
+
+          if (memoryDate.isAfter(toDateEnd)) {
+            debugPrint('$tag ❌ Memory $memoryDate is after TO $toDateEnd');
+            return false;
+          }
+        }
+
+        // ---- Passed all filters
+        debugPrint('$tag ✅ Memory $memoryDate passed date filter');
+        return true;
+      } catch (e) {
+        debugPrint('$tag ⚠️ Error in date filter: $e');
+        return false;
+      }
+    }).toList();
+  }
 
   /// Apply text-based filters (title, description, etc.)
   /// Excludes date filters which are handled separately by _applyDateFilter
@@ -892,10 +886,80 @@ List<Map<String, dynamic>> _applyDateFilter(
       );
 
       if (Get.isRegistered<AddMemoriesController>()) {
-        Get.find<AddMemoriesController>().rebuildDisplayList();
+        final add = Get.find<AddMemoriesController>();
+        if (incremental &&
+            filteredMemories.isNotEmpty &&
+            filteredMemories.first['id']?.toString() == memoryId.toString()) {
+          add.prependToDisplayList(uiMemory);
+        } else {
+          add.rebuildDisplayList();
+        }
       }
     } catch (e) {
       debugPrint('$tag prependMemoryById error: $e');
+    }
+  }
+
+  /// After editing one memory, replace it in-memory without a full DB reload.
+  Future<void> replaceMemoryById(
+    int memoryId, {
+    bool incremental = true,
+  }) async {
+    try {
+      final raw = await _databaseHelper.getMemoryWithDetails(memoryId);
+      if (raw == null) {
+        debugPrint('$tag replaceMemoryById: memory $memoryId not found');
+        return;
+      }
+
+      final uiMemory = await transformDatabaseMemoryToUI(raw);
+
+      bool matchesId(Map<String, dynamic> m) {
+        final id = m['id'];
+        if (id == memoryId) return true;
+        if (id != null && id.toString() == memoryId.toString()) return true;
+        return false;
+      }
+
+      final allIndex = allMemories.indexWhere(matchesId);
+      if (allIndex >= 0) {
+        allMemories[allIndex] = uiMemory;
+        allMemories.refresh();
+      } else {
+        allMemories.value = [uiMemory, ...allMemories];
+      }
+
+      _mergeFilterOptionsFromUiMemory(uiMemory);
+      updateFilterStatus();
+
+      if (incremental) {
+        final filteredIndex = filteredMemories.indexWhere(matchesId);
+        final matches = memoryMatchesActiveFilters(uiMemory);
+        if (filteredIndex >= 0) {
+          if (matches) {
+            filteredMemories[filteredIndex] = uiMemory;
+            filteredMemories.refresh();
+          } else {
+            filteredMemories.removeAt(filteredIndex);
+          }
+          totalResults.value = filteredMemories.length;
+        } else if (matches) {
+          filteredMemories.value = [uiMemory, ...filteredMemories];
+          totalResults.value = filteredMemories.length;
+        }
+      } else {
+        applyAllFilters();
+      }
+
+      if (Get.isRegistered<AddMemoriesController>()) {
+        Get.find<AddMemoriesController>().replaceInDisplayList(uiMemory);
+      }
+
+      debugPrint(
+        '$tag replaceMemoryById: updated memory $memoryId (${allMemories.length} total)',
+      );
+    } catch (e) {
+      debugPrint('$tag replaceMemoryById error: $e');
     }
   }
 
@@ -916,7 +980,7 @@ List<Map<String, dynamic>> _applyDateFilter(
     updateFilterStatus();
 
     if (Get.isRegistered<AddMemoriesController>()) {
-      Get.find<AddMemoriesController>().rebuildDisplayList();
+      Get.find<AddMemoriesController>().removeFromDisplayList(memoryId);
     }
 
     debugPrint(
@@ -927,13 +991,19 @@ List<Map<String, dynamic>> _applyDateFilter(
   void _mergeFilterOptionsFromUiMemory(Map<String, dynamic> memory) {
     final tags = memory['tags'] as String?;
     if (tags != null && tags.isNotEmpty) {
-      final merged = <String>{...availableHashtags, ...tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty)};
+      final merged = <String>{
+        ...availableHashtags,
+        ...tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty),
+      };
       availableHashtags.value = merged.toList()..sort();
     }
 
     final mentions = memory['mentions'] as String?;
     if (mentions != null && mentions.isNotEmpty) {
-      final merged = <String>{...availableContacts, ...mentions.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty)};
+      final merged = <String>{
+        ...availableContacts,
+        ...mentions.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty),
+      };
       availableContacts.value = merged.toList()..sort();
     }
 
@@ -1045,11 +1115,19 @@ List<Map<String, dynamic>> _applyDateFilter(
       orderEntries.add({'order': o, 'type': 'image', 'path': imgList[i]});
     }
     for (int i = 0; i < vidPaths.length; i++) {
-      final o = i < vidOrders.length ? (vidOrders[i] as num).toInt() : imgList.length + i;
+      final o =
+          i < vidOrders.length
+              ? (vidOrders[i] as num).toInt()
+              : imgList.length + i;
       orderEntries.add({'order': o, 'type': 'video', 'path': vidPaths[i]});
     }
-    orderEntries.sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
-    final orderedMedia = orderEntries.map((e) => {'type': e['type'], 'path': e['path']}).toList();
+    orderEntries.sort(
+      (a, b) => (a['order'] as int).compareTo(b['order'] as int),
+    );
+    final orderedMedia =
+        orderEntries
+            .map((e) => {'type': e['type'], 'path': e['path']})
+            .toList();
 
     return {
       'id': dbMemory['id'],

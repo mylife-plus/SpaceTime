@@ -24,6 +24,7 @@ import '../../../services/map_marker_service.dart';
 import '../../../models/memory_cluster.dart' as models;
 import '../../../../services/memory_clustering_service.dart' as clustering;
 import '../../../../services/memory_geojson_service.dart';
+import '../../../../services/memory_map_isolate.dart';
 import '../../../services/offline_map_coordinator_service.dart';
 import '../../memories/controllers/memory_controller.dart';
 import '../../add_memories/controllers/add_memories_controller.dart';
@@ -278,7 +279,8 @@ class MapControllerNew extends GetxController {
       locationStatus.value = 'map_location_status_permission_granted'.tr;
       return true;
     } catch (e) {
-      locationStatus.value = 'map_location_status_error_checking_permissions'.tr;
+      locationStatus.value =
+          'map_location_status_error_checking_permissions'.tr;
       return false;
     }
   }
@@ -287,8 +289,7 @@ class MapControllerNew extends GetxController {
   Future<void> _getCurrentLocation() async {
     try {
       isLoadingLocation.value = true;
-      locationStatus.value =
-          'map_location_status_getting_current_location'.tr;
+      locationStatus.value = 'map_location_status_getting_current_location'.tr;
 
       Position position = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(accuracy: LocationAccuracy.high),
@@ -387,11 +388,13 @@ class MapControllerNew extends GetxController {
   }
 
   Future<void> showLoadedDataOnMap() async {
-    await (_mapVisualOpsTail = _mapVisualOpsTail.then((_) async {
-      await _showLoadedDataOnMapImpl();
-    }).catchError((Object e, StackTrace st) {
-      debugPrint('[MapControllerNew] showLoadedDataOnMap chain: $e\n$st');
-    }));
+    await (_mapVisualOpsTail = _mapVisualOpsTail
+        .then((_) async {
+          await _showLoadedDataOnMapImpl();
+        })
+        .catchError((Object e, StackTrace st) {
+          debugPrint('[MapControllerNew] showLoadedDataOnMap chain: $e\n$st');
+        }));
   }
 
   Future<void> _showLoadedDataOnMapImpl() async {
@@ -406,25 +409,40 @@ class MapControllerNew extends GetxController {
       return;
     }
 
-    await clearAllLines();
-
     if (_currentMemories.isEmpty) {
+      await clearAllLines();
       _initializeMap();
       debugPrint('[MapControllerNew] ⚠️ No memories to display on map');
       return;
     }
 
-    debugPrint(
-      '[MapControllerNew] 🎨 Setting up clustering for ${_currentMemories.length} memories',
+    // CPU-heavy GeoJSON / arrow densify runs off the UI isolate while we clear
+    // Mapbox layers on the main isolate.
+    final payloadFuture = MemoryMapIsolate.buildLayers(
+      memories: _currentMemories.toList(),
+      allMemoriesForColors: allMemoriesWithoutFilter.toList(),
     );
-    await _setupMapboxClustering(_currentMemories);
+
+    await clearAllLines();
+    final payload = await payloadFuture;
 
     debugPrint(
-      '[MapControllerNew] 🏹 Generating arrows for ${_currentMemories.length} memories',
+      '[MapControllerNew] 🎨 Applying clustering GeoJSON '
+      '(${_currentMemories.length} memories)',
+    );
+    await _applyClusteringGeoJson(payload.clusteringGeoJson);
+
+    debugPrint(
+      '[MapControllerNew] 🏹 Applying arrow GeoJSON '
+      '(${_currentMemories.length} memories)',
     );
     final map = mapboxMap;
     if (map != null) {
-      await generateAndDisplayArrowsAsSymbols(_currentMemories, map);
+      await _applyArrowGeoJson(
+        map,
+        linesGeoJson: payload.arrowLinesGeoJson,
+        pointsGeoJson: payload.arrowPointsGeoJson,
+      );
     }
 
     handleMapTap();
@@ -436,9 +454,7 @@ class MapControllerNew extends GetxController {
   Future<void> reloadDisplayedMemoriesWithRetry({int maxAttempts = 3}) async {
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        if (mapboxMap == null ||
-            !isMapReady.value ||
-            !isStyleReady.value) {
+        if (mapboxMap == null || !isMapReady.value || !isStyleReady.value) {
           debugPrint(
             '[MapControllerNew] reloadDisplayedMemoriesWithRetry: map/style not ready ($attempt/$maxAttempts)',
           );
@@ -476,7 +492,8 @@ class MapControllerNew extends GetxController {
     } catch (e) {
       hasLocationPermission.value = false;
       isLoadingLocation.value = false;
-      locationStatus.value = 'map_location_status_error_checking_permissions'.tr;
+      locationStatus.value =
+          'map_location_status_error_checking_permissions'.tr;
     }
   }
 
@@ -492,7 +509,6 @@ class MapControllerNew extends GetxController {
   /// Refresh current location
   Future<void> refreshLocation({bool? callSetCamera = null}) async {
     try {
-   
       //  ..
     } catch (e) {
       debugPrint('[MapControllerNew] Error refreshing location: $e');
@@ -548,7 +564,9 @@ class MapControllerNew extends GetxController {
         allMemoriesWithoutFilter.assignAll(_filterController.allMemories);
       }
       _currentMemories.clear();
-      final spreadMemories = _spreadOverlappingMemories(filteredMemoriesData);
+      final spreadMemories = await MemoryMapIsolate.spreadOverlappingMemories(
+        filteredMemoriesData,
+      );
       if (spreadMemories.isNotEmpty) {
         _currentMemories.assignAll(spreadMemories);
         debugPrint(
@@ -648,8 +666,6 @@ class MapControllerNew extends GetxController {
         // debugPrint('$tag Error sorting memories: $e');
         return 0;
       }
-
-      
     });
 
     debugPrint('[MapControllerNew] loadMemoriesFromDB called');
@@ -667,7 +683,9 @@ class MapControllerNew extends GetxController {
     }
 
     // Spread out memories with same coordinates (~20 meters apart)
-    final spreadMemories = _spreadOverlappingMemories(memories);
+    final spreadMemories = await MemoryMapIsolate.spreadOverlappingMemories(
+      memories,
+    );
 
     if (spreadMemories.isNotEmpty) {
       // Store memories for tap handling (use spread memories)
@@ -1042,10 +1060,12 @@ class MapControllerNew extends GetxController {
 
         // For MapBox native clustering, we might have a count but empty memories list
         // In this case, try to show a fallback error or handle it differently
-        showTrSnackbar('snackbar_error_6', 
+        showTrSnackbar(
+          'snackbar_error_6',
           backgroundColor: Colors.orange.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
@@ -1083,10 +1103,13 @@ class MapControllerNew extends GetxController {
           debugPrint(
             '[MapControllerNew] Memory data that failed: ${cluster.memories.first}',
           );
-          showTrSnackbar('snackbar_error_7', args: [memoryError.toString()], 
+          showTrSnackbar(
+            'snackbar_error_7',
+            args: [memoryError.toString()],
             backgroundColor: Colors.red.withValues(alpha: 0.8),
             colorText: Colors.white,
-            duration: const Duration(seconds: 2),);
+            duration: const Duration(seconds: 2),
+          );
         }
       } else if (cluster.count > 1) {
         // Cluster marker with multiple memories - drill down
@@ -1099,10 +1122,13 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] ⚠️ Unexpected cluster state - count: ${cluster.count}, memories: ${cluster.memories.length}',
         );
-        showTrSnackbar('snackbar_info', args: [cluster.count], 
+        showTrSnackbar(
+          'snackbar_info',
+          args: [cluster.count],
           backgroundColor: Colors.blue.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
       }
     } catch (e) {
       debugPrint('[MapControllerNew] Error handling cluster tap: $e');
@@ -1112,10 +1138,12 @@ class MapControllerNew extends GetxController {
       );
 
       // Show user-friendly error
-      showTrSnackbar('snackbar_error_8', 
+      showTrSnackbar(
+        'snackbar_error_8',
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -1131,10 +1159,12 @@ class MapControllerNew extends GetxController {
       // Validate we have memories to process
       if (clusterMemories.isEmpty) {
         debugPrint('[MapControllerNew] ⚠️ No memories to drill down into');
-        showTrSnackbar('snackbar_error_9', 
+        showTrSnackbar(
+          'snackbar_error_9',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
@@ -1167,10 +1197,12 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] ⚠️ No valid coordinates found in cluster memories',
         );
-        showTrSnackbar('snackbar_error_10', 
+        showTrSnackbar(
+          'snackbar_error_10',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
@@ -1195,10 +1227,12 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] ⚠️ No valid MemoryLocation objects created',
         );
-        showTrSnackbar('snackbar_error_11', 
+        showTrSnackbar(
+          'snackbar_error_11',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
@@ -1225,10 +1259,13 @@ class MapControllerNew extends GetxController {
       );
 
       // Show user-friendly error
-      showTrSnackbar('snackbar_error_12', args: [e.toString()], 
+      showTrSnackbar(
+        'snackbar_error_12',
+        args: [e.toString()],
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -1283,10 +1320,12 @@ class MapControllerNew extends GetxController {
       // Validate memory data
       if (memory.isEmpty) {
         debugPrint('[MapControllerNew] ⚠️ Empty memory data received');
-        showTrSnackbar('snackbar_error_13', 
+        showTrSnackbar(
+          'snackbar_error_13',
           backgroundColor: Colors.red.withValues(alpha: 0.8),
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
@@ -1326,10 +1365,13 @@ class MapControllerNew extends GetxController {
       debugPrint('[MapControllerNew] Memory data: ${memory.toString()}');
 
       // Show user-friendly error
-      showTrSnackbar('snackbar_error_14', args: [e.toString()], 
+      showTrSnackbar(
+        'snackbar_error_14',
+        args: [e.toString()],
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -1420,12 +1462,14 @@ class MapControllerNew extends GetxController {
 
     // Show hint if location is set but radius is empty
     if (location.isNotEmpty && selectedRadius.value.isEmpty) {
-      showTrSnackbar('snackbar_hint_3', 
+      showTrSnackbar(
+        'snackbar_hint_3',
         backgroundColor: Colors.orange.shade400,
         colorText: Colors.white,
         margin: const EdgeInsets.all(12),
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -1798,20 +1842,20 @@ class MapControllerNew extends GetxController {
     // created_at — so a newly-added memory is focused based on its memory date,
     // not when the row was inserted. created_at is only a tie-break fallback for
     // memories whose date/time can't be parsed.
-    final candidates = (allMemories != null && allMemories.isNotEmpty)
-        ? allMemories
-        : allMemoriesWithoutFilter.toList();
-    final sorted = List<Map<String, dynamic>>.from(candidates)
-      ..sort((a, b) {
-        final ad = _parseMemoryDateTime(a);
-        final bd = _parseMemoryDateTime(b);
-        if (ad != null && bd != null) return bd.compareTo(ad); // newest first
-        if (ad != null) return -1;
-        if (bd != null) return 1;
-        final ac = (a['created_at'] as String?) ?? '';
-        final bc = (b['created_at'] as String?) ?? '';
-        return bc.compareTo(ac); // fallback: newest created_at first
-      });
+    final candidates =
+        (allMemories != null && allMemories.isNotEmpty)
+            ? allMemories
+            : allMemoriesWithoutFilter.toList();
+    final sorted = List<Map<String, dynamic>>.from(candidates)..sort((a, b) {
+      final ad = _parseMemoryDateTime(a);
+      final bd = _parseMemoryDateTime(b);
+      if (ad != null && bd != null) return bd.compareTo(ad); // newest first
+      if (ad != null) return -1;
+      if (bd != null) return 1;
+      final ac = (a['created_at'] as String?) ?? '';
+      final bc = (b['created_at'] as String?) ?? '';
+      return bc.compareTo(ac); // fallback: newest created_at first
+    });
 
     Map<String, double>? latest = _getLatestMemoryLatLng(sorted);
 
@@ -1826,13 +1870,13 @@ class MapControllerNew extends GetxController {
       final zoom = _detailVisibilityMinZoom;
       currentZoom.value = zoom;
 
-  await mapboxMap!.setCamera(
+      await mapboxMap!.setCamera(
         mapbox.CameraOptions(
           center: mapbox.Point(coordinates: mapbox.Position(lng!, lat!)),
           zoom: zoom,
         ),
       );
-      // 
+      //
       debugPrint(
         '[MapControllerNew] ✅ Default camera: latest memory at ($lat, $lng) with zoom $zoom',
       );
@@ -1840,15 +1884,16 @@ class MapControllerNew extends GetxController {
     }
 
     // 2) Fallback to current location if available
-    if (hasLocationPermission.value &&
-        currentLocation.value != null) {
+    if (hasLocationPermission.value && currentLocation.value != null) {
       final pos = currentLocation.value!;
       final zoom = _minZoom.toDouble();
       currentZoom.value = zoom;
 
-  await mapboxMap!.setCamera(
+      await mapboxMap!.setCamera(
         mapbox.CameraOptions(
-          center: mapbox.Point(coordinates: mapbox.Position(pos.longitude!, pos.latitude!)),
+          center: mapbox.Point(
+            coordinates: mapbox.Position(pos.longitude!, pos.latitude!),
+          ),
           zoom: 6,
         ),
       );
@@ -1880,10 +1925,7 @@ class MapControllerNew extends GetxController {
     await mapboxMap!.setCamera(
       mapbox.CameraOptions(
         center: mapbox.Point(
-          coordinates: mapbox.Position(
-            fallbackLng,
-            fallbackLat,
-          ),
+          coordinates: mapbox.Position(fallbackLng, fallbackLat),
         ),
         zoom: 2,
       ),
@@ -1972,6 +2014,7 @@ class MapControllerNew extends GetxController {
 
   /// Focus request for radius field (used by MemoriesFilterTextFieldRow)
   final RxBool shouldFocusRadiusField = false.obs;
+
   /// Add hashtag to selected hashtags (used by FilterDropdown)
   void addHashtag(String hashtag) {
     if (!selectedHashtags.contains(hashtag)) {
@@ -2801,11 +2844,11 @@ class MapControllerNew extends GetxController {
         // );
 
         await mapboxMap!.setCamera(
-        mapbox.CameraOptions(
-          center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
-          zoom: 6,
-        ),
-      );
+          mapbox.CameraOptions(
+            center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+            zoom: 6,
+          ),
+        );
 
         // Update reactive zoom variable
         currentZoom.value = newZoom;
@@ -3021,9 +3064,11 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] ⚠️ No leaves data returned from cluster',
         );
-        showTrSnackbar('snackbar_error_15', 
+        showTrSnackbar(
+          'snackbar_error_15',
           snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
@@ -3192,9 +3237,11 @@ class MapControllerNew extends GetxController {
     } catch (e, stackTrace) {
       debugPrint('[MapControllerNew] ❌ Error showing cluster memories: $e');
       debugPrint('[MapControllerNew] Stack trace: $stackTrace');
-      showTrSnackbar('snackbar_error_16', 
+      showTrSnackbar(
+        'snackbar_error_16',
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -3861,9 +3908,12 @@ class MapControllerNew extends GetxController {
           debugPrint(
             '[MapControllerNew] ⚠️ No memory IDs found, showing snackbar',
           );
-          showTrSnackbar('snackbar_cluster', args: [pointCount], 
+          showTrSnackbar(
+            'snackbar_cluster',
+            args: [pointCount],
             snackPosition: SnackPosition.BOTTOM,
-            duration: const Duration(seconds: 2),);
+            duration: const Duration(seconds: 2),
+          );
         }
       } else {
         // Zoom in smoothly
@@ -3873,13 +3923,12 @@ class MapControllerNew extends GetxController {
           '[MapControllerNew] 🔍 Zooming into cluster: $currentZoomLevel → $newZoom',
         );
 
-
         await mapboxMap!.setCamera(
-        mapbox.CameraOptions(
-          center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
-          zoom: 6,
-        ),
-      );
+          mapbox.CameraOptions(
+            center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+            zoom: 6,
+          ),
+        );
 
         // await mapboxMap!.flyTo(
         //   mapbox.CameraOptions(
@@ -3966,10 +4015,12 @@ class MapControllerNew extends GetxController {
         debugPrint(
           '[MapControllerNew] 📋 Available IDs: ${_currentMemories.map((m) => m['id']).take(10).join(", ")}',
         );
-        showTrSnackbar('snackbar_error_17', 
+        showTrSnackbar(
+          'snackbar_error_17',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
-          colorText: Colors.white,);
+          colorText: Colors.white,
+        );
         return;
       }
 
@@ -3979,10 +4030,12 @@ class MapControllerNew extends GetxController {
         memoryLocation = clustering.MemoryLocation.fromMap(foundMemory);
       } catch (e) {
         debugPrint('[MapControllerNew] ❌ Failed to create MemoryLocation: $e');
-        showTrSnackbar('snackbar_error_18', 
+        showTrSnackbar(
+          'snackbar_error_18',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
-          colorText: Colors.white,);
+          colorText: Colors.white,
+        );
         return;
       }
 
@@ -4196,212 +4249,25 @@ class MapControllerNew extends GetxController {
     mapbox.MapboxMap mapboxMap,
   ) async {
     if (memories.length < 2) return;
+    final payload = await MemoryMapIsolate.buildLayers(
+      memories: memories,
+      allMemoriesForColors: allMemoriesWithoutFilter.toList(),
+    );
+    await _applyArrowGeoJson(
+      mapboxMap,
+      linesGeoJson: payload.arrowLinesGeoJson,
+      pointsGeoJson: payload.arrowPointsGeoJson,
+    );
+  }
 
+  Future<void> _applyArrowGeoJson(
+    mapbox.MapboxMap mapboxMap, {
+    required String linesGeoJson,
+    required String pointsGeoJson,
+  }) async {
     const double ARROW_ICON_SIZE = 4.0;
-    const double ARROW_POSITION_FACTOR = 0.65; // 🔥 65% toward end
 
     try {
-      // 1️⃣ Sort memories by date
-      final sorted = List<Map<String, dynamic>>.from(memories)..sort((a, b) {
-        try {
-          final aDate = a['date'] as String? ?? '';
-          final bDate = b['date'] as String? ?? '';
-          final aYear = a['year'] as String? ?? '';
-          final bYear = b['year'] as String? ?? '';
-          final aTime = a['time'] as String? ?? '';
-          final bTime = b['time'] as String? ?? '';
-
-          var d1String = '$aDate $aYear';
-          var d2String = '$bDate $bYear';
-          print('Date String 1: $d1String');
-          print('Date String 2: $d2String');
-
-          DateTime? ad;
-          DateTime? bd;
-
-          // Try to parse with DateFormat for "28. January 2026" format
-          try {
-            if (aDate.isNotEmpty && aYear.isNotEmpty) {
-              if (aTime.isNotEmpty) {
-                // Include time if available
-                String format =
-                    io.Platform.isIOS
-                        ? "d. MMMM yyyy hh:mm a"
-                        : "d. MMMM yyyy HH:mm";
-                if (aTime.toLowerCase().contains('am') ||
-                    aTime.toLowerCase().contains('pm')) {
-                  format = "d. MMMM yyyy hh:mm a";
-                } else {
-                  format = "d. MMMM yyyy HH:mm";
-                }
-                ad = DateFormat(format).parse('$aDate $aYear $aTime');
-              } else {
-                // Date only
-                ad = DateFormat("d. MMMM yyyy").parse(d1String);
-              }
-            }
-          } catch (e) {
-            debugPrint('Error parsing date A: $d1String - $e');
-          }
-
-          try {
-            if (bDate.isNotEmpty && bYear.isNotEmpty) {
-              if (bTime.isNotEmpty) {
-                // Include time if available
-                String format =
-                    io.Platform.isIOS
-                        ? "d. MMMM yyyy hh:mm a"
-                        : "d. MMMM yyyy HH:mm";
-                if (bTime.toLowerCase().contains('am') ||
-                    bTime.toLowerCase().contains('pm')) {
-                  format = "d. MMMM yyyy hh:mm a";
-                } else {
-                  format = "d. MMMM yyyy HH:mm";
-                }
-                bd = DateFormat(format).parse('$bDate $bYear $bTime');
-              } else {
-                // Date only
-                bd = DateFormat("d. MMMM yyyy").parse(d2String);
-              }
-            }
-          } catch (e) {
-            debugPrint('Error parsing date B: $d2String - $e');
-          }
-
-          // Compare dates (oldest first for timeline)
-          if (ad != null && bd != null) {
-            return ad.compareTo(bd);
-          } else if (ad != null) {
-            return -1;
-          } else if (bd != null) {
-            return 1;
-          }
-          return 0;
-        } catch (e) {
-          debugPrint('Error sorting memories: $e');
-          return 0;
-        }
-      });
-
-      final List<mapbox.Feature> lineFeatures = [];
-      final List<mapbox.Feature> arrowPointFeatures = [];
-
-      // 🔄 Detect bidirectional arrows: Track location pairs
-      final Map<String, int> locationPairs = {};
-      final Set<int> bidirectionalIndices = {};
-
-      // First pass: Detect bidirectional connections
-      for (int i = 0; i < sorted.length - 1; i++) {
-        final a = sorted[i];
-        final b = sorted[i + 1];
-
-        final double? startLat = a['location_latitude'];
-        final double? startLng = a['location_longitude'];
-        final double? endLat = b['location_latitude'];
-        final double? endLng = b['location_longitude'];
-
-        if ([startLat, startLng, endLat, endLng].contains(null)) continue;
-
-        // Create a unique key for this location pair (order-independent)
-        final loc1 =
-            '${startLat!.toStringAsFixed(6)},${startLng!.toStringAsFixed(6)}';
-        final loc2 =
-            '${endLat!.toStringAsFixed(6)},${endLng!.toStringAsFixed(6)}';
-
-        // Skip if same location
-        if (loc1 == loc2) continue;
-
-        // Create sorted pair key to detect bidirectional connections
-        final pairKey =
-            loc1.compareTo(loc2) < 0 ? '$loc1->$loc2' : '$loc2->$loc1';
-
-        if (locationPairs.containsKey(pairKey)) {
-          // Found bidirectional connection!
-          bidirectionalIndices.add(i);
-          bidirectionalIndices.add(locationPairs[pairKey]!);
-          debugPrint('🔄 Bidirectional arrow detected between $loc1 and $loc2');
-        } else {
-          locationPairs[pairKey] = i;
-        }
-      }
-
-      // Second pass: Create lines and arrows (skip arrows for bidirectional connections)
-      for (int i = 0; i < sorted.length - 1; i++) {
-        final a = sorted[i];
-        final b = sorted[i + 1];
-
-        final memoryDate = DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
-        // final year = memoryDate.year;
-        final aYearStr = b['year'] as String? ?? '';
-        final yearForColor =
-            int.tryParse(aYearStr) ?? memoryDate.year;
-
-        var index = MemoryGeoJsonService.getColorIndexForYear(
-          yearForColor,
-          allMemoriesWithoutFilter,
-        );
-        final double? startLat = a['location_latitude'];
-        final double? startLng = a['location_longitude'];
-        final double? endLat = b['location_latitude'];
-        final double? endLng = b['location_longitude'];
-
-        if ([startLat, startLng, endLat, endLng].contains(null)) continue;
-
-        // 2️⃣ Densify line
-        final coords = _densifyLine(
-          start: [startLng!, startLat!],
-          end: [endLng!, endLat!],
-          segments: 120,
-        );
-        if (coords.length < 5) continue;
-
-        // 3️⃣ Add main line
-        lineFeatures.add(
-          mapbox.Feature(
-            id: 'line_$i',
-            geometry: mapbox.LineString(
-              coordinates:
-                  coords.map((c) => mapbox.Position(c[0], c[1])).toList(),
-            ),
-            properties: {
-              'type': 'line',
-              'color': MemoryGeoJsonService.colors[index],
-            },
-          ),
-        );
-
-        // 4️⃣ Arrow placement (~65% toward end)
-        // Skip arrow if this is a bidirectional connection
-        if (!bidirectionalIndices.contains(i)) {
-          final int arrowIndex = (coords.length * ARROW_POSITION_FACTOR)
-              .round()
-              .clamp(1, coords.length - 1);
-
-          final base = coords[arrowIndex - 1];
-          final tip = coords[arrowIndex];
-
-          final rotation = _bearingBetween(base, tip);
-
-          arrowPointFeatures.add(
-            mapbox.Feature(
-              id: 'arrow_$i',
-              geometry: mapbox.Point(
-                coordinates: mapbox.Position(tip[0], tip[1]),
-              ),
-              properties: {
-                'rotation': rotation,
-                'color': MemoryGeoJsonService.colors[index],
-              }, // 🔥 assign same color as line},
-            ),
-          );
-        } else {
-          debugPrint(
-            '⏭️ Skipping arrow for bidirectional connection at index $i',
-          );
-        }
-      }
-
-      // 5️⃣ Cleanup old layers/sources
       for (final id in [ARROW_SYMBOLS_LAYER_ID, ARROW_LINES_LAYER_ID]) {
         try {
           await mapboxMap.style.removeStyleLayer(id);
@@ -4413,14 +4279,8 @@ class MapControllerNew extends GetxController {
         } catch (_) {}
       }
 
-      // 6️⃣ Line source + layer
       await mapboxMap.style.addSource(
-        mapbox.GeoJsonSource(
-          id: ARROW_LINES_SOURCE_ID,
-          data: json.encode(
-            mapbox.FeatureCollection(features: lineFeatures).toJson(),
-          ),
-        ),
+        mapbox.GeoJsonSource(id: ARROW_LINES_SOURCE_ID, data: linesGeoJson),
       );
 
       await mapboxMap.style.addLayer(
@@ -4436,32 +4296,22 @@ class MapControllerNew extends GetxController {
       );
 
       try {
-        await mapboxMap!.style.setStyleLayerProperty(
-          ARROW_LINES_LAYER_ID, // your line layer ID
+        await mapboxMap.style.setStyleLayerProperty(
+          ARROW_LINES_LAYER_ID,
           'line-color',
-          ['get', 'color'], // Pulls color from each feature's 'color' property
+          ['get', 'color'],
         );
-
-        // lineColor: ['get', 'color']
       } catch (_) {}
 
-      // 7️⃣ Arrow point source
       await mapboxMap.style.addSource(
-        mapbox.GeoJsonSource(
-          id: ARROW_POINTS_SOURCE_ID,
-          data: json.encode(
-            mapbox.FeatureCollection(features: arrowPointFeatures).toJson(),
-          ),
-        ),
+        mapbox.GeoJsonSource(id: ARROW_POINTS_SOURCE_ID, data: pointsGeoJson),
       );
 
-      // 8️⃣ Add arrow image (once)
       if (!await mapboxMap.style.hasStyleImage('arrow-icon')) {
         final Uint8List arrowBytes = await createChevronArrowPng(size: 64);
         await mapboxMap.style.addStyleImage(
           'arrow-icon',
           8,
-
           mapbox.MbxImage(width: 64, height: 64, data: arrowBytes),
           true,
           const [],
@@ -4470,7 +4320,6 @@ class MapControllerNew extends GetxController {
         );
       }
 
-      // 9️⃣ Symbol layer for arrows
       await mapboxMap.style.addLayer(
         mapbox.SymbolLayer(
           id: ARROW_SYMBOLS_LAYER_ID,
@@ -4488,7 +4337,7 @@ class MapControllerNew extends GetxController {
         await mapboxMap.style.setStyleLayerProperty(
           ARROW_SYMBOLS_LAYER_ID,
           'icon-color',
-          ['get', 'color'], // dynamic color per feature
+          ['get', 'color'],
         );
       } catch (_) {}
 
@@ -4517,25 +4366,10 @@ class MapControllerNew extends GetxController {
         debugPrint('[MapControllerNew] arrow layer reorder skipped: $e');
       }
     } catch (e, st) {
-      debugPrint('[MapControllerNew] generateAndDisplayArrowsAsSymbols: $e\n$st');
+      debugPrint(
+        '[MapControllerNew] generateAndDisplayArrowsAsSymbols: $e\n$st',
+      );
     }
-    //   if (_currentMemories.length > 0) {
-    //   debugPrint('[MapControllerNew] 🎯 Flying to last memory location');
-    //   await mapboxMap!.flyTo(
-    //     mapbox.CameraOptions(
-    //       center: mapbox.Point(
-    //         coordinates: mapbox.Position(
-    //           _currentMemories.last['location_longitude'],
-    //           _currentMemories.last['location_latitude'],
-    //         ),
-    //       ),
-    //       zoom: 3,
-    //       bearing: 0,
-    //       pitch: 0,
-    //     ),
-    //     mapbox.MapAnimationOptions(duration: 1500),
-    //   );
-    // }
   }
 
   void setOptimalZoomForMemories() {
@@ -4740,30 +4574,27 @@ class MapControllerNew extends GetxController {
   Future<void> _setupMapboxClustering(
     List<Map<String, dynamic>> memories,
   ) async {
+    if (memories.isEmpty) return;
+    final payload = await MemoryMapIsolate.buildLayers(
+      memories: memories,
+      allMemoriesForColors: allMemoriesWithoutFilter.toList(),
+    );
+    await _applyClusteringGeoJson(payload.clusteringGeoJson);
+  }
+
+  Future<void> _applyClusteringGeoJson(String geoJsonString) async {
     try {
       debugPrint(
-        '[MapControllerNew] 🎨 _setupMapboxClustering called with ${memories.length} memories',
+        '[MapControllerNew] 🎨 Applying clustering GeoJSON '
+        '(${_currentMemories.length} memories)',
       );
 
-      if (memories.isEmpty) {
+      if (geoJsonString.isEmpty || mapboxMap == null) {
         debugPrint(
-          '[MapControllerNew] ⚠️ No memories to cluster, skipping clustering setup',
+          '[MapControllerNew] ⚠️ No GeoJSON/map for clustering, skipping',
         );
         return;
       }
-
-      // Add a small delay to ensure cleanup is complete
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      debugPrint(
-        '[MapControllerNew] 🔄 Converting ${memories.length} memories to GeoJSON...',
-      );
-      // Convert memories to GeoJSON
-      final geoJsonString = MemoryGeoJsonService.createGeoJsonFromMemories(
-        memories,
-        allMemoriesWithoutFilter,
-      );
-      debugPrint('[MapControllerNew] ✅ GeoJSON created successfully');
 
       try {
         debugPrint('[MapControllerNew] 📍 Adding GeoJSON source to map...');
@@ -4772,13 +4603,9 @@ class MapControllerNew extends GetxController {
             id: MEMORY_SOURCE_ID,
             data: geoJsonString,
             cluster: true,
-
-            // clusterMinZoom: 4, // 👈 IMPORTANT
-            clusterRadius:
-                10, // Radius of each cluster (pixels) - optimized for smooth clustering
-            clusterMaxZoom:
-                13.5, // Max zoom to cluster points - stops clustering at zoom 15+
-            clusterMinPoints: 2, // Minimum points to form a cluster
+            clusterRadius: 10,
+            clusterMaxZoom: 13.5,
+            clusterMinPoints: 2,
             clusterProperties: {
               'memory_ids': [
                 'concat',
@@ -4811,11 +4638,6 @@ class MapControllerNew extends GetxController {
         debugPrint('[MapControllerNew] ⚠️ Error adding source: $e');
         if (e.toString().contains('already exists')) {
           try {
-            debugPrint(
-              '[MapControllerNew] 🔄 Source already exists, updating data...',
-            );
-            // Try to update the existing source data instead of adding a new one
-
             await mapboxMap!.style.setStyleSourceProperty(
               MEMORY_SOURCE_ID,
               'data',
@@ -4826,20 +4648,15 @@ class MapControllerNew extends GetxController {
             debugPrint(
               '[MapControllerNew] ❌ Update failed: $updateError, forcing remove and re-add...',
             );
-            // If update fails, force remove and re-add
             await _forceRemoveAndReaddSource(geoJsonString);
           }
         } else {
-          throw e; // Re-throw to be caught by outer try-catch
+          rethrow;
         }
       }
 
-      // Add cluster layers
-      debugPrint('[MapControllerNew] 🎨 Adding cluster layers...');
-      await _addClusterLayers(memories);
+      await _addClusterLayers(_currentMemories.toList());
       debugPrint('[MapControllerNew] ✅ Cluster layers added successfully');
-
-      // Initialize MapMarkerService with MapBox map before arrow generation
 
       if (_mapMarkerService != null) {
         _mapMarkerService!.initialize(mapboxMap!);
@@ -4849,7 +4666,6 @@ class MapControllerNew extends GetxController {
       debugPrint(
         '[MapControllerNew] ✅ Clustering setup completed successfully',
       );
-      // Generate and display chronological arrows
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error setting up MapBox clustering: $e');
       debugPrint('[MapControllerNew] Stack trace: ${StackTrace.current}');
@@ -5005,62 +4821,60 @@ class MapControllerNew extends GetxController {
     }
   }
 
-Future<void> animateMapToCurrentOrRandomLocation() async {
-  double fallbackLat = 51.1657; // Germany center
-  double fallbackLng = 10.4515;
+  Future<void> animateMapToCurrentOrRandomLocation() async {
+    double fallbackLat = 51.1657; // Germany center
+    double fallbackLng = 10.4515;
 
-  try {
-    // 1️⃣ Check permission
-    LocationPermission permission = await Geolocator.checkPermission();
+    try {
+      // 1️⃣ Check permission
+      LocationPermission permission = await Geolocator.checkPermission();
 
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      // 2️⃣ If permission granted
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+
+        //todo fix it
+
+        // await mapboxMap!.setCamera(
+        //   mapbox.CameraOptions(
+        //     center: mapbox.Point(
+        //       coordinates: mapbox.Position(
+        //         position.longitude,
+        //         position.latitude,
+        //       ),
+        //     ),
+        //     zoom: 2,
+        //   ),
+        // );
+
+        return;
+      }
+    } catch (e) {
+      print("Location error: $e");
     }
 
-    // 2️⃣ If permission granted
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
+    // todo fix it
 
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      //todo fix it
-
-      // await mapboxMap!.setCamera(
-      //   mapbox.CameraOptions(
-      //     center: mapbox.Point(
-      //       coordinates: mapbox.Position(
-      //         position.longitude,
-      //         position.latitude,
-      //       ),
-      //     ),
-      //     zoom: 2,
-      //   ),
-      // );
-
-      return;
-    }
-  } catch (e) {
-    print("Location error: $e");
+    // 3️⃣ Fallback to Germany
+    // await mapboxMap!.setCamera(
+    //   mapbox.CameraOptions(
+    //     center: mapbox.Point(
+    //       coordinates: mapbox.Position(
+    //         fallbackLng,
+    //         fallbackLat,
+    //       ),
+    //     ),
+    //     zoom: 5,
+    //   ),
+    // );
   }
-
- // todo fix it
-
-  // 3️⃣ Fallback to Germany
-  // await mapboxMap!.setCamera(
-  //   mapbox.CameraOptions(
-  //     center: mapbox.Point(
-  //       coordinates: mapbox.Position(
-  //         fallbackLng,
-  //         fallbackLat,
-  //       ),
-  //     ),
-  //     zoom: 5,
-  //   ),
-  // );
-}
-
 }
 
 /// Helper class for tracking app lifecycle changes

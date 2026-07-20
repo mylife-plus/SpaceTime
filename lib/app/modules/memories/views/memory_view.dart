@@ -47,13 +47,15 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       GlobalKey<MemoryDescriptionFieldState>();
   final ScrollController _scrollController = ScrollController();
   bool _isPopupOpen = false;
-  final RxList<Map<String, dynamic>> _orderedMedia = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> _orderedMedia =
+      <Map<String, dynamic>>[].obs;
   int? _editingMemoryId;
 
   bool _keyboardVisible = false;
   bool _deferredCreateInitStarted = false;
   bool _mediaStagingDialogOpen = false;
   bool _isImportingPickedMedia = false;
+
   /// Blocks UI during save/delete while list/map refresh settles.
   bool _isBusy = false;
 
@@ -66,10 +68,16 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   Set<int> _deletedAudioIndices = <int>{};
 
   List<String> get _selectedImagePaths =>
-      _orderedMedia.where((m) => m['type'] == 'image').map((m) => m['path'] as String).toList();
+      _orderedMedia
+          .where((m) => m['type'] == 'image')
+          .map((m) => m['path'] as String)
+          .toList();
 
   List<String> get _selectedVideoPaths =>
-      _orderedMedia.where((m) => m['type'] == 'video').map((m) => m['path'] as String).toList();
+      _orderedMedia
+          .where((m) => m['type'] == 'video')
+          .map((m) => m['path'] as String)
+          .toList();
 
   List<ImportedGalleryAssetRecord> get _galleryAssetRecordsForSave {
     final out = <ImportedGalleryAssetRecord>[];
@@ -85,9 +93,10 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         createdAt = DateTime.tryParse(rawTime)?.toUtc();
       }
       if ((id == null || id.isEmpty) && createdAt == null) continue;
-      final timeKey = createdAt != null
-          ? DatabaseHelper.mediaCreatedAtDedupeKey(createdAt)
-          : null;
+      final timeKey =
+          createdAt != null
+              ? DatabaseHelper.mediaCreatedAtDedupeKey(createdAt)
+              : null;
       if (id != null && id.isNotEmpty && seenIds.contains(id)) continue;
       if (timeKey != null && seenTimes.contains(timeKey)) continue;
       if (id != null && id.isNotEmpty) seenIds.add(id);
@@ -95,7 +104,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       out.add(
         ImportedGalleryAssetRecord(
           assetId: (id != null && id.isNotEmpty) ? id : null,
-          mediaCreatedAt: createdAt ??
+          mediaCreatedAt:
+              createdAt ??
               DateTime.parse(
                 DatabaseHelper.importedGalleryMediaCreatedAtUnknownSentinel,
               ),
@@ -208,36 +218,37 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       if (!mounted || _mediaStagingDialogOpen) return;
       _mediaStagingDialogOpen = true;
       showDialog<void>(
-      context: context,
-      useRootNavigator: true,
-      barrierDismissible: false,
-      barrierColor: Colors.black54,
-      builder: (dialogContext) => PopScope(
-        canPop: false,
-        child: Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'text_processing_memories'.tr,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+        context: context,
+        useRootNavigator: true,
+        barrierDismissible: false,
+        barrierColor: Colors.black54,
+        builder:
+            (dialogContext) => PopScope(
+              canPop: false,
+              child: Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'text_processing_memories'.tr,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
       ).whenComplete(() {
         _mediaStagingDialogOpen = false;
       });
@@ -264,23 +275,24 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   }
 
   /// Pop Memory View first; run list/map refresh shortly after so the UI feels instant.
-  static const Duration _postPopRefreshDelay = Duration(milliseconds: 50);
+  /// Delay long enough for the route pop animation to finish before heavy UI-isolate work.
+  static const Duration _postPopRefreshDelay = Duration(milliseconds: 200);
 
   void _schedulePostPopListAndMapRefresh(Future<void> Function() work) {
-    unawaited(
-      () async {
-        await Future<void>.delayed(_postPopRefreshDelay);
-        try {
-          await work();
-        } catch (e, st) {
-          debugPrint('MemoryView: post-pop list/map refresh failed: $e\n$st');
-        }
-      }(),
-    );
+    unawaited(() async {
+      await Future<void>.delayed(_postPopRefreshDelay);
+      try {
+        await work();
+      } catch (e, st) {
+        debugPrint('MemoryView: post-pop list/map refresh failed: $e\n$st');
+      }
+    }());
   }
 
   /// iOS image_picker cache files can disappear within seconds — copy before UI.
-  Future<List<String>> _existingNormalizedPickerPaths(List<String> paths) async {
+  Future<List<String>> _existingNormalizedPickerPaths(
+    List<String> paths,
+  ) async {
     final out = <String>[];
     for (final raw in paths) {
       final normalized = MemoryController.normalizeLocalFilePath(raw);
@@ -331,14 +343,20 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
 
       final newItems = <Map<String, dynamic>>[];
       for (var i = 0; i < staged.images.length; i++) {
-        final item = <String, dynamic>{'type': 'image', 'path': staged.images[i]};
+        final item = <String, dynamic>{
+          'type': 'image',
+          'path': staged.images[i],
+        };
         if (i < images.length) {
           _applyGalleryMetadataToItem(item, metadataByPath[images[i]]);
         }
         newItems.add(item);
       }
       for (var i = 0; i < staged.videos.length; i++) {
-        final item = <String, dynamic>{'type': 'video', 'path': staged.videos[i]};
+        final item = <String, dynamic>{
+          'type': 'video',
+          'path': staged.videos[i],
+        };
         if (i < videos.length) {
           _applyGalleryMetadataToItem(item, metadataByPath[videos[i]]);
         }
@@ -378,7 +396,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _backfillGalleryAssetIdsFromStagedPaths(List<String> stagedPaths) async {
+  Future<void> _backfillGalleryAssetIdsFromStagedPaths(
+    List<String> stagedPaths,
+  ) async {
     final metadataByPath = await GalleryAssetResolver.resolveMetadataForPaths(
       stagedPaths,
       maxAlbumScan: 2000,
@@ -537,22 +557,24 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       if (_descriptionFieldKey.currentState != null) {
         // Parse and add existing tags to the widget state
         if (tagsString != null && tagsString.isNotEmpty) {
-          final tags = tagsString
-              .split(',')
-              .where((tag) => tag.trim().isNotEmpty)
-              .map((tag) => tag.trim())
-              .toList();
+          final tags =
+              tagsString
+                  .split(',')
+                  .where((tag) => tag.trim().isNotEmpty)
+                  .map((tag) => tag.trim())
+                  .toList();
           _descriptionFieldKey.currentState!.initializeTags(tags);
           debugPrint('Initialized ${tags.length} tags in description field');
         }
 
         // Parse and add existing mentions to the widget state
         if (mentionsString != null && mentionsString.isNotEmpty) {
-          final mentions = mentionsString
-              .split(',')
-              .where((mention) => mention.trim().isNotEmpty)
-              .map((mention) => mention.trim())
-              .toList();
+          final mentions =
+              mentionsString
+                  .split(',')
+                  .where((mention) => mention.trim().isNotEmpty)
+                  .map((mention) => mention.trim())
+                  .toList();
           _descriptionFieldKey.currentState!.initializeMentions(mentions);
           debugPrint(
             'Initialized ${mentions.length} mentions in description field',
@@ -634,7 +656,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       final item = _orderedMedia[index];
       final type = item['type'] as String;
 
-      if (widget.editMode && _editingMemoryId != null && item['originalIndex'] != null) {
+      if (widget.editMode &&
+          _editingMemoryId != null &&
+          item['originalIndex'] != null) {
         final origIdx = item['originalIndex'] as int;
         if (type == 'image') {
           _deletedImageIndices.add(origIdx);
@@ -685,11 +709,14 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       );
     } catch (e) {
       debugPrint('Error deleting audio: $e');
-      showTrSnackbar('snackbar_unable_to_delete_9', 
+      showTrSnackbar(
+        'snackbar_unable_to_delete_9',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        margin: const EdgeInsets.all(12),        duration: const Duration(seconds: 2),);
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -713,7 +740,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
 
         try {
           String path;
-          if (imageData.startsWith('memory_images/') || imageData.startsWith('/')) {
+          if (imageData.startsWith('memory_images/') ||
+              imageData.startsWith('/')) {
             path = await memoryController.getAbsolutePath(imageData);
           } else {
             final bytes = base64Decode(imageData);
@@ -723,10 +751,16 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
             await tempFile.writeAsBytes(bytes);
             path = tempFile.path;
           }
-          final imgOrder = _originalImages.isNotEmpty && i < _originalImages.length
-              ? (_originalImages[i]['image_order'] as int? ?? i)
-              : i;
-          _orderedMedia.add({'type': 'image', 'path': path, 'originalIndex': i, 'order': imgOrder});
+          final imgOrder =
+              _originalImages.isNotEmpty && i < _originalImages.length
+                  ? (_originalImages[i]['image_order'] as int? ?? i)
+                  : i;
+          _orderedMedia.add({
+            'type': 'image',
+            'path': path,
+            'originalIndex': i,
+            'order': imgOrder,
+          });
         } catch (e) {
           debugPrint('Error processing image $i: $e');
         }
@@ -752,7 +786,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
 
       for (int i = 0; i < audioPaths.length; i++) {
         // Convert relative path to absolute path
-        final absolutePath = await memoryController.getAbsolutePath(audioPaths[i]);
+        final absolutePath = await memoryController.getAbsolutePath(
+          audioPaths[i],
+        );
         memoryController.recordedAudioPaths.add(absolutePath);
         debugPrint('🎵 Loaded audio: ${audioPaths[i]} -> $absolutePath');
 
@@ -777,14 +813,24 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       final memoryController = Get.find<MemoryController>();
 
       for (int i = 0; i < videoPaths.length; i++) {
-        final absolutePath = await memoryController.getAbsolutePath(videoPaths[i]);
-        final vidOrder = _originalVideos.isNotEmpty && i < _originalVideos.length
-            ? (_originalVideos[i]['video_order'] as int? ?? i)
-            : i;
-        _orderedMedia.add({'type': 'video', 'path': absolutePath, 'originalIndex': i, 'order': vidOrder});
+        final absolutePath = await memoryController.getAbsolutePath(
+          videoPaths[i],
+        );
+        final vidOrder =
+            _originalVideos.isNotEmpty && i < _originalVideos.length
+                ? (_originalVideos[i]['video_order'] as int? ?? i)
+                : i;
+        _orderedMedia.add({
+          'type': 'video',
+          'path': absolutePath,
+          'originalIndex': i,
+          'order': vidOrder,
+        });
       }
 
-      _orderedMedia.sort((a, b) => (a['order'] as int? ?? 0).compareTo(b['order'] as int? ?? 0));
+      _orderedMedia.sort(
+        (a, b) => (a['order'] as int? ?? 0).compareTo(b['order'] as int? ?? 0),
+      );
       _orderedMedia.refresh();
 
       debugPrint('Loaded ${videoPaths.length} existing videos for editing');
@@ -806,7 +852,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       final List<String> finalBase64Images = [];
       final List<int> finalOrders = [];
 
-      final imageItems = _orderedMedia.where((m) => m['type'] == 'image').toList();
+      final imageItems =
+          _orderedMedia.where((m) => m['type'] == 'image').toList();
 
       for (int i = 0; i < imageItems.length; i++) {
         final item = imageItems[i];
@@ -818,7 +865,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           finalOrders.add(globalOrder);
         } else {
           final path = item['path'] as String;
-          final base64List = await memoryController.convertImagesToBase64([path]);
+          final base64List = await memoryController.convertImagesToBase64([
+            path,
+          ]);
           if (base64List.isNotEmpty) {
             finalBase64Images.add(base64List.first);
             finalOrders.add(globalOrder);
@@ -834,7 +883,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         );
       }
 
-      debugPrint('Updated ${finalBase64Images.length} images for memory $memoryId');
+      debugPrint(
+        'Updated ${finalBase64Images.length} images for memory $memoryId',
+      );
     } catch (e) {
       debugPrint('Error updating memory images: $e');
       throw e;
@@ -861,7 +912,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         if (i < originalAudioPaths.length) {
           final filePath = originalAudioPaths[i];
           try {
-            final absolutePath = await memoryController.getAbsolutePath(filePath);
+            final absolutePath = await memoryController.getAbsolutePath(
+              filePath,
+            );
             final file = File(absolutePath);
             if (file.existsSync()) {
               file.deleteSync();
@@ -941,7 +994,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       final List<String> finalVideoPaths = [];
       final List<int> finalOrders = [];
 
-      final videoItems = _orderedMedia.where((m) => m['type'] == 'video').toList();
+      final videoItems =
+          _orderedMedia.where((m) => m['type'] == 'video').toList();
 
       for (int i = 0; i < videoItems.length; i++) {
         final item = videoItems[i];
@@ -953,7 +1007,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           finalOrders.add(globalOrder);
         } else {
           final path = item['path'] as String;
-          final savedPaths = await memoryController.saveVideosToAppDirectory([path]);
+          final savedPaths = await memoryController.saveVideosToAppDirectory([
+            path,
+          ]);
           if (savedPaths.isNotEmpty) {
             finalVideoPaths.add(savedPaths.first);
             finalOrders.add(globalOrder);
@@ -971,14 +1027,20 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         );
       }
 
-      debugPrint('Updated ${finalVideoPaths.length} videos for memory $memoryId');
+      debugPrint(
+        'Updated ${finalVideoPaths.length} videos for memory $memoryId',
+      );
     } catch (e) {
       debugPrint('Error updating memory video files: $e');
       throw e;
     }
   }
 
-  Widget _memoryImageFile(String path, {required double width, required double height}) {
+  Widget _memoryImageFile(
+    String path, {
+    required double width,
+    required double height,
+  }) {
     return MemoryMediaImageProviderCache.instance.buildImage(
       context: context,
       imageData: path,
@@ -994,7 +1056,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _sortMediaByCreationDate(List<Map<String, dynamic>> newItems) async {
+  Future<void> _sortMediaByCreationDate(
+    List<Map<String, dynamic>> newItems,
+  ) async {
     final List<MapEntry<Map<String, dynamic>, DateTime>> withDates = [];
     for (final item in newItems) {
       final rawTime = item['galleryMediaCreatedAt'] as String?;
@@ -1023,17 +1087,18 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     showDialog<void>(
       context: context,
       useRootNavigator: true,
-      builder: (dialogContext) => MediaPickerPopup(
-        hostContext: context,
-        onNativePickerWillOpen: _showMediaStagingLoader,
-        onNativePickerCancelled: _hideMediaStagingLoader,
-        onMediaSelected: (imagePaths, videoPaths) async {
-          await _importPickedMediaFromPicker(
-            imagePaths: imagePaths,
-            videoPaths: videoPaths,
-          );
-        },
-      ),
+      builder:
+          (dialogContext) => MediaPickerPopup(
+            hostContext: context,
+            onNativePickerWillOpen: _showMediaStagingLoader,
+            onNativePickerCancelled: _hideMediaStagingLoader,
+            onMediaSelected: (imagePaths, videoPaths) async {
+              await _importPickedMediaFromPicker(
+                imagePaths: imagePaths,
+                videoPaths: videoPaths,
+              );
+            },
+          ),
     );
   }
 
@@ -1226,7 +1291,6 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
 
   /// Unfocus the description field when interacting with other widgets
   void _unfocusDescriptionField() {
-    
     print('Unfocuing');
     if (_descriptionFieldKey.currentState != null) {
       _descriptionFieldKey.currentState!.closePopup();
@@ -1234,46 +1298,54 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     }
 
     //  _focusNode.unfocus();
-      FocusScope.of(context).unfocus();
+    FocusScope.of(context).unfocus();
 
-      // For iOS, sometimes we need to be more aggressive
-      if (Theme.of(context).platform == TargetPlatform.iOS) {
-        FocusManager.instance.primaryFocus?.unfocus();
-        SystemChannels.textInput.invokeMethod('TextInput.hide');
-      }
-    
-    
+    // For iOS, sometimes we need to be more aggressive
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+    }
+
     // FocusScope.of(context).unfocus();
   }
 
-  /// Same list + map refresh as create, including incremental FilterController update.
+  /// Update the list incrementally, then refresh the map.
   Future<void> _runListAndMapRefreshAfterCreate(int newMemoryId) async {
     if (Get.isRegistered<FilterController>()) {
       final filterController = Get.find<FilterController>();
       filterController.resetFiltersExceptSearch();
-      await filterController.prependMemoryById(
-        newMemoryId,
+      await filterController.prependMemoryById(newMemoryId, incremental: true);
+    }
+    await _refreshListAndMapAfterSave(focusOnLatest: true);
+  }
+
+  /// Replace one edited memory in lists, then refresh the map.
+  Future<void> _runListAndMapRefreshAfterEdit(int memoryId) async {
+    if (Get.isRegistered<FilterController>()) {
+      await Get.find<FilterController>().replaceMemoryById(
+        memoryId,
         incremental: true,
       );
     }
-    await _refreshListAndMapAfterCreate();
+    await _refreshListAndMapAfterSave(focusOnLatest: false);
   }
 
-  /// Reload list + map after creating a memory.
-  Future<void> _refreshListAndMapAfterCreate() async {
+  /// Refresh the map after create/edit. List was already patched incrementally.
+  Future<void> _refreshListAndMapAfterSave({
+    required bool focusOnLatest,
+  }) async {
     if (!Get.isRegistered<FilterController>()) return;
     try {
       final filterController = Get.find<FilterController>();
-      if (Get.isRegistered<AddMemoriesController>()) {
-        await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
-      }
       if (Get.isRegistered<MapControllerNew>()) {
         final mapController = Get.find<MapControllerNew>();
         await mapController.loadMemoriesFromDB(
           filterController.filteredMemories.toList(),
         );
         await mapController.showLoadedDataOnMap();
-        await mapController.focusOnLatestMemory();
+        if (focusOnLatest) {
+          await mapController.focusOnLatestMemory();
+        }
       }
       debugPrint(
         'MemoryView: list/map refresh done (${filterController.filteredMemories.length} memories)',
@@ -1292,7 +1364,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       debugPrint('MemoryView: handleSave - Got MemoryController');
 
       final description = _descriptionController.text;
-      debugPrint('MemoryView: handleSave - Description: ${description.substring(0, description.length > 50 ? 50 : description.length)}...');
+      debugPrint(
+        'MemoryView: handleSave - Description: ${description.substring(0, description.length > 50 ? 50 : description.length)}...',
+      );
 
       // Get tags and mentions from MemoryDescriptionField
       final tags = _descriptionFieldKey.currentState?.getTags() ?? [];
@@ -1300,20 +1374,28 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       debugPrint('MemoryView: handleSave - Tags: $tags, Mentions: $mentions');
 
       if (widget.editMode && _editingMemoryId != null) {
-        debugPrint('MemoryView: handleSave - EDIT MODE - Memory ID: $_editingMemoryId');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Memory ID: $_editingMemoryId',
+        );
         // Update existing memory
         // Get selected date and time from controller
         final selectedDate =
             memoryController.selectedDate.value ?? DateTime.now();
         final selectedTime =
             memoryController.selectedTime.value ?? TimeOfDay.now();
-        debugPrint('MemoryView: handleSave - Selected date: $selectedDate, time: $selectedTime');
+        debugPrint(
+          'MemoryView: handleSave - Selected date: $selectedDate, time: $selectedTime',
+        );
 
         // Format date and time the same way as when creating new memories
-        debugPrint('MemoryView: handleSave - EDIT MODE - Formatting date and time');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Formatting date and time',
+        );
         final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
         final timeStr = selectedTime.format(context);
-        debugPrint('MemoryView: handleSave - EDIT MODE - Formatted date: $dateStr, time: $timeStr');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Formatted date: $dateStr, time: $timeStr',
+        );
 
         // Combine selected date and time into a single DateTime for created_at
         final selectedDateTime = DateTime(
@@ -1323,9 +1405,13 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           selectedTime.hour,
           selectedTime.minute,
         );
-        debugPrint('MemoryView: handleSave - EDIT MODE - Combined DateTime: ${selectedDateTime.toIso8601String()}');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Combined DateTime: ${selectedDateTime.toIso8601String()}',
+        );
 
-        debugPrint('MemoryView: handleSave - EDIT MODE - Updating memory with date: $dateStr, time: $timeStr');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Updating memory with date: $dateStr, time: $timeStr',
+        );
         debugPrint(
           'MemoryView: handleSave - EDIT MODE - Updating memory with created_at: ${selectedDateTime.toIso8601String()}',
         );
@@ -1338,12 +1424,16 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
 
         // Calculate the final audio paths for the legacy audio_path field
         // Check if audio files were modified (added, deleted, or changed)
-        debugPrint('MemoryView: handleSave - EDIT MODE - Checking audio modifications');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Checking audio modifications',
+        );
         final shouldUpdateAudios =
             memoryController.recordedAudioPaths.isNotEmpty ||
             _deletedAudioIndices.isNotEmpty ||
             _originalAudios.isNotEmpty;
-        debugPrint('MemoryView: handleSave - EDIT MODE - Should update audios: $shouldUpdateAudios');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Should update audios: $shouldUpdateAudios',
+        );
         String? finalAudioPathString;
 
         if (shouldUpdateAudios) {
@@ -1399,7 +1489,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           tags,
           mentions,
         );
-        debugPrint('MemoryView: handleSave - EDIT MODE - Validation result: ${validationResult['isValid']}');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Validation result: ${validationResult['isValid']}',
+        );
         if (!validationResult['isValid']) {
           debugPrint(
             'MemoryView: handleSave - EDIT MODE - Validation failed: ${validationResult['messageKey']}',
@@ -1408,7 +1500,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           return;
         }
 
-        debugPrint('MemoryView: handleSave - EDIT MODE - Updating memory in database');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Updating memory in database',
+        );
         final editUpdate = <String, dynamic>{
           'date': dateStr,
           'time': timeStr,
@@ -1443,7 +1537,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         editUpdate['created_at'] = selectedDateTime.toIso8601String();
         editUpdate['updated_at'] = DateTime.now().toIso8601String();
         await memoryController.updateMemory(_editingMemoryId!, editUpdate);
-        debugPrint('MemoryView: handleSave - EDIT MODE - Memory updated successfully');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Memory updated successfully',
+        );
 
         // Update images if they were modified (added, deleted, or changed)
         final shouldUpdateImages =
@@ -1491,9 +1587,13 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         }
 
         // Clear all controller data after successful update
-        debugPrint('MemoryView: handleSave - EDIT MODE - Clearing controller data');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Clearing controller data',
+        );
         memoryController.clearAllData();
-        debugPrint('MemoryView: handleSave - EDIT MODE - Controller data cleared');
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Controller data cleared',
+        );
 
         // Clear the description field and selected images
         debugPrint('MemoryView: handleSave - EDIT MODE - Clearing UI fields');
@@ -1504,55 +1604,45 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         _deletedVideoIndices.clear();
         debugPrint('MemoryView: handleSave - EDIT MODE - UI fields cleared');
 
-        // Reload data from FilterController (single source of truth)
-        debugPrint('MemoryView: handleSave - EDIT MODE - Reloading from FilterController');
-        if (Get.isRegistered<FilterController>()) {
-          final filterController = Get.find<FilterController>();
-          filterController.clearFilters();
-          filterController.resetFilters();
-          filterController.resetFiltersExceptSearch();
-          debugPrint('MemoryView: handleSave - EDIT MODE - FilterController reloaded: ${filterController.filteredMemories.length} memories');
-        }
+        final editedMemoryId = _editingMemoryId!;
+        _setBusy(false);
+        if (!mounted) return;
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - Popping view with result: true',
+        );
+        Get.back(result: true);
 
-        // Refresh AddMemories view
-        if (Get.isRegistered<AddMemoriesController>()) {
-          final addMemoriesController = Get.find<AddMemoriesController>();
-          await addMemoriesController.loadMemoriesFromDatabase();
-          debugPrint('MemoryView: handleSave - EDIT MODE - AddMemories view reloaded');
-        }
-
-        // Refresh Map view
-        if (Get.isRegistered<MapControllerNew>()) {
-          final mapController = Get.find<MapControllerNew>();
-          final filterController = Get.find<FilterController>();
-          await mapController.loadMemoriesFromDB(filterController.filteredMemories.toList());
-          mapController.showLoadedDataOnMap();
-          debugPrint('MemoryView: handleSave - EDIT MODE - Map view reloaded');
-        }
-
-        debugPrint('MemoryView: handleSave - EDIT MODE - Showing success snackbar');
         showOverlaySnackText(
           'dialog_content_memory_updated_successfully'.tr,
           backgroundColor: Colors.blue.shade400,
           colorText: Colors.white,
           duration: const Duration(seconds: 2),
         );
-        debugPrint('MemoryView: handleSave - EDIT MODE - Snackbar shown');
-        // Pop the view after showing snackbar
-        debugPrint('MemoryView: handleSave - EDIT MODE - Popping view with result: true');
-        Get.back(result: true);
-        debugPrint('MemoryView: handleSave - EDIT MODE - View popped successfully');
+
+        _schedulePostPopListAndMapRefresh(
+          () => _runListAndMapRefreshAfterEdit(editedMemoryId),
+        );
+
+        debugPrint(
+          'MemoryView: handleSave - EDIT MODE - View popped; list/map refresh scheduled',
+        );
       } else {
-        debugPrint('MemoryView: handleSave - CREATE MODE - Creating new memory');
+        debugPrint(
+          'MemoryView: handleSave - CREATE MODE - Creating new memory',
+        );
         // Create new memory
         // Validation before saving memory
-        debugPrint('MemoryView: handleSave - CREATE MODE - Starting validation');
+        debugPrint(
+          'MemoryView: handleSave - CREATE MODE - Starting validation',
+        );
         final validationResult = await _validateMemoryData(
           description,
           tags,
           mentions,
         );
-        debugPrint('MemoryView: handleSave - CREATE MODE - Validation result: ${validationResult['isValid']}');
+        debugPrint(
+          'MemoryView: handleSave - CREATE MODE - Validation result: ${validationResult['isValid']}',
+        );
         if (!validationResult['isValid']) {
           debugPrint(
             'MemoryView: handleSave - CREATE MODE - Validation failed: ${validationResult['messageKey']}',
@@ -1564,8 +1654,12 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         _setBusy(true);
         await _waitForBusyOverlayPaint();
 
-        debugPrint('MemoryView: handleSave - CREATE MODE - Saving memory to database');
-        debugPrint('MemoryView: handleSave - CREATE MODE - Images: ${_selectedImagePaths.length}, Videos: ${_selectedVideoPaths.length}');
+        debugPrint(
+          'MemoryView: handleSave - CREATE MODE - Saving memory to database',
+        );
+        debugPrint(
+          'MemoryView: handleSave - CREATE MODE - Images: ${_selectedImagePaths.length}, Videos: ${_selectedVideoPaths.length}',
+        );
         await _ensureGalleryAssetIdsBeforeSave();
         final imgOrders = <int>[];
         final vidOrders = <int>[];
@@ -1584,7 +1678,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           mentions: mentions,
           galleryAssetRecords: _galleryAssetRecordsForSave,
         );
-        debugPrint('MemoryView: handleSave - CREATE MODE - Memory saved successfully (id: $newMemoryId)');
+        debugPrint(
+          'MemoryView: handleSave - CREATE MODE - Memory saved successfully (id: $newMemoryId)',
+        );
 
         // Clear the draft since memory was saved successfully
         debugPrint('MemoryView: handleSave - CREATE MODE - Clearing draft');
@@ -1598,9 +1694,13 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         debugPrint('MemoryView: handleSave - CREATE MODE - UI fields cleared');
 
         // Clear all controller data including audio recordings
-        debugPrint('MemoryView: handleSave - CREATE MODE - Clearing controller data');
+        debugPrint(
+          'MemoryView: handleSave - CREATE MODE - Clearing controller data',
+        );
         memoryController.clearAllData();
-        debugPrint('MemoryView: handleSave - CREATE MODE - Controller data cleared');
+        debugPrint(
+          'MemoryView: handleSave - CREATE MODE - Controller data cleared',
+        );
 
         _setBusy(false);
         if (!mounted) return;
@@ -1612,14 +1712,15 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         );
 
         debugPrint('MemoryView: handleSave - CREATE MODE - Done');
-
       }
 
       debugPrint('MemoryView: handleSave - Method completed successfully');
     } catch (e) {
       _setBusy(false);
       debugPrint('MemoryView: handleSave - ERROR CAUGHT: $e');
-      debugPrint('MemoryView: handleSave - ERROR - Stack trace: ${StackTrace.current}');
+      debugPrint(
+        'MemoryView: handleSave - ERROR - Stack trace: ${StackTrace.current}',
+      );
       showTrSnackbar(
         'snackbar_unable_to_load_3',
         backgroundColor: Colors.red,
@@ -1710,44 +1811,44 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
               ),
             ),
             TextButton(
-              onPressed: () async {
+              onPressed: () {
                 if (_isBusy) return;
                 final memoryId = _editingMemoryId!;
+                // Close confirm dialog, then leave Memory View immediately.
+                // DB delete + list/map refresh run after pop (no loader).
                 Get.back();
+                Get.back(result: true);
 
-                try {
-                  debugPrint('[MemoryView] 🗑️ Deleting memory ID: $memoryId');
+                _schedulePostPopListAndMapRefresh(() async {
+                  try {
+                    debugPrint(
+                      '[MemoryView] 🗑️ Deleting memory ID: $memoryId',
+                    );
+                    final memoryController = Get.find<MemoryController>();
+                    await memoryController.deleteMemory(memoryId);
+                    debugPrint('[MemoryView] ✅ Memory deleted from database');
 
-                  final memoryController = Get.find<MemoryController>();
-                  await memoryController.deleteMemory(memoryId);
-
-                  debugPrint('[MemoryView] ✅ Memory deleted from database');
-
-                  if (!mounted) return;
-                  Get.back(result: true);
-
-                  showTrSnackbar(
-                    'snackbar_success_21',
-                    backgroundColor: Colors.red.withValues(alpha: 0.8),
-                    colorText: Colors.white,
-                    duration: const Duration(seconds: 2),
-                  );
-
-                  _schedulePostPopListAndMapRefresh(
-                    () => refreshConsumersAfterMemoryDeletion(
+                    await refreshConsumersAfterMemoryDeletion(
                       memoryId: memoryId,
                       waitForMap: false,
-                    ),
-                  );
-                } catch (e) {
-                  debugPrint('[MemoryView] ❌ Error deleting memory: $e');
-                  showTrSnackbar(
-                    'snackbar_unable_to_delete_10',
-                    backgroundColor: Colors.red,
-                    colorText: Colors.white,
-                    duration: const Duration(seconds: 2),
-                  );
-                }
+                    );
+
+                    showTrSnackbar(
+                      'snackbar_success_21',
+                      backgroundColor: Colors.red.withValues(alpha: 0.8),
+                      colorText: Colors.white,
+                      duration: const Duration(seconds: 2),
+                    );
+                  } catch (e) {
+                    debugPrint('[MemoryView] ❌ Error deleting memory: $e');
+                    showTrSnackbar(
+                      'snackbar_unable_to_delete_10',
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                      duration: const Duration(seconds: 2),
+                    );
+                  }
+                });
               },
               child: Text(
                 'text_delete_4'.tr,
@@ -1797,7 +1898,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                         ),
                       ),
                       Text(
-                        trKey('text_debug_total_memories', [allMemories.length]),
+                        trKey('text_debug_total_memories', [
+                          allMemories.length,
+                        ]),
                       ),
                       Text('text_database_version_4'.tr),
                       Text('text_database_name_memories_db'.tr),
@@ -1828,24 +1931,32 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                             ),
                           ),
                           const Divider(),
-                          Text(trKey('text_date_memory', [
-                            memory['date'] ?? 'N/A',
-                          ])),
-                          Text(trKey('text_time_memory', [
-                            memory['time'] ?? 'N/A',
-                          ])),
+                          Text(
+                            trKey('text_date_memory', [
+                              memory['date'] ?? 'N/A',
+                            ]),
+                          ),
+                          Text(
+                            trKey('text_time_memory', [
+                              memory['time'] ?? 'N/A',
+                            ]),
+                          ),
                           if (memory['location'] != null &&
                               memory['location'].toString().isNotEmpty)
-                            Text(trKey('text_location_memory', [
-                              memory['location'],
-                            ])),
+                            Text(
+                              trKey('text_location_memory', [
+                                memory['location'],
+                              ]),
+                            ),
                           if (memory['category'] != null &&
                               memory['category'].toString().isNotEmpty)
-                            Text(trKey('text_category_memory', [
-                              localizedPlaceCategoryStoredLabel(
-                                memory['category'].toString(),
-                              ),
-                            ])),
+                            Text(
+                              trKey('text_category_memory', [
+                                localizedPlaceCategoryStoredLabel(
+                                  memory['category'].toString(),
+                                ),
+                              ]),
+                            ),
                           if (memory['description'] != null &&
                               memory['description'].toString().isNotEmpty)
                             Text(
@@ -1930,9 +2041,11 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                             Text(trKey('text_tags_memory', [memory['tags']])),
                           if (memory['mentions'] != null &&
                               memory['mentions'].toString().isNotEmpty)
-                            Text(trKey('text_mentions_memory', [
-                              memory['mentions'],
-                            ])),
+                            Text(
+                              trKey('text_mentions_memory', [
+                                memory['mentions'],
+                              ]),
+                            ),
 
                           const SizedBox(height: 8),
                           Text(
@@ -1964,11 +2077,17 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: Text('text_close_4'.tr)),
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('text_close_4'.tr),
+          ),
         ],
       );
     } catch (e) {
-      showTrSnackbar('snackbar_unable_to_load_3',       duration: const Duration(seconds: 2),);
+      showTrSnackbar(
+        'snackbar_unable_to_load_3',
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -2004,400 +2123,467 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       },
       child: Obx(
         () => Scaffold(
-            resizeToAvoidBottomInset: true,
-            backgroundColor:
-                controller.darkMode.value
-                    ? controller.darkBackgroundColor
-                    : Colors.white,
-            body: Stack(
-              children: [
-                GestureDetector(
-              // Dismiss keyboard when tapping outside text fields
-              onTap: () {
-                if (_isBusy) return;
-                FocusScope.of(context).unfocus();
-              },
-              child: SafeArea(bottom: false,
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                      controller: _scrollController,
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          MemoryInfoWidget(
-                            onCategorySelected: _unfocusDescriptionField,
-                            onAnyWidgetTapped: _unfocusDescriptionField,
-                          ),
-                          const SizedBox(height: 2),
-                          Container(
-                            color:
-                                controller.darkMode.value
-                                    ? controller.darkSurfaceColor
-                                    : controller.getLightModeBackgroundColor(
-                                          controller.mainColor.value,
-                                        ),
-                            child: Obx(
-                              () {
-                                final totalMediaCount = _orderedMedia.length;
+          resizeToAvoidBottomInset: true,
+          backgroundColor:
+              controller.darkMode.value
+                  ? controller.darkBackgroundColor
+                  : Colors.white,
+          body: Stack(
+            children: [
+              GestureDetector(
+                // Dismiss keyboard when tapping outside text fields
+                onTap: () {
+                  if (_isBusy) return;
+                  FocusScope.of(context).unfocus();
+                },
+                child: SafeArea(
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MemoryInfoWidget(
+                                onCategorySelected: _unfocusDescriptionField,
+                                onAnyWidgetTapped: _unfocusDescriptionField,
+                              ),
+                              const SizedBox(height: 2),
+                              Container(
+                                color:
+                                    controller.darkMode.value
+                                        ? controller.darkSurfaceColor
+                                        : controller
+                                            .getLightModeBackgroundColor(
+                                              controller.mainColor.value,
+                                            ),
+                                child: Obx(() {
+                                  final totalMediaCount = _orderedMedia.length;
 
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: 170,
-                                        child: ReorderableListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          buildDefaultDragHandles: false,
-                                          itemCount: totalMediaCount,
-                                          onReorder: (oldIndex, newIndex) {
-                                            if (newIndex > oldIndex) newIndex--;
-                                            final item = _orderedMedia.removeAt(oldIndex);
-                                            _orderedMedia.insert(newIndex, item);
-                                            _orderedMedia.refresh();
-                                          },
-                                          itemBuilder: (context, index) {
-                                            final mediaItem = _orderedMedia[index];
-                                            final isImage = mediaItem['type'] == 'image';
-                                            final path = mediaItem['path'] as String;
+                                  return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 170,
+                                          child: ReorderableListView.builder(
+                                            scrollDirection: Axis.horizontal,
+                                            buildDefaultDragHandles: false,
+                                            itemCount: totalMediaCount,
+                                            onReorder: (oldIndex, newIndex) {
+                                              if (newIndex > oldIndex)
+                                                newIndex--;
+                                              final item = _orderedMedia
+                                                  .removeAt(oldIndex);
+                                              _orderedMedia.insert(
+                                                newIndex,
+                                                item,
+                                              );
+                                              _orderedMedia.refresh();
+                                            },
+                                            itemBuilder: (context, index) {
+                                              final mediaItem =
+                                                  _orderedMedia[index];
+                                              final isImage =
+                                                  mediaItem['type'] == 'image';
+                                              final path =
+                                                  mediaItem['path'] as String;
 
-                                            if (isImage) {
-                                              return Padding(
-                                                key: ValueKey('media_$index\_${path.hashCode}'),
-                                                padding: const EdgeInsets.only(right: 8),
-                                                child: SizedBox(
-                                                  width: 120,
-                                                  height: 170,
-                                                  child: Stack(
-                                                    children: [
-                                                      ClipRRect(
-                                                        borderRadius: BorderRadius.circular(8),
-                                                        child: _memoryImageFile(
-                                                          path,
+                                              if (isImage) {
+                                                return Padding(
+                                                  key: ValueKey(
+                                                    'media_$index\_${path.hashCode}',
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 8,
+                                                      ),
+                                                  child: SizedBox(
+                                                    width: 120,
+                                                    height: 170,
+                                                    child: Stack(
+                                                      children: [
+                                                        ClipRRect(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                          child:
+                                                              _memoryImageFile(
+                                                                path,
+                                                                width: 120,
+                                                                height: 170,
+                                                              ),
+                                                        ),
+                                                        Positioned(
+                                                          top: 4,
+                                                          right: 4,
+                                                          child: GestureDetector(
+                                                            onTap: () async {
+                                                              await _deleteMediaAtIndex(
+                                                                index,
+                                                              );
+                                                            },
+                                                            child: Container(
+                                                              width: 24,
+                                                              height: 24,
+                                                              decoration: BoxDecoration(
+                                                                color: Colors
+                                                                    .black
+                                                                    .withOpacity(
+                                                                      0.6,
+                                                                    ),
+                                                                shape:
+                                                                    BoxShape
+                                                                        .circle,
+                                                              ),
+                                                              child: const Icon(
+                                                                Icons.close,
+                                                                color:
+                                                                    Colors
+                                                                        .white,
+                                                                size: 16,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Positioned(
+                                                          bottom: 4,
+                                                          right: 4,
+                                                          child: ReorderableDragStartListener(
+                                                            index: index,
+                                                            child: Container(
+                                                              width: 28,
+                                                              height: 28,
+                                                              decoration: BoxDecoration(
+                                                                color: Colors
+                                                                    .black
+                                                                    .withOpacity(
+                                                                      0.6,
+                                                                    ),
+                                                                shape:
+                                                                    BoxShape
+                                                                        .circle,
+                                                              ),
+                                                              child: const Icon(
+                                                                Icons
+                                                                    .drag_handle,
+                                                                color:
+                                                                    Colors
+                                                                        .white,
+                                                                size: 18,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              } else {
+                                                return Padding(
+                                                  key: ValueKey(
+                                                    'media_$index\_${path.hashCode}',
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 8,
+                                                      ),
+                                                  child: SizedBox(
+                                                    width: 120,
+                                                    height: 170,
+                                                    child: Stack(
+                                                      children: [
+                                                        VideoThumbnailWidget(
+                                                          videoPath: path,
                                                           width: 120,
                                                           height: 170,
-                                                        ),
-                                                      ),
-                                                      Positioned(
-                                                        top: 4,
-                                                        right: 4,
-                                                        child: GestureDetector(
-                                                          onTap: () async {
-                                                            await _deleteMediaAtIndex(index);
+                                                          onTap: () {
+                                                            Get.to(
+                                                              () => VideoPlayerScreen(
+                                                                videoPath: path,
+                                                                allowHorizontal:
+                                                                    false,
+                                                              ),
+                                                            );
                                                           },
-                                                          child: Container(
-                                                            width: 24,
-                                                            height: 24,
-                                                            decoration: BoxDecoration(
-                                                              color: Colors.black.withOpacity(0.6),
-                                                              shape: BoxShape.circle,
-                                                            ),
-                                                            child: const Icon(
-                                                              Icons.close,
-                                                              color: Colors.white,
-                                                              size: 16,
+                                                          onDelete: () async {
+                                                            await _deleteMediaAtIndex(
+                                                              index,
+                                                            );
+                                                          },
+                                                        ),
+                                                        Positioned(
+                                                          bottom: 4,
+                                                          right: 4,
+                                                          child: ReorderableDragStartListener(
+                                                            index: index,
+                                                            child: Container(
+                                                              width: 28,
+                                                              height: 28,
+                                                              decoration: BoxDecoration(
+                                                                color: Colors
+                                                                    .black
+                                                                    .withOpacity(
+                                                                      0.6,
+                                                                    ),
+                                                                shape:
+                                                                    BoxShape
+                                                                        .circle,
+                                                              ),
+                                                              child: const Icon(
+                                                                Icons
+                                                                    .drag_handle,
+                                                                color:
+                                                                    Colors
+                                                                        .white,
+                                                                size: 18,
+                                                              ),
                                                             ),
                                                           ),
                                                         ),
-                                                      ),
-                                                      Positioned(
-                                                        bottom: 4,
-                                                        right: 4,
-                                                        child: ReorderableDragStartListener(
-                                                          index: index,
-                                                          child: Container(
-                                                            width: 28,
-                                                            height: 28,
-                                                            decoration: BoxDecoration(
-                                                              color: Colors.black.withOpacity(0.6),
-                                                              shape: BoxShape.circle,
-                                                            ),
-                                                            child: const Icon(
-                                                              Icons.drag_handle,
-                                                              color: Colors.white,
-                                                              size: 18,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
-                                              );
-                                            } else {
-                                              return Padding(
-                                                key: ValueKey('media_$index\_${path.hashCode}'),
-                                                padding: const EdgeInsets.only(right: 8),
-                                                child: SizedBox(
-                                                  width: 120,
-                                                  height: 170,
-                                                  child: Stack(
-                                                    children: [
-                                                      VideoThumbnailWidget(
-                                                        videoPath: path,
-                                                        width: 120,
-                                                        height: 170,
-                                                        onTap: () {
-                                                          Get.to(() => VideoPlayerScreen(
-                                                            videoPath: path,
-                                                            allowHorizontal: false,
-                                                          ));
-                                                        },
-                                                        onDelete: () async {
-                                                          await _deleteMediaAtIndex(index);
-                                                        },
-                                                      ),
-                                                      Positioned(
-                                                        bottom: 4,
-                                                        right: 4,
-                                                        child: ReorderableDragStartListener(
-                                                          index: index,
-                                                          child: Container(
-                                                            width: 28,
-                                                            height: 28,
-                                                            decoration: BoxDecoration(
-                                                              color: Colors.black.withOpacity(0.6),
-                                                              shape: BoxShape.circle,
-                                                            ),
-                                                            child: const Icon(
-                                                              Icons.drag_handle,
-                                                              color: Colors.white,
-                                                              size: 18,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          },
+                                                );
+                                              }
+                                            },
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  GestureDetector(
-                                    onTap: _handleImageUpload,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(5.0),
-                                      child: Container(
-                                        width: 70,
-                                        height: 70,
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              controller.darkMode.value
-                                                  ? Colors.black
-                                                  : Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          border: Border.all(
-                                            color:
-                                                controller.darkMode.value
-                                                    ? Colors.white.withOpacity(
-                                                      0.3,
-                                                    )
-                                                    : Colors.grey.shade300,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
+                                      GestureDetector(
+                                        onTap: _handleImageUpload,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(5.0),
+                                          child: Container(
+                                            width: 70,
+                                            height: 70,
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  controller.darkMode.value
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color:
+                                                    controller.darkMode.value
+                                                        ? Colors.white
+                                                            .withOpacity(0.3)
+                                                        : Colors.grey.shade300,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color:
+                                                      controller.darkMode.value
+                                                          ? Colors.white
+                                                              .withOpacity(0.15)
+                                                          : Colors.black
+                                                              .withOpacity(0.2),
+                                                  blurRadius: 6,
+                                                  spreadRadius: 0.0,
+                                                  offset: const Offset(0, 0),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Image.asset(
+                                              AppImages.addImg,
+                                              fit: BoxFit.contain,
                                               color:
                                                   controller.darkMode.value
                                                       ? Colors.white
-                                                          .withOpacity(0.15)
-                                                      : Colors.black
-                                                          .withOpacity(0.2),
-                                              blurRadius: 6,
-                                              spreadRadius: 0.0,
-                                              offset: const Offset(0, 0),
+                                                      : null,
                                             ),
-                                          ],
-                                        ),
-                                        child: Image.asset(
-                                          AppImages.addImg,
-                                          fit: BoxFit.contain,
-                                          color:
-                                              controller.darkMode.value
-                                                  ? Colors.white
-                                                  : null,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                              },
-                            ),
+                                    ],
+                                  );
+                                }),
+                              ),
+                              Divider(
+                                color:
+                                    controller.darkMode.value
+                                        ? Colors.black.withOpacity(0.2)
+                                        : Colors.transparent,
+                                height: 0.1,
+                              ),
+                              MemoryDescriptionField(
+                                key: _descriptionFieldKey,
+                                controller: _descriptionController,
+                                existingTags: _existingTags,
+                                existingMentions: _existingMentions,
+                                onTagAdded: _onTagAdded,
+                                onMentionAdded: _onMentionAdded,
+                                onPopupStateChanged: _onPopupStateChanged,
+                                scrollController: _scrollController,
+                              ),
+                              MemoryAudioWidget(
+                                onPlayPause: _handleAudioPlay,
+                                onAudioDelete: _deleteAudioAtIndex,
+                              ),
+                              if (_keyboardVisible)
+                                SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.5,
+                                ),
+                            ],
                           ),
-                          Divider(
-                            color:
-                                controller.darkMode.value
-                                    ? Colors.black.withOpacity(0.2)
-                                    : Colors.transparent,
-                            height: 0.1,
-                          ),
-                          MemoryDescriptionField(
-                            key: _descriptionFieldKey,
-                            controller: _descriptionController,
-                            existingTags: _existingTags,
-                            existingMentions: _existingMentions,
-                            onTagAdded: _onTagAdded,
-                            onMentionAdded: _onMentionAdded,
-                            onPopupStateChanged: _onPopupStateChanged,
-                            scrollController: _scrollController,
-                          ),
-                          MemoryAudioWidget(
-                            onPlayPause: _handleAudioPlay,
-                            onAudioDelete: _deleteAudioAtIndex,
-                          ),
-                          if (_keyboardVisible)
-                            SizedBox(height: MediaQuery.of(context).size.height * 0.5),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                  // Bottom action buttons - hide when keyboard is visible
-                  _keyboardVisible
-                      ? const SizedBox.shrink()
-                      : Padding(
+                      // Bottom action buttons - hide when keyboard is visible
+                      _keyboardVisible
+                          ? const SizedBox.shrink()
+                          : Padding(
                             padding: const EdgeInsets.only(bottom: 20.0),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 TickCrossActionButton(
                                   iconPath: 'assets/images/ic_cross.png',
-                                  onTap: _isBusy
-                                      ? () {}
-                                      : () {
-                                    _handleCancel(
-                                      memoryController.recordedAudioPaths,
-                                      _selectedImagePaths,
-                                      memoryController.recordedAudios,
+                                  onTap:
+                                      _isBusy
+                                          ? () {}
+                                          : () {
+                                            _handleCancel(
+                                              memoryController
+                                                  .recordedAudioPaths,
+                                              _selectedImagePaths,
+                                              memoryController.recordedAudios,
+                                            );
+                                          },
+                                ),
+                                // Delete button (only show in edit mode)
+                                // Debug: Check delete button visibility
+                                Builder(
+                                  builder: (context) {
+                                    debugPrint(
+                                      'Delete button check: editMode=${widget.editMode}, memoryId=$_editingMemoryId',
                                     );
+                                    return const SizedBox.shrink();
                                   },
                                 ),
-                        // Delete button (only show in edit mode)
-                        // Debug: Check delete button visibility
-                        Builder(
-                          builder: (context) {
-                            debugPrint(
-                              'Delete button check: editMode=${widget.editMode}, memoryId=$_editingMemoryId',
-                            );
-                            return const SizedBox.shrink();
-                          },
-                        ),
-                        if (widget.editMode) ...[
-                          const SizedBox(width: 20),
-                          InkWell(
-                            onTap: _isBusy ? null : _handleDelete,
-                            child: Container(
-                              width: 60,
-                              height: 60,
-                              // padding: const EdgeInsets.all(15),
-                              // decoration: BoxDecoration(
-                              //   borderRadius: BorderRadius.circular(20),
-                              //   border: Border.all(
-                              //     color:
-                              //         controller.darkMode.value
-                              //             ? Colors.red.withValues(alpha: 0.3)
-                              //             : Colors.transparent,
-                              //   ),
-                              //   image: DecorationImage(
-                              //     image: AssetImage(AppImages.whiteRectangle),
-                              //     fit: BoxFit.cover,
-                              //     colorFilter: ColorFilter.mode(
-                              //       controller.darkMode.value
-                              //           ? Colors.red.withValues(alpha: 0.8)
-                              //           : Colors.red.withValues(alpha: 0.7),
-                              //       BlendMode.srcATop,
-                              //     ),
-                              // //   ),
-                              //   boxShadow: [
-                              //     BoxShadow(
-                              //       color:
-                              //           controller.darkMode.value
-                              //               ? Colors.red.withValues(alpha: 0.15)
-                              //               : Colors.red.withValues(alpha: 0.1),
-                              //       blurRadius: 20,
-                              //       spreadRadius: 0.0,
-                              //       offset: const Offset(0, 0),
-                              //     ),
-                              //     if (controller.darkMode.value)
-                              //       BoxShadow(
-                              //         color: Colors.red.withValues(alpha: 0.1),
-                              //         blurRadius: 20,
-                              //         spreadRadius: 0,
-                              //         offset: const Offset(0, 0),
-                              //       ),
-                              //   ],
-                              // ),
-                                  //  width: 60,
-        // height: 60,
+                                if (widget.editMode) ...[
+                                  const SizedBox(width: 20),
+                                  InkWell(
+                                    onTap: _isBusy ? null : _handleDelete,
+                                    child: Container(
+                                      width: 60,
+                                      height: 60,
 
-        
-        decoration: BoxDecoration(
-          color: controller.darkMode.value
-              ? Colors.red.withValues(alpha: 0.7)
-              : Colors.red,
-          borderRadius: BorderRadius.circular(20),
-          border:   controller.darkMode.value
-              ? Border.all(
-                  color: Colors.white.withOpacity(0.22),
-                  width: 2,
-                )
-              : null,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-                              child: const Icon(
-                                Icons.delete,
-                                color: Colors.white,
-                                size: 24,
-                              ),
+                                      // padding: const EdgeInsets.all(15),
+                                      // decoration: BoxDecoration(
+                                      //   borderRadius: BorderRadius.circular(20),
+                                      //   border: Border.all(
+                                      //     color:
+                                      //         controller.darkMode.value
+                                      //             ? Colors.red.withValues(alpha: 0.3)
+                                      //             : Colors.transparent,
+                                      //   ),
+                                      //   image: DecorationImage(
+                                      //     image: AssetImage(AppImages.whiteRectangle),
+                                      //     fit: BoxFit.cover,
+                                      //     colorFilter: ColorFilter.mode(
+                                      //       controller.darkMode.value
+                                      //           ? Colors.red.withValues(alpha: 0.8)
+                                      //           : Colors.red.withValues(alpha: 0.7),
+                                      //       BlendMode.srcATop,
+                                      //     ),
+                                      // //   ),
+                                      //   boxShadow: [
+                                      //     BoxShadow(
+                                      //       color:
+                                      //           controller.darkMode.value
+                                      //               ? Colors.red.withValues(alpha: 0.15)
+                                      //               : Colors.red.withValues(alpha: 0.1),
+                                      //       blurRadius: 20,
+                                      //       spreadRadius: 0.0,
+                                      //       offset: const Offset(0, 0),
+                                      //     ),
+                                      //     if (controller.darkMode.value)
+                                      //       BoxShadow(
+                                      //         color: Colors.red.withValues(alpha: 0.1),
+                                      //         blurRadius: 20,
+                                      //         spreadRadius: 0,
+                                      //         offset: const Offset(0, 0),
+                                      //       ),
+                                      //   ],
+                                      // ),
+                                      //  width: 60,
+                                      // height: 60,
+                                      decoration: BoxDecoration(
+                                        color:
+                                            controller.darkMode.value
+                                                ? Colors.red.withValues(
+                                                  alpha: 0.7,
+                                                )
+                                                : Colors.red,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border:
+                                            controller.darkMode.value
+                                                ? Border.all(
+                                                  color: Colors.white
+                                                      .withOpacity(0.22),
+                                                  width: 2,
+                                                )
+                                                : null,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.1,
+                                            ),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.delete,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 20),
+                                ] else
+                                  const SizedBox(width: 70),
+
+                                TickCrossActionButton(
+                                  iconPath: 'assets/images/ic_tick.png',
+                                  onTap: _isBusy ? () {} : _handleSave,
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 20),
-                        ] else
-                          const SizedBox(width: 70),
-
-                        TickCrossActionButton(
-                          iconPath: 'assets/images/ic_tick.png',
-                          onTap: _isBusy ? () {} : _handleSave,
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ), // Close GestureDetector
-                if (_isBusy)
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: controller.darkMode.value
-                          ? Colors.black.withValues(alpha: 0.55)
-                          : Colors.black.withValues(alpha: 0.35),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: controller.currentMainColor,
-                          strokeWidth: 2.5,
-                        ),
+                ),
+              ), // Close GestureDetector
+              if (_isBusy)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color:
+                        controller.darkMode.value
+                            ? Colors.black.withValues(alpha: 0.55)
+                            : Colors.black.withValues(alpha: 0.35),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: controller.currentMainColor,
+                        strokeWidth: 2.5,
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
+          ),
+
           /// TODO: UnComment whenever you want to see your database tables. <UKDev>
           // floatingActionButton: FloatingActionButton(
           //   heroTag: 'debug_button',
@@ -2782,22 +2968,21 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         // Restore enhanced location (avoid reverse geocoding on reopen).
         memoryController.locationCountry.value =
             draftData['locationCountry'] ?? '';
-        memoryController.locationCity.value =
-            draftData['locationCity'] ?? '';
-        memoryController.locationName.value =
-            draftData['locationName'] ?? '';
+        memoryController.locationCity.value = draftData['locationCity'] ?? '';
+        memoryController.locationName.value = draftData['locationName'] ?? '';
         memoryController.locationAddress.value =
             draftData['locationAddress'] ?? '';
-        memoryController.locationFlag.value =
-            draftData['locationFlag'] ?? '';
+        memoryController.locationFlag.value = draftData['locationFlag'] ?? '';
 
         final savedLat = draftData['locationLatitude'];
         final savedLng = draftData['locationLongitude'];
         if (savedLat != null) {
-          memoryController.locationLatitude.value = (savedLat as num).toDouble();
+          memoryController.locationLatitude.value =
+              (savedLat as num).toDouble();
         }
         if (savedLng != null) {
-          memoryController.locationLongitude.value = (savedLng as num).toDouble();
+          memoryController.locationLongitude.value =
+              (savedLng as num).toDouble();
         }
 
         // Restore category
@@ -2831,9 +3016,11 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
               if (type == 'video') {
                 final path = m['path'] as String?;
                 if (path != null && await File(path).exists()) {
-                  _orderedMedia.add(
-                    {'type': 'video', 'path': path, 'order': i},
-                  );
+                  _orderedMedia.add({
+                    'type': 'video',
+                    'path': path,
+                    'order': i,
+                  });
                   debugPrint('Restored video from draft: $path');
                 } else {
                   debugPrint('Draft video missing, skipping: $path');
@@ -2846,9 +3033,11 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                     'draft_image_${DateTime.now().millisecondsSinceEpoch}_$i.jpg';
                 final tempFile = File('${tempImagesDir.path}/$tempFileName');
                 await tempFile.writeAsBytes(bytes);
-                _orderedMedia.add(
-                  {'type': 'image', 'path': tempFile.path, 'order': i},
-                );
+                _orderedMedia.add({
+                  'type': 'image',
+                  'path': tempFile.path,
+                  'order': i,
+                });
                 debugPrint('Restored image from draft: $tempFileName');
               }
               if (i.isOdd) {
@@ -2953,9 +3142,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         await Future.delayed(const Duration(milliseconds: 100));
 
         _orderedMedia.refresh();
-        debugPrint(
-          '🔄 Media refreshed. Count: ${_orderedMedia.length}',
-        );
+        debugPrint('🔄 Media refreshed. Count: ${_orderedMedia.length}');
 
         // Force memory controller refresh for audio
         memoryController.recordedAudioPaths.refresh();
