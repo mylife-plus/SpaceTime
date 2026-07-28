@@ -111,15 +111,29 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
     return 'now';
   }
 
+  bool _isDeleting = false;
+
   Future<void> _deleteCurrentLog() async {
+    if (_isDeleting) return;
     final id =
         (widget.logRow[DatabaseHelper.columnTrackLogId] as num?)?.toInt();
     if (id == null) return;
     final ok = await showTrackPastUploadDeleteConfirmDialog();
     if (ok != true) return;
-    await DatabaseHelper.instance.deleteTrackImportLogAndMemories(id);
-    await refreshConsumersAfterTrackImportDeletion(logTag: 'PastUploadPreview');
-    if (mounted) Get.back<void>();
+
+    setState(() => _isDeleting = true);
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(milliseconds: 32));
+
+    try {
+      await DatabaseHelper.instance.deleteTrackImportLogAndMemories(id);
+      await refreshConsumersAfterTrackImportDeletion(
+        logTag: 'PastUploadPreview',
+      );
+      if (mounted) Get.back<void>();
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
+    }
   }
 
   @override
@@ -141,9 +155,8 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
   Future<void> _preloadLocationsProgressive() async {
     const batchSize = 12;
     for (var start = 0; start < items.length; start += batchSize) {
-      final end = (start + batchSize > items.length)
-          ? items.length
-          : start + batchSize;
+      final end =
+          (start + batchSize > items.length) ? items.length : start + batchSize;
       final tasks = <Future<void>>[];
       for (var i = start; i < end; i++) {
         tasks.add(_resolveAndStoreLocation(i, items[i]));
@@ -207,21 +220,22 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
         } else {
           tp = '';
         }
-        thumbs.add(
-          _PastPreviewThumb.video(vp, tp.isEmpty ? null : tp),
-        );
+        thumbs.add(_PastPreviewThumb.video(vp, tp.isEmpty ? null : tp));
       }
       _mediaByMemoryId[id] = thumbs;
     }
   }
 
-  Future<void> _resolveAndStoreLocation(int index, Map<String, dynamic> item) async {
-    final geo = await _resolveLocation(item).timeout(
-      const Duration(seconds: 8),
-      onTimeout: () => null,
-    );
+  Future<void> _resolveAndStoreLocation(
+    int index,
+    Map<String, dynamic> item,
+  ) async {
+    final geo = await _resolveLocation(
+      item,
+    ).timeout(const Duration(seconds: 8), onTimeout: () => null);
     final fallback =
-        (item[DatabaseHelper.columnTrackLogItemLocation] ?? 'Region').toString();
+        (item[DatabaseHelper.columnTrackLogItemLocation] ?? 'Region')
+            .toString();
     _resolvedLocations[index] = _composeResolvedLocation(geo, fallback);
   }
 
@@ -234,56 +248,91 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
     final count =
         (widget.logRow[DatabaseHelper.columnTrackLogNewCount] ?? 0) as int;
     final rangeDates = MemorySort.whenRange(
-      items.map(
-        (e) => DateTime.tryParse(
-          (e[DatabaseHelper.columnTrackLogItemWhen] ?? '').toString(),
-        )?.toLocal(),
-      ).whereType<DateTime>(),
+      items
+          .map(
+            (e) =>
+                DateTime.tryParse(
+                  (e[DatabaseHelper.columnTrackLogItemWhen] ?? '').toString(),
+                )?.toLocal(),
+          )
+          .whereType<DateTime>(),
     );
     final from = rangeDates.from;
     final to = rangeDates.to;
-    final range = (from == null || to == null)
-        ? '-'
-        : '${_dateLabel(from)} – ${_dateLabel(to)}';
+    final range =
+        (from == null || to == null)
+            ? '-'
+            : '${_dateLabel(from)} – ${_dateLabel(to)}';
     final createdIso =
         widget.logRow[DatabaseHelper.columnTrackLogCreatedAt] as String?;
 
     return Obx(() {
-      final pageBg = _ui.darkMode.value
-          ? _ui.darkBackgroundColor
-          : Colors.white;
+      final pageBg =
+          _ui.darkMode.value ? _ui.darkBackgroundColor : Colors.white;
       return Scaffold(
         appBar: CustomAppBar(
           title: 'gpx_past_uploads'.tr,
           icon: trackUploadRefreshAppBarIcon(),
         ),
         backgroundColor: pageBg,
-        body: ListView.builder(
-          itemCount: 1 + items.length,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return TrackPreviewSummaryCard(
-                primaryLabel: trKey('gpx_past_upload_memories_line', [count]),
-                valueLine: range,
-                uploadedAgoLabel: _ago(createdIso),
-                onDelete: _deleteCurrentLog,
-              );
-            }
-            final i = index - 1;
-            return _buildReadOnlyMemoryStyleCard(
-              ui: _ui,
-              item: items[i],
-              locationText: _resolvedLocations[i] ?? 'Region',
-              memoryId: _memoryIdFrom(items[i]),
-            );
-          },
+        body: Stack(
+          children: [
+            ListView.builder(
+              itemCount: 1 + items.length,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return TrackPreviewSummaryCard(
+                    primaryLabel: trKey('gpx_past_upload_memories_line', [
+                      count,
+                    ]),
+                    valueLine: range,
+                    uploadedAgoLabel: _ago(createdIso),
+                    onDelete: _isDeleting ? null : _deleteCurrentLog,
+                  );
+                }
+                final i = index - 1;
+                return _buildReadOnlyMemoryStyleCard(
+                  ui: _ui,
+                  item: items[i],
+                  locationText: _resolvedLocations[i] ?? 'Region',
+                  memoryId: _memoryIdFrom(items[i]),
+                );
+              },
+            ),
+            if (_isDeleting)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: _ui.currentMainColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       );
     });
   }
 
   String _monthShort(int m) {
-    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const names = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     if (m < 1 || m > 12) return '';
     return names[m - 1];
   }
@@ -294,30 +343,34 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
     required String locationText,
     int? memoryId,
   }) {
-    final dt = DateTime.tryParse(
-      (item[DatabaseHelper.columnTrackLogItemWhen] ?? '').toString(),
-    )?.toLocal();
-    final hh = dt == null
-        ? '--:--'
-        : '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    final dayMon = dt == null
-        ? '-'
-        : '${dt.day.toString().padLeft(2, '0')} ${_monthShort(dt.month)}';
+    final dt =
+        DateTime.tryParse(
+          (item[DatabaseHelper.columnTrackLogItemWhen] ?? '').toString(),
+        )?.toLocal();
+    final hh =
+        dt == null
+            ? '--:--'
+            : '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final dayMon =
+        dt == null
+            ? '-'
+            : '${dt.day.toString().padLeft(2, '0')} ${_monthShort(dt.month)}';
     final yr = dt == null ? '' : '${dt.year}';
 
     return Obx(() {
       final isDark = ui.darkMode.value;
-      final headerBg = isDark
-          ? (ui.mainColor.value == 'blue' ? const Color(0xFF002E68) : ui.primaryColor)
-          : (ui.secondaryColor ?? const Color(0xFFDEEDFF));
+      final headerBg =
+          isDark
+              ? (ui.mainColor.value == 'blue'
+                  ? const Color(0xFF002E68)
+                  : ui.primaryColor)
+              : (ui.secondaryColor ?? const Color(0xFFDEEDFF));
       final headerText = isDark ? Colors.white : ui.currentMainColor;
       final bodyText = isDark ? Colors.white : Colors.black87;
       final bodyBg = isDark ? Colors.black : Colors.white;
 
       return Container(
-        decoration: BoxDecoration(
-          color: bodyBg,
-        ),
+        decoration: BoxDecoration(color: bodyBg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -397,7 +450,9 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
     var primary = name;
     if (primary.isEmpty) primary = city;
     if (primary.isEmpty) primary = country;
-    if (primary.isEmpty) primary = fallbackLocation.trim().isEmpty ? 'Region' : fallbackLocation.trim();
+    if (primary.isEmpty)
+      primary =
+          fallbackLocation.trim().isEmpty ? 'Region' : fallbackLocation.trim();
 
     return flag.isEmpty ? primary : '$flag $primary';
   }
@@ -405,8 +460,10 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
   Future<Map<String, dynamic>?> _resolveLocation(
     Map<String, dynamic> item,
   ) async {
-    final lat = (item[DatabaseHelper.columnTrackLogItemLat] as num?)?.toDouble();
-    final lng = (item[DatabaseHelper.columnTrackLogItemLng] as num?)?.toDouble();
+    final lat =
+        (item[DatabaseHelper.columnTrackLogItemLat] as num?)?.toDouble();
+    final lng =
+        (item[DatabaseHelper.columnTrackLogItemLng] as num?)?.toDouble();
     if (lat == null || lng == null) return null;
     return reverseGeocodeTrackPreview(lat, lng);
   }
@@ -414,7 +471,10 @@ class _KmzPastUploadPreviewViewState extends State<KmzPastUploadPreviewView> {
   String _extractFlagPrefix(String value) {
     final t = value.trimLeft();
     if (t.isEmpty) return '';
-    final m = RegExp(r'^([\u{1F1E6}-\u{1F1FF}]{2})', unicode: true).firstMatch(t);
+    final m = RegExp(
+      r'^([\u{1F1E6}-\u{1F1FF}]{2})',
+      unicode: true,
+    ).firstMatch(t);
     return m?.group(1) ?? '';
   }
 
@@ -529,9 +589,7 @@ class _PastVideoPageState extends State<_PastVideoPage> {
         fit: StackFit.expand,
         children: [
           _poster(),
-          const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          ),
+          const Center(child: CircularProgressIndicator(color: Colors.white)),
         ],
       );
     }
@@ -609,13 +667,17 @@ class _PastVideoPageState extends State<_PastVideoPage> {
                     ),
                     Text(
                       'text'.tr,
-                      style:
-                          const TextStyle(color: Colors.white54, fontSize: 11),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
                     ),
                     Text(
                       _formatInlineVideoDuration(vc.value.duration),
-                      style:
-                          const TextStyle(color: Colors.white54, fontSize: 11),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
@@ -629,10 +691,7 @@ class _PastVideoPageState extends State<_PastVideoPage> {
 }
 
 class _PastMediaPager extends StatefulWidget {
-  const _PastMediaPager({
-    required this.thumbs,
-    required this.bodyText,
-  });
+  const _PastMediaPager({required this.thumbs, required this.bodyText});
 
   final List<_PastPreviewThumb> thumbs;
   final Color bodyText;
@@ -675,8 +734,8 @@ class _PastMediaPagerState extends State<_PastMediaPager> {
           fit: BoxFit.cover,
           gaplessPlayback: true,
           cacheWidth: decodeW,
-          errorBuilder: (_, __, ___) =>
-              Icon(Icons.broken_image, color: widget.bodyText),
+          errorBuilder:
+              (_, __, ___) => Icon(Icons.broken_image, color: widget.bodyText),
         );
       default:
         return ColoredBox(
@@ -708,17 +767,18 @@ class _PastMediaPagerState extends State<_PastMediaPager> {
               itemBuilder: (context, index) {
                 final t = widget.thumbs[index];
                 return KeepAlivePage(
-                  child: t.kind == 2 && t.filePath != null
-                      ? _PastVideoPage(
-                          videoPath: t.filePath!,
-                          thumbPath: t.thumbPath,
-                          bodyText: widget.bodyText,
-                          isActive: index == _currentIndex,
-                        )
-                      : Stack(
-                          fit: StackFit.expand,
-                          children: [_pageChild(context, t)],
-                        ),
+                  child:
+                      t.kind == 2 && t.filePath != null
+                          ? _PastVideoPage(
+                            videoPath: t.filePath!,
+                            thumbPath: t.thumbPath,
+                            bodyText: widget.bodyText,
+                            isActive: index == _currentIndex,
+                          )
+                          : Stack(
+                            fit: StackFit.expand,
+                            children: [_pageChild(context, t)],
+                          ),
                 );
               },
             ),

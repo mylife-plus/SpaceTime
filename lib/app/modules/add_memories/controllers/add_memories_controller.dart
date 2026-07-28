@@ -330,6 +330,12 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  /// Keep AddMemories filter flags in sync with [FilterController] after
+  /// incremental deletes (e.g. map single-ID filter cleared).
+  void syncFilterStateFromFilterController() {
+    _syncFilterValuesFromFilterController();
+  }
+
   /// Fast path after create — insert at top without re-sorting 1000 rows.
   void prependToDisplayList(Map<String, dynamic> memory) {
     displayMemories.insert(0, memory);

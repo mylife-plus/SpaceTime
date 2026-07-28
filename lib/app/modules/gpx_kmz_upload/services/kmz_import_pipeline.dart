@@ -163,7 +163,10 @@ class KmzImportPipeline {
       final bytes = await file.readAsBytes();
       var pts = _parseGpxBytes(bytes);
       if (structuredRules.isNotEmpty) {
-        pts = pts.where((p) => !_gpxPointIgnoredByRules(p, structuredRules)).toList();
+        pts =
+            pts
+                .where((p) => !_gpxPointIgnoredByRules(p, structuredRules))
+                .toList();
       }
       pts = _applyTrackPointTimeRules(pts, structuredRules);
       final normalized = normalizeTimes(
@@ -181,7 +184,10 @@ class KmzImportPipeline {
     if (_looksLikeGpxXml(rawText)) {
       var pts = KmzKmlParser.parseGpxString(rawText);
       if (structuredRules.isNotEmpty) {
-        pts = pts.where((p) => !_gpxPointIgnoredByRules(p, structuredRules)).toList();
+        pts =
+            pts
+                .where((p) => !_gpxPointIgnoredByRules(p, structuredRules))
+                .toList();
       }
       pts = _applyTrackPointTimeRules(pts, structuredRules);
       final normalized = normalizeTimes(
@@ -219,7 +225,10 @@ class KmzImportPipeline {
       final gpxBytes = gpxFile.content as List<int>;
       var pts = _parseGpxBytes(gpxBytes);
       if (structuredRules.isNotEmpty) {
-        pts = pts.where((p) => !_gpxPointIgnoredByRules(p, structuredRules)).toList();
+        pts =
+            pts
+                .where((p) => !_gpxPointIgnoredByRules(p, structuredRules))
+                .toList();
       }
       pts = _applyTrackPointTimeRules(pts, structuredRules);
       final normalized = normalizeTimes(
@@ -236,16 +245,18 @@ class KmzImportPipeline {
 
     List<KmzTrackPoint> pts;
     final useStructured = structuredRules.isNotEmpty;
-    final useLegacy = !useStructured && (marker.isNotEmpty || contains.isNotEmpty);
+    final useLegacy =
+        !useStructured && (marker.isNotEmpty || contains.isNotEmpty);
     if (!useStructured && !useLegacy) {
       pts = KmzKmlParser.parseKmlString(xml);
     } else {
       final parts = xml.split(RegExp(r'(?=<Placemark)', caseSensitive: false));
       final buf = StringBuffer();
       for (final part in parts) {
-        final drop = useStructured
-            ? _placemarkIgnoredByRules(part, structuredRules, styleMap)
-            : _placemarkIgnored(part, marker, contains);
+        final drop =
+            useStructured
+                ? _placemarkIgnoredByRules(part, structuredRules, styleMap)
+                : _placemarkIgnored(part, marker, contains);
         if (!drop) buf.write(part);
       }
       pts = KmzKmlParser.parseKmlString(buf.toString());
@@ -281,9 +292,14 @@ class KmzImportPipeline {
     debugPrint('$tag using_kml=$kmlEntryName (xml_chars=$kmlXmlLength)');
     final sample = pointsAfterNormalize
         .take(12)
-        .map((p) => '(${p.latitude.toStringAsFixed(5)},${p.longitude.toStringAsFixed(5)})@${p.when?.toUtc().toIso8601String()}')
+        .map(
+          (p) =>
+              '(${p.latitude.toStringAsFixed(5)},${p.longitude.toStringAsFixed(5)})@${p.when?.toUtc().toIso8601String()}',
+        )
         .join('; ');
-    debugPrint('$tag normalized_points_count=${pointsAfterNormalize.length} sample=$sample');
+    debugPrint(
+      '$tag normalized_points_count=${pointsAfterNormalize.length} sample=$sample',
+    );
   }
 
   static String _styleUrlFromPlacemarkPart(String part) {
@@ -300,7 +316,11 @@ class KmzImportPipeline {
     return s;
   }
 
-  static bool _textCondition(String haystack, String needle, KmzIgnoreCondition c) {
+  static bool _textCondition(
+    String haystack,
+    String needle,
+    KmzIgnoreCondition c,
+  ) {
     final h = haystack.toLowerCase();
     final n = needle.toLowerCase().trim();
     if (n.isEmpty) return false;
@@ -322,7 +342,10 @@ class KmzImportPipeline {
     Map<String, String> styleIdToAbgr,
   ) {
     if (!part.toLowerCase().contains('<placemark')) return false;
-    final tagValues = KmzKmlInspector.extractPlacemarkTagValues(part, styleIdToAbgr);
+    final tagValues = KmzKmlInspector.extractPlacemarkTagValues(
+      part,
+      styleIdToAbgr,
+    );
     for (final r in rules) {
       final values = r.parsedValues();
       const textCondition = KmzIgnoreCondition.textEquals;
@@ -336,7 +359,8 @@ class KmzImportPipeline {
         final sid = _styleIdFromUrl(_styleUrlFromPlacemarkPart(part));
         final abgr = styleIdToAbgr[sid] ?? '';
         if (abgr.isNotEmpty && values.isNotEmpty) {
-          if (values.any((v) => _textCondition(abgr, v, textCondition))) return true;
+          if (values.any((v) => _textCondition(abgr, v, textCondition)))
+            return true;
         }
       } else if (r.tag == KmzIgnoreTagKey.dynamicTag) {
         final key = r.tagKey?.trim() ?? '';
@@ -344,7 +368,8 @@ class KmzImportPipeline {
         final candidates = tagValues[key] ?? const <String>[];
         if (candidates.isEmpty || values.isEmpty) continue;
         for (final c in candidates) {
-          if (values.any((v) => _textCondition(c, v, textCondition))) return true;
+          if (values.any((v) => _textCondition(c, v, textCondition)))
+            return true;
         }
       }
     }
@@ -355,7 +380,8 @@ class KmzImportPipeline {
     List<KmzTrackPoint> pts,
     List<KmzIgnoreRule> rules,
   ) {
-    final dr = rules.where((r) => r.tag == KmzIgnoreTagKey.trackPointTime).toList();
+    final dr =
+        rules.where((r) => r.tag == KmzIgnoreTagKey.trackPointTime).toList();
     if (dr.isEmpty) return pts;
     return pts.where((p) {
       final w = p.when;
@@ -409,7 +435,10 @@ class KmzImportPipeline {
     return hit;
   }
 
-  static bool _gpxPointIgnoredByRules(KmzTrackPoint point, List<KmzIgnoreRule> rules) {
+  static bool _gpxPointIgnoredByRules(
+    KmzTrackPoint point,
+    List<KmzIgnoreRule> rules,
+  ) {
     for (final r in rules) {
       if (r.tag != KmzIgnoreTagKey.dynamicTag) continue;
       final key = r.tagKey?.trim() ?? '';
@@ -418,7 +447,9 @@ class KmzImportPipeline {
       final values = r.parsedValues();
       if (candidates.isEmpty || values.isEmpty) continue;
       for (final c in candidates) {
-        if (values.any((v) => _textCondition(c, v, KmzIgnoreCondition.textEquals))) {
+        if (values.any(
+          (v) => _textCondition(c, v, KmzIgnoreCondition.textEquals),
+        )) {
           return true;
         }
       }
@@ -458,9 +489,10 @@ class KmzImportPipeline {
     for (final p in raw) {
       if (p.when != null) nonNullUtc.add(p.when!.toUtc());
     }
-    final anchorUtc = nonNullUtc.isEmpty
-        ? (baseUtc ?? DateTime.now().toUtc())
-        : nonNullUtc.reduce((a, b) => a.isAfter(b) ? a : b);
+    final anchorUtc =
+        nonNullUtc.isEmpty
+            ? (baseUtc ?? DateTime.now().toUtc())
+            : nonNullUtc.reduce((a, b) => a.isAfter(b) ? a : b);
     final withIndex = List.generate(raw.length, (i) => (i, raw[i]));
     withIndex.sort((a, b) {
       final ta = a.$2.when;
@@ -518,7 +550,7 @@ class KmzImportPipeline {
       }
     }
 
-    final clusters = _clusterPoints(timed, minTimeApart, minMetersApart);
+    final clusters = clusterTrackPoints(timed, minTimeApart, minMetersApart);
     final clusterReps = <KmzTrackPoint>[];
     for (final c in clusters) {
       clusterReps.add(c.first);
@@ -580,7 +612,8 @@ class KmzImportPipeline {
     double lng,
     String fingerprint,
   ) {
-    final d = '${when.year.toString().padLeft(4, '0')}-'
+    final d =
+        '${when.year.toString().padLeft(4, '0')}-'
         '${when.month.toString().padLeft(2, '0')}-'
         '${when.day.toString().padLeft(2, '0')}';
     for (final r in rows) {
@@ -604,7 +637,29 @@ class KmzImportPipeline {
     Duration minTimeApart,
     double minMetersApart,
   ) {
-    return _clusterPoints(points, minTimeApart, minMetersApart);
+    final clusters = _clusterPoints(points, minTimeApart, minMetersApart);
+    return _thinClustersByMinDistance(clusters, minMetersApart);
+  }
+
+  /// Drop later clusters whose first point is still within [minM] of an earlier
+  /// kept cluster — makes "m apart" exclude nearby memories after time splits.
+  static List<List<KmzTrackPoint>> _thinClustersByMinDistance(
+    List<List<KmzTrackPoint>> clusters,
+    double minM,
+  ) {
+    if (clusters.length < 2 || minM <= 0) return clusters;
+    final kept = <List<KmzTrackPoint>>[];
+    for (final c in clusters) {
+      if (c.isEmpty) continue;
+      final p = c.first;
+      final tooClose = kept.any((k) {
+        final r = k.first;
+        return metersBetween(r.latitude, r.longitude, p.latitude, p.longitude) <
+            minM;
+      });
+      if (!tooClose) kept.add(c);
+    }
+    return kept;
   }
 
   /// Cluster: walk points in chronological order. A new cluster starts only when

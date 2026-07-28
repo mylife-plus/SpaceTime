@@ -973,18 +973,24 @@ class FilterController extends GetxController {
     }
 
     allMemories.removeWhere(matchesId);
-    filteredMemories.removeWhere(matchesId);
     selectedMemoryIds.remove(memoryId.toString());
+    searchedMemoryIds.remove(memoryId.toString());
 
-    totalResults.value = filteredMemories.length;
     updateFilterStatus();
+    // Re-apply filters from [allMemories]. Required when the list was narrowed
+    // to a single map-tapped ID — otherwise filteredMemories stays empty and
+    // the map/list look wiped until app restart.
+    applyAllFilters();
 
     if (Get.isRegistered<AddMemoriesController>()) {
-      Get.find<AddMemoriesController>().removeFromDisplayList(memoryId);
+      final add = Get.find<AddMemoriesController>();
+      add.syncFilterStateFromFilterController();
+      add.rebuildDisplayList();
     }
 
     debugPrint(
-      '$tag removeMemoryById: removed $memoryId (${allMemories.length} total)',
+      '$tag removeMemoryById: removed $memoryId '
+      '(${allMemories.length} total, ${filteredMemories.length} filtered)',
     );
   }
 

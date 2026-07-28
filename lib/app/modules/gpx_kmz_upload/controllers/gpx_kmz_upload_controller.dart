@@ -31,15 +31,18 @@ import 'package:spacetime/services/memory_import_blocking_controller.dart';
 class GpxKmzUploadController extends GetxController {
   final TextEditingController filePathController = TextEditingController();
   final TextEditingController ignoreMarkerController = TextEditingController();
-  final TextEditingController ignoreContainsController = TextEditingController();
+  final TextEditingController ignoreContainsController =
+      TextEditingController();
 
   final RxString selectedMinTimeApartKey =
-      TrackClusterFieldConfig.minTimeApartOptionKeys[
-              TrackClusterFieldConfig.defaultClusterOptionIndex]
+      TrackClusterFieldConfig
+          .minTimeApartOptionKeys[TrackClusterFieldConfig
+              .defaultClusterOptionIndex]
           .obs;
   final RxString selectedMinMeterApartKey =
-      TrackClusterFieldConfig.minMeterApartOptionKeys[
-              TrackClusterFieldConfig.defaultClusterOptionIndex]
+      TrackClusterFieldConfig
+          .minMeterApartOptionKeys[TrackClusterFieldConfig
+              .defaultClusterOptionIndex]
           .obs;
   final RxList<String> availableMemoryDateKeys = <String>[].obs;
   final RxString selectedStartDateKey = ''.obs;
@@ -54,6 +57,7 @@ class GpxKmzUploadController extends GetxController {
   final RxInt newMemoriesCount = 0.obs;
 
   final RxBool isBusy = false.obs;
+
   /// Full reverse-geocode pass before opening preview (upload screen shows overlay).
   final RxBool isPreparingPreviewLocations = false.obs;
 
@@ -92,12 +96,15 @@ class GpxKmzUploadController extends GetxController {
   /// Subtract user-excluded candidates from the displayed new-memory count only.
   void _applyExclusionsToCounts() {
     if (_lastStats == null || _excludedFingerprints.isEmpty) return;
-    final excluded = _lastStats!.candidates
-        .where((c) => _excludedFingerprints.contains(c.fingerprint))
-        .length;
+    final excluded =
+        _lastStats!.candidates
+            .where((c) => _excludedFingerprints.contains(c.fingerprint))
+            .length;
     if (excluded == 0) return;
-    newMemoriesCount.value =
-        (_lastStats!.newMemories - excluded).clamp(0, 1 << 30);
+    newMemoriesCount.value = (_lastStats!.newMemories - excluded).clamp(
+      0,
+      1 << 30,
+    );
   }
 
   Future<T> _retry<T>(Future<T> Function() fn, {String label = 'op'}) async {
@@ -143,10 +150,10 @@ class GpxKmzUploadController extends GetxController {
 
   Future<void> _reloadPastUploadCount() async {
     try {
-      pastUploadCount.value =
-          await DatabaseHelper.instance.countTrackImportLogs(
-        importSource: DatabaseHelper.trackImportSourceGpxKmz,
-      );
+      pastUploadCount.value = await DatabaseHelper.instance
+          .countTrackImportLogs(
+            importSource: DatabaseHelper.trackImportSourceGpxKmz,
+          );
     } catch (e) {
       debugPrint('[GpxKmzUpload] past upload count: $e');
     }
@@ -157,7 +164,7 @@ class GpxKmzUploadController extends GetxController {
   /// Reload duplicate detection after memories are deleted or erased.
   Future<void> reloadDedupeFromDatabase() async {
     if (_kmzPath != null && filePathController.text.trim().isNotEmpty) {
-      await runPreview();
+      await _refreshDedupeAndRecomputeFromCache();
     } else {
       duplicateEntryCount.value = 0;
     }
@@ -172,18 +179,19 @@ class GpxKmzUploadController extends GetxController {
   Future<void> pickKmzFile() async {
     // iOS: custom UTIs hide most rows in the picker's Recents vs the Files app.
     // public.item (FileType.any) matches system Recents; we filter by extension.
-    final FilePickerResult? result = Platform.isIOS
-        ? await FilePicker.platform.pickFiles(
-            type: FileType.any,
-            withData: false,
-            withReadStream: false,
-          )
-        : await FilePicker.platform.pickFiles(
-            type: FileType.custom,
-            allowedExtensions: const ['kmz', 'gpx', 'zip'],
-            withData: false,
-            withReadStream: false,
-          );
+    final FilePickerResult? result =
+        Platform.isIOS
+            ? await FilePicker.platform.pickFiles(
+              type: FileType.any,
+              withData: false,
+              withReadStream: false,
+            )
+            : await FilePicker.platform.pickFiles(
+              type: FileType.custom,
+              allowedExtensions: const ['kmz', 'gpx', 'zip'],
+              withData: false,
+              withReadStream: false,
+            );
     if (result == null || result.files.isEmpty) return;
     final f = result.files.first;
     if (!_isSupportedTrackFileName(f.name)) {
@@ -202,6 +210,9 @@ class GpxKmzUploadController extends GetxController {
       }
       _kmzPath = path;
       _excludedFingerprints.clear(); // fresh file → no carried-over deletions
+      // Force From/To to this file's full range on first parse.
+      selectedStartDateKey.value = '';
+      selectedEndDateKey.value = '';
       filePathController.text = p.basename(path);
     } else if (f.name.isNotEmpty) {
       filePathController.text = f.name;
@@ -216,9 +227,7 @@ class GpxKmzUploadController extends GetxController {
 
   static bool _isSupportedTrackFileName(String name) {
     final n = name.toLowerCase();
-    return n.endsWith('.kmz') ||
-        n.endsWith('.gpx') ||
-        n.endsWith('.zip');
+    return n.endsWith('.kmz') || n.endsWith('.gpx') || n.endsWith('.zip');
   }
 
   void _showInvalidTrackFileSnackbar() {
@@ -320,6 +329,26 @@ class GpxKmzUploadController extends GetxController {
     _applyClusterStatsFromCache(_previewGeneration);
   }
 
+  /// Refresh DB dedupe fingerprints and rebuild cluster stats from the cached
+  /// parse. Prefer this over [runPreview] for Preview/Upload so memory-creation
+  /// settings (min time, min distance, date range) are not wiped by a reload.
+  Future<void> _refreshDedupeAndRecomputeFromCache() async {
+    if (_cachedFilteredPoints.isEmpty) {
+      await runPreview();
+      return;
+    }
+    final rows =
+        await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
+    final fpSet = <String>{};
+    for (final r in rows) {
+      final fp = r[DatabaseHelper.columnTrackImportFingerprint] as String?;
+      if (fp != null && fp.isNotEmpty) fpSet.add(fp);
+    }
+    _cachedDedupeRows = rows;
+    _cachedFingerprints = fpSet;
+    recomputeClusterStats();
+  }
+
   void _applyClusterStatsFromCache(int gen) {
     if (gen != _previewGeneration) return;
     if (_cachedFilteredPoints.isEmpty) {
@@ -332,8 +361,9 @@ class GpxKmzUploadController extends GetxController {
       return;
     }
 
-    final filteredByDate =
-        _filterPointsBySelectedDateRange(_cachedFilteredPoints);
+    final filteredByDate = _filterPointsBySelectedDateRange(
+      _cachedFilteredPoints,
+    );
     final minT = KmzImportPipeline.durationForTimeKey(
       selectedMinTimeApartKey.value,
     );
@@ -391,7 +421,7 @@ class GpxKmzUploadController extends GetxController {
       return;
     }
 
-    await runPreview();
+    await _refreshDedupeAndRecomputeFromCache();
     if (_lastStats == null || _lastStats!.candidates.isEmpty) {
       showTrSnackbar(
         'gpx_snackbar_nothing_to_import',
@@ -414,13 +444,7 @@ class GpxKmzUploadController extends GetxController {
     importBlock.importing.value = true;
     isBusy.value = true;
     final mem = Get.find<MemoryController>();
-    final rows =
-        await DatabaseHelper.instance.queryMemoriesTrackImportDedupeRows();
-    final fpLive = <String>{};
-    for (final r in rows) {
-      final fp = r[DatabaseHelper.columnTrackImportFingerprint] as String?;
-      if (fp != null && fp.isNotEmpty) fpLive.add(fp);
-    }
+    final fpLive = <String>{..._cachedFingerprints};
 
     var inserted = 0;
     var dupRuntime = 0;
@@ -446,7 +470,8 @@ class GpxKmzUploadController extends GetxController {
           fpLive.add(c.fingerprint);
           inserted++;
           insertedItems.add({
-            DatabaseHelper.columnTrackLogItemWhen: c.when.toUtc().toIso8601String(),
+            DatabaseHelper.columnTrackLogItemWhen:
+                c.when.toUtc().toIso8601String(),
             DatabaseHelper.columnTrackLogItemLat: c.latitude,
             DatabaseHelper.columnTrackLogItemLng: c.longitude,
             DatabaseHelper.columnTrackLogItemLocation: 'Region',
@@ -479,7 +504,8 @@ class GpxKmzUploadController extends GetxController {
       if (Get.isRegistered<AddMemoriesController>()) {
         await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
       }
-      if (Get.isRegistered<MapControllerNew>() && Get.isRegistered<FilterController>()) {
+      if (Get.isRegistered<MapControllerNew>() &&
+          Get.isRegistered<FilterController>()) {
         final map = Get.find<MapControllerNew>();
         try {
           await map.reloadDisplayedMemoriesWithRetry();
@@ -502,7 +528,7 @@ class GpxKmzUploadController extends GetxController {
         await Future<void>.delayed(const Duration(milliseconds: 450));
         Get.back<void>();
       } else {
-        await runPreview();
+        await _refreshDedupeAndRecomputeFromCache();
       }
     } catch (e, st) {
       debugPrint('[GpxKmzUpload] upload error: $e\n$st');
@@ -528,9 +554,16 @@ class GpxKmzUploadController extends GetxController {
       );
       return;
     }
-    await runPreview();
+    // Use current memory-creation settings from cache — do not re-parse the
+    // file (that used to reset From/To dates via [_syncDateSelection]).
+    await _refreshDedupeAndRecomputeFromCache();
     final stats = _lastStats;
-    if (stats == null || stats.candidates.isEmpty) {
+    final previewCandidates = stats == null
+        ? const <KmzMemoryCandidate>[]
+        : stats.candidates
+            .where((c) => !_excludedFingerprints.contains(c.fingerprint))
+            .toList();
+    if (previewCandidates.isEmpty) {
       showTrSnackbar(
         'gpx_snackbar_nothing_to_import',
         backgroundColor: Colors.orange,
@@ -539,20 +572,16 @@ class GpxKmzUploadController extends GetxController {
       return;
     }
     final sorted = MemorySort.sortedByWhenNewestFirst(
-      stats.candidates,
+      previewCandidates,
       (c) => c.when,
     );
-    final coords = sorted
-        .map((e) => (lat: e.latitude, lng: e.longitude))
-        .toList();
+    final coords =
+        sorted.map((e) => (lat: e.latitude, lng: e.longitude)).toList();
     try {
       isPreparingPreviewLocations.value = true;
       final lines = await resolveTrackPreviewLocationLinesOrdered(coords);
       await Get.to<void>(
-        () => KmzPreviewView(
-          candidates: sorted,
-          locationLines: lines,
-        ),
+        () => KmzPreviewView(candidates: sorted, locationLines: lines),
       );
     } catch (e, st) {
       debugPrint('[GpxKmzUpload] preview geocode: $e\n$st');
@@ -573,12 +602,15 @@ class GpxKmzUploadController extends GetxController {
       if (!p.hasSourceTimestamp) continue;
       final when = p.when;
       if (when == null) continue;
-      final d = when.toUtc();
-      set.add(
-        '${d.year.toString().padLeft(4, '0')}-'
-        '${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}',
-      );
+      set.add(_dateKeyFromDateTime(when.toLocal()));
+    }
+    // Same-day / no-<time> GPX: fall back to normalized when so From/To are set.
+    if (set.isEmpty) {
+      for (final p in pts) {
+        final when = p.when;
+        if (when == null) continue;
+        set.add(_dateKeyFromDateTime(when.toLocal()));
+      }
     }
     final out = set.toList()..sort();
     return out;
@@ -591,10 +623,15 @@ class GpxKmzUploadController extends GetxController {
       selectedEndDateKey.value = '';
       return;
     }
-    if (!keys.contains(selectedStartDateKey.value)) {
+    // Default to full file range when unset (first pick / same-day tracks).
+    // Preserve a user-narrowed From/To across re-parse so Preview/Upload keep
+    // the same memory-creation settings shown on screen.
+    if (selectedStartDateKey.value.isEmpty ||
+        !keys.contains(selectedStartDateKey.value)) {
       selectedStartDateKey.value = keys.first;
     }
-    if (!keys.contains(selectedEndDateKey.value)) {
+    if (selectedEndDateKey.value.isEmpty ||
+        !keys.contains(selectedEndDateKey.value)) {
       selectedEndDateKey.value = keys.last;
     }
     if (selectedStartDateKey.value.compareTo(selectedEndDateKey.value) > 0) {
@@ -602,19 +639,16 @@ class GpxKmzUploadController extends GetxController {
     }
   }
 
-  List<KmzTrackPoint> _filterPointsBySelectedDateRange(List<KmzTrackPoint> pts) {
+  List<KmzTrackPoint> _filterPointsBySelectedDateRange(
+    List<KmzTrackPoint> pts,
+  ) {
     final startKey = selectedStartDateKey.value;
     final endKey = selectedEndDateKey.value;
     if (startKey.isEmpty || endKey.isEmpty) return pts;
     return pts.where((p) {
-      if (!p.hasSourceTimestamp) return false;
       final w = p.when;
       if (w == null) return false;
-      final d = w.toUtc();
-      final key =
-          '${d.year.toString().padLeft(4, '0')}-'
-          '${d.month.toString().padLeft(2, '0')}-'
-          '${d.day.toString().padLeft(2, '0')}';
+      final key = _dateKeyFromDateTime(w.toLocal());
       return key.compareTo(startKey) >= 0 && key.compareTo(endKey) <= 0;
     }).toList();
   }
@@ -648,9 +682,10 @@ class GpxKmzUploadController extends GetxController {
     if (first == null || last == null || initial == null) return;
     final picked = await showAppDatePicker(
       context: context,
-      initialDate: initial.isBefore(first)
-          ? first
-          : (initial.isAfter(last) ? last : initial),
+      initialDate:
+          initial.isBefore(first)
+              ? first
+              : (initial.isAfter(last) ? last : initial),
       firstDate: first,
       lastDate: last,
     );
@@ -667,9 +702,10 @@ class GpxKmzUploadController extends GetxController {
     if (first == null || last == null || initial == null) return;
     final picked = await showAppDatePicker(
       context: context,
-      initialDate: initial.isBefore(first)
-          ? first
-          : (initial.isAfter(last) ? last : initial),
+      initialDate:
+          initial.isBefore(first)
+              ? first
+              : (initial.isAfter(last) ? last : initial),
       firstDate: first,
       lastDate: last,
     );
@@ -681,9 +717,8 @@ class GpxKmzUploadController extends GetxController {
     selectedStartDateKey.value = key;
     if (selectedEndDateKey.value.isEmpty ||
         selectedEndDateKey.value.compareTo(key) < 0) {
-      selectedEndDateKey.value = availableMemoryDateKeys.isEmpty
-          ? key
-          : availableMemoryDateKeys.last;
+      selectedEndDateKey.value =
+          availableMemoryDateKeys.isEmpty ? key : availableMemoryDateKeys.last;
     }
     recomputeClusterStats();
   }
@@ -692,9 +727,8 @@ class GpxKmzUploadController extends GetxController {
     selectedEndDateKey.value = key;
     if (selectedStartDateKey.value.isEmpty ||
         selectedStartDateKey.value.compareTo(key) > 0) {
-      selectedStartDateKey.value = availableMemoryDateKeys.isEmpty
-          ? key
-          : availableMemoryDateKeys.first;
+      selectedStartDateKey.value =
+          availableMemoryDateKeys.isEmpty ? key : availableMemoryDateKeys.first;
     }
     recomputeClusterStats();
   }

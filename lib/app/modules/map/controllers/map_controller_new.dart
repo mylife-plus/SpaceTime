@@ -567,12 +567,12 @@ class MapControllerNew extends GetxController {
       final spreadMemories = await MemoryMapIsolate.spreadOverlappingMemories(
         filteredMemoriesData,
       );
-      if (spreadMemories.isNotEmpty) {
-        _currentMemories.assignAll(spreadMemories);
-        debugPrint(
-          '[MapControllerNew] Incremental map data: ${spreadMemories.length} memories',
-        );
-      }
+      // Always assign (including empty) so a prior single-ID filter wipe is
+      // replaced when filters are restored after delete.
+      _currentMemories.assignAll(spreadMemories);
+      debugPrint(
+        '[MapControllerNew] Incremental map data: ${spreadMemories.length} memories',
+      );
       return;
     }
 

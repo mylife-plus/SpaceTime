@@ -32,6 +32,7 @@ class _KmzPastUploadsViewState extends State<KmzPastUploadsView> {
   /// add-memories views are refreshed again on the way out (the in-place refresh
   /// can no-op while the map is covered by this route and not "ready").
   bool _deletedSomething = false;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -63,14 +64,25 @@ class _KmzPastUploadsViewState extends State<KmzPastUploadsView> {
   }
 
   Future<void> _deleteLog(Map<String, dynamic> row) async {
+    if (_isDeleting) return;
     final id = (row[DatabaseHelper.columnTrackLogId] as num?)?.toInt();
     if (id == null) return;
     final ok = await showTrackPastUploadDeleteConfirmDialog();
     if (ok != true) return;
-    await DatabaseHelper.instance.deleteTrackImportLogAndMemories(id);
-    _deletedSomething = true;
-    await refreshConsumersAfterTrackImportDeletion(logTag: 'PastUploads');
-    await _reloadLogs();
+
+    setState(() => _isDeleting = true);
+    // Let the overlay paint before heavy DB + map work freezes the UI.
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(milliseconds: 32));
+
+    try {
+      await DatabaseHelper.instance.deleteTrackImportLogAndMemories(id);
+      _deletedSomething = true;
+      await refreshConsumersAfterTrackImportDeletion(logTag: 'PastUploads');
+      await _reloadLogs();
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
+    }
   }
 
   String _ago(String? iso) {
@@ -93,166 +105,199 @@ class _KmzPastUploadsViewState extends State<KmzPastUploadsView> {
     final ui = Get.find<UiController>();
     return Obx(() {
       final isDark = ui.darkMode.value;
-      final pageBg =
-          isDark ? ui.darkBackgroundColor : Colors.white;
+      final pageBg = isDark ? ui.darkBackgroundColor : Colors.white;
       return Scaffold(
         backgroundColor: pageBg,
         appBar: CustomAppBar(
           title: 'gpx_past_uploads'.tr,
           icon: trackUploadRefreshAppBarIcon(),
         ),
-        body: RefreshIndicator(
-          onRefresh: _reloadLogs,
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: _logsFuture,
-            builder: (context, snap) {
-              if (!snap.hasData) {
-                if (snap.hasError) {
-                  return ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.sizeOf(context).height * 0.3,
-                        child: Center(
-                          child: Text(
-                            '${snap.error}',
-                            style: TextStyle(
-                              color:
-                                  isDark ? Colors.white70 : Colors.black87,
+        body: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _isDeleting ? () async {} : _reloadLogs,
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _logsFuture,
+                builder: (context, snap) {
+                  if (!snap.hasData) {
+                    if (snap.hasError) {
+                      return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.sizeOf(context).height * 0.3,
+                            child: Center(
+                              child: Text(
+                                '${snap.error}',
+                                style: TextStyle(
+                                  color:
+                                      isDark ? Colors.white70 : Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final rows = snap.data!;
+                  if (rows.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.sizeOf(context).height * 0.35,
+                          child: Center(
+                            child: Text(
+                              'No past uploads yet',
+                              style: AppFonts.regular(
+                                16,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                }
-                return const Center(child: CircularProgressIndicator());
-              }
-              final rows = snap.data!;
-              if (rows.isEmpty) {
-                return ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    SizedBox(
-                      height: MediaQuery.sizeOf(context).height * 0.35,
-                      child: Center(
-                        child: Text(
-                          'No past uploads yet',
-                          style: AppFonts.regular(
-                            16,
-                            color: isDark ? Colors.white70 : Colors.black54,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }
-              return ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
-                itemCount: rows.length,
-                itemBuilder: (context, i) {
-                  final r = rows[i];
-                  final added =
-                      (r[DatabaseHelper.columnTrackLogNewCount] ?? 0) as int;
-                  final createdIso =
-                      r[DatabaseHelper.columnTrackLogCreatedAt] as String?;
-                  return FutureBuilder<List<Map<String, dynamic>>>(
-                    future: DatabaseHelper.instance.queryTrackImportLogItems(
-                      (r[DatabaseHelper.columnTrackLogId] ?? 0) as int,
-                    ),
-                    builder: (context, itemsSnap) {
-                      final items =
-                          itemsSnap.data ?? const <Map<String, dynamic>>[];
-                      final parsed = items
-                          .map(
-                            (e) => DateTime.tryParse(
-                              (e[DatabaseHelper.columnTrackLogItemWhen] ?? '')
-                                  .toString(),
-                            )?.toLocal(),
-                          )
-                          .whereType<DateTime>()
-                          .toList()
-                        ..sort();
-                      final from = parsed.isEmpty ? null : parsed.first;
-                      final to = parsed.isEmpty ? null : parsed.last;
-                      final range = (from == null || to == null)
-                          ? '-'
-                          : '${_dateLabel(from)} – ${_dateLabel(to)}';
-                      return InkWell(
-                        onTap: () async {
-                          await Get.to<void>(
-                            () => KmzPastUploadPreviewView(
-                              logRow: r,
-                              items: items,
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
+                    itemCount: rows.length,
+                    itemBuilder: (context, i) {
+                      final r = rows[i];
+                      final added =
+                          (r[DatabaseHelper.columnTrackLogNewCount] ?? 0)
+                              as int;
+                      final createdIso =
+                          r[DatabaseHelper.columnTrackLogCreatedAt] as String?;
+                      return FutureBuilder<List<Map<String, dynamic>>>(
+                        future: DatabaseHelper.instance
+                            .queryTrackImportLogItems(
+                              (r[DatabaseHelper.columnTrackLogId] ?? 0) as int,
+                            ),
+                        builder: (context, itemsSnap) {
+                          final items =
+                              itemsSnap.data ?? const <Map<String, dynamic>>[];
+                          final parsed =
+                              items
+                                  .map(
+                                    (e) =>
+                                        DateTime.tryParse(
+                                          (e[DatabaseHelper
+                                                      .columnTrackLogItemWhen] ??
+                                                  '')
+                                              .toString(),
+                                        )?.toLocal(),
+                                  )
+                                  .whereType<DateTime>()
+                                  .toList()
+                                ..sort();
+                          final from = parsed.isEmpty ? null : parsed.first;
+                          final to = parsed.isEmpty ? null : parsed.last;
+                          final range =
+                              (from == null || to == null)
+                                  ? '-'
+                                  : '${_dateLabel(from)} – ${_dateLabel(to)}';
+                          return InkWell(
+                            onTap: () async {
+                              await Get.to<void>(
+                                () => KmzPastUploadPreviewView(
+                                  logRow: r,
+                                  items: items,
+                                ),
+                              );
+                              if (mounted) await _reloadLogs();
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+                              decoration: BoxDecoration(
+                                color:
+                                    isDark
+                                        ? ui.darkSurfaceColor
+                                        : const Color(0xFFF3F3F3),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          trKey(
+                                            'gpx_past_upload_memories_line',
+                                            [added],
+                                          ),
+                                          style: AppFonts.regular(
+                                            16,
+                                            color: ui.currentMainColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          range,
+                                          style: AppFonts.regular(
+                                            18,
+                                            color:
+                                                isDark
+                                                    ? Colors.white.withValues(
+                                                      alpha: 0.87,
+                                                    )
+                                                    : Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    _ago(createdIso),
+                                    style: AppFonts.regular(
+                                      16,
+                                      color:
+                                          isDark
+                                              ? Colors.white54
+                                              : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed:
+                                        _isDeleting
+                                            ? null
+                                            : () => _deleteLog(r),
+                                    icon: Image.asset(
+                                      'assets/images/trash.png',
+                                      width: 22,
+                                      height: 22,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
-                          if (mounted) await _reloadLogs();
                         },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? ui.darkSurfaceColor
-                                : const Color(0xFFF3F3F3),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      trKey('gpx_past_upload_memories_line', [
-                                        added,
-                                      ]),
-                                      style: AppFonts.regular(
-                                        16,
-                                        color: ui.currentMainColor,
-                                      ),
-                                    ),
-                                    Text(
-                                      range,
-                                      style: AppFonts.regular(
-                                        18,
-                                        color: isDark
-                                            ? Colors.white.withValues(alpha: 0.87)
-                                            : Colors.black87,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                _ago(createdIso),
-                                style: AppFonts.regular(
-                                  16,
-                                  color: isDark
-                                      ? Colors.white54
-                                      : Colors.grey.shade600,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => _deleteLog(r),
-                                icon: Image.asset(
-                                  'assets/images/trash.png',
-                                  width: 22,
-                                  height: 22,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       );
                     },
                   );
                 },
-              );
-            },
-          ),
+              ),
+            ),
+            if (_isDeleting)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: ui.currentMainColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       );
     });

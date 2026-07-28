@@ -12,6 +12,7 @@ import 'package:spacetime/app/shared/widgets/add_edit_group_popup.dart';
 import 'package:spacetime/app/shared/widgets/add_edit_group_pop_new.dart';
 import 'package:spacetime/app/widgets/tappable_back_button.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/config/app_images.dart';
 
 class ContactGroupsView extends StatefulWidget {
   final Function(ContactGroup)? onContactGroupSelected;
@@ -43,17 +44,21 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   final RxBool _isLoading = false.obs;
   final RxMap<int, bool> _expandedContactGroups = <int, bool>{}.obs;
   final RxMap<int, bool> _addingToContactGroup = <int, bool>{}.obs;
-  final RxMap<int, TextEditingController> _inlineNameControllers = <int, TextEditingController>{}.obs;
-  final RxMap<int, ExpansionTileController> _expansionControllers = <int, ExpansionTileController>{}.obs;
+  final RxMap<int, TextEditingController> _inlineNameControllers =
+      <int, TextEditingController>{}.obs;
+  final RxMap<int, ExpansionTileController> _expansionControllers =
+      <int, ExpansionTileController>{}.obs;
   final RxMap<int, bool> _pendingAddingMode = <int, bool>{}.obs;
 
   // Inline editing state for subgroups
   final RxMap<int, bool> _editingContactGroup = <int, bool>{}.obs;
-  final RxMap<int, TextEditingController> _editNameControllers = <int, TextEditingController>{}.obs;
+  final RxMap<int, TextEditingController> _editNameControllers =
+      <int, TextEditingController>{}.obs;
 
   // Inline add state for main contact groups
   final RxBool _addingMainContactGroup = false.obs;
-  final TextEditingController _mainContactGroupNameController = TextEditingController();
+  final TextEditingController _mainContactGroupNameController =
+      TextEditingController();
 
   // Recently selected subgroups storage (max 6 items)
   static const String _recentSubgroupsKey = 'recent_subgroups';
@@ -157,7 +162,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         '[ContactGroupsView][_loadContactGroups] Fetching contact groups from database',
       );
 
-      final contactGroups = await _contactGroupService.getAllGroupsHierarchical();
+      final contactGroups =
+          await _contactGroupService.getAllGroupsHierarchical();
       _mainContactGroups.value = contactGroups;
 
       debugPrint(
@@ -174,7 +180,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         for (int i = 0; i < _mainContactGroups.length; i++) {
           final contactGroup = _mainContactGroups[i];
           final subgroupCount = contactGroup.subgroups?.length ?? 0;
-          final customStatus = contactGroup.isCustom ? '(Custom)' : '(Predefined)';
+          final customStatus =
+              contactGroup.isCustom ? '(Custom)' : '(Predefined)';
           debugPrint(
             '[ContactGroupsView][_loadContactGroups] Main Contact Group ${i + 1}: ${contactGroup.name} - $subgroupCount subgroups $customStatus',
           );
@@ -211,10 +218,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         '[ContactGroupsView][_loadContactGroups] Stack trace: ${StackTrace.current}',
       );
 
-      showTrSnackbar('snackbar_unable_to_load', 
+      showTrSnackbar(
+        'snackbar_unable_to_load',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
 
       // Set empty contact groups to prevent UI errors
       _mainContactGroups.value = [];
@@ -229,35 +238,58 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   /// Refresh contact groups from database (used after CRUD operations)
   Future<void> _refreshContactGroupsFromDatabase() async {
     try {
-      debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] ===== REFRESH STARTED =====');
+      debugPrint(
+        '[ContactGroupsView][_refreshContactGroupsFromDatabase] ===== REFRESH STARTED =====',
+      );
 
       // Clear all controllers and state before refreshing
-      debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] 🧹 Clearing all controllers');
+      debugPrint(
+        '[ContactGroupsView][_refreshContactGroupsFromDatabase] 🧹 Clearing all controllers',
+      );
       _clearAllControllers();
 
-      debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] 🔄 Fetching contact groups from service');
-      final contactGroups = await _contactGroupService.getAllGroupsHierarchical();
+      debugPrint(
+        '[ContactGroupsView][_refreshContactGroupsFromDatabase] 🔄 Fetching contact groups from service',
+      );
+      final contactGroups =
+          await _contactGroupService.getAllGroupsHierarchical();
 
-      debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] Retrieved ${contactGroups.length} groups from service');
+      debugPrint(
+        '[ContactGroupsView][_refreshContactGroupsFromDatabase] Retrieved ${contactGroups.length} groups from service',
+      );
       for (int i = 0; i < contactGroups.length; i++) {
         final group = contactGroups[i];
-        debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] Group $i: ID=${group.id}, Name="${group.name}", Subgroups=${group.subgroups?.length ?? 0}');
+        debugPrint(
+          '[ContactGroupsView][_refreshContactGroupsFromDatabase] Group $i: ID=${group.id}, Name="${group.name}", Subgroups=${group.subgroups?.length ?? 0}',
+        );
       }
 
-      debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] 📝 Updating reactive list');
+      debugPrint(
+        '[ContactGroupsView][_refreshContactGroupsFromDatabase] 📝 Updating reactive list',
+      );
       _mainContactGroups.value = contactGroups;
 
-      debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] ✅ Successfully refreshed ${contactGroups.length} main contact groups');
+      debugPrint(
+        '[ContactGroupsView][_refreshContactGroupsFromDatabase] ✅ Successfully refreshed ${contactGroups.length} main contact groups',
+      );
     } catch (e) {
-      debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] ❌ Error refreshing contact groups: $e');
-      debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] Exception type: ${e.runtimeType}');
+      debugPrint(
+        '[ContactGroupsView][_refreshContactGroupsFromDatabase] ❌ Error refreshing contact groups: $e',
+      );
+      debugPrint(
+        '[ContactGroupsView][_refreshContactGroupsFromDatabase] Exception type: ${e.runtimeType}',
+      );
 
-      showTrSnackbar('snackbar_unable_to_refresh', 
+      showTrSnackbar(
+        'snackbar_unable_to_refresh',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
-                duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
     }
-    debugPrint('[ContactGroupsView][_refreshContactGroupsFromDatabase] ===== REFRESH COMPLETED =====');
+    debugPrint(
+      '[ContactGroupsView][_refreshContactGroupsFromDatabase] ===== REFRESH COMPLETED =====',
+    );
   }
 
   /// Show delete confirmation dialog
@@ -272,7 +304,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+            color:
+                uiController.darkMode.value ? Colors.grey[900] : Colors.white,
             borderRadius: BorderRadius.circular(4),
             boxShadow: [
               BoxShadow(
@@ -290,7 +323,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               Text(
                 'text_delete_contact_group'.tr,
                 style: gfonts.GoogleFonts.kumbhSans(
-                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                  color:
+                      uiController.darkMode.value ? Colors.white : Colors.black,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -299,11 +333,15 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
               // Message
               Text(
-                trKey('text_are_you_sure_you_want_to_delete_contactgroup_name', [
-                  contactGroup.name,
-                ]),
+                trKey(
+                  'text_are_you_sure_you_want_to_delete_contactgroup_name',
+                  [contactGroup.name],
+                ),
                 style: gfonts.GoogleFonts.kumbhSans(
-                  color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                  color:
+                      uiController.darkMode.value
+                          ? Colors.white70
+                          : Colors.grey[700],
                   fontSize: 16,
                 ),
               ),
@@ -315,7 +353,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -342,12 +382,18 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   TextButton(
                     onPressed: () => Get.back(),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                     ),
                     child: Text(
                       'text_cancel_2'.tr,
                       style: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value ? Colors.white70 : Colors.grey[600],
+                        color:
+                            uiController.darkMode.value
+                                ? Colors.white70
+                                : Colors.grey[600],
                         fontSize: 16,
                       ),
                     ),
@@ -358,7 +404,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -388,24 +437,31 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
       if (result == true) {
         // Successfully deleted
-// Navigator.pop(Get.context!);
+        // Navigator.pop(Get.context!);
         // Remove from recent selections before refreshing
         final group = await _contactGroupService.getGroupById(contactGroupId);
         if (group != null) {
           if (group.parentId == null) {
             // Main group deleted - remove it and all its subgroups from recent selections
-            final subgroups = await _contactGroupService.getSubgroups(contactGroupId);
+            final subgroups = await _contactGroupService.getSubgroups(
+              contactGroupId,
+            );
             await removeGroupAndSubgroupsFromRecent(contactGroupId, subgroups);
 
             // Also remove from searchable contact widget recent lists (filter overlay)
             final subgroupIds = subgroups.map((s) => s.id!).toList();
-            await SearchableContactWidget.removeGroupAndSubgroupsFromRecentContactGroups(contactGroupId, subgroupIds);
+            await SearchableContactWidget.removeGroupAndSubgroupsFromRecentContactGroups(
+              contactGroupId,
+              subgroupIds,
+            );
           } else {
             // Subgroup deleted - remove only this subgroup from recent selections
             await removeFromRecentlySelectedSubgroups(contactGroupId);
 
             // Also remove from searchable contact widget recent lists (filter overlay)
-            await SearchableContactWidget.removeFromRecentContactGroups(contactGroupId);
+            await SearchableContactWidget.removeFromRecentContactGroups(
+              contactGroupId,
+            );
             await SearchableContactWidget.removeFromRecentContacts(group.name);
           }
         }
@@ -416,34 +472,41 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         );
         await _refreshContactGroupsFromDatabase();
 
-        showTrSnackbar('snackbar_success_3', 
+        showTrSnackbar(
+          'snackbar_success_3',
           backgroundColor: Colors.green,
           colorText: Colors.white,
-                  duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
       } else if (result == null) {
         // Cannot delete due to memories
         // Get.back(); // Close confirmation dialog
 
         // Get the group name and memory count for the error dialog
         final group = await _contactGroupService.getGroupById(contactGroupId);
-        final memoryCount = group != null
-            ? await _contactGroupService.getMemoryCountForGroup(group.name)
-            : 0;
+        final memoryCount =
+            group != null
+                ? await _contactGroupService.getMemoryCountForGroup(group.name)
+                : 0;
 
         _showCannotDeleteDialog(group?.name ?? 'Unknown', memoryCount);
       } else {
         // Failed to delete
-        showTrSnackbar('snackbar_unable_to_delete', 
+        showTrSnackbar(
+          'snackbar_unable_to_delete',
           backgroundColor: Colors.red,
           colorText: Colors.white,
-                  duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
       }
     } catch (e) {
       debugPrint('[ContactGroupsView][_deleteContactGroup] Error: $e');
-      showTrSnackbar('snackbar_unable_to_delete', 
+      showTrSnackbar(
+        'snackbar_unable_to_delete',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-                duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -459,7 +522,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+            color:
+                uiController.darkMode.value ? Colors.grey[900] : Colors.white,
             borderRadius: BorderRadius.circular(4),
             boxShadow: [
               BoxShadow(
@@ -482,7 +546,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     child: Text(
                       'text_cannot_delete_the_contact'.tr,
                       style: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value ? Colors.white : Colors.black,
+                        color:
+                            uiController.darkMode.value
+                                ? Colors.white
+                                : Colors.black,
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
@@ -494,15 +561,21 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
               // Message
               Text(
-                trKey('text_the_contact_groupname_cannot_be_deleted_because_it', [
-                  groupName,
-                  memoryCount.toString(),
-                  memoryCount == 1
-                      ? 'l10n_word_memory'.tr
-                      : 'l10n_word_memories'.tr,
-                ]),
+                trKey(
+                  'text_the_contact_groupname_cannot_be_deleted_because_it',
+                  [
+                    groupName,
+                    memoryCount.toString(),
+                    memoryCount == 1
+                        ? 'l10n_word_memory'.tr
+                        : 'l10n_word_memories'.tr,
+                  ],
+                ),
                 style: gfonts.GoogleFonts.kumbhSans(
-                  color: uiController.darkMode.value ? Colors.white70 : Colors.grey[700],
+                  color:
+                      uiController.darkMode.value
+                          ? Colors.white70
+                          : Colors.grey[700],
                   fontSize: 16,
                 ),
               ),
@@ -514,7 +587,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -522,7 +597,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'text_to_delete_this_contact_group_first_remove_the_menti'.tr,
+                        'text_to_delete_this_contact_group_first_remove_the_menti'
+                            .tr,
                         style: gfonts.GoogleFonts.kumbhSans(
                           color: Colors.orange[700],
                           fontSize: 14,
@@ -540,7 +616,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 child: TextButton(
                   onPressed: () => Get.back(),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   child: Text(
                     'text_ok'.tr,
@@ -564,7 +643,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     // Get parent group name if this is a subgroup
     String? parentGroupName;
     if (contactGroup.parentId != null) {
-      final parentGroup = await _contactGroupService.getGroupById(contactGroup.parentId!);
+      final parentGroup = await _contactGroupService.getGroupById(
+        contactGroup.parentId!,
+      );
       parentGroupName = parentGroup?.name;
     }
 
@@ -584,10 +665,13 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           onSave: (newName, parentId) async {
             // Validate that name is provided
             if (newName.isEmpty) {
-              showTrSnackbar('snackbar_validation_error', 
-                backgroundColor: Colors.orange,        duration: const Duration(seconds: 2),
+              showTrSnackbar(
+                'snackbar_validation_error',
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 2),
 
-                colorText: Colors.white,);
+                colorText: Colors.white,
+              );
               return;
             }
 
@@ -607,22 +691,31 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 Navigator.of(context).pop(); // Close dialog
                 await _refreshContactGroupsFromDatabase();
 
-                showTrSnackbar('snackbar_success_4', args: [newName], 
+                showTrSnackbar(
+                  'snackbar_success_4',
+                  args: [newName],
                   backgroundColor: Colors.green,
                   colorText: Colors.white,
-                          duration: const Duration(seconds: 2),);
+                  duration: const Duration(seconds: 2),
+                );
               } else {
-                showTrSnackbar('snackbar_unable_to_update', 
+                showTrSnackbar(
+                  'snackbar_unable_to_update',
                   backgroundColor: Colors.red,
                   colorText: Colors.white,
-                          duration: const Duration(seconds: 2),);
+                  duration: const Duration(seconds: 2),
+                );
               }
             } catch (e) {
-              debugPrint('[ContactGroupsView][EditDialog] Exception occurred: $e');
-              showTrSnackbar('snackbar_unable_to_update', 
+              debugPrint(
+                '[ContactGroupsView][EditDialog] Exception occurred: $e',
+              );
+              showTrSnackbar(
+                'snackbar_unable_to_update',
                 backgroundColor: Colors.red,
                 colorText: Colors.white,
-                        duration: const Duration(seconds: 2),);
+                duration: const Duration(seconds: 2),
+              );
             }
           },
         );
@@ -644,7 +737,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         await removeFromRecentlySelectedSubgroups(subgroup.id!);
 
         // Also remove from searchable contact widget recent lists (filter overlay)
-        await SearchableContactWidget.removeFromRecentContactGroups(subgroup.id!);
+        await SearchableContactWidget.removeFromRecentContactGroups(
+          subgroup.id!,
+        );
         await SearchableContactWidget.removeFromRecentContacts(subgroup.name);
 
         // Refresh contact groups from database to show the deletion
@@ -653,27 +748,35 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         );
         await _refreshContactGroupsFromDatabase();
 
-        showTrSnackbar('snackbar_success_5', 
+        showTrSnackbar(
+          'snackbar_success_5',
           backgroundColor: Colors.green,
           colorText: Colors.white,
-                  duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
       } else if (result == null) {
         // Cannot delete due to memories
-        final memoryCount = await _contactGroupService.getMemoryCountForGroup(subgroup.name);
+        final memoryCount = await _contactGroupService.getMemoryCountForGroup(
+          subgroup.name,
+        );
         _showCannotDeleteDialog(subgroup.name, memoryCount);
       } else {
         // Failed to delete
-        showTrSnackbar('snackbar_unable_to_delete_3', 
+        showTrSnackbar(
+          'snackbar_unable_to_delete_3',
           backgroundColor: Colors.red,
           colorText: Colors.white,
-                  duration: const Duration(seconds: 2),);
+          duration: const Duration(seconds: 2),
+        );
       }
     } catch (e) {
       debugPrint('[ContactGroupsView][_deleteSubgroup] Error: $e');
-      showTrSnackbar('snackbar_unable_to_delete_3', 
+      showTrSnackbar(
+        'snackbar_unable_to_delete_3',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-                duration: const Duration(seconds: 2),);
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -708,8 +811,6 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     _pendingAddingMode.clear();
     _editingContactGroup.clear();
   }
-
-
 
   /// Select a contact group and return to parent
   void _selectContactGroup(ContactGroup contactGroup) {
@@ -746,7 +847,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     if (contactGroup.isMainGroup && contactGroup.hasSubgroups) {
       // For main groups, check if ALL subgroups are selected
       isSelected = contactGroup.subgroups!.every(
-        (subgroup) => _selectedContactGroups.any((g) => g.id == subgroup.id)
+        (subgroup) => _selectedContactGroups.any((g) => g.id == subgroup.id),
       );
     } else {
       // For subgroups, check if this specific group is selected
@@ -873,9 +974,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           onSave: (name, parentId) async {
             // Use the existing save logic
             if (name.isEmpty) {
-              showTrSnackbar('snackbar_invalid_name', 
+              showTrSnackbar(
+                'snackbar_invalid_name',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+              );
               return;
             }
 
@@ -886,35 +990,50 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               );
 
               if (newSubgroup == null) {
-                showTrSnackbar('snackbar_unable_to_add', 
+                showTrSnackbar(
+                  'snackbar_unable_to_add',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+                );
                 return;
               } else if (newSubgroup.id == -1) {
                 // Duplicate subgroup contact name
-                showTrSnackbar('snackbar_duplicate_contact', 
+                showTrSnackbar(
+                  'snackbar_duplicate_contact',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+                );
                 return;
               } else if (newSubgroup.id == -4) {
                 // Subgroup name conflicts with parent group
-                showTrSnackbar('snackbar_name_conflict', 
+                showTrSnackbar(
+                  'snackbar_name_conflict',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+                );
                 return;
               }
 
               await _refreshContactGroupsFromDatabase();
 
               if (context.mounted) Navigator.of(context).pop();
-              showTrSnackbar('snackbar_success_6', 
+              showTrSnackbar(
+                'snackbar_success_6',
                 backgroundColor: Colors.green,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+              );
             } catch (e) {
               debugPrint('[ContactGroupsView] Error adding subgroup: $e');
-              showTrSnackbar('snackbar_unable_to_add', 
+              showTrSnackbar(
+                'snackbar_unable_to_add',
                 backgroundColor: Colors.red,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+              );
             }
           },
         );
@@ -933,7 +1052,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       _enableAddingMode(contactGroupId);
     }
 
-    debugPrint('[ContactGroupsView][_forceExpansionState] Forced expansion state for contact group $contactGroupId to: $expanded');
+    debugPrint(
+      '[ContactGroupsView][_forceExpansionState] Forced expansion state for contact group $contactGroupId to: $expanded',
+    );
   }
 
   /// Helper method to enable adding mode
@@ -983,8 +1104,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       final updatedJson = json.encode(recentList);
       await prefs.setString(_recentSubgroupsKey, updatedJson);
 
-      debugPrint('[ContactGroupsView] Saved recent subgroup: ${subgroup.name} (ID: ${subgroup.id})');
-      debugPrint('[ContactGroupsView] Total recent subgroups: ${recentList.length}');
+      debugPrint(
+        '[ContactGroupsView] Saved recent subgroup: ${subgroup.name} (ID: ${subgroup.id})',
+      );
+      debugPrint(
+        '[ContactGroupsView] Total recent subgroups: ${recentList.length}',
+      );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error saving recent subgroup: $e');
     }
@@ -1013,7 +1138,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         }
       }
 
-      debugPrint('[ContactGroupsView] Loaded ${recentSubgroups.length} recent subgroups');
+      debugPrint(
+        '[ContactGroupsView] Loaded ${recentSubgroups.length} recent subgroups',
+      );
       return recentSubgroups;
     } catch (e) {
       debugPrint('[ContactGroupsView] Error getting recent subgroups: $e');
@@ -1041,7 +1168,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       if (existingJson == null) return;
 
       final decoded = json.decode(existingJson) as List;
-      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+      List<Map<String, dynamic>> recentList =
+          decoded.cast<Map<String, dynamic>>();
 
       // Remove the deleted group from recent list
       final originalLength = recentList.length;
@@ -1051,15 +1179,22 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         // Save updated list back to preferences
         final updatedJson = json.encode(recentList);
         await prefs.setString(_recentSubgroupsKey, updatedJson);
-        debugPrint('[ContactGroupsView] Removed group ID $groupId from recent subgroups');
+        debugPrint(
+          '[ContactGroupsView] Removed group ID $groupId from recent subgroups',
+        );
       }
     } catch (e) {
-      debugPrint('[ContactGroupsView] Error removing from recent subgroups: $e');
+      debugPrint(
+        '[ContactGroupsView] Error removing from recent subgroups: $e',
+      );
     }
   }
 
   /// Remove contact group and all its subgroups from recently selected subgroups
-  static Future<void> removeGroupAndSubgroupsFromRecent(int mainGroupId, List<ContactGroup> subgroups) async {
+  static Future<void> removeGroupAndSubgroupsFromRecent(
+    int mainGroupId,
+    List<ContactGroup> subgroups,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final existingJson = prefs.getString(_recentSubgroupsKey);
@@ -1067,7 +1202,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       if (existingJson == null) return;
 
       final decoded = json.decode(existingJson) as List;
-      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+      List<Map<String, dynamic>> recentList =
+          decoded.cast<Map<String, dynamic>>();
 
       // Remove main group and all its subgroups from recent list
       final originalLength = recentList.length;
@@ -1082,10 +1218,14 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         // Save updated list back to preferences
         final updatedJson = json.encode(recentList);
         await prefs.setString(_recentSubgroupsKey, updatedJson);
-        debugPrint('[ContactGroupsView] Removed main group ID $mainGroupId and ${subgroups.length} subgroups from recent subgroups');
+        debugPrint(
+          '[ContactGroupsView] Removed main group ID $mainGroupId and ${subgroups.length} subgroups from recent subgroups',
+        );
       }
     } catch (e) {
-      debugPrint('[ContactGroupsView] Error removing group and subgroups from recent: $e');
+      debugPrint(
+        '[ContactGroupsView] Error removing group and subgroups from recent: $e',
+      );
     }
   }
 
@@ -1093,9 +1233,13 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   /// Call this from other screens to get and display recent subgroups
   static Future<void> printRecentSubgroups() async {
     final recentSubgroups = await getRecentlySelectedSubgroups();
-    debugPrint('[ContactGroupsView] Recent subgroups (${recentSubgroups.length}):');
+    debugPrint(
+      '[ContactGroupsView] Recent subgroups (${recentSubgroups.length}):',
+    );
     for (final subgroup in recentSubgroups) {
-      debugPrint('  - ${subgroup.name} (ID: ${subgroup.id}, Parent: ${subgroup.parentId})');
+      debugPrint(
+        '  - ${subgroup.name} (ID: ${subgroup.id}, Parent: ${subgroup.parentId})',
+      );
     }
   }
 
@@ -1118,33 +1262,54 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   ? Obx(
                     () => TappableBackButton(
                       onPressed: _onDonePressed,
-                      tooltip: _selectedContactGroups.isNotEmpty
-                          ? 'tooltip_done'.tr
-                          : 'tooltip_back'.tr,
+                      tooltip:
+                          _selectedContactGroups.isNotEmpty
+                              ? 'tooltip_done'.tr
+                              : 'tooltip_back'.tr,
                     ),
                   )
                   : null,
-          title: Obx(
-            () {
-              final lang = uiController.selectedLanguage.value;
-              final isDark = uiController.darkMode.value;
-              return Text(
+          title: Obx(() {
+            final lang = uiController.selectedLanguage.value;
+            final isDark = uiController.darkMode.value;
+            final titleText =
                 widget.allowMultipleSelection
                     ? trForLang('title_filter_contacts_picker', lang)
-                    : trForLang('apptexts_contact_groups', lang),
-                style: gfonts.GoogleFonts.kumbhSans(
-                  color: isDark ? Colors.white : Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                    : trForLang('apptexts_contact_groups', lang);
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ColorFiltered(
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset(AppImages.contact, width: 22, height: 22),
                 ),
-                maxLines: null, // Allow unlimited lines
-                overflow: TextOverflow.visible, // Show all text
-                textAlign: TextAlign.center, // Keep centered
-              );
-            },
-          ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    titleText,
+                    style: gfonts.GoogleFonts.kumbhSans(
+                      color: isDark ? Colors.white : Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: null,
+                    overflow: TextOverflow.visible,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            );
+          }),
           centerTitle: true,
-          backgroundColor: uiController.currentMainColor,
+          backgroundColor:
+              uiController.darkMode.value
+                  ? uiController.mainColor.value == 'blue'
+                      ? const Color(0xFF001937)
+                      : uiController.primaryColorDark
+                  : uiController.currentMainColor,
           foregroundColor:
               uiController.darkMode.value ? Colors.white : Colors.white,
           elevation: 1,
@@ -1182,7 +1347,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 return Center(
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     // decoration: BoxDecoration(
                     //   color: uiController.currentMainColor.withValues(alpha: 0.1),
                     //   border: Border(
@@ -1225,7 +1393,6 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             ),
           ],
         ),
-
       ),
     );
   }
@@ -1233,9 +1400,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   /// Build main content (hierarchical contact groups)
   Widget _buildMainContent(UiController uiController) {
     return Container(
-      color: uiController.darkMode.value
-          ? Colors.black
-          : uiController.currentMainColor.withValues(alpha: 0.1),
+      color:
+          uiController.darkMode.value
+              ? Colors.black
+              : uiController.currentMainColor.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(2.0),
         child: _buildHierarchicalContactGroups(),
@@ -1243,46 +1411,56 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     );
   }
 
-
-
   /// Build hierarchical contact groups
   Widget _buildHierarchicalContactGroups() {
     final uiController = Get.find<UiController>();
 
     return Obx(() {
       // Check if any contact group is expanded
-      final hasExpandedGroup = _expandedContactGroups.values.any((expanded) => expanded == true);
+      final hasExpandedGroup = _expandedContactGroups.values.any(
+        (expanded) => expanded == true,
+      );
 
       return ListView(
         children: [
           // Inline add widget for main contact groups (at the top)
-          Obx(() => _addingMainContactGroup.value
-              ? _buildInlineAddMainContactGroupWidget()
-              : const SizedBox.shrink()),
+          Obx(
+            () =>
+                _addingMainContactGroup.value
+                    ? _buildInlineAddMainContactGroupWidget()
+                    : const SizedBox.shrink(),
+          ),
 
           // Show empty state message if no groups and not adding
           if (_mainContactGroups.isEmpty)
-            Obx(() => !_addingMainContactGroup.value
-                ? Container(
-                    padding: const EdgeInsets.all(40),
-                    child: Center(
-                      child: Text(
-                        'text_no_contact_groups_found_ntap_to_add_a_new_group'.tr,
-                        textAlign: TextAlign.center,
-                        style: gfonts.GoogleFonts.kumbhSans(
-                          fontSize: 16,
-                          color: uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.grey[600],
+            Obx(
+              () =>
+                  !_addingMainContactGroup.value
+                      ? Container(
+                        padding: const EdgeInsets.all(40),
+                        child: Center(
+                          child: Text(
+                            'text_no_contact_groups_found_ntap_to_add_a_new_group'
+                                .tr,
+                            textAlign: TextAlign.center,
+                            style: gfonts.GoogleFonts.kumbhSans(
+                              fontSize: 16,
+                              color:
+                                  uiController.darkMode.value
+                                      ? Colors.white.withValues(alpha: 0.6)
+                                      : Colors.grey[600],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink()),
+                      )
+                      : const SizedBox.shrink(),
+            ),
 
           // Main contact groups
-          ..._mainContactGroups.map((mainContactGroup) =>
-              _buildMainContactGroupExpansionTile(mainContactGroup)),
+          ..._mainContactGroups.map(
+            (mainContactGroup) =>
+                _buildMainContactGroupExpansionTile(mainContactGroup),
+          ),
 
           // Add spacing at the end if any group is expanded
           if (hasExpandedGroup) const SizedBox(height: 15),
@@ -1303,18 +1481,25 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
     return Obx(() {
       // Check if all subgroups are selected (for filter mode)
-      final allSubgroupsSelected = widget.allowMultipleSelection &&
+      final allSubgroupsSelected =
+          widget.allowMultipleSelection &&
           mainContactGroup.subgroups != null &&
           mainContactGroup.subgroups!.isNotEmpty &&
-          mainContactGroup.subgroups!.every((subgroup) =>
-              _selectedContactGroups.any((g) => g.id == subgroup.id));
+          mainContactGroup.subgroups!.every(
+            (subgroup) =>
+                _selectedContactGroups.any((g) => g.id == subgroup.id),
+          );
 
       // Count selected subgroups
-      final selectedSubgroupsCount = widget.allowMultipleSelection &&
-          mainContactGroup.subgroups != null
-          ? mainContactGroup.subgroups!.where((subgroup) =>
-              _selectedContactGroups.any((g) => g.id == subgroup.id)).length
-          : 0;
+      final selectedSubgroupsCount =
+          widget.allowMultipleSelection && mainContactGroup.subgroups != null
+              ? mainContactGroup.subgroups!
+                  .where(
+                    (subgroup) =>
+                        _selectedContactGroups.any((g) => g.id == subgroup.id),
+                  )
+                  .length
+              : 0;
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
@@ -1322,12 +1507,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           color: uiController.darkMode.value ? Colors.black : Colors.white,
           borderRadius: BorderRadius.circular(2),
           // Add border to entire container when all subgroups are selected (filter mode only)
-          border: widget.allowMultipleSelection && allSubgroupsSelected
-              ? Border.all(
-                  color: uiController.currentMainColor,
-                  width: 2,
-                )
-              : null,
+          border:
+              widget.allowMultipleSelection && allSubgroupsSelected
+                  ? Border.all(color: uiController.currentMainColor, width: 2)
+                  : null,
         ),
         child: Column(
           children: [
@@ -1336,9 +1519,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               decoration: BoxDecoration(
                 // Changed background color: white in light mode, grey in dark mode
-                color: uiController.darkMode.value
-                    ? Colors.grey[900]
-                    : Colors.white,
+                color:
+                    uiController.darkMode.value
+                        ? Colors.grey[900]
+                        : Colors.white,
                 borderRadius: BorderRadius.circular(2),
                 // No border on main group header since we only select subgroups
                 border: null,
@@ -1351,7 +1535,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   _expandedContactGroups[mainContactGroup.id!] = expanded;
 
                   // Check if we need to enable adding mode after expansion
-                  if (expanded && (_pendingAddingMode[mainContactGroup.id!] ?? false)) {
+                  if (expanded &&
+                      (_pendingAddingMode[mainContactGroup.id!] ?? false)) {
                     _pendingAddingMode[mainContactGroup.id!] = false;
                     _enableAddingMode(mainContactGroup.id!);
                   }
@@ -1367,37 +1552,43 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   borderRadius: BorderRadius.all(Radius.circular(2)),
                 ),
                 // Show checkbox on the left when in filter mode
-                leading: widget.allowMultipleSelection
-                    ? GestureDetector(
-                        onTap: () => _selectContactGroup(mainContactGroup),
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          margin: const EdgeInsets.only(left: 16),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: allSubgroupsSelected
-                                  ? uiController.currentMainColor
-                                  : (uiController.darkMode.value
-                                      ? Colors.white.withValues(alpha: 0.6)
-                                      : Colors.grey[400]!),
-                              width: 2,
+                leading:
+                    widget.allowMultipleSelection
+                        ? GestureDetector(
+                          onTap: () => _selectContactGroup(mainContactGroup),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            margin: const EdgeInsets.only(left: 16),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color:
+                                    allSubgroupsSelected
+                                        ? uiController.currentMainColor
+                                        : (uiController.darkMode.value
+                                            ? Colors.white.withValues(
+                                              alpha: 0.6,
+                                            )
+                                            : Colors.grey[400]!),
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                              color:
+                                  allSubgroupsSelected
+                                      ? uiController.currentMainColor
+                                      : Colors.transparent,
                             ),
-                            borderRadius: BorderRadius.circular(4),
-                            color: allSubgroupsSelected
-                                ? uiController.currentMainColor
-                                : Colors.transparent,
+                            child:
+                                allSubgroupsSelected
+                                    ? Icon(
+                                      Icons.check,
+                                      size: 18,
+                                      color: Colors.white,
+                                    )
+                                    : null,
                           ),
-                          child: allSubgroupsSelected
-                              ? Icon(
-                                  Icons.check,
-                                  size: 18,
-                                  color: Colors.white,
-                                )
-                              : null,
-                        ),
-                      )
-                    : null,
+                        )
+                        : null,
                 title: Padding(
                   padding: EdgeInsets.only(
                     left: widget.allowMultipleSelection ? 8.0 : 20.0,
@@ -1413,7 +1604,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                               TextSpan(
                                 text: mainContactGroup.name,
                                 style: gfonts.GoogleFonts.kumbhSans(
-                                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                                  color:
+                                      uiController.darkMode.value
+                                          ? Colors.white
+                                          : Colors.black,
                                   fontWeight: FontWeight.w500,
                                   fontSize: 14,
                                 ),
@@ -1423,9 +1617,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                                 TextSpan(
                                   text: 'text_span'.tr,
                                   style: gfonts.GoogleFonts.kumbhSans(
-                                    color: uiController.darkMode.value
-                                        ? Colors.white.withValues(alpha: 0.6)
-                                        : Colors.grey[600],
+                                    color:
+                                        uiController.darkMode.value
+                                            ? Colors.white.withValues(
+                                              alpha: 0.6,
+                                            )
+                                            : Colors.grey[600],
                                     fontSize: 15,
                                   ),
                                 ),
@@ -1440,21 +1637,28 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                                 ),
                               if (widget.allowMultipleSelection)
                                 TextSpan(
-                                  text: '/${mainContactGroup.subgroups?.length ?? 0})',
+                                  text:
+                                      '/${mainContactGroup.subgroups?.length ?? 0})',
                                   style: gfonts.GoogleFonts.kumbhSans(
-                                    color: uiController.darkMode.value
-                                        ? Colors.white.withValues(alpha: 0.6)
-                                        : Colors.grey[600],
+                                    color:
+                                        uiController.darkMode.value
+                                            ? Colors.white.withValues(
+                                              alpha: 0.6,
+                                            )
+                                            : Colors.grey[600],
                                     fontSize: 15,
                                   ),
                                 )
                               else
                                 TextSpan(
-                                  text: ' (${mainContactGroup.subgroups?.length ?? 0})',
+                                  text:
+                                      ' (${mainContactGroup.subgroups?.length ?? 0})',
                                   style: gfonts.GoogleFonts.kumbhSans(
                                     color:
                                         uiController.darkMode.value
-                                            ? Colors.white.withValues(alpha: 0.6)
+                                            ? Colors.white.withValues(
+                                              alpha: 0.6,
+                                            )
                                             : Colors.grey[600],
                                     fontSize: 15,
                                   ),
@@ -1488,7 +1692,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                             height: 25,
                           ),
                         ),
-                        onPressed: () => _showEditContactGroupDialog(mainContactGroup),
+                        onPressed:
+                            () => _showEditContactGroupDialog(mainContactGroup),
                         tooltip: 'Edit Contact Group',
                       ),
                       // Delete button for main contact group (only show if no subgroups)
@@ -1505,17 +1710,25 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                               height: 25,
                             ),
                           ),
-                          onPressed: () => _deleteContactGroup(mainContactGroup.id!),
+                          onPressed:
+                              () => _deleteContactGroup(mainContactGroup.id!),
                           tooltip: 'Delete Contact Group',
                         ),
                       // Add subgroup button
                       IconButton(
-                        onPressed: (_addingToContactGroup[mainContactGroup.id] ?? false)
-                            ? null
-                            : () => _startInlineAdding(mainContactGroup.id!, mainContactGroup.name),
+                        onPressed:
+                            (_addingToContactGroup[mainContactGroup.id] ??
+                                    false)
+                                ? null
+                                : () => _startInlineAdding(
+                                  mainContactGroup.id!,
+                                  mainContactGroup.name,
+                                ),
                         icon: ColorFiltered(
                           colorFilter: ColorFilter.mode(
-                            uiController.darkMode.value ? Colors.white : uiController.currentMainColor,
+                            uiController.darkMode.value
+                                ? Colors.white
+                                : uiController.currentMainColor,
                             BlendMode.srcIn,
                           ),
                           child: Image.asset(
@@ -1537,7 +1750,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                           BlendMode.srcIn,
                         ),
                         child: Image.asset(
-                          (_expandedContactGroups[mainContactGroup.id!] ?? false)
+                          (_expandedContactGroups[mainContactGroup.id!] ??
+                                  false)
                               ? 'assets/images/ic_expand_close.png'
                               : 'assets/images/ic_expand_open.png',
                           width: 25,
@@ -1554,13 +1768,17 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             // Subgroups section (outside the grey container)
             if (isExpanded) ...[
               // Subgroups list
-              if (mainContactGroup.subgroups != null && mainContactGroup.subgroups!.isNotEmpty)
+              if (mainContactGroup.subgroups != null &&
+                  mainContactGroup.subgroups!.isNotEmpty)
                 ..._buildSubgroupsList(mainContactGroup, uiController),
 
               // Inline adding widget
               Obx(() {
                 if (_addingToContactGroup[mainContactGroup.id] ?? false) {
-                  return _buildInlineAddWidget(mainContactGroup.id!, uiController);
+                  return _buildInlineAddWidget(
+                    mainContactGroup.id!,
+                    uiController,
+                  );
                 }
                 return const SizedBox.shrink();
               }),
@@ -1571,10 +1789,11 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     });
   }
 
-
-
   /// Build subgroups list
-  List<Widget> _buildSubgroupsList(ContactGroup mainContactGroup, UiController uiController) {
+  List<Widget> _buildSubgroupsList(
+    ContactGroup mainContactGroup,
+    UiController uiController,
+  ) {
     return mainContactGroup.subgroups!.asMap().entries.map((entry) {
       final index = entry.key;
       final subgroup = entry.value;
@@ -1593,7 +1812,8 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
   /// Build individual subgroup tile
   Widget _buildSubgroupTile(ContactGroup subgroup, UiController uiController) {
-    final isSelected = widget.allowMultipleSelection &&
+    final isSelected =
+        widget.allowMultipleSelection &&
         _selectedContactGroups.any((g) => g.id == subgroup.id);
 
     return Obx(() {
@@ -1607,16 +1827,15 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         decoration: BoxDecoration(
           // Changed background color to #F1F1F1 in light mode
-          color: uiController.darkMode.value
-              ? Colors.grey[900]
-              : const Color(0xFFF1F1F1),
+          color:
+              uiController.darkMode.value
+                  ? Colors.grey[900]
+                  : const Color(0xFFF1F1F1),
           borderRadius: BorderRadius.circular(2),
-          border: isSelected
-              ? Border.all(
-                  color: uiController.currentMainColor,
-                  width: 2,
-                )
-              : null,
+          border:
+              isSelected
+                  ? Border.all(color: uiController.currentMainColor, width: 2)
+                  : null,
         ),
         child: ListTile(
           contentPadding: EdgeInsets.symmetric(horizontal: 5),
@@ -1635,7 +1854,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 TextSpan(
                   text: subgroup.name,
                   style: gfonts.GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.white
+                            : Colors.black,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     fontSize: 18,
                   ),
@@ -1643,64 +1865,66 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               ],
             ),
           ),
-          trailing: widget.allowMultipleSelection
-              ? null // Hide edit/delete buttons in filter mode
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Edit button
-                    IconButton(
-                      onPressed: () => _startInlineEditing(subgroup),
-                      icon: ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          uiController.darkMode.value ? Colors.white70 : Colors.black54,
-                          BlendMode.srcIn,
+          trailing:
+              widget.allowMultipleSelection
+                  ? null // Hide edit/delete buttons in filter mode
+                  : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Edit button
+                      IconButton(
+                        onPressed: () => _startInlineEditing(subgroup),
+                        icon: ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            uiController.darkMode.value
+                                ? Colors.white70
+                                : Colors.black54,
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/ic_edit.png',
+                            width: 20,
+                            height: 20,
+                          ),
                         ),
-                        child: Image.asset(
-                          'assets/images/ic_edit.png',
-                          width: 20,
-                          height: 20,
-                        ),
-                      ),
-                      tooltip: 'Edit',
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
-                      ),
-                    ),
-                    // Delete button
-                    IconButton(
-                      onPressed: () => _deleteSubgroup(subgroup),
-                      icon: ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          Colors.red.withValues(alpha: 0.7),
-                          BlendMode.srcIn,
-                        ),
-                        child: Image.asset(
-                          'assets/images/ic_cross.png',
-                          width: 20,
-                          height: 20,
+                        tooltip: 'Edit',
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(
+                          minWidth: 28,
+                          minHeight: 28,
                         ),
                       ),
-                      tooltip: 'Delete',
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
+                      // Delete button
+                      IconButton(
+                        onPressed: () => _deleteSubgroup(subgroup),
+                        icon: ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            Colors.red.withValues(alpha: 0.7),
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/ic_cross.png',
+                            width: 20,
+                            height: 20,
+                          ),
+                        ),
+                        tooltip: 'Delete',
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(
+                          minWidth: 28,
+                          minHeight: 28,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-          onTap: widget.allowMultipleSelection
-              ? () => _selectContactGroup(subgroup)
-              : () => _selectContactGroup(subgroup),
+                    ],
+                  ),
+          onTap:
+              widget.allowMultipleSelection
+                  ? () => _selectContactGroup(subgroup)
+                  : () => _selectContactGroup(subgroup),
         ),
       );
     });
   }
-
-
 
   /// Build inline add widget for main contact groups
   Widget _buildInlineAddMainContactGroupWidget() {
@@ -1710,9 +1934,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: uiController.darkMode.value
-            ? Colors.black
-            : Colors.white,
+        color: uiController.darkMode.value ? Colors.black : Colors.white,
         borderRadius: BorderRadius.circular(2),
         border: Border.all(
           color:
@@ -1724,14 +1946,15 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        
           Row(
             children: [
               Expanded(
                 child: TextSelectionTheme(
                   data: TextSelectionThemeData(
                     cursorColor: uiController.currentMainColor,
-                    selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                    selectionColor: uiController.currentMainColor.withValues(
+                      alpha: 0.3,
+                    ),
                     selectionHandleColor: uiController.currentMainColor,
                   ),
                   child: TextField(
@@ -1741,15 +1964,17 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       hintText: 'hinttext_add_contact_name'.tr,
                       // hintText: 'Contact group name',
                       hintStyle: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey[500],
+                        color:
+                            uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.5)
+                                : Colors.grey[500],
                         fontSize: 16,
                       ),
                       filled: true,
-                      fillColor: uiController.darkMode.value
-                          ? Colors.grey[700]
-                          : Colors.white,
+                      fillColor:
+                          uiController.darkMode.value
+                              ? Colors.grey[700]
+                              : Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
                         borderSide: BorderSide.none,
@@ -1760,8 +1985,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       ),
                     ),
                     style: gfonts.GoogleFonts.kumbhSans(
-
-                      color: uiController.darkMode.value ? Colors.white : Colors.black,
+                      color:
+                          uiController.darkMode.value
+                              ? Colors.white
+                              : Colors.black,
                       fontSize: 16,
                     ),
                   ),
@@ -1772,10 +1999,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               IconButton(
                 onPressed: () => _saveInlineAddMainContactGroup(),
                 icon: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    Colors.green,
-                    BlendMode.srcIn,
-                  ),
+                  colorFilter: ColorFilter.mode(Colors.green, BlendMode.srcIn),
                   child: Image.asset(
                     'assets/images/ic_tick.png',
                     width: 20,
@@ -1784,19 +2008,13 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 ),
                 tooltip: 'Save',
                 padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
               // Cancel button
               IconButton(
                 onPressed: () => _cancelInlineAddingMainContactGroup(),
                 icon: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    Colors.red,
-                    BlendMode.srcIn,
-                  ),
+                  colorFilter: ColorFilter.mode(Colors.red, BlendMode.srcIn),
                   child: Image.asset(
                     'assets/images/ic_cross.png',
                     width: 20,
@@ -1805,10 +2023,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 ),
                 tooltip: 'Cancel',
                 padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
             ],
           ),
@@ -1839,10 +2054,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
             await _refreshContactGroupsFromDatabase();
 
-            showTrSnackbar('snackbar_success_7', 
+            showTrSnackbar(
+              'snackbar_success_7',
               backgroundColor: Colors.green,
               colorText: Colors.white,
-              duration: const Duration(seconds: 2),);
+              duration: const Duration(seconds: 2),
+            );
           },
         );
       },
@@ -1850,16 +2067,20 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   }
 
   /// Build inline edit widget
-  Widget _buildInlineEditWidget(ContactGroup contactGroup, UiController uiController) {
+  Widget _buildInlineEditWidget(
+    ContactGroup contactGroup,
+    UiController uiController,
+  ) {
     final nameController = _editNameControllers[contactGroup.id!]!;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: uiController.darkMode.value
-            ? Colors.black
-            : uiController.currentMainColor.withValues(alpha: 0.1),
+        color:
+            uiController.darkMode.value
+                ? Colors.black
+                : uiController.currentMainColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Column(
@@ -1880,7 +2101,9 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 child: TextSelectionTheme(
                   data: TextSelectionThemeData(
                     cursorColor: uiController.currentMainColor,
-                    selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                    selectionColor: uiController.currentMainColor.withValues(
+                      alpha: 0.3,
+                    ),
                     selectionHandleColor: uiController.currentMainColor,
                   ),
                   child: TextField(
@@ -1889,9 +2112,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                     decoration: InputDecoration(
                       hintText: 'hinttext_edit_contact'.tr,
                       hintStyle: gfonts.GoogleFonts.kumbhSans(
-                        color: uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey[500],
+                        color:
+                            uiController.darkMode.value
+                                ? Colors.white.withValues(alpha: 0.5)
+                                : Colors.grey[500],
                         fontSize: 18,
                       ),
                       // filled: true,
@@ -1908,7 +2132,10 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                       ),
                     ),
                     style: gfonts.GoogleFonts.kumbhSans(
-                      color: uiController.darkMode.value ? Colors.white : Colors.black,
+                      color:
+                          uiController.darkMode.value
+                              ? Colors.white
+                              : Colors.black,
                       fontSize: 18,
                     ),
                   ),
@@ -1919,10 +2146,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               IconButton(
                 onPressed: () => _saveInlineEdit(contactGroup),
                 icon: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    Colors.green,
-                    BlendMode.srcIn,
-                  ),
+                  colorFilter: ColorFilter.mode(Colors.green, BlendMode.srcIn),
                   child: Image.asset(
                     'assets/images/ic_tick.png',
                     width: 20,
@@ -1931,19 +2155,13 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 ),
                 tooltip: 'Save',
                 padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
               // Cancel button
               IconButton(
                 onPressed: () => _cancelInlineEdit(contactGroup.id!),
                 icon: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    Colors.red,
-                    BlendMode.srcIn,
-                  ),
+                  colorFilter: ColorFilter.mode(Colors.red, BlendMode.srcIn),
                   child: Image.asset(
                     'assets/images/ic_cross.png',
                     width: 20,
@@ -1952,10 +2170,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                 ),
                 tooltip: 'Cancel',
                 padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
             ],
           ),
@@ -1970,9 +2185,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final newName = nameController.text.trim();
 
     if (newName.isEmpty) {
-      showTrSnackbar('snackbar_invalid_name_4', 
+      showTrSnackbar(
+        'snackbar_invalid_name_4',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
@@ -1989,9 +2207,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       _cancelInlineEdit(contactGroup.id!);
       await _refreshContactGroupsFromDatabase();
 
-      showTrSnackbar('snackbar_success_8', 
+      showTrSnackbar(
+        'snackbar_success_8',
         backgroundColor: Colors.green,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error updating contact group: $e');
       if (e.toString().contains('DUPLICATE_CONTACT_NAME')) {
@@ -2004,17 +2225,26 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           duration: const Duration(seconds: 2),
         );
       } else if (e.toString().contains('MAIN_GROUP_CONFLICTS_WITH_SUBGROUP')) {
-        showTrSnackbar('snackbar_name_conflict_5', 
+        showTrSnackbar(
+          'snackbar_name_conflict_5',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
       } else if (e.toString().contains('SUBGROUP_CONFLICTS_WITH_PARENT')) {
-        showTrSnackbar('snackbar_name_conflict_3', 
+        showTrSnackbar(
+          'snackbar_name_conflict_3',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
       } else {
-        showTrSnackbar('snackbar_unable_to_update_2', 
+        showTrSnackbar(
+          'snackbar_unable_to_update_2',
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
       }
     }
   }
@@ -2038,9 +2268,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
           onSave: (name, parentId) async {
             // Use the existing save logic
             if (name.isEmpty) {
-              showTrSnackbar('snackbar_invalid_name_2', 
+              showTrSnackbar(
+                'snackbar_invalid_name_2',
                 backgroundColor: Colors.orange,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+              );
               return;
             }
 
@@ -2048,35 +2281,53 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               final newGroup = await _contactGroupService.addCustomGroup(name);
 
               if (newGroup == null) {
-                showTrSnackbar('snackbar_unable_to_add_3', 
+                showTrSnackbar(
+                  'snackbar_unable_to_add_3',
                   backgroundColor: Colors.red,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+                );
                 return;
               } else if (newGroup.id == -1) {
                 // Duplicate main contact group name
-                showTrSnackbar('snackbar_duplicate_contact_4', 
+                showTrSnackbar(
+                  'snackbar_duplicate_contact_4',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+                );
                 return;
               } else if (newGroup.id == -3) {
                 // Main group name conflicts with existing subgroup
-                showTrSnackbar('snackbar_name_conflict_2', 
+                showTrSnackbar(
+                  'snackbar_name_conflict_2',
                   backgroundColor: Colors.orange,
-                  colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),
+                );
                 return;
               }
 
               await _refreshContactGroupsFromDatabase();
 
               if (context.mounted) Navigator.of(context).pop();
-              showTrSnackbar('snackbar_success_10', args: [name], 
+              showTrSnackbar(
+                'snackbar_success_10',
+                args: [name],
                 backgroundColor: Colors.green,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+              );
             } catch (e) {
-              debugPrint('[ContactGroupsView] Error adding main contact group: $e');
-              showTrSnackbar('snackbar_unable_to_add_3', 
+              debugPrint(
+                '[ContactGroupsView] Error adding main contact group: $e',
+              );
+              showTrSnackbar(
+                'snackbar_unable_to_add_3',
                 backgroundColor: Colors.red,
-                colorText: Colors.white,        duration: const Duration(seconds: 2),);
+                colorText: Colors.white,
+                duration: const Duration(seconds: 2),
+              );
             }
           },
         );
@@ -2095,9 +2346,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final name = _mainContactGroupNameController.text.trim();
 
     if (name.isEmpty) {
-      showTrSnackbar('snackbar_invalid_name_3', 
+      showTrSnackbar(
+        'snackbar_invalid_name_3',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
@@ -2105,69 +2359,90 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       final newGroup = await _contactGroupService.addCustomGroup(name);
 
       if (newGroup == null) {
-        showTrSnackbar('snackbar_unable_to_add_4', 
+        showTrSnackbar(
+          'snackbar_unable_to_add_4',
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       } else if (newGroup.id == -1) {
         // Duplicate main contact group name
-        showTrSnackbar('snackbar_duplicate_contact_3', 
+        showTrSnackbar(
+          'snackbar_duplicate_contact_3',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       } else if (newGroup.id == -3) {
         // Main group name conflicts with existing subgroup
-        showTrSnackbar('snackbar_name_conflict_4', 
+        showTrSnackbar(
+          'snackbar_name_conflict_4',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
       _cancelInlineAddingMainContactGroup();
       await _refreshContactGroupsFromDatabase();
 
-      showTrSnackbar('snackbar_success_9', args: [name], 
+      showTrSnackbar(
+        'snackbar_success_9',
+        args: [name],
         backgroundColor: Colors.green,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding main contact group: $e');
-      showTrSnackbar('snackbar_unable_to_add_5', 
+      showTrSnackbar(
+        'snackbar_unable_to_add_5',
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
-
-
   /// Build inline add widget
-  Widget _buildInlineAddWidget(int parentContactGroupId, UiController uiController) {
+  Widget _buildInlineAddWidget(
+    int parentContactGroupId,
+    UiController uiController,
+  ) {
     final nameController = _inlineNameControllers[parentContactGroupId]!;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), // Match subgroup tile margin
+      margin: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 2,
+      ), // Match subgroup tile margin
       decoration: BoxDecoration(
-        color: uiController.darkMode.value
-            ? Colors.grey[900]
-            : Colors.grey[100], // Match subgroup tile background
+        color:
+            uiController.darkMode.value
+                ? Colors.grey[900]
+                : Colors.grey[100], // Match subgroup tile background
         borderRadius: BorderRadius.circular(2),
       ),
       child: ListTile(
-        contentPadding: EdgeInsets.symmetric(horizontal: 5), // Match subgroup tile padding
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 5,
+        ), // Match subgroup tile padding
         dense: true, // Match subgroup tile density
         title: Row(
           children: [
             // Contact icon to match subgroup tiles
-            Icon(
-              Icons.person,
-              color: Colors.grey[400],
-              size: 20,
-            ),
+            Icon(Icons.person, color: Colors.grey[400], size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: TextSelectionTheme(
                 data: TextSelectionThemeData(
                   cursorColor: uiController.currentMainColor,
-                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionColor: uiController.currentMainColor.withValues(
+                    alpha: 0.3,
+                  ),
                   selectionHandleColor: uiController.currentMainColor,
                 ),
                 child: TextField(
@@ -2176,18 +2451,26 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                   decoration: InputDecoration(
                     hintText: 'hinttext_add_contact'.tr,
                     hintStyle: gfonts.GoogleFonts.kumbhSans(
-                      color: uiController.darkMode.value
-                          ? Colors.white.withValues(alpha: 0.5)
-                          : Colors.grey[500],
+                      color:
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.5)
+                              : Colors.grey[500],
                       fontSize: 18, // Match subgroup tile font size
                     ),
-                    border: InputBorder.none, // Remove border to match ListTile style
-                    contentPadding: EdgeInsets.zero, // Remove padding to align with icon
+                    border:
+                        InputBorder
+                            .none, // Remove border to match ListTile style
+                    contentPadding:
+                        EdgeInsets.zero, // Remove padding to align with icon
                   ),
                   style: gfonts.GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value ? Colors.white : Colors.black,
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.white
+                            : Colors.black,
                     fontSize: 18, // Match subgroup tile font size
-                    fontWeight: FontWeight.w500, // Match subgroup tile font weight
+                    fontWeight:
+                        FontWeight.w500, // Match subgroup tile font weight
                   ),
                 ),
               ),
@@ -2201,10 +2484,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
             IconButton(
               onPressed: () => _saveInlineSubgroup(parentContactGroupId),
               icon: ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  Colors.green,
-                  BlendMode.srcIn,
-                ),
+                colorFilter: ColorFilter.mode(Colors.green, BlendMode.srcIn),
                 child: Image.asset(
                   'assets/images/ic_tick.png',
                   width: 20,
@@ -2213,10 +2493,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               ),
               tooltip: 'Save',
               padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints(
-                minWidth: 28,
-                minHeight: 28,
-              ),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             ),
             // Cancel button
             IconButton(
@@ -2234,10 +2511,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               ),
               tooltip: 'Cancel',
               padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints(
-                minWidth: 28,
-                minHeight: 28,
-              ),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             ),
           ],
         ),
@@ -2251,9 +2525,12 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     final name = nameController.text.trim();
 
     if (name.isEmpty) {
-      showTrSnackbar('snackbar_invalid_name', 
+      showTrSnackbar(
+        'snackbar_invalid_name',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
@@ -2264,37 +2541,50 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
       );
 
       if (newSubgroup == null) {
-        showTrSnackbar('snackbar_unable_to_add_2', 
+        showTrSnackbar(
+          'snackbar_unable_to_add_2',
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       } else if (newSubgroup.id == -1) {
         // Duplicate subgroup contact name
-        showTrSnackbar('snackbar_duplicate_contact', 
+        showTrSnackbar(
+          'snackbar_duplicate_contact',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       } else if (newSubgroup.id == -4) {
         // Subgroup name conflicts with parent group
-        showTrSnackbar('snackbar_name_conflict', 
+        showTrSnackbar(
+          'snackbar_name_conflict',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
       _cancelInlineAdding(parentContactGroupId);
       await _refreshContactGroupsFromDatabase();
 
-      showTrSnackbar('snackbar_success_6', 
+      showTrSnackbar(
+        'snackbar_success_6',
         backgroundColor: Colors.green,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     } catch (e) {
       debugPrint('[ContactGroupsView] Error adding subgroup: $e');
-      showTrSnackbar('snackbar_unable_to_add_7', 
+      showTrSnackbar(
+        'snackbar_unable_to_add_7',
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     }
   }
-
-
 }

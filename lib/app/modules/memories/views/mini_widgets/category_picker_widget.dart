@@ -37,7 +37,8 @@ class CategoryPickerWidget extends StatefulWidget {
     this.openedFromSettings = false,
     this.allowMultipleSelection = false,
     this.selectedCategories,
-    this.onMultipleCategoriesSelected, this.onCategoryDeleted,
+    this.onMultipleCategoriesSelected,
+    this.onCategoryDeleted,
   });
 
   @override
@@ -55,15 +56,20 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   final RxBool _isSearching = false.obs;
   final RxMap<int, bool> _expandedCategories = <int, bool>{}.obs;
   final RxMap<int, bool> _addingToCategory = <int, bool>{}.obs;
-  final RxMap<int, TextEditingController> _inlineNameControllers = <int, TextEditingController>{}.obs;
-  final RxMap<int, TextEditingController> _inlineEmojiControllers = <int, TextEditingController>{}.obs;
-  final RxMap<int, ExpansionTileController> _expansionControllers = <int, ExpansionTileController>{}.obs;
+  final RxMap<int, TextEditingController> _inlineNameControllers =
+      <int, TextEditingController>{}.obs;
+  final RxMap<int, TextEditingController> _inlineEmojiControllers =
+      <int, TextEditingController>{}.obs;
+  final RxMap<int, ExpansionTileController> _expansionControllers =
+      <int, ExpansionTileController>{}.obs;
   final RxMap<int, bool> _pendingAddingMode = <int, bool>{}.obs;
 
   // Inline editing state for subcategories
   final RxMap<int, bool> _editingCategory = <int, bool>{}.obs;
-  final RxMap<int, TextEditingController> _editNameControllers = <int, TextEditingController>{}.obs;
-  final RxMap<int, TextEditingController> _editEmojiControllers = <int, TextEditingController>{}.obs;
+  final RxMap<int, TextEditingController> _editNameControllers =
+      <int, TextEditingController>{}.obs;
+  final RxMap<int, TextEditingController> _editEmojiControllers =
+      <int, TextEditingController>{}.obs;
 
   // Recently selected subcategories storage (max 6 items)
   static const String _recentSubcategoriesKey = 'recent_subcategories';
@@ -80,7 +86,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
   // Main category inline adding state
   final RxBool _addingMainCategory = false.obs;
-  final TextEditingController _mainCategoryNameController = TextEditingController();
+  final TextEditingController _mainCategoryNameController =
+      TextEditingController();
 
   @override
   void initState() {
@@ -452,10 +459,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
       if (!widget.openedFromSettings) {
         // Return both selected category and deleted categories
-        Get.back(result: {
-          'selected': category,
-          'deleted': _deletedCategories,
-        });
+        Get.back(result: {'selected': category, 'deleted': _deletedCategories});
       }
     }
   }
@@ -471,7 +475,7 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     if (category.isMainCategory && category.hasSubcategories) {
       // For main categories, check if ALL subcategories are selected
       isSelected = category.subcategories!.every(
-        (subcategory) => _selectedCategories.any((c) => c.id == subcategory.id)
+        (subcategory) => _selectedCategories.any((c) => c.id == subcategory.id),
       );
     } else {
       // For subcategories, check if this specific category is selected
@@ -571,7 +575,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   /// Handle done button press for multiple selection mode
   void _onDonePressed() {
     // Filter to only return subcategories (not main categories)
-    final subcategoriesOnly = _selectedCategories.where((c) => c.isSubcategory).toList();
+    final subcategoriesOnly =
+        _selectedCategories.where((c) => c.isSubcategory).toList();
 
     debugPrint(
       '[CategoryPickerWidget][_onDonePressed] Total in _selectedCategories: ${_selectedCategories.length}',
@@ -592,10 +597,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     if (!widget.openedFromSettings) {
       // Return both selected and deleted categories
-      Get.back(result: {
-        'selected': subcategoriesOnly,
-        'deleted': _deletedCategories,
-      });
+      Get.back(
+        result: {'selected': subcategoriesOnly, 'deleted': _deletedCategories},
+      );
     }
   }
 
@@ -678,9 +682,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Validate that name is provided
     if (name.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_3', 
+      showTrSnackbar(
+        'snackbar_validation_error_3',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
@@ -705,21 +712,27 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         // Also trigger global refresh for any other category pickers that might be open
         _globalRefreshNotifier.value = DateTime.now().millisecondsSinceEpoch;
 
-       
         debugPrint(
           '[CategoryPickerWidget][_saveInlineMainCategory] Successfully added main category: ${newCategory.id}',
         );
       } else {
-        showTrSnackbar('snackbar_error_20', 
-          backgroundColor: Colors.red,        duration: const Duration(seconds: 2),
+        showTrSnackbar(
+          'snackbar_error_20',
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
 
-          colorText: Colors.white,);
+          colorText: Colors.white,
+        );
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_saveInlineMainCategory] Error: $e');
-      showTrSnackbar('snackbar_error_21', args: [e], 
+      showTrSnackbar(
+        'snackbar_error_21',
+        args: [e],
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -770,21 +783,29 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Validate that both name and emoji are provided
     if (name.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_4', 
+      showTrSnackbar(
+        'snackbar_validation_error_4',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
     if (emoji.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_5', 
+      showTrSnackbar(
+        'snackbar_validation_error_5',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
     try {
-      debugPrint('[CategoryPickerWidget][_saveInlineEditedSubcategory] Updating: $name ($emoji)');
+      debugPrint(
+        '[CategoryPickerWidget][_saveInlineEditedSubcategory] Updating: $name ($emoji)',
+      );
 
       final success = await _categoryService.updateCategory(
         categoryId: categoryId,
@@ -809,20 +830,31 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         //   colorText: Colors.white,
         // );
       } else {
-        showTrSnackbar('snackbar_error_22', 
+        showTrSnackbar(
+          'snackbar_error_22',
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
       }
     } catch (e) {
-      debugPrint('[CategoryPickerWidget][_saveInlineEditedSubcategory] Error: $e');
-      showTrSnackbar('snackbar_error_23', args: [e], 
+      debugPrint(
+        '[CategoryPickerWidget][_saveInlineEditedSubcategory] Error: $e',
+      );
+      showTrSnackbar(
+        'snackbar_error_23',
+        args: [e],
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
   /// Save recently selected subcategory
-  Future<void> _saveRecentlySelectedSubcategory(PlaceCategory subcategory) async {
+  Future<void> _saveRecentlySelectedSubcategory(
+    PlaceCategory subcategory,
+  ) async {
     try {
       // Only save subcategories (not main categories)
       if (!subcategory.isSubcategory) return;
@@ -848,7 +880,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         'isCustom': subcategory.isCustom,
         'createdAt': subcategory.createdAt.toIso8601String(),
         'updatedAt': subcategory.updatedAt.toIso8601String(),
-        'selectedAt': DateTime.now().toIso8601String(), // Track when it was selected
+        'selectedAt':
+            DateTime.now().toIso8601String(), // Track when it was selected
       };
 
       // Remove if already exists (to move it to front)
@@ -865,7 +898,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       // Save back to preferences
       await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
 
-      debugPrint('[CategoryPickerWidget] Saved recent subcategory: ${subcategory.name} (${subcategory.id})');
+      debugPrint(
+        '[CategoryPickerWidget] Saved recent subcategory: ${subcategory.name} (${subcategory.id})',
+      );
     } catch (e) {
       debugPrint('[CategoryPickerWidget] Error saving recent subcategory: $e');
     }
@@ -898,24 +933,32 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           );
           categories.add(category);
         } catch (e) {
-          debugPrint('[CategoryPickerWidget] Error parsing recent subcategory: $e');
+          debugPrint(
+            '[CategoryPickerWidget] Error parsing recent subcategory: $e',
+          );
         }
       }
 
       return categories;
     } catch (e) {
-      debugPrint('[CategoryPickerWidget] Error getting recent subcategories: $e');
+      debugPrint(
+        '[CategoryPickerWidget] Error getting recent subcategories: $e',
+      );
       return [];
     }
   }
 
   /// Update a category in the recents list (when edited)
-  Future<void> _updateCategoryInRecents(int categoryId, PlaceCategory updatedCategory) async {
+  Future<void> _updateCategoryInRecents(
+    int categoryId,
+    PlaceCategory updatedCategory,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
       // Get existing recent categories
-      List<PlaceCategory> recentCategories = await getRecentlySelectedSubcategories();
+      List<PlaceCategory> recentCategories =
+          await getRecentlySelectedSubcategories();
 
       // Find and update the category if it exists in recents
       final index = recentCategories.indexWhere((cat) => cat.id == categoryId);
@@ -924,25 +967,36 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         recentCategories[index] = updatedCategory;
 
         // Convert to the same format for storage
-        final List<Map<String, dynamic>> recentList = recentCategories.map((cat) => {
-          'id': cat.id,
-          'name': cat.name,
-          'emoji': cat.emoji,
-          'parentId': cat.parentId,
-          'order': cat.order,
-          'isCustom': cat.isCustom,
-          'createdAt': cat.createdAt.toIso8601String(),
-          'updatedAt': cat.updatedAt.toIso8601String(),
-        }).toList();
+        final List<Map<String, dynamic>> recentList =
+            recentCategories
+                .map(
+                  (cat) => {
+                    'id': cat.id,
+                    'name': cat.name,
+                    'emoji': cat.emoji,
+                    'parentId': cat.parentId,
+                    'order': cat.order,
+                    'isCustom': cat.isCustom,
+                    'createdAt': cat.createdAt.toIso8601String(),
+                    'updatedAt': cat.updatedAt.toIso8601String(),
+                  },
+                )
+                .toList();
 
         await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
 
-        debugPrint('[CategoryPickerWidget] Updated category in recents: ${updatedCategory.emoji} ${updatedCategory.name} (${updatedCategory.id})');
+        debugPrint(
+          '[CategoryPickerWidget] Updated category in recents: ${updatedCategory.emoji} ${updatedCategory.name} (${updatedCategory.id})',
+        );
       } else {
-        debugPrint('[CategoryPickerWidget] Category not found in recents, skipping update');
+        debugPrint(
+          '[CategoryPickerWidget] Category not found in recents, skipping update',
+        );
       }
     } catch (e) {
-      debugPrint('[CategoryPickerWidget] Error updating category in recents: $e');
+      debugPrint(
+        '[CategoryPickerWidget] Error updating category in recents: $e',
+      );
     }
   }
 
@@ -953,7 +1007,9 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       await prefs.remove(_recentSubcategoriesKey);
       debugPrint('[CategoryPickerWidget] Cleared recent subcategories');
     } catch (e) {
-      debugPrint('[CategoryPickerWidget] Error clearing recent subcategories: $e');
+      debugPrint(
+        '[CategoryPickerWidget] Error clearing recent subcategories: $e',
+      );
     }
   }
 
@@ -966,7 +1022,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       if (existingJson == null) return;
 
       final decoded = json.decode(existingJson) as List;
-      List<Map<String, dynamic>> recentList = decoded.cast<Map<String, dynamic>>();
+      List<Map<String, dynamic>> recentList =
+          decoded.cast<Map<String, dynamic>>();
 
       // Remove the category with the given ID
       recentList.removeWhere((item) => item['id'] == categoryId);
@@ -974,9 +1031,13 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       // Save back to preferences
       await prefs.setString(_recentSubcategoriesKey, json.encode(recentList));
 
-      debugPrint('[CategoryPickerWidget] Removed category ID $categoryId from recent subcategories');
+      debugPrint(
+        '[CategoryPickerWidget] Removed category ID $categoryId from recent subcategories',
+      );
     } catch (e) {
-      debugPrint('[CategoryPickerWidget] Error removing category from recents: $e');
+      debugPrint(
+        '[CategoryPickerWidget] Error removing category from recents: $e',
+      );
     }
   }
 
@@ -984,9 +1045,13 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   /// Call this from other screens to get and display recent subcategories
   static Future<void> printRecentSubcategories() async {
     final recentSubcategories = await getRecentlySelectedSubcategories();
-    debugPrint('[CategoryPickerWidget] Recent subcategories (${recentSubcategories.length}):');
+    debugPrint(
+      '[CategoryPickerWidget] Recent subcategories (${recentSubcategories.length}):',
+    );
     for (final subcategory in recentSubcategories) {
-      debugPrint('  - ${subcategory.emoji} ${subcategory.name} (ID: ${subcategory.id}, Parent: ${subcategory.parentId})');
+      debugPrint(
+        '  - ${subcategory.emoji} ${subcategory.name} (ID: ${subcategory.id}, Parent: ${subcategory.parentId})',
+      );
     }
   }
 
@@ -1002,16 +1067,22 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
 
     // Validate that both name and emoji are provided
     if (name.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_6', 
+      showTrSnackbar(
+        'snackbar_validation_error_6',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
     if (emoji.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_7', 
+      showTrSnackbar(
+        'snackbar_validation_error_7',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
@@ -1027,21 +1098,30 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       );
 
       if (newCategory == null) {
-        showTrSnackbar('snackbar_error_24', 
+        showTrSnackbar(
+          'snackbar_error_24',
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       } else if (newCategory.id == -1) {
         // Duplicate subcategory name
-        showTrSnackbar('snackbar_duplicate_place', 
+        showTrSnackbar(
+          'snackbar_duplicate_place',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       } else if (newCategory.id == -4) {
         // Subcategory name conflicts with parent category
-        showTrSnackbar('snackbar_name_conflict_13', 
+        showTrSnackbar(
+          'snackbar_name_conflict_13',
           backgroundColor: Colors.orange,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
 
@@ -1078,9 +1158,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
   // /// Add a new custom category
   Future<void> _addNewCategory(String name, String emoji, int? parentId) async {
     if (name.isEmpty || emoji.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_8', 
+      showTrSnackbar(
+        'snackbar_validation_error_8',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
@@ -1121,15 +1204,21 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
           '[CategoryPickerWidget][_addNewCategory] Successfully added category: ${newCategory.id}',
         );
       } else {
-        showTrSnackbar('snackbar_error_25', 
+        showTrSnackbar(
+          'snackbar_error_25',
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_addNewCategory] Error: $e');
-      showTrSnackbar('snackbar_error_25', 
+      showTrSnackbar(
+        'snackbar_error_25',
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -1164,9 +1253,12 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     String emoji,
   ) async {
     if (name.isEmpty || emoji.isEmpty) {
-      showTrSnackbar('snackbar_validation_error_9', 
+      showTrSnackbar(
+        'snackbar_validation_error_9',
         backgroundColor: Colors.orange,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
       return;
     }
 
@@ -1203,15 +1295,22 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
         //   colorText: Colors.white,
         // );
       } else {
-        showTrSnackbar('snackbar_error_27', 
+        showTrSnackbar(
+          'snackbar_error_27',
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_updateCategory] Error: $e');
-      showTrSnackbar('snackbar_error_28', args: [e], 
+      showTrSnackbar(
+        'snackbar_error_28',
+        args: [e],
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
@@ -1223,10 +1322,8 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
     }
 
     // Fetch from database
-    final count = await _categoryService.getMemoryCountForCategoryByEmojiAndName(
-      category.emoji,
-      category.name,
-    );
+    final count = await _categoryService
+        .getMemoryCountForCategoryByEmojiAndName(category.emoji, category.name);
 
     // Cache the result
     _categoryMemoryCount[category.id!] = count;
@@ -1266,17 +1363,18 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
       );
 
       // Get category details before deletion to track it
-      final categoryToDelete = await _categoryService.getCategoryById(categoryId);
+      final categoryToDelete = await _categoryService.getCategoryById(
+        categoryId,
+      );
 
-if (categoryToDelete != null) {
-          if(widget.onCategoryDeleted != null) {
+      if (categoryToDelete != null) {
+        if (widget.onCategoryDeleted != null) {
           widget.onCategoryDeleted!(categoryToDelete!);
-
-          }
-          debugPrint(
-            '[CategoryPickerWidget][_deleteCategory] Added to deleted list: ${categoryToDelete.emoji} ${categoryToDelete.name}',
-          );
         }
+        debugPrint(
+          '[CategoryPickerWidget][_deleteCategory] Added to deleted list: ${categoryToDelete.emoji} ${categoryToDelete.name}',
+        );
+      }
       final result = await _categoryService.deleteCategory(categoryId);
 
       if (result == true) {
@@ -1286,9 +1384,6 @@ if (categoryToDelete != null) {
 
         // Track deleted category
 
-      
-        
-
         // Remove from recent subcategories
         await removeFromRecentSubcategories(categoryId);
 
@@ -1297,8 +1392,6 @@ if (categoryToDelete != null) {
           '[CategoryPickerWidget][_deleteCategory] Refreshing categories from database after deletion',
         );
         await _refreshCategoriesFromDatabase();
-
-      
       } else if (result == null) {
         // Cannot delete - has memories
         Get.back(); // Close confirmation dialog
@@ -1318,141 +1411,152 @@ if (categoryToDelete != null) {
           category == null
               ? 'l10n_word_unknown'.tr
               : localizedPlaceCategoryName(
-                  name: category.name,
-                  emoji: category.emoji,
-                  isCustom: category.isCustom,
-                  isMainCategory: category.isMainCategory,
-                ),
+                name: category.name,
+                emoji: category.emoji,
+                isCustom: category.isCustom,
+                isMainCategory: category.isMainCategory,
+              ),
           memoryCount,
           category?.parentId == null,
         );
       } else {
         // Failed to delete
-        showTrSnackbar('snackbar_error_29', 
+        showTrSnackbar(
+          'snackbar_error_29',
           backgroundColor: Colors.red,
-          colorText: Colors.white,        duration: const Duration(seconds: 2),);
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
       }
     } catch (e) {
       debugPrint('[CategoryPickerWidget][_deleteCategory] Error: $e');
-      showTrSnackbar('snackbar_error_30', args: [e], 
+      showTrSnackbar(
+        'snackbar_error_30',
+        args: [e],
         backgroundColor: Colors.red,
-        colorText: Colors.white,        duration: const Duration(seconds: 2),);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     }
   }
 
   /// Show dialog when category cannot be deleted due to existing memories
-  void _showCannotDeleteDialog(String categoryName, int memoryCount, bool isMainCategory) {
+  void _showCannotDeleteDialog(
+    String categoryName,
+    int memoryCount,
+    bool isMainCategory,
+  ) {
     final uiController = Get.find<UiController>();
-    final titleKey = isMainCategory
-        ? 'dialog_title_cannot_delete_place_category'
-        : 'dialog_title_cannot_delete_place_sub';
-    final bodyKey = isMainCategory
-        ? 'dialog_body_place_category_delete_blocked'
-        : 'dialog_body_place_sub_delete_blocked';
-    final hintKey = isMainCategory
-        ? 'dialog_hint_change_place_before_delete_category'
-        : 'dialog_hint_change_place_before_delete_place';
+    final titleKey =
+        isMainCategory
+            ? 'dialog_title_cannot_delete_place_category'
+            : 'dialog_title_cannot_delete_place_sub';
+    final bodyKey =
+        isMainCategory
+            ? 'dialog_body_place_category_delete_blocked'
+            : 'dialog_body_place_sub_delete_blocked';
+    final hintKey =
+        isMainCategory
+            ? 'dialog_hint_change_place_before_delete_category'
+            : 'dialog_hint_change_place_before_delete_place';
 
     Get.dialog(
-      Obx(
-        () {
-          uiController.selectedLanguage.value;
-          uiController.darkMode.value;
-          final memWord =
-              memoryCount == 1 ? 'l10n_word_memory'.tr : 'l10n_word_memories'.tr;
-          return AlertDialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-            backgroundColor:
-                uiController.darkMode.value ? Colors.grey[900] : Colors.white,
-            title: Row(
-              children: [
-                Icon(Icons.warning, color: Colors.orange, size: 24),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    titleKey.tr,
-                    style: gfonts.GoogleFonts.kumbhSans(
-                      color:
-                          uiController.darkMode.value ? Colors.white : Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  trKey(bodyKey, [
-                    categoryName,
-                    memoryCount.toString(),
-                    memWord,
-                  ]),
+      Obx(() {
+        uiController.selectedLanguage.value;
+        uiController.darkMode.value;
+        final memWord =
+            memoryCount == 1 ? 'l10n_word_memory'.tr : 'l10n_word_memories'.tr;
+        return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 24,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          backgroundColor:
+              uiController.darkMode.value ? Colors.grey[900] : Colors.white,
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.orange, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  titleKey.tr,
                   style: gfonts.GoogleFonts.kumbhSans(
                     color:
                         uiController.darkMode.value
-                            ? Colors.white70
-                            : Colors.grey[700],
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          hintKey.tr,
-                          style: gfonts.GoogleFonts.kumbhSans(
-                            color: Colors.orange[700],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Get.back(),
-                child: Text(
-                  'text_ok_7'.tr,
-                  style: gfonts.GoogleFonts.kumbhSans(
-                    color: uiController.currentMainColor,
+                            ? Colors.white
+                            : Colors.black,
                     fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
               ),
             ],
-          );
-        },
-      ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                trKey(bodyKey, [categoryName, memoryCount.toString(), memWord]),
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color:
+                      uiController.darkMode.value
+                          ? Colors.white70
+                          : Colors.grey[700],
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        hintKey.tr,
+                        style: gfonts.GoogleFonts.kumbhSans(
+                          color: Colors.orange[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: Text(
+                'text_ok_7'.tr,
+                style: gfonts.GoogleFonts.kumbhSans(
+                  color: uiController.currentMainColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      }),
     );
   }
 
   /// Handle quick add from search
   void _quickAddFromSearch() {
-
     final query = _searchController.text.trim();
-    
-    if (query.isEmpty) return;
 
+    if (query.isEmpty) return;
   }
 
   /// Show emoji picker as bottom sheet
@@ -1759,34 +1863,54 @@ if (categoryToDelete != null) {
         }
       },
       child: Scaffold(
-              appBar: AppBar(
+        appBar: AppBar(
           leading:
               widget.allowMultipleSelection
                   ? Obx(
                     () => TappableBackButton(
                       onPressed: _onDonePressed,
-                      tooltip: _selectedCategories.isNotEmpty
-                          ? 'tooltip_done'.tr
-                          : 'tooltip_back'.tr,
+                      tooltip:
+                          _selectedCategories.isNotEmpty
+                              ? 'tooltip_done'.tr
+                              : 'tooltip_back'.tr,
                     ),
                   )
                   : null,
           title: Obx(
-            () => Text(
-              'title_text_places_picker'.tr,
-              style: gfonts.GoogleFonts.kumbhSans(
-                color:
-                    uiController.darkMode.value ? Colors.white : Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: null, // Allow unlimited lines
-              overflow: TextOverflow.visible, // Show all text
-              textAlign: TextAlign.center, // Keep centered
+            () => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'text_4'.tr,
+                  style: const TextStyle(fontSize: 22, color: Colors.white),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'title_text_places_picker'.tr,
+                    style: gfonts.GoogleFonts.kumbhSans(
+                      color:
+                          uiController.darkMode.value
+                              ? Colors.white
+                              : Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: null,
+                    overflow: TextOverflow.visible,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
           ),
           centerTitle: true,
-          backgroundColor: uiController.currentMainColor,
+          backgroundColor:
+              uiController.darkMode.value
+                  ? uiController.mainColor.value == 'blue'
+                      ? const Color(0xFF001937)
+                      : uiController.primaryColorDark
+                  : uiController.currentMainColor,
           foregroundColor:
               uiController.darkMode.value ? Colors.white : Colors.white,
           elevation: 1,
@@ -1821,21 +1945,25 @@ if (categoryToDelete != null) {
             if (widget.allowMultipleSelection)
               Obx(() {
                 // Count only subcategories (exclude main categories)
-                final subcategoryCount = _selectedCategories.where((c) => c.isSubcategory).length;
+                final subcategoryCount =
+                    _selectedCategories.where((c) => c.isSubcategory).length;
                 return Center(
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: Text(
                       subcategoryCount == 0
                           ? 'text_filter_places_selected_zero'.tr
                           : subcategoryCount == 1
-                              ? trKey('text_filter_places_selected_one', [
-                                  subcategoryCount,
-                                ])
-                              : trKey('text_filter_places_selected_many', [
-                                  subcategoryCount,
-                                ]),
+                          ? trKey('text_filter_places_selected_one', [
+                            subcategoryCount,
+                          ])
+                          : trKey('text_filter_places_selected_many', [
+                            subcategoryCount,
+                          ]),
                       textAlign: TextAlign.center,
                       style: gfonts.GoogleFonts.kumbhSans(
                         color: uiController.currentMainColor,
@@ -1921,14 +2049,14 @@ if (categoryToDelete != null) {
             //     ),
             //   ),
             // ),
-        
+
             // Categories List
             Expanded(
               child: Obx(() {
                 if (_isLoading.value) {
                   return const Center(child: CircularProgressIndicator());
                 }
-        
+
                 // Show search results when searching
                 if (_isSearching.value) {
                   return Padding(
@@ -1936,13 +2064,15 @@ if (categoryToDelete != null) {
                     child: _buildSearchResults(),
                   );
                 }
-        
+
                 // Show hierarchical categories when not searching
                 return Container(
                   color:
-                       uiController.darkMode.value
-              ? Colors.black
-              :                    uiController.currentMainColor.withValues(alpha: 0.1),
+                      uiController.darkMode.value
+                          ? Colors.black
+                          : uiController.currentMainColor.withValues(
+                            alpha: 0.1,
+                          ),
                   child: Padding(
                     padding: const EdgeInsets.all(2.0),
                     child: _buildHierarchicalCategories(),
@@ -2069,7 +2199,6 @@ if (categoryToDelete != null) {
                 ),
               ),
               const SizedBox(height: 16),
-              
             ],
           ),
         ),
@@ -2078,7 +2207,9 @@ if (categoryToDelete != null) {
 
     return Obx(() {
       // Check if any category is expanded
-      final hasExpandedCategory = _expandedCategories.values.any((expanded) => expanded == true);
+      final hasExpandedCategory = _expandedCategories.values.any(
+        (expanded) => expanded == true,
+      );
 
       return Container(
         // color:
@@ -2106,9 +2237,10 @@ if (categoryToDelete != null) {
       margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: uiController.darkMode.value
-            ? Colors.black
-            : uiController.currentMainColor.withValues(alpha: 0.1),
+        color:
+            uiController.darkMode.value
+                ? Colors.black
+                : uiController.currentMainColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -2119,7 +2251,9 @@ if (categoryToDelete != null) {
               data: Theme.of(context).copyWith(
                 textSelectionTheme: TextSelectionThemeData(
                   cursorColor: uiController.currentMainColor,
-                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionColor: uiController.currentMainColor.withValues(
+                    alpha: 0.3,
+                  ),
                   selectionHandleColor: uiController.currentMainColor,
                 ),
               ),
@@ -2127,15 +2261,17 @@ if (categoryToDelete != null) {
                 controller: _mainCategoryNameController,
                 cursorColor: uiController.currentMainColor,
                 style: gfonts.GoogleFonts.kumbhSans(
-                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                  color:
+                      uiController.darkMode.value ? Colors.white : Colors.black,
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
                   hintText: 'hinttext_category_name'.tr,
                   hintStyle: gfonts.GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value
-                        ? Colors.white.withValues(alpha: 0.6)
-                        : Colors.grey[600],
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.6)
+                            : Colors.grey[600],
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -2179,7 +2315,6 @@ if (categoryToDelete != null) {
 
   /// Build inline add widget for subcategories
   Widget _buildInlineAddWidget(int parentCategoryId) {
-    
     final uiController = Get.find<UiController>();
     final nameController = _inlineNameControllers[parentCategoryId];
     final emojiController = _inlineEmojiControllers[parentCategoryId];
@@ -2192,10 +2327,11 @@ if (categoryToDelete != null) {
       margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
       padding: const EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 4),
       decoration: BoxDecoration(
-        color: uiController.darkMode.value
+        color:
+            uiController.darkMode.value
                 ? Colors.black
-                :                    uiController.currentMainColor.withValues(alpha: 0.1)
-,borderRadius: BorderRadius.circular(2),
+                : uiController.currentMainColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(2),
       ),
       child: Row(
         children: [
@@ -2212,33 +2348,37 @@ if (categoryToDelete != null) {
                   width: 35,
                   height: 35,
                   decoration: BoxDecoration(
-                    color:           (!uiController.darkMode.value
-                          ? Colors.white.withValues(alpha: 0.8)
-                          : Colors.grey[800]),
+                    color:
+                        (!uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : Colors.grey[800]),
                     borderRadius: BorderRadius.circular(6),
                     // border: Border.all(
-                      // color: Colors.grey.withValues(alpha: 0.3),
+                    // color: Colors.grey.withValues(alpha: 0.3),
                     // ),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(2.0),
                     child: Center(
-                      child: emojiController.text.isEmpty
-                          ? ColorFiltered(
-                              colorFilter: ColorFilter.mode(
-                              uiController.currentMainColor,
-                                BlendMode.srcIn,
+                      child:
+                          emojiController.text.isEmpty
+                              ? ColorFiltered(
+                                colorFilter: ColorFilter.mode(
+                                  uiController.currentMainColor,
+                                  BlendMode.srcIn,
+                                ),
+                                child: Image.asset(
+                                  'assets/images/ic_add.png',
+                                  width: 25,
+                                  height: 25,
+                                ),
+                              )
+                              : Text(
+                                emojiController.text,
+                                style: gfonts.GoogleFonts.kumbhSans(
+                                  fontSize: 20,
+                                ),
                               ),
-                              child: Image.asset(
-                                'assets/images/ic_add.png',
-                                width: 25,
-                                height: 25,
-                              ),
-                            )
-                          : Text(
-                              emojiController.text,
-                              style: gfonts.GoogleFonts.kumbhSans(fontSize: 20),
-                            ),
                     ),
                   ),
                 ),
@@ -2252,7 +2392,9 @@ if (categoryToDelete != null) {
               data: Theme.of(context).copyWith(
                 textSelectionTheme: TextSelectionThemeData(
                   cursorColor: uiController.currentMainColor,
-                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionColor: uiController.currentMainColor.withValues(
+                    alpha: 0.3,
+                  ),
                   selectionHandleColor: uiController.currentMainColor,
                 ),
               ),
@@ -2260,15 +2402,17 @@ if (categoryToDelete != null) {
                 controller: nameController,
                 cursorColor: uiController.currentMainColor,
                 style: gfonts.GoogleFonts.kumbhSans(
-                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                  color:
+                      uiController.darkMode.value ? Colors.white : Colors.black,
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
                   hintText: 'hinttext_place_name_2'.tr,
                   hintStyle: gfonts.GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value
-                        ? Colors.white.withValues(alpha: 0.6)
-                        : Colors.grey[600],
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.6)
+                            : Colors.grey[600],
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -2299,7 +2443,7 @@ if (categoryToDelete != null) {
             child: Container(
               width: 18,
               height: 18,
-             
+
               child: Image.asset(
                 'assets/images/ic_tick.png',
                 width: 10,
@@ -2329,11 +2473,11 @@ if (categoryToDelete != null) {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: uiController.darkMode.value
+        color:
+            uiController.darkMode.value
                 ? Colors.black
-                :                    uiController.currentMainColor.withValues(alpha: 0.1),
+                : uiController.currentMainColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(2),
-        
       ),
       child: Row(
         children: [
@@ -2350,33 +2494,35 @@ if (categoryToDelete != null) {
                   width: 35,
                   height: 35,
                   decoration: BoxDecoration(
-                   color:    (!uiController.darkMode.value
-                          ? Colors.white.withValues(alpha: 0.8)
-                          : Colors.grey[800]),
+                    color:
+                        (!uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : Colors.grey[800]),
                     borderRadius: BorderRadius.circular(6),
+
                     // border: Border.all(
-                      // color: Colors.grey.withValues(alpha: 0.3),
+                    // color: Colors.grey.withValues(alpha: 0.3),
                     // ),
-                                      // borderRadius: BorderRadius.circular(6),
-                   
+                    // borderRadius: BorderRadius.circular(6),
                   ),
                   child: Center(
-                    child: emojiController.text.isEmpty
-                        ? ColorFiltered(
-                            colorFilter: ColorFilter.mode(
-                              Colors.grey[600] ?? Colors.grey,
-                              BlendMode.srcIn,
+                    child:
+                        emojiController.text.isEmpty
+                            ? ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                Colors.grey[600] ?? Colors.grey,
+                                BlendMode.srcIn,
+                              ),
+                              child: Image.asset(
+                                'assets/images/ic_add.png',
+                                width: 25,
+                                height: 25,
+                              ),
+                            )
+                            : Text(
+                              emojiController.text,
+                              style: gfonts.GoogleFonts.kumbhSans(fontSize: 20),
                             ),
-                            child: Image.asset(
-                              'assets/images/ic_add.png',
-                              width: 25,
-                              height: 25,
-                            ),
-                          )
-                        : Text(
-                            emojiController.text,
-                            style: gfonts.GoogleFonts.kumbhSans(fontSize: 20),
-                          ),
                   ),
                 ),
               );
@@ -2389,7 +2535,9 @@ if (categoryToDelete != null) {
               data: Theme.of(context).copyWith(
                 textSelectionTheme: TextSelectionThemeData(
                   cursorColor: uiController.currentMainColor,
-                  selectionColor: uiController.currentMainColor.withValues(alpha: 0.3),
+                  selectionColor: uiController.currentMainColor.withValues(
+                    alpha: 0.3,
+                  ),
                   selectionHandleColor: uiController.currentMainColor,
                 ),
               ),
@@ -2397,15 +2545,17 @@ if (categoryToDelete != null) {
                 controller: nameController,
                 cursorColor: uiController.currentMainColor,
                 style: gfonts.GoogleFonts.kumbhSans(
-                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                  color:
+                      uiController.darkMode.value ? Colors.white : Colors.black,
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
                   hintText: 'hinttext_place_name'.tr,
                   hintStyle: gfonts.GoogleFonts.kumbhSans(
-                    color: uiController.darkMode.value
-                        ? Colors.white.withValues(alpha: 0.6)
-                        : Colors.grey[600],
+                    color:
+                        uiController.darkMode.value
+                            ? Colors.white.withValues(alpha: 0.6)
+                            : Colors.grey[600],
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -2422,8 +2572,8 @@ if (categoryToDelete != null) {
               width: 18,
               height: 18,
               // decoration: BoxDecoration(
-                // color: Colors.red.withValues(alpha: 0.1),
-                // borderRadius: BorderRadius.circular(16),
+              // color: Colors.red.withValues(alpha: 0.1),
+              // borderRadius: BorderRadius.circular(16),
               // ),
               child: Image.asset(
                 'assets/images/ic_cross.png',
@@ -2439,7 +2589,7 @@ if (categoryToDelete != null) {
             child: Container(
               width: 18,
               height: 18,
-           
+
               child: Image.asset(
                 'assets/images/ic_tick.png',
                 width: 10,
@@ -2467,18 +2617,25 @@ if (categoryToDelete != null) {
       final isExpanded = _expandedCategories[mainCategory.id] ?? false;
 
       // Check if all subcategories are selected (for filter mode)
-      final allSubcategoriesSelected = widget.allowMultipleSelection &&
+      final allSubcategoriesSelected =
+          widget.allowMultipleSelection &&
           mainCategory.subcategories != null &&
           mainCategory.subcategories!.isNotEmpty &&
-          mainCategory.subcategories!.every((subcategory) =>
-              _selectedCategories.any((c) => c.id == subcategory.id));
+          mainCategory.subcategories!.every(
+            (subcategory) =>
+                _selectedCategories.any((c) => c.id == subcategory.id),
+          );
 
       // Count selected subcategories
-      final selectedSubcategoriesCount = widget.allowMultipleSelection &&
-          mainCategory.subcategories != null
-          ? mainCategory.subcategories!.where((subcategory) =>
-              _selectedCategories.any((c) => c.id == subcategory.id)).length
-          : 0;
+      final selectedSubcategoriesCount =
+          widget.allowMultipleSelection && mainCategory.subcategories != null
+              ? mainCategory.subcategories!
+                  .where(
+                    (subcategory) =>
+                        _selectedCategories.any((c) => c.id == subcategory.id),
+                  )
+                  .length
+              : 0;
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
@@ -2486,12 +2643,10 @@ if (categoryToDelete != null) {
           color: uiController.darkMode.value ? Colors.black : Colors.white,
           borderRadius: BorderRadius.circular(2),
           // Add border to entire container when all subcategories are selected (filter mode only)
-          border: widget.allowMultipleSelection && allSubcategoriesSelected
-              ? Border.all(
-                  color: uiController.currentMainColor,
-                  width: 2,
-                )
-              : null,
+          border:
+              widget.allowMultipleSelection && allSubcategoriesSelected
+                  ? Border.all(color: uiController.currentMainColor, width: 2)
+                  : null,
         ),
         child: Column(
           children: [
@@ -2500,9 +2655,10 @@ if (categoryToDelete != null) {
               margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               decoration: BoxDecoration(
                 // Changed background color: white in light mode, grey in dark mode
-                color: uiController.darkMode.value
-                    ? Colors.grey[900]
-                    : Colors.white,
+                color:
+                    uiController.darkMode.value
+                        ? Colors.grey[900]
+                        : Colors.white,
                 borderRadius: BorderRadius.circular(2),
                 // No border on main category header since we only select subcategories
                 border: null,
@@ -2524,37 +2680,43 @@ if (categoryToDelete != null) {
                   borderRadius: BorderRadius.all(Radius.circular(2)),
                 ),
                 // Show checkbox on the left when in filter mode
-                leading: widget.allowMultipleSelection
-                    ? GestureDetector(
-                        onTap: () => _selectCategory(mainCategory),
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          margin: const EdgeInsets.only(left: 16),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: allSubcategoriesSelected
-                                  ? uiController.currentMainColor
-                                  : (uiController.darkMode.value
-                                      ? Colors.white.withValues(alpha: 0.6)
-                                      : Colors.grey[400]!),
-                              width: 2,
+                leading:
+                    widget.allowMultipleSelection
+                        ? GestureDetector(
+                          onTap: () => _selectCategory(mainCategory),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            margin: const EdgeInsets.only(left: 16),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color:
+                                    allSubcategoriesSelected
+                                        ? uiController.currentMainColor
+                                        : (uiController.darkMode.value
+                                            ? Colors.white.withValues(
+                                              alpha: 0.6,
+                                            )
+                                            : Colors.grey[400]!),
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                              color:
+                                  allSubcategoriesSelected
+                                      ? uiController.currentMainColor
+                                      : Colors.transparent,
                             ),
-                            borderRadius: BorderRadius.circular(4),
-                            color: allSubcategoriesSelected
-                                ? uiController.currentMainColor
-                                : Colors.transparent,
+                            child:
+                                allSubcategoriesSelected
+                                    ? Icon(
+                                      Icons.check,
+                                      size: 18,
+                                      color: Colors.white,
+                                    )
+                                    : null,
                           ),
-                          child: allSubcategoriesSelected
-                              ? Icon(
-                                  Icons.check,
-                                  size: 18,
-                                  color: Colors.white,
-                                )
-                              : null,
-                        ),
-                      )
-                    : null,
+                        )
+                        : null,
                 title: Padding(
                   padding: EdgeInsets.only(
                     left: widget.allowMultipleSelection ? 8.0 : 20.0,
@@ -2570,7 +2732,10 @@ if (categoryToDelete != null) {
                               TextSpan(
                                 text: mainCategory.displayText,
                                 style: gfonts.GoogleFonts.kumbhSans(
-                                  color: uiController.darkMode.value ? Colors.white : Colors.black,
+                                  color:
+                                      uiController.darkMode.value
+                                          ? Colors.white
+                                          : Colors.black,
                                   fontWeight: FontWeight.w500,
                                   fontSize: 14,
                                 ),
@@ -2580,9 +2745,12 @@ if (categoryToDelete != null) {
                                 TextSpan(
                                   text: 'text_span_3'.tr,
                                   style: gfonts.GoogleFonts.kumbhSans(
-                                    color: uiController.darkMode.value
-                                        ? Colors.white.withValues(alpha: 0.6)
-                                        : Colors.grey[600],
+                                    color:
+                                        uiController.darkMode.value
+                                            ? Colors.white.withValues(
+                                              alpha: 0.6,
+                                            )
+                                            : Colors.grey[600],
                                     fontSize: 15,
                                   ),
                                 ),
@@ -2597,21 +2765,28 @@ if (categoryToDelete != null) {
                                 ),
                               if (widget.allowMultipleSelection)
                                 TextSpan(
-                                  text: '/${mainCategory.subcategories?.length ?? 0})',
+                                  text:
+                                      '/${mainCategory.subcategories?.length ?? 0})',
                                   style: gfonts.GoogleFonts.kumbhSans(
-                                    color: uiController.darkMode.value
-                                        ? Colors.white.withValues(alpha: 0.6)
-                                        : Colors.grey[600],
+                                    color:
+                                        uiController.darkMode.value
+                                            ? Colors.white.withValues(
+                                              alpha: 0.6,
+                                            )
+                                            : Colors.grey[600],
                                     fontSize: 15,
                                   ),
                                 )
                               else
                                 TextSpan(
-                                  text: ' (${mainCategory.subcategories?.length ?? 0})',
+                                  text:
+                                      ' (${mainCategory.subcategories?.length ?? 0})',
                                   style: gfonts.GoogleFonts.kumbhSans(
                                     color:
                                         uiController.darkMode.value
-                                            ? Colors.white.withValues(alpha: 0.6)
+                                            ? Colors.white.withValues(
+                                              alpha: 0.6,
+                                            )
                                             : Colors.grey[600],
                                     fontSize: 15,
                                   ),
@@ -2674,7 +2849,8 @@ if (categoryToDelete != null) {
                                   height: 25,
                                 ),
                               ),
-                              onPressed: () => _handleDeleteCategory(mainCategory),
+                              onPressed:
+                                  () => _handleDeleteCategory(mainCategory),
                               tooltip: 'Delete',
                             );
                           },
@@ -2686,8 +2862,8 @@ if (categoryToDelete != null) {
                               (_addingToCategory[mainCategory.id] ?? false)
                                   ? Colors.grey
                                   : uiController.darkMode.value
-                                      ? Colors.white.withValues(alpha: 0.6)
-                                      : uiController.currentMainColor,
+                                  ? Colors.white.withValues(alpha: 0.6)
+                                  : uiController.currentMainColor,
                               BlendMode.srcIn,
                             ),
                             child: Image.asset(
@@ -2696,9 +2872,10 @@ if (categoryToDelete != null) {
                               height: 25,
                             ),
                           ),
-                          onPressed: (_addingToCategory[mainCategory.id] ?? false)
-                              ? null
-                              : () => _startInlineAdding(mainCategory.id!),
+                          onPressed:
+                              (_addingToCategory[mainCategory.id] ?? false)
+                                  ? null
+                                  : () => _startInlineAdding(mainCategory.id!),
                           tooltip: 'Add Subcategory',
                         ),
                       ),
@@ -2730,22 +2907,20 @@ if (categoryToDelete != null) {
             if (isExpanded) ...[
               // Inline adding widget at index 0 (removed - now using popup)
               if (mainCategory.hasSubcategories) ...[
-                ...mainCategory.subcategories!.asMap().entries.map(
-                  (entry) {
-                    final index = entry.key;
-                    final subCategory = entry.value;
-                    final isLast = index == mainCategory.subcategories!.length - 1;
+                ...mainCategory.subcategories!.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final subCategory = entry.value;
+                  final isLast =
+                      index == mainCategory.subcategories!.length - 1;
 
-                    return Column(
-                      children: [
-                        _buildCategoryTile(subCategory, isSubcategory: true),
-                        // Add bottom padding after last subcategory
-                        if (isLast)
-                          const SizedBox(height: 10),
-                      ],
-                    );
-                  },
-                ),
+                  return Column(
+                    children: [
+                      _buildCategoryTile(subCategory, isSubcategory: true),
+                      // Add bottom padding after last subcategory
+                      if (isLast) const SizedBox(height: 10),
+                    ],
+                  );
+                }),
               ],
             ],
           ],
@@ -2779,16 +2954,15 @@ if (categoryToDelete != null) {
         ),
         decoration: BoxDecoration(
           // Changed background color to #F1F1F1 in light mode
-          color: uiController.darkMode.value
-              ? Colors.grey[900]
-              : const Color(0xFFF1F1F1),
+          color:
+              uiController.darkMode.value
+                  ? Colors.grey[900]
+                  : const Color(0xFFF1F1F1),
           borderRadius: BorderRadius.circular(2),
-          border: isSelected
-              ? Border.all(
-                  color: uiController.currentMainColor,
-                  width: 2,
-                )
-              : null,
+          border:
+              isSelected
+                  ? Border.all(color: uiController.currentMainColor, width: 2)
+                  : null,
         ),
         child: ListTile(
           contentPadding: EdgeInsets.symmetric(horizontal: 5),
@@ -2801,73 +2975,75 @@ if (categoryToDelete != null) {
               fontSize: 18,
             ),
           ),
-          subtitle: isSearchResult && category.isSubcategory
-              ? Text(
-                  'in ${_getParentCategoryName(category.parentId!)}',
-                  style: gfonts.GoogleFonts.kumbhSans(
-                    color:
-                        uiController.darkMode.value
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey[500],
-                    fontSize: 15,
-                  ),
-                )
-              : null,
-          trailing: (widget.allowMultipleSelection || isSearchResult)
-              ? null
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Edit button
-                    GestureDetector(
-                      onTap: () => _startInlineEditing(category),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: ColorFiltered(
-                          colorFilter: ColorFilter.mode(
-                            uiController.darkMode.value
-                                ? Colors.white.withValues(alpha: 0.6)
-                                : Colors.grey[500] ?? Colors.grey,
-                            BlendMode.srcIn,
-                          ),
-                          child: Image.asset(
-                            'assets/images/ic_edit.png',
-                            width: 20,
-                            height: 20,
+          subtitle:
+              isSearchResult && category.isSubcategory
+                  ? Text(
+                    'in ${_getParentCategoryName(category.parentId!)}',
+                    style: gfonts.GoogleFonts.kumbhSans(
+                      color:
+                          uiController.darkMode.value
+                              ? Colors.white.withValues(alpha: 0.5)
+                              : Colors.grey[500],
+                      fontSize: 15,
+                    ),
+                  )
+                  : null,
+          trailing:
+              (widget.allowMultipleSelection || isSearchResult)
+                  ? null
+                  : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Edit button
+                      GestureDetector(
+                        onTap: () => _startInlineEditing(category),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              uiController.darkMode.value
+                                  ? Colors.white.withValues(alpha: 0.6)
+                                  : Colors.grey[500] ?? Colors.grey,
+                              BlendMode.srcIn,
+                            ),
+                            child: Image.asset(
+                              'assets/images/ic_edit.png',
+                              width: 20,
+                              height: 20,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    // Delete button (always show for subcategories)
-                    FutureBuilder<int>(
-                      future: _getMemoryCountForCategory(category),
-                      builder: (context, snapshot) {
-                        final memoryCount = snapshot.data ?? 0;
-                        final hasMemories = memoryCount > 0;
+                      // Delete button (always show for subcategories)
+                      FutureBuilder<int>(
+                        future: _getMemoryCountForCategory(category),
+                        builder: (context, snapshot) {
+                          final memoryCount = snapshot.data ?? 0;
+                          final hasMemories = memoryCount > 0;
 
-                        return GestureDetector(
-                          onTap: () => _handleDeleteCategory(category),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: ColorFiltered(
-                              colorFilter: ColorFilter.mode(
-                                hasMemories
-                                    ? Colors.red.withValues(alpha: 0.6)
-                                    : Colors.red,
-                                BlendMode.srcIn,
-                              ),
-                              child: Image.asset(
-                                'assets/images/ic_cross.png',
-                                width: 20,
-                                height: 20,
+                          return GestureDetector(
+                            onTap: () => _handleDeleteCategory(category),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: ColorFiltered(
+                                colorFilter: ColorFilter.mode(
+                                  hasMemories
+                                      ? Colors.red.withValues(alpha: 0.6)
+                                      : Colors.red,
+                                  BlendMode.srcIn,
+                                ),
+                                child: Image.asset(
+                                  'assets/images/ic_cross.png',
+                                  width: 20,
+                                  height: 20,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
           onTap: () => _selectCategory(category),
         ),
       );
