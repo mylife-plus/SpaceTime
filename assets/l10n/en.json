@@ -134,7 +134,7 @@
   "gpx_snackbar_import_done": "Import complete@@@Saved $1 new memories.",
   "gpx_snackbar_memory_controller_missing": "Import unavailable@@@Open the map or memories screen once, then try again.",
   "gpx_snackbar_nothing_to_import": "Nothing to import@@@Choose a valid KMZ file and tap preview.",
-  "gpx_snackbar_preview_error": "Preview failed@@@$1",
+  "gpx_snackbar_preview_error": "Preview failed@@@Could not process this track file. Try another file or check that it is a valid GPX/KMZ.",
   "gpx_dialog_delete_past_upload_title": "Delete this import?",
   "gpx_dialog_delete_past_upload_body": "This removes the upload from your history and permanently deletes every memory that was created from it, including linked photos, videos, and audio. You cannot undo this.",
   "gpx_ignore_rule_editor_title": "Ignore rule",

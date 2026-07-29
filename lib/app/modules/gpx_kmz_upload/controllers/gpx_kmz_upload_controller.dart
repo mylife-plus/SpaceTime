@@ -300,7 +300,6 @@ class GpxKmzUploadController extends GetxController {
       debugPrint('[GpxKmzUpload] preview error: $e\n$st');
       showTrSnackbar(
         'gpx_snackbar_preview_error',
-        args: [e.toString()],
         backgroundColor: Colors.red.shade700,
         colorText: Colors.white,
       );
@@ -534,7 +533,6 @@ class GpxKmzUploadController extends GetxController {
       debugPrint('[GpxKmzUpload] upload error: $e\n$st');
       showTrSnackbar(
         'gpx_snackbar_preview_error',
-        args: [e.toString()],
         backgroundColor: Colors.red.shade700,
         colorText: Colors.white,
       );
@@ -587,7 +585,6 @@ class GpxKmzUploadController extends GetxController {
       debugPrint('[GpxKmzUpload] preview geocode: $e\n$st');
       showTrSnackbar(
         'gpx_snackbar_preview_error',
-        args: [e.toString()],
         backgroundColor: Colors.red.shade700,
         colorText: Colors.white,
       );
@@ -768,7 +765,6 @@ class GpxKmzUploadController extends GetxController {
       debugPrint('[GpxKmzUpload] add ignore rule error: $e\n$st');
       showTrSnackbar(
         'gpx_snackbar_preview_error',
-        args: [e.toString()],
         backgroundColor: Colors.red.shade700,
         colorText: Colors.white,
       );

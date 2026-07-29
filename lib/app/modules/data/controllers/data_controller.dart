@@ -28,6 +28,7 @@ class DataController extends GetxController {
     required String body,
     required String cancelLabel,
     required String confirmLabel,
+    bool destructiveButtons = false,
   }) {
     return Get.dialog<bool>(
       Obx(() {
@@ -35,6 +36,7 @@ class DataController extends GetxController {
         final isDark = ui.darkMode.value;
         final accent =
             isDark ? ui.currentMainColor : (ui.primaryColor ?? Colors.blue);
+        final buttonColor = destructiveButtons ? Colors.red : accent;
         final titleColor = isDark ? Colors.white : Colors.black87;
         final bodyColor = isDark ? Colors.white70 : Colors.black87;
         return AlertDialog(
@@ -51,18 +53,18 @@ class DataController extends GetxController {
           actions: [
             TextButton(
               onPressed: () => Get.back(result: false),
-              style: TextButton.styleFrom(foregroundColor: accent),
+              style: TextButton.styleFrom(foregroundColor: buttonColor),
               child: Text(
                 cancelLabel,
-                style: AppFonts.medium(16, color: accent),
+                style: AppFonts.medium(16, color: buttonColor),
               ),
             ),
             TextButton(
               onPressed: () => Get.back(result: true),
-              style: TextButton.styleFrom(foregroundColor: accent),
+              style: TextButton.styleFrom(foregroundColor: buttonColor),
               child: Text(
                 confirmLabel,
-                style: AppFonts.medium(16, color: accent),
+                style: AppFonts.medium(16, color: buttonColor),
               ),
             ),
           ],
@@ -328,6 +330,7 @@ class DataController extends GetxController {
       body: 'backup_dialog_erase_body'.tr,
       cancelLabel: 'text_cancel'.tr,
       confirmLabel: 'backup_confirm_erase'.tr,
+      destructiveButtons: true,
     );
     if (confirm != true) return;
 

@@ -844,7 +844,6 @@ class MediaGpsUploadController extends GetxController {
       debugPrint('[MediaGpsUpload] preview geocode: $e\n$st');
       showTrSnackbar(
         'gpx_snackbar_preview_error',
-        args: [e.toString()],
         backgroundColor: Colors.red.shade700,
         colorText: Colors.white,
       );

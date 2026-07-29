@@ -134,7 +134,7 @@
   "gpx_snackbar_import_done": "Importación completa@@@Se guardaron $1 recuerdos nuevos.",
   "gpx_snackbar_memory_controller_missing": "Importación no disponible@@@Abre primero el mapa o recuerdos e inténtalo de nuevo.",
   "gpx_snackbar_nothing_to_import": "Nada que importar@@@Elige un KMZ válido y pulsa vista previa.",
-  "gpx_snackbar_preview_error": "Vista previa fallida@@@$1",
+  "gpx_snackbar_preview_error": "Vista previa fallida@@@No se pudo procesar este archivo de ruta. Prueba con otro archivo o comprueba que sea un GPX/KMZ válido.",
   "gpx_dialog_delete_past_upload_title": "¿Eliminar esta importación?",
   "gpx_dialog_delete_past_upload_body": "Se quitará la importación del historial y se borrarán de forma permanente todos los recuerdos creados a partir de ella, incluidas fotos, vídeos y audios vinculados. No se puede deshacer.",
   "gpx_ignore_rule_editor_title": "Regla de exclusión",

@@ -126,7 +126,9 @@ class KmzImportPipeline {
     }
   }
 
-  static const Distance _distance = Distance();
+  /// Haversine: Vincenty (package default) can throw
+  /// `StateError('Distance calculation faild to converge!')` on some tracks.
+  static const Distance _distance = Distance(calculator: Haversine());
 
   static double metersBetween(
     double lat1,

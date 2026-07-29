@@ -1876,33 +1876,16 @@ class _CategoryPickerWidgetState extends State<CategoryPickerWidget> {
                     ),
                   )
                   : null,
-          title: Obx(
-            () => Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'text_4'.tr,
-                  style: const TextStyle(fontSize: 22, color: Colors.white),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    'title_text_places_picker'.tr,
-                    style: gfonts.GoogleFonts.kumbhSans(
-                      color:
-                          uiController.darkMode.value
-                              ? Colors.white
-                              : Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: null,
-                    overflow: TextOverflow.visible,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
+          title: Text(
+            'title_text_places_picker'.tr,
+            style: gfonts.GoogleFonts.kumbhSans(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
+            maxLines: null,
+            overflow: TextOverflow.visible,
+            textAlign: TextAlign.center,
           ),
           centerTitle: true,
           backgroundColor:

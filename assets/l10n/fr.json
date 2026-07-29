@@ -134,7 +134,7 @@
   "gpx_snackbar_import_done": "Import terminé@@@$1 nouveaux souvenirs enregistrés.",
   "gpx_snackbar_memory_controller_missing": "Import indisponible@@@Ouvrez d'abord la carte ou les souvenirs, puis réessayez.",
   "gpx_snackbar_nothing_to_import": "Rien à importer@@@Choisissez un fichier KMZ valide et aperçu.",
-  "gpx_snackbar_preview_error": "Aperçu impossible@@@$1",
+  "gpx_snackbar_preview_error": "Aperçu impossible@@@Impossible de traiter ce fichier de trace. Essayez un autre fichier ou vérifiez qu’il s’agit d’un GPX/KMZ valide.",
   "gpx_dialog_delete_past_upload_title": "Supprimer cet import ?",
   "gpx_dialog_delete_past_upload_body": "Cela retire l'import de l'historique et supprime définitivement tous les souvenirs qui en ont été créés, y compris les photos, vidéos et audios liés. Cette action est irréversible.",
   "gpx_ignore_rule_editor_title": "Règle d'exclusion",

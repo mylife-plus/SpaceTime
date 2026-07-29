@@ -134,7 +134,7 @@
   "gpx_snackbar_import_done": "Import abgeschlossen@@@$1 neue Erinnerungen gespeichert.",
   "gpx_snackbar_memory_controller_missing": "Import nicht möglich@@@Öffnen Sie zuerst Karte oder Erinnerungen.",
   "gpx_snackbar_nothing_to_import": "Nichts zu importieren@@@Wählen Sie eine gültige KMZ-Datei und Vorschau.",
-  "gpx_snackbar_preview_error": "Vorschau fehlgeschlagen@@@$1",
+  "gpx_snackbar_preview_error": "Vorschau fehlgeschlagen@@@Diese Track-Datei konnte nicht verarbeitet werden. Versuche eine andere Datei oder prüfe, ob es eine gültige GPX/KMZ-Datei ist.",
   "gpx_dialog_delete_past_upload_title": "Diesen Import löschen?",
   "gpx_dialog_delete_past_upload_body": "Damit wird der Upload aus der Liste entfernt und unwiderruflich jede daraus erzeugte Erinnerung gelöscht, einschließlich verknüpfter Fotos, Videos und Audios. Dies lässt sich nicht rückgängig machen.",
   "gpx_ignore_rule_editor_title": "Ignorierregel",
