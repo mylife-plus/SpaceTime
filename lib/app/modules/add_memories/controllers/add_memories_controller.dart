@@ -338,6 +338,17 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
   /// Fast path after create — insert at top without re-sorting 1000 rows.
   void prependToDisplayList(Map<String, dynamic> memory) {
+    final memoryId = memory['id'];
+    final alreadyPresent = displayMemories.any((m) {
+      final id = m['id'];
+      if (id == memoryId) return true;
+      if (id != null && memoryId != null && id.toString() == memoryId.toString()) {
+        return true;
+      }
+      return false;
+    });
+    if (alreadyPresent) return;
+
     displayMemories.insert(0, memory);
     final total = displayMemories.length;
     if (loadedDisplayCount.value < memoryListPageSize && total > 0) {

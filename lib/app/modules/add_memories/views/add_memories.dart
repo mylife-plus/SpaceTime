@@ -225,13 +225,8 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
                         Get.put(MemoryController());
           
                         final result = await openMemoryView();
-                        // Always refresh memories when returning from memory creation
-                        debugPrint(
-                          'Returned from memory creation, refreshing add memories screen',
-                        );
-                        controller.onAgainInit();
-          
-                        // Show success message if memory was saved
+                        // On success, MemoryView already prepended + refreshed the map.
+                        // A full onAgainInit here races and can paint the same memory twice.
                         if (result == true) {
                           showTrSnackbar('snackbar_success', 
                             backgroundColor: Colors.green.withValues(
@@ -239,6 +234,11 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
                             ),
                             colorText: Colors.white,
         duration: const Duration(seconds: 2),);
+                        } else {
+                          debugPrint(
+                            'Returned from memory creation without save, refreshing add memories screen',
+                          );
+                          controller.onAgainInit();
                         }
                       },
                       child: Container(

@@ -4,7 +4,6 @@ import 'package:spacetime/app/config/app_images.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
 import 'package:spacetime/app/routes/memory_view_navigation.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
-import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import '../../controllers/map_controller_new.dart';
 
 class MapFab extends StatelessWidget {
@@ -25,9 +24,8 @@ class MapFab extends StatelessWidget {
 
             if (result == true) {
               try {
-                final addMemoriesController = Get.find<AddMemoriesController>();
-                addMemoriesController.onAgainInit();
-
+                // MemoryView already prepended the memory and refreshed map layers.
+                // Avoid onAgainInit here — it races and can duplicate map pins.
                 final mapController = Get.find<MapControllerNew>();
                 await mapController.refreshLocation();
 

@@ -850,6 +850,27 @@ class FilterController extends GetxController {
     bool incremental = false,
   }) async {
     try {
+      bool matchesId(Map<String, dynamic> m) {
+        final id = m['id'];
+        if (id == memoryId) return true;
+        if (id != null && id.toString() == memoryId.toString()) return true;
+        return false;
+      }
+
+      // Idempotent: Add Memories' onAgainInit can reload the same row before
+      // MemoryView's post-pop prepend runs — without this the map gets 2 pins.
+      final alreadyInAll = allMemories.any(matchesId);
+      final alreadyInFiltered = filteredMemories.any(matchesId);
+      if (alreadyInAll && alreadyInFiltered) {
+        debugPrint(
+          '$tag prependMemoryById: memory $memoryId already present, skipping',
+        );
+        if (Get.isRegistered<AddMemoriesController>()) {
+          Get.find<AddMemoriesController>().rebuildDisplayList();
+        }
+        return;
+      }
+
       final raw = await _databaseHelper.getMemoryWithDetails(memoryId);
       if (raw == null) {
         debugPrint('$tag prependMemoryById: memory $memoryId not found');
@@ -857,8 +878,9 @@ class FilterController extends GetxController {
       }
 
       final uiMemory = await transformDatabaseMemoryToUI(raw);
-      final updated = <Map<String, dynamic>>[uiMemory, ...allMemories];
-      allMemories.value = updated;
+      if (!alreadyInAll) {
+        allMemories.value = <Map<String, dynamic>>[uiMemory, ...allMemories];
+      }
 
       _mergeFilterOptionsFromUiMemory(uiMemory);
       updateFilterStatus();
@@ -869,7 +891,9 @@ class FilterController extends GetxController {
             searchedTextKeyword.value.isEmpty &&
             !isSearchedMemoryList.value;
         if (noFilters || memoryMatchesActiveFilters(uiMemory)) {
-          filteredMemories.value = [uiMemory, ...filteredMemories];
+          if (!alreadyInFiltered) {
+            filteredMemories.value = [uiMemory, ...filteredMemories];
+          }
           totalResults.value = filteredMemories.length;
           if (!isSearchedMemoryList.value) {
             indicatorType.value = hasActiveFilters.value ? 'filter' : '';
@@ -888,6 +912,7 @@ class FilterController extends GetxController {
       if (Get.isRegistered<AddMemoriesController>()) {
         final add = Get.find<AddMemoriesController>();
         if (incremental &&
+            !alreadyInFiltered &&
             filteredMemories.isNotEmpty &&
             filteredMemories.first['id']?.toString() == memoryId.toString()) {
           add.prependToDisplayList(uiMemory);
