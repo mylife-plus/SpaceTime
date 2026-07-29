@@ -44,10 +44,10 @@ Future<bool?> showTrackPastUploadDeleteConfirmDialog() {
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: accent),
             child: Text(
               'text_cancel'.tr,
-              style: AppFonts.medium(16, color: Colors.red),
+              style: AppFonts.medium(16, color: accent),
             ),
           ),
           TextButton(

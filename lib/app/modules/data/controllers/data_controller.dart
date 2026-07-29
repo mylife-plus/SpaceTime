@@ -36,7 +36,7 @@ class DataController extends GetxController {
         final isDark = ui.darkMode.value;
         final accent =
             isDark ? ui.currentMainColor : (ui.primaryColor ?? Colors.blue);
-        final buttonColor = destructiveButtons ? Colors.red : accent;
+        final confirmColor = destructiveButtons ? Colors.red : accent;
         final titleColor = isDark ? Colors.white : Colors.black87;
         final bodyColor = isDark ? Colors.white70 : Colors.black87;
         return AlertDialog(
@@ -53,18 +53,18 @@ class DataController extends GetxController {
           actions: [
             TextButton(
               onPressed: () => Get.back(result: false),
-              style: TextButton.styleFrom(foregroundColor: buttonColor),
+              style: TextButton.styleFrom(foregroundColor: accent),
               child: Text(
                 cancelLabel,
-                style: AppFonts.medium(16, color: buttonColor),
+                style: AppFonts.medium(16, color: accent),
               ),
             ),
             TextButton(
               onPressed: () => Get.back(result: true),
-              style: TextButton.styleFrom(foregroundColor: buttonColor),
+              style: TextButton.styleFrom(foregroundColor: confirmColor),
               child: Text(
                 confirmLabel,
-                style: AppFonts.medium(16, color: buttonColor),
+                style: AppFonts.medium(16, color: confirmColor),
               ),
             ),
           ],
