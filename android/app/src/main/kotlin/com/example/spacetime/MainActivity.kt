@@ -8,12 +8,13 @@ import android.os.Looper
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.*
 
-class MainActivity : FlutterActivity() {
+/// [FlutterFragmentActivity] is required for local_auth / BiometricPrompt on Android.
+class MainActivity : FlutterFragmentActivity() {
     private val LOCATION_SEARCH_CHANNEL = "com.spacetime.location_search"
     private val TILE_DOWNLOAD_CHANNEL = "com.spacetime.tile_download"
     private val APP_LOCALE_CHANNEL = "com.spacetime/app_locale"

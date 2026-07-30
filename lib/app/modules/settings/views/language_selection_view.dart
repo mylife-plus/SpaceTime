@@ -14,12 +14,17 @@ class LanguageSelectionView extends StatelessWidget {
   Widget build(BuildContext context) {
     final ui = Get.find<UiController>();
 
-    return Obx(
-      () => Scaffold(
+    return Obx(() {
+      // Track selection at the top of Obx so checkmarks rebuild on Android.
+      final selected = ui.selectedLanguage.value;
+      final isDark = ui.darkMode.value;
+      final mainColor = ui.mainColor.value;
+
+      return Scaffold(
         backgroundColor:
-            ui.darkMode.value
+            isDark
                 ? ui.darkBackgroundColor
-                : ui.getLightModeBackgroundColor(ui.mainColor.value),
+                : ui.getLightModeBackgroundColor(mainColor),
         appBar: CustomAppBar(
           title: AppTexts.language,
           icon: const Icon(Icons.language, color: Colors.white),
@@ -32,6 +37,9 @@ class LanguageSelectionView extends StatelessWidget {
                 children: [
                   for (var i = 0; i < kSupportedLanguages.length; i++)
                     SettingsTile(
+                      key: ValueKey(
+                        'lang-${kSupportedLanguages[i].code}-$selected',
+                      ),
                       icon: Text(
                         kSupportedLanguages[i].emoji,
                         style: const TextStyle(fontSize: 22),
@@ -40,15 +48,11 @@ class LanguageSelectionView extends StatelessWidget {
                       showDivider: i < kSupportedLanguages.length - 1,
                       showChevron: false,
                       trailing:
-                          ui.selectedLanguage.value ==
-                                  kSupportedLanguages[i].code
+                          selected == kSupportedLanguages[i].code
                               ? Icon(
                                 Icons.check,
                                 size: 22,
-                                color:
-                                    ui.darkMode.value
-                                        ? Colors.white
-                                        : Colors.black87,
+                                color: isDark ? Colors.white : Colors.black87,
                               )
                               : null,
                       onTap: () async {
@@ -63,7 +67,7 @@ class LanguageSelectionView extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
+      );
+    });
   }
 }

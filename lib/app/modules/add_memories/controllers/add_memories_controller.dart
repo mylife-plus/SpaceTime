@@ -1270,7 +1270,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     rebuildDisplayList();
     final map = Get.find<MapControllerNew>();
     await map.loadMemoriesFromDB(_filterController.filteredMemories.toList());
-    await map.showLoadedDataOnMap();
+    await map.showLoadedDataOnMap(focusOnMemories: true);
   }
 
   void seeAllMemories() {
@@ -2299,7 +2299,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       );
 
       Future.delayed(Duration(milliseconds: 200), () {
-        mapController.showLoadedDataOnMap();
+        mapController.showLoadedDataOnMap(focusOnMemories: true);
         mapController.initializeMapAfterCreation();
       });
 
@@ -2380,7 +2380,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       await mapController.loadMemoriesFromDB(
         _filterController.filteredMemories.toList(),
       );
-      mapController.showLoadedDataOnMap();
+      mapController.showLoadedDataOnMap(focusOnMemories: true);
 
       debugPrint('[AddMemoriesController] ✅ Map synced with filtered memories');
 

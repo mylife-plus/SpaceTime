@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -19,7 +21,16 @@ Future<bool> ensureMediaGalleryPermissionForPicker(BuildContext context) async {
   var state = await PhotoManager.getPermissionState(
       requestOption: kMediaGpsGalleryPermissionRequest);
   // iOS Limited Library is `limited`, not `authorized`; use hasAccess.
-  if (state.hasAccess) return true;
+  // Android: photos may already be granted from an older install without
+  // ACCESS_MEDIA_LOCATION — re-request so GPS EXIF becomes readable.
+  if (state.hasAccess) {
+    if (Platform.isAndroid) {
+      state = await PhotoManager.requestPermissionExtend(
+        requestOption: kMediaGpsGalleryPermissionRequest,
+      );
+    }
+    return state.hasAccess;
+  }
   if (!context.mounted) return false;
 
   final prime = await showDialog<bool>(

@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
@@ -179,19 +180,13 @@ class GpxKmzUploadController extends GetxController {
   Future<void> pickKmzFile() async {
     // iOS: custom UTIs hide most rows in the picker's Recents vs the Files app.
     // public.item (FileType.any) matches system Recents; we filter by extension.
+    // Android: FileType.custom + extensions is unreliable on OEM UIs — use any + filter.
     final FilePickerResult? result =
-        Platform.isIOS
-            ? await FilePicker.platform.pickFiles(
-              type: FileType.any,
-              withData: false,
-              withReadStream: false,
-            )
-            : await FilePicker.platform.pickFiles(
-              type: FileType.custom,
-              allowedExtensions: const ['kmz', 'gpx', 'zip'],
-              withData: false,
-              withReadStream: false,
-            );
+        await FilePicker.platform.pickFiles(
+          type: FileType.any,
+          withData: false,
+          withReadStream: false,
+        );
     if (result == null || result.files.isEmpty) return;
     final f = result.files.first;
     if (!_isSupportedTrackFileName(f.name)) {
@@ -202,7 +197,18 @@ class GpxKmzUploadController extends GetxController {
       _showInvalidTrackFileSnackbar();
       return;
     }
-    final path = f.path;
+    var path = f.path;
+    if ((path == null || path.isEmpty) && f.bytes != null && f.bytes!.isNotEmpty) {
+      final tmp = await getTemporaryDirectory();
+      final dest = File(
+        p.join(
+          tmp.path,
+          'track_${DateTime.now().microsecondsSinceEpoch}_${f.name}',
+        ),
+      );
+      await dest.writeAsBytes(f.bytes!, flush: true);
+      path = dest.path;
+    }
     if (path != null && path.isNotEmpty) {
       if (await SpaceTimeBackupZip.isBackupZipFile(path)) {
         _showInvalidTrackFileSnackbar();

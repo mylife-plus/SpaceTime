@@ -664,7 +664,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
     await mapController?.loadMemoriesFromDB(
       filterController.filteredMemories.toList(),
     );
-    mapController?.showLoadedDataOnMap();
+    mapController?.showLoadedDataOnMap(focusOnMemories: true);
 
     debugPrint('[FilterOverlay] ✅ Map reloaded');
   }

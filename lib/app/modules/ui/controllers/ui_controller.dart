@@ -30,23 +30,34 @@ class UiController extends GetxController {
 
   Future<void> setMainColor(String color) async {
     mainColor.value = color;
+    mainColor.refresh();
     await _saveMainColor(color);
-    _restartAppIfMobile();
+    // Do not kill the process — Obx/GetMaterialApp already apply the theme live.
+    // Restart.restartApp() on Android relaunches from splash; iOS usually ignores it.
   }
 
   Future<void> setLanguage(String code, {bool restartAfterApply = false}) async {
     final normalized =
         kSupportedLanguages.any((l) => l.code == code) ? code : 'en';
     selectedLanguage.value = normalized;
+    selectedLanguage.refresh();
     Get.updateLocale(appLocaleFromLanguageCode(normalized));
-    await AndroidApplicationLocale.sync(normalized);
+    // Persist before any platform locale work so a recreate cannot reload the old value.
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('selected_language', normalized);
     } catch (e) {
       debugPrint('[UiController] Error saving language: $e');
     }
-    if (restartAfterApply) {
+    // Android: AppCompatDelegate.setApplicationLocales() recreates the Activity
+    // (splash / lost checkmarks). Sync native locale on cold start only.
+    // iOS: sync is a no-op in AndroidApplicationLocale.
+    if (!Platform.isAndroid) {
+      await AndroidApplicationLocale.sync(normalized);
+    }
+    if (restartAfterApply && !Platform.isAndroid) {
+      // Android: live locale update via Get.updateLocale — Restart.restartApp()
+      // relaunches from splash. iOS still soft-restarts when requested.
       _restartAppIfMobile();
     }
   }
@@ -55,7 +66,7 @@ class UiController extends GetxController {
     darkMode.value = isDark;
     await _saveDarkMode(isDark);
     AppSystemUi.syncTheme(isDark);
-    _restartAppIfMobile();
+    // Live update only — full Restart.restartApp() sends Android back to splash.
   }
 
   void _restartAppIfMobile() {

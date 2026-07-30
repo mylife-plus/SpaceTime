@@ -55,13 +55,23 @@ class MediaGpsFileImportService {
   static const int _parseConcurrency = 4;
 
   static Future<MediaGpsFileImportResult?> pickAndParse() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: MediaGpsFileMetadataService.pickableFileExtensions,
-      allowMultiple: true,
-      withReadStream: false,
-      withData: false,
-    );
+    // Android: FileType.custom + extensions often fails or returns null paths on
+    // OEM file UIs. Prefer media types; filter by extension afterwards.
+    // iOS: custom extensions work well in Files.
+    final FilePickerResult? result = Platform.isAndroid
+        ? await FilePicker.platform.pickFiles(
+            type: FileType.media,
+            allowMultiple: true,
+            withReadStream: false,
+            withData: false,
+          )
+        : await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: MediaGpsFileMetadataService.pickableFileExtensions,
+            allowMultiple: true,
+            withReadStream: false,
+            withData: false,
+          );
     if (result == null || result.files.isEmpty) return null;
 
     final stagingDir = await _ensureStagingDir();
@@ -107,9 +117,11 @@ class MediaGpsFileImportService {
     PlatformFile f,
     Directory stagingDir,
   ) async {
-    final rawPath = f.path;
-    if (rawPath == null || rawPath.isEmpty) return const _PickedFileOutcome.skip();
-    final sourcePath = MemoryController.normalizeLocalFilePath(rawPath);
+    final sourcePath = await _resolveReadablePath(f, stagingDir);
+    if (sourcePath == null || sourcePath.isEmpty) {
+      debugPrint('[MediaGpsFileImport] skip (no path): ${f.name}');
+      return const _PickedFileOutcome.skip();
+    }
 
     if (!MediaGpsFileMetadataService.isAllowedPickerExtension(
       f.extension,
@@ -176,9 +188,34 @@ class MediaGpsFileImportService {
         ),
       );
     } catch (e, st) {
-      debugPrint('[MediaGpsFileImport] skip $rawPath: $e\n$st');
+      debugPrint('[MediaGpsFileImport] skip $sourcePath: $e\n$st');
       return const _PickedFileOutcome.unsupported();
     }
+  }
+
+  /// Android SAF picks sometimes omit [PlatformFile.path]; fall back to bytes.
+  static Future<String?> _resolveReadablePath(
+    PlatformFile f,
+    Directory stagingDir,
+  ) async {
+    final rawPath = f.path;
+    if (rawPath != null && rawPath.isNotEmpty) {
+      final normalized = MemoryController.normalizeLocalFilePath(rawPath);
+      if (await File(normalized).exists()) return normalized;
+      if (await File(rawPath).exists()) return rawPath;
+    }
+    final bytes = f.bytes;
+    if (bytes == null || bytes.isEmpty) return null;
+    final safeName =
+        p.basename(f.name).replaceAll(RegExp(r'[^\w.\-]'), '_');
+    final dest = File(
+      p.join(
+        stagingDir.path,
+        'pick_${DateTime.now().microsecondsSinceEpoch}_$safeName',
+      ),
+    );
+    await dest.writeAsBytes(bytes, flush: true);
+    return dest.path;
   }
 
   static Future<Directory> _ensureStagingDir() async {

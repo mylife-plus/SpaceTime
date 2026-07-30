@@ -601,8 +601,14 @@ class AppLockController extends GetxController with WidgetsBindingObserver {
       _log('authenticate', 'after authError=generic (timeout)');
     } catch (e) {
       _log('authenticate', 'catch', e);
-      authError.value = 'app_lock_error_generic';
-      _log('authenticate', 'after authError=generic');
+      final message = e.toString();
+      if (message.contains('no_fragment_activity') ||
+          message.contains('FragmentActivity')) {
+        authError.value = 'app_lock_error_device_not_supported';
+      } else {
+        authError.value = 'app_lock_error_generic';
+      }
+      _log('authenticate', 'after authError set', authError.value);
     } finally {
       try {
         await _localAuth.stopAuthentication();

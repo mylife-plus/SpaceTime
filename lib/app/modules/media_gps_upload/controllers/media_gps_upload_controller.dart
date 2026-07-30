@@ -223,7 +223,21 @@ class MediaGpsUploadController extends GetxController {
     final gen = ++_galleryLoadGen;
     galleryLoading.value = true;
     try {
-      final list = await MediaGpsGalleryService.loadRecentAssets();
+      // Android: ensure ACCESS_MEDIA_LOCATION before EXIF GPS reads.
+      await MediaGpsGalleryService.ensureMediaLocationAccess();
+      if (gen != _galleryLoadGen) return;
+
+      final list = await MediaGpsGalleryService.loadRecentAssets(
+        onProgress: (snapshot) {
+          if (gen != _galleryLoadGen) return;
+          _assignGalleryListPreservingFilePicks(snapshot);
+        },
+        onFirstBatchDone: () {
+          if (gen != _galleryLoadGen) return;
+          // Unlock selection / empty state while remaining batches scan.
+          galleryLoading.value = false;
+        },
+      );
       if (gen != _galleryLoadGen) return;
       _assignGalleryListPreservingFilePicks(list);
       await _refreshDedupeDataAndRecompute();

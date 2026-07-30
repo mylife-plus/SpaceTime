@@ -161,7 +161,7 @@ class FilterIndicator extends StatelessWidget {
     // Close filter overlay and reload map
     mapController?.isFilterOpen.value = false;
     await mapController?.loadMemoriesFromDB(filterController.filteredMemories.toList());
-    mapController?.showLoadedDataOnMap();
+    mapController?.showLoadedDataOnMap(focusOnMemories: true);
 
     debugPrint('[FilterIndicator] ✅ Map reloaded');
   }

@@ -52,6 +52,10 @@ class MapControllerNew extends GetxController {
 
   Future<void> _mapVisualOpsTail = Future.value();
 
+  /// When true, [showLoadedDataOnMap] zooms to filtered/displayed memories after
+  /// layers paint. Android often ignores setCamera mid source/layer update.
+  bool _pendingFocusOnDisplayedMemories = false;
+
   // MapBox Native Clustering Constants
   static const String MEMORY_SOURCE_ID = 'memory-source';
   static const String CLUSTER_LAYER_ID = 'cluster-layer';
@@ -387,7 +391,10 @@ class MapControllerNew extends GetxController {
     });
   }
 
-  Future<void> showLoadedDataOnMap() async {
+  Future<void> showLoadedDataOnMap({bool focusOnMemories = false}) async {
+    if (focusOnMemories) {
+      _pendingFocusOnDisplayedMemories = true;
+    }
     await (_mapVisualOpsTail = _mapVisualOpsTail
         .then((_) async {
           await _showLoadedDataOnMapImpl();
@@ -446,6 +453,14 @@ class MapControllerNew extends GetxController {
     }
 
     handleMapTap();
+
+    if (_pendingFocusOnDisplayedMemories) {
+      _pendingFocusOnDisplayedMemories = false;
+      // Android Mapbox often ignores setCamera while sources/layers are still
+      // settling — wait a beat, then fly to filtered results.
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await focusOnDisplayedMemories();
+    }
 
     debugPrint('[MapControllerNew] ✅ Map display completed');
   }
@@ -1735,7 +1750,7 @@ class MapControllerNew extends GetxController {
     // Load filtered memories from FilterController
     await loadMemoriesFromDB(_filterController.filteredMemories.toList());
 
-    showLoadedDataOnMap();
+    await showLoadedDataOnMap(focusOnMemories: true);
   }
 
   /// Reset all filters
@@ -1827,6 +1842,61 @@ class MapControllerNew extends GetxController {
     return null;
   }
 
+  /// Zoom to the memories currently on the map (after filters/search).
+  /// Prefers an active location filter center; otherwise the latest displayed memory.
+  Future<void> focusOnDisplayedMemories() async {
+    if (mapboxMap == null || !isMapReady.value || !isStyleReady.value) {
+      debugPrint(
+        '[MapControllerNew] focusOnDisplayedMemories skipped (map not ready)',
+      );
+      return;
+    }
+
+    final loc = _filterController.selectedLocation.value.trim();
+    final radiusStr = _filterController.selectedRadius.value.trim();
+    if (loc.isNotEmpty) {
+      final parts = loc.split(',');
+      if (parts.length >= 2) {
+        final lat = double.tryParse(parts[0].trim());
+        final lng = double.tryParse(parts[1].trim());
+        if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
+          final radiusKm = double.tryParse(radiusStr) ?? 10.0;
+          final zoom = _zoomForFilterRadiusKm(radiusKm);
+          currentZoom.value = zoom;
+          try {
+            await mapboxMap!.setCamera(
+              mapbox.CameraOptions(
+                center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
+                zoom: zoom,
+                bearing: 0,
+                pitch: 0,
+              ),
+            );
+            debugPrint(
+              '[MapControllerNew] ✅ Focused filter location ($lat, $lng) zoom $zoom',
+            );
+            return;
+          } catch (e) {
+            debugPrint('[MapControllerNew] setCamera filter location failed: $e');
+          }
+        }
+      }
+    }
+
+    await _setDefaultCameraPosition(_currentMemories.toList());
+  }
+
+  double _zoomForFilterRadiusKm(double radiusKm) {
+    if (radiusKm <= 2) return 13.0;
+    if (radiusKm <= 5) return 12.0;
+    if (radiusKm <= 10) return 11.0;
+    if (radiusKm <= 25) return 10.0;
+    if (radiusKm <= 50) return 9.0;
+    if (radiusKm <= 100) return 8.0;
+    if (radiusKm <= 250) return 7.0;
+    return 6.0;
+  }
+
   /// Decide default camera position:
   /// 1) Latest memory by created_at across ALL memories (not just filtered view)
   /// 2) Current location (if available)
@@ -1872,11 +1942,10 @@ class MapControllerNew extends GetxController {
 
       await mapboxMap!.setCamera(
         mapbox.CameraOptions(
-          center: mapbox.Point(coordinates: mapbox.Position(lng!, lat!)),
+          center: mapbox.Point(coordinates: mapbox.Position(lng, lat)),
           zoom: zoom,
         ),
       );
-      //
       debugPrint(
         '[MapControllerNew] ✅ Default camera: latest memory at ($lat, $lng) with zoom $zoom',
       );
@@ -1897,20 +1966,6 @@ class MapControllerNew extends GetxController {
           zoom: 6,
         ),
       );
-      // await mapboxMap!.flyTo(
-      //   mapbox.CameraOptions(
-      //     center: mapbox.Point(
-      //       coordinates: mapbox.Position(
-      //         pos.longitude,
-      //         pos.latitude,
-      //       ),
-      //     ),
-      //     zoom: 2,
-      //     bearing: 0,
-      //     pitch: 0,
-      //   ),
-      //   mapbox.MapAnimationOptions(duration: 1500),
-      // );
 
       debugPrint(
         '[MapControllerNew] ✅ Default camera: current location at (${pos.latitude}, ${pos.longitude}) with zoom $zoom',
