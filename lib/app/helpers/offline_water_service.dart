@@ -33,6 +33,7 @@ class OfflineWaterService {
     if (_initialized) return;
 
     await _loadPolygons(oceanGeoJson, _oceans);
+    await Future<void>.delayed(Duration.zero);
     await _loadPolygons(lakeGeoJson, _lakes);
 
     _initialized = true;

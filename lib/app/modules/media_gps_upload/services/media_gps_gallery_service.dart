@@ -25,9 +25,9 @@ class MediaGpsGalleryService {
   /// Upper bound on library positions scanned per album when collecting GPS assets.
   static const int _maxAlbumPositionsScan = 8000;
 
-  /// Parallel EXIF / location reads. Sequential latlngAsync on MIUI can take
-  /// minutes and thrash ExifInterface ("resource failed to call close").
-  static const int _gpsCheckConcurrency = 8;
+  /// Parallel EXIF / location reads. Keep modest on mid-range Android to
+  /// avoid ExifInterface thrashing / input ANRs while the gallery is open.
+  static const int _gpsCheckConcurrency = 4;
 
   /// If this many assets yield zero GPS, stop (missing ACCESS_MEDIA_LOCATION).
   static const int _earlyAbortAfterNoGps = 400;

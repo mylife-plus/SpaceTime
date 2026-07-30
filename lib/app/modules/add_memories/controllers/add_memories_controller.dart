@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
 import '../../../../services/memory_clustering_service.dart';
 import '../../../services/memory_db.dart';
 import '../../memories/controllers/memory_controller.dart';
@@ -66,7 +68,9 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   bool _isScrollingDown = false;
 
   /// Page size for add-memories list (lazy load on scroll).
-  static const int memoryListPageSize = 50;
+  /// Android uses a smaller first window to reduce decode/layout jank.
+  static int get memoryListPageSize =>
+      !kIsWeb && Platform.isAndroid ? 20 : 50;
 
   /// Sorted memories shown in the list (rebuilt when source data/filters change).
   final RxList<Map<String, dynamic>> displayMemories =

@@ -14,11 +14,19 @@ import '../../memories/controllers/memory_controller.dart';
 import '../../map/controllers/map_controller_new.dart';
 import '../../add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
+import 'package:spacetime/app/utils/memory_sort.dart';
 
 /// Dedicated controller for managing all filter-related logic
 /// Used by both MemoriesFilterOverlay and SearchMemoriesView
 class FilterController extends GetxController {
   static const String tag = '[FilterController]';
+
+  /// Cached app documents root — avoids N× platform-channel hits while
+  /// transforming every memory media path on Android.
+  String? _documentsRoot;
+
+  /// In-flight full library load so Filter + AddMemories share one pass.
+  Future<void>? _loadInFlight;
 
   // ============================================================================
   // FILTER STATE
@@ -679,6 +687,18 @@ class FilterController extends GetxController {
   /// Load memories from database and apply filters
   /// This is the main orchestration method that should be called to load and filter memories
   Future<void> loadAndApplyFilters() async {
+    if (_loadInFlight != null) {
+      return _loadInFlight!;
+    }
+    _loadInFlight = _loadAndApplyFiltersImpl();
+    try {
+      await _loadInFlight;
+    } finally {
+      _loadInFlight = null;
+    }
+  }
+
+  Future<void> _loadAndApplyFiltersImpl() async {
     try {
       isLoadingMemories.value = true;
       debugPrint('$tag Starting to load memories from database...');
@@ -689,97 +709,60 @@ class FilterController extends GetxController {
         await _databaseHelper.resetDatabaseConnection();
       }
 
+      await _ensureDocumentsRoot();
+
       // Load all memories from database
       final memories = await _databaseHelper.getAllMemoriesWithDetails();
       debugPrint('$tag Loaded ${memories.length} raw memories from database');
 
-      // Transform database memories to UI format
+      // Transform with periodic yields so Android UI stays responsive.
       final transformedMemories = <Map<String, dynamic>>[];
-      for (final memory in memories) {
+      const yieldEvery = 12;
+      // Publish an early window so Add Memories can leave the spinner sooner.
+      final earlyPaintCount = Platform.isAndroid ? 16 : 32;
+      var publishedEarly = false;
+
+      for (var i = 0; i < memories.length; i++) {
+        final memory = memories[i];
         try {
           final transformed = await transformDatabaseMemoryToUI(memory);
           transformedMemories.add(transformed);
         } catch (e) {
           debugPrint('$tag Error transforming memory ${memory['id']}: $e');
         }
+
+        if (!publishedEarly &&
+            transformedMemories.length >= earlyPaintCount &&
+            memories.length > earlyPaintCount) {
+          publishedEarly = true;
+          final earlySorted =
+              MemorySort.memoriesNewestFirst(List.from(transformedMemories));
+          allMemories.value = earlySorted;
+          updateFilterStatus();
+          applyAllFilters();
+          isLoadingMemories.value = false;
+          if (Get.isRegistered<AddMemoriesController>()) {
+            Get.find<AddMemoriesController>().rebuildDisplayList();
+          }
+          debugPrint(
+            '$tag Early paint with ${earlySorted.length} memories '
+            '(continuing ${memories.length - earlySorted.length} more)',
+          );
+        }
+
+        if ((i + 1) % yieldEvery == 0) {
+          await Future<void>.delayed(Duration.zero);
+        }
       }
 
-      // Sort memories by date and time (newest first)
-      transformedMemories.sort((a, b) {
-        try {
-          final aDate = a['date'] as String? ?? '';
-          final bDate = b['date'] as String? ?? '';
-          final aYear = a['year'] as String? ?? '';
-          final bYear = b['year'] as String? ?? '';
-          final aTime = a['time'] as String? ?? '';
-          final bTime = b['time'] as String? ?? '';
-
-          DateTime? aDateTime;
-          DateTime? bDateTime;
-
-          String format =
-              Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
-
-          if (aTime.toLowerCase().contains('am') ||
-              aTime.toLowerCase().contains('pm')) {
-            format = "d. MMMM yyyy hh:mm a";
-          } else {
-            format = "d. MMMM yyyy HH:mm";
-          }
-
-          // Try to parse memory A
-          try {
-            if (aDate.isNotEmpty) {
-              if (aDate.contains(' ') && aDate.split(' ').length >= 4) {
-                aDateTime = DateTime.tryParse(aDate);
-              } else if (aYear.isNotEmpty) {
-                String dateTimeStr = '$aDate $aYear';
-                if (aTime.isNotEmpty) {
-                  dateTimeStr += ' $aTime';
-                }
-                aDateTime = DateTime.tryParse(dateTimeStr);
-              }
-            }
-          } catch (e) {
-            debugPrint('$tag Error parsing date A: $e');
-          }
-
-          // Try to parse memory B
-          try {
-            if (bDate.isNotEmpty) {
-              if (bDate.contains(' ') && bDate.split(' ').length >= 4) {
-                bDateTime = DateTime.tryParse(bDate);
-              } else if (bYear.isNotEmpty) {
-                String dateTimeStr = '$bDate $bYear';
-                if (bTime.isNotEmpty) {
-                  dateTimeStr += ' $bTime';
-                }
-                bDateTime = DateTime.tryParse(dateTimeStr);
-              }
-            }
-          } catch (e) {
-            debugPrint('$tag Error parsing date B: $e');
-          }
-
-          // Compare dates
-          if (aDateTime != null && bDateTime != null) {
-            return bDateTime.compareTo(aDateTime); // Newest first
-          } else if (aDateTime != null) {
-            return -1;
-          } else if (bDateTime != null) {
-            return 1;
-          }
-          return 0;
-        } catch (e) {
-          debugPrint('$tag Error sorting memories: $e');
-          return 0;
-        }
-      });
+      // Sort off the UI isolate when the library is large.
+      final sorted =
+          await MemorySort.memoriesNewestFirstAsync(transformedMemories);
 
       // Store in global variable
-      allMemories.value = transformedMemories;
+      allMemories.value = sorted;
       debugPrint(
-        '$tag Transformed and sorted ${transformedMemories.length} memories',
+        '$tag Transformed and sorted ${sorted.length} memories',
       );
 
       // Extract unique hashtags, contacts, and categories from all memories
@@ -788,21 +771,24 @@ class FilterController extends GetxController {
       final categoriesSet = <String>{};
 
       for (final memory in allMemories) {
-        final tags = memory[DatabaseHelper.columnTags] as String?;
+        final tags = memory['tags'] as String? ??
+            memory[DatabaseHelper.columnTags] as String?;
         if (tags != null && tags.isNotEmpty) {
           hashtagsSet.addAll(
             tags.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty),
           );
         }
 
-        final mentions = memory[DatabaseHelper.columnMentions] as String?;
+        final mentions = memory['mentions'] as String? ??
+            memory[DatabaseHelper.columnMentions] as String?;
         if (mentions != null && mentions.isNotEmpty) {
           contactsSet.addAll(
             mentions.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty),
           );
         }
 
-        final category = memory[DatabaseHelper.columnCategory] as String?;
+        final category = memory['category'] as String? ??
+            memory[DatabaseHelper.columnCategory] as String?;
         if (category != null && category.isNotEmpty) {
           categoriesSet.add(category);
         }
@@ -1105,10 +1091,13 @@ class FilterController extends GetxController {
           return await _getAbsolutePath(relativePath);
         }),
       );
-      videoThumbnails =
-          videosList
-              .map((video) => (video['video_thumbnail_path'] as String?) ?? '')
-              .toList();
+      videoThumbnails = await Future.wait(
+        videosList.map((video) async {
+          final thumb = (video['video_thumbnail_path'] as String?) ?? '';
+          if (thumb.isEmpty) return '';
+          return await _getAbsolutePath(thumb);
+        }),
+      );
       videoDurations =
           videosList
               .map((video) => (video['video_duration'] as String?) ?? '')
@@ -1266,14 +1255,17 @@ class FilterController extends GetxController {
     return 'Unknown Date';
   }
 
-  /// Convert relative path to absolute path
+  /// Convert relative path to absolute path (documents root cached once).
   Future<String> _getAbsolutePath(String path) async {
     if (path.startsWith('/')) {
       return path;
     }
+    await _ensureDocumentsRoot();
+    return '$_documentsRoot/$path';
+  }
 
-    final appDir = await getApplicationDocumentsDirectory();
-    return '${appDir.path}/$path';
+  Future<void> _ensureDocumentsRoot() async {
+    _documentsRoot ??= (await getApplicationDocumentsDirectory()).path;
   }
 
   /// Format year for display

@@ -1,4 +1,4 @@
-import 'dart:io' show File;
+import 'dart:io' show File, Platform;
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
@@ -100,8 +100,24 @@ class DataController extends GetxController {
       }
       final path = res.filePath;
       if (path != null && path.isNotEmpty) {
+        // Android: confirm Downloads save before the share sheet.
+        if (!kIsWeb && Platform.isAndroid) {
+          showTrSnackbar(
+            res.messageKey,
+            args: res.messageArgs,
+            backgroundColor: Colors.green.shade700,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 4),
+          );
+        }
         await Future<void>.delayed(Duration.zero);
-        await _showBackupExportSheet(path: path);
+        await _showBackupExportSheet(
+          path: path,
+          androidSavedToDownloads:
+              !kIsWeb &&
+              Platform.isAndroid &&
+              res.messageKey == 'backup_ok_export_downloads',
+        );
       } else {
         showTrSnackbar(
           res.messageKey,
@@ -125,7 +141,10 @@ class DataController extends GetxController {
     }
   }
 
-  Future<void> _showBackupExportSheet({required String path}) async {
+  Future<void> _showBackupExportSheet({
+    required String path,
+    bool androidSavedToDownloads = false,
+  }) async {
     final file = File(path);
     if (!await file.exists()) {
       showTrSnackbar(
@@ -146,6 +165,7 @@ class DataController extends GetxController {
         final closeAccent =
             isDark ? accent : (ui.primaryColor ?? accent);
         final titleColor = isDark ? Colors.white : Colors.black87;
+        final bodyColor = isDark ? Colors.white70 : Colors.black54;
 
         return Material(
           color: sheetBg,
@@ -162,6 +182,14 @@ class DataController extends GetxController {
                     style: AppFonts.bold(18, color: titleColor),
                     textAlign: TextAlign.center,
                   ),
+                  if (androidSavedToDownloads) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'backup_sheet_android_downloads_hint'.tr,
+                      style: AppFonts.medium(14, color: bodyColor),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Builder(
                     builder: (btnContext) {

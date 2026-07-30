@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:spacetime/app/modules/data/services/android_backup_downloads.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/spacetime_backup_zip.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 
@@ -122,7 +123,9 @@ class FullBackupService {
         );
       }
 
-      // iOS/Android: FilePicker.saveFile often hangs indefinitely; write to app folder only.
+      // iOS: FilePicker.saveFile often hangs; keep app-folder + share sheet only.
+      // Android: also write into public Downloads (MediaStore) so the zip is
+      // visible in Files / Download.
       String? pickedPath;
       if (kIsWeb) {
         final zipBytes = await outZipFile.readAsBytes();
@@ -171,9 +174,23 @@ class FullBackupService {
       }
       final fallbackPath = p.join(fallbackDir.path, backupName);
       await outZipFile.copy(fallbackPath);
+
+      // Android only: also place a copy in the public Downloads folder.
+      // iOS keeps the existing documents + share flow unchanged.
+      var messageKey = 'backup_ok_export_documents';
+      if (Platform.isAndroid) {
+        final savedToDownloads = await AndroidBackupDownloads.saveZipToDownloads(
+          sourcePath: fallbackPath,
+          fileName: backupName,
+        );
+        if (savedToDownloads) {
+          messageKey = 'backup_ok_export_downloads';
+        }
+      }
+
       return FullBackupResult(
         ok: true,
-        messageKey: 'backup_ok_export_documents',
+        messageKey: messageKey,
         filePath: fallbackPath,
       );
     } catch (e, st) {

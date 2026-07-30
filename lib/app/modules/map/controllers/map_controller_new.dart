@@ -3547,12 +3547,23 @@ class MapControllerNew extends GetxController {
       // Load custom cluster icons first
       // await _loadClusterIcons();
 
-      // Get all style layers to find proper insertion point
-      final layers = await mapboxMap!.style.getStyleLayers();
-      debugPrint('[MapControllerNew] Total layers found: ${layers.length}');
-
-      // Find the first symbol layer for proper ordering
-      String? labelLayerId = layers.last!.id;
+      // Avoid getStyleLayers() (can return 200+ layers and stall the UI isolate).
+      // Prefer known label layer ids from our offline style.
+      const candidateLabelLayers = <String>[
+        'Country labels',
+        'State labels',
+        'place-label',
+        'settlement-label',
+      ];
+      String? labelLayerId;
+      for (final id in candidateLabelLayers) {
+        try {
+          if (await mapboxMap!.style.styleLayerExists(id)) {
+            labelLayerId = id;
+            break;
+          }
+        } catch (_) {}
+      }
 
       try {
         await mapboxMap!.style.addLayer(
@@ -3569,6 +3580,7 @@ class MapControllerNew extends GetxController {
             circleOpacity: 1.0,
           ),
         );
+        await Future<void>.delayed(Duration.zero);
         await mapboxMap!.style.setStyleLayerProperty(
           CLUSTERS_CIRCLE_LAYER_ID,
           'circle-color',
@@ -3620,6 +3632,8 @@ class MapControllerNew extends GetxController {
         );
       } catch (_) {}
 
+      await Future<void>.delayed(Duration.zero);
+
       try {
         await mapboxMap!.style.addLayer(
           mapbox.SymbolLayer(
@@ -3646,7 +3660,7 @@ class MapControllerNew extends GetxController {
       // 2) Cluster count text (symbol layer)
 
       debugPrint(
-        '[MapControllerNew] ✅ All ${CLUSTER_SIZE_TIERS.length} cluster icon layers added',
+        '[MapControllerNew] ✅ Cluster circle + count layers added',
       );
 
       // Layer 2: Individual memory points using custom icon

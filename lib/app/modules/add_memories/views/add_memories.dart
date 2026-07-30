@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -98,7 +99,7 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
           padding: EdgeInsets.zero,
           physics: const AlwaysScrollableScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          cacheExtent: 800,
+          cacheExtent: !kIsWeb && Platform.isAndroid ? 400 : 800,
           itemCount: loaded + footerCount,
           itemBuilder: (context, index) {
             if (index >= loaded) {

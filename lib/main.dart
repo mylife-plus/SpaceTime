@@ -129,7 +129,9 @@ Future<void> _bootstrapAfterFirstPaint() async {
 }
 
 Future<void> _deferGeoAssets() async {
-  await Future<void>.delayed(const Duration(milliseconds: 400));
+  // Wait until after first map frame / Get Started so CSV/GeoJSON workers
+  // do not compete with Mapbox style setup on a cold start (ANR risk).
+  await Future<void>.delayed(const Duration(seconds: 2));
   await _initAssets();
 }
 

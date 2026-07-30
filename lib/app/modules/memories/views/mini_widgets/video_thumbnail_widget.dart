@@ -1,7 +1,9 @@
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 class VideoThumbnailWidget extends StatefulWidget {
   final String videoPath;
@@ -11,6 +13,9 @@ class VideoThumbnailWidget extends StatefulWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onPlayTap;
 
+  /// Prefer a stored DB thumbnail when present (avoids re-decoding video).
+  final String? existingThumbnailPath;
+
   const VideoThumbnailWidget({
     super.key,
     required this.videoPath,
@@ -19,6 +24,7 @@ class VideoThumbnailWidget extends StatefulWidget {
     this.onTap,
     this.onDelete,
     this.onPlayTap,
+    this.existingThumbnailPath,
   });
 
   @override
@@ -26,49 +32,91 @@ class VideoThumbnailWidget extends StatefulWidget {
 }
 
 class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
+  /// Path → generated thumb file (keeps list scroll from re-decoding the same video).
+  static final Map<String, String> _pathCache = <String, String>{};
+
   String? _thumbnailPath;
   bool _isLoading = true;
   bool _hasError = false;
+  bool _ownsGeneratedFile = false;
 
   @override
   void initState() {
     super.initState();
-    debugPrint('🎬 VideoThumbnailWidget created for: ${widget.videoPath}');
     _generateThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoThumbnailWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoPath != widget.videoPath ||
+        oldWidget.existingThumbnailPath != widget.existingThumbnailPath) {
+      _generateThumbnail();
+    }
   }
 
   Future<void> _generateThumbnail() async {
     try {
-      setState(() {
-        _isLoading = true;
-        _hasError = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _hasError = false;
+        });
+      }
 
-      debugPrint('🎬 Generating thumbnail for: ${widget.videoPath}');
+      final existing = widget.existingThumbnailPath;
+      if (existing != null && existing.isNotEmpty) {
+        final f = File(existing);
+        if (await f.exists()) {
+          if (!mounted) return;
+          setState(() {
+            _thumbnailPath = existing;
+            _ownsGeneratedFile = false;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
+      final cached = _pathCache[widget.videoPath];
+      if (cached != null && await File(cached).exists()) {
+        if (!mounted) return;
+        setState(() {
+          _thumbnailPath = cached;
+          _ownsGeneratedFile = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
       final tempDir = await getTemporaryDirectory();
+      // Keep list thumbs small — full 1080 PNG was lagging Android scroll.
       final thumbnailPath = await VideoThumbnail.thumbnailFile(
         video: widget.videoPath,
         thumbnailPath: tempDir.path,
-        imageFormat: ImageFormat.PNG,
-        maxHeight: 1080,
-        quality: 100,
+        imageFormat: ImageFormat.JPEG,
+        maxHeight: 320,
+        quality: 55,
       );
 
-      debugPrint('🎬 Thumbnail generated: $thumbnailPath');
-      if (mounted) {
-        setState(() {
-          _thumbnailPath = thumbnailPath;
-          _isLoading = false;
-        });
+      if (thumbnailPath != null && thumbnailPath.isNotEmpty) {
+        _pathCache[widget.videoPath] = thumbnailPath;
       }
+
+      if (!mounted) return;
+      setState(() {
+        _thumbnailPath = thumbnailPath;
+        _ownsGeneratedFile = false; // kept in [_pathCache]
+        _isLoading = false;
+        _hasError = thumbnailPath == null || thumbnailPath.isEmpty;
+      });
     } catch (e) {
-      debugPrint('❌ Error generating video thumbnail: $e');
-      if (mounted) {
-        setState(() {
-          _hasError = true;
-          _isLoading = false;
-        });
-      }
+      debugPrint('[VideoThumbnailWidget] error: $e');
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+        _isLoading = false;
+      });
     }
   }
 
@@ -83,39 +131,45 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Thumbnail or placeholder
-            _isLoading
-                ? Container(
-                    width: widget.width,
-                    height: widget.height,
-                    color: Colors.grey[300],
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                : _hasError
-                    ? Container(
-                        width: widget.width,
-                        height: widget.height,
-                        color: Colors.grey[300],
-                        child: const Icon(
-                          Icons.videocam_off,
-                          color: Colors.grey,
-                          size: 48,
-                        ),
-                      )
-                    : _thumbnailPath != null
-                        ? Image.file(
-                            File(_thumbnailPath!),
-                            width: widget.width,
-                            height: widget.height,
-                            fit: BoxFit.cover,
-                          )
-                        : Container(
-                            width: widget.width,
-                            height: widget.height,
-                            color: Colors.grey[300],
-                          ),
+            if (_isLoading)
+              Container(
+                width: widget.width,
+                height: widget.height,
+                color: Colors.grey[300],
+                child: const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else if (_hasError)
+              Container(
+                width: widget.width,
+                height: widget.height,
+                color: Colors.grey[300],
+                child: const Icon(
+                  Icons.videocam_off,
+                  color: Colors.grey,
+                  size: 48,
+                ),
+              )
+            else if (_thumbnailPath != null)
+              Image.file(
+                File(_thumbnailPath!),
+                width: widget.width,
+                height: widget.height,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.low,
+                gaplessPlayback: true,
+              )
+            else
+              Container(
+                width: widget.width,
+                height: widget.height,
+                color: Colors.grey[300],
+              ),
             if (!_isLoading && !_hasError)
               Center(
                 child: Row(
@@ -140,7 +194,6 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                   ],
                 ),
               ),
-            // Delete button
             if (widget.onDelete != null)
               Positioned(
                 top: 4,
@@ -170,18 +223,15 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
 
   @override
   void dispose() {
-    // Clean up thumbnail file if it exists
-    if (_thumbnailPath != null) {
+    // Cached thumbs are shared across list rebuilds — do not delete.
+    if (_ownsGeneratedFile && _thumbnailPath != null) {
       try {
         final file = File(_thumbnailPath!);
         if (file.existsSync()) {
-          file.delete();
+          file.deleteSync();
         }
-      } catch (e) {
-        debugPrint('Error deleting thumbnail: $e');
-      }
+      } catch (_) {}
     }
     super.dispose();
   }
 }
-

@@ -187,6 +187,17 @@ class MemoryCard extends StatefulWidget {
     }
   }
 
+  /// Match a video file path to its stored thumbnail (same index in lists).
+  String? thumbnailForVideoPath(String videoPath) {
+    final paths = videoPaths;
+    final thumbs = videoThumbnails;
+    if (paths == null || thumbs == null) return null;
+    final i = paths.indexOf(videoPath);
+    if (i < 0 || i >= thumbs.length) return null;
+    final t = thumbs[i];
+    return t.isEmpty ? null : t;
+  }
+
   List<String>? get videoDurations {
     try {
       final value = memoryData['videoDurations'];
@@ -828,6 +839,7 @@ class _MemoryCardState extends State<MemoryCard> {
                 videoPath: videoPath,
                 width: w,
                 height: h,
+                existingThumbnailPath: widget.thumbnailForVideoPath(videoPath),
                 onTap: () => _startInlineVideo(videoPath, index),
                 onPlayTap: () => _startInlineVideo(videoPath, index),
               ),
@@ -1139,7 +1151,6 @@ class _MemoryCardState extends State<MemoryCard> {
   Widget build(BuildContext context) {
     final controller = Get.find<UiController>();
 
-    debugPrint('Memory Data: ${widget.memoryData}');
     return Obx(() {
       final _ = controller.selectedLanguage.value;
       controller.darkMode.value;
@@ -1390,10 +1401,7 @@ class _MemoryCardState extends State<MemoryCard> {
 
   getDayOrDate(String date, year) {
     String d = '$date $year';
-    print('Date Time $d');
-
     return formatDateString(d, date);
-    // return date;
   }
 
   String formatDateString(String dateString, d) {

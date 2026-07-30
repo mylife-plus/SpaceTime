@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
-import 'package:flutter/services.dart';
+import 'dart:typed_data';
+
 import 'package:csv/csv.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 class NearestRegionService {
   NearestRegionService._internal();
@@ -14,167 +18,91 @@ class NearestRegionService {
   final Map<String, String> _admin1Names = {};
   final List<_AdminPolygon> _adminPolygons = [];
   bool _isLoaded = false;
+  Future<void>? _loading;
+
+  bool get isLoaded => _isLoaded;
 
   Future<void> loadFromAssets({
     String assetPath = 'assets/states.csv',
   }) async {
     if (_isLoaded) return;
-
-    final raw = await rootBundle.loadString(assetPath);
-    final rows = const CsvToListConverter(
-      shouldParseNumbers: false,
-      eol: '\n',
-    ).convert(raw);
-
-    for (int i = 1; i < rows.length; i++) {
-      final row = rows[i];
-      if (row.length < 17) continue;
-      _regions.add(
-        Region(
-          id: int.tryParse(row[0].toString()) ?? 0,
-          name: row[1].toString(),
-          countryId: int.tryParse(row[2].toString()) ?? 0,
-          countryCode: row[3].toString(),
-          countryName: row[4].toString(),
-          iso2: row[5].toString(),
-          iso3166_2: row[6].toString(),
-          fipsCode: row[7].toString(),
-          type: row[8].toString(),
-          level: row[9].toString(),
-          parentId: row[10].toString().isEmpty
-              ? null
-              : int.tryParse(row[10].toString()),
-          nativeName: row[11].toString(),
-          latitude: double.tryParse(row[12].toString()) ?? 0.0,
-          longitude: double.tryParse(row[13].toString()) ?? 0.0,
-          timezone: row[14].toString(),
-          wikiDataId: row[15].toString(),
-          population: row[16].toString().isEmpty
-              ? 0
-              : int.tryParse(row[16].toString()) ?? 0,
-        ),
-      );
+    // Deduplicate concurrent callers (map + deferred startup).
+    if (_loading != null) return _loading!;
+    _loading = _loadFromAssetsImpl(assetPath);
+    try {
+      await _loading;
+    } finally {
+      _loading = null;
     }
+  }
 
-    await _loadCities500();
-    await _loadAdmin1Codes();
-    await _loadAdminPolygons();
+  Future<void> _loadFromAssetsImpl(String assetPath) async {
+    if (_isLoaded) return;
+
+    // Load bytes on UI isolate (fast), decode+parse on workers so cold-start
+    // map taps are not blocked for 10s+ (Xiaomi ANR / input timeout).
+    final statesBytes = await _assetBytes(assetPath);
+    final citiesBytes = await _assetBytes('assets/cities500.csv');
+    final admin1Bytes = await _assetBytes('assets/admin1codes.csv');
+    final polygonsBytes = await _assetBytes('assets/geo/ne_10m_admin1.json');
+
+    await Future<void>.delayed(Duration.zero);
+
+    final regions = await Isolate.run(() => _parseStatesCsvBytes(statesBytes));
+    await Future<void>.delayed(Duration.zero);
+    final cities = await Isolate.run(() => _parseCities500CsvBytes(citiesBytes));
+    await Future<void>.delayed(Duration.zero);
+    final admin1 =
+        await Isolate.run(() => _parseAdmin1CsvBytes(admin1Bytes));
+    await Future<void>.delayed(Duration.zero);
+    final polygons =
+        await Isolate.run(() => _parseAdminPolygonsJsonBytes(polygonsBytes));
+
+    _regions
+      ..clear()
+      ..addAll(regions);
+    await _appendInChunks(_cities..clear(), cities);
+    _admin1Names
+      ..clear()
+      ..addAll(admin1);
+    await _appendInChunks(_adminPolygons..clear(), polygons);
 
     _isLoaded = true;
+    debugPrint(
+      '[NearestRegion] Loaded ${_cities.length} cities, '
+      '${_admin1Names.length} admin1, ${_adminPolygons.length} polygons '
+      '(off main isolate)',
+    );
   }
 
-  Future<void> _loadCities500() async {
-    try {
-      final raw = await rootBundle.loadString('assets/cities500.csv');
-      final rows = const CsvToListConverter(
-        shouldParseNumbers: false,
-        eol: '\n',
-      ).convert(raw);
-      for (int i = 1; i < rows.length; i++) {
-        final row = rows[i];
-        if (row.length < 7) continue;
-        _cities.add(_CityEntry(
-          name: row[0].toString(),
-          latitude: double.tryParse(row[1].toString()) ?? 0.0,
-          longitude: double.tryParse(row[2].toString()) ?? 0.0,
-          countryCode: row[3].toString(),
-          admin1: row[4].toString(),
-          admin2: row[5].toString(),
-          population: int.tryParse(row[6].toString()) ?? 0,
-        ));
-      }
-      print('[NearestRegion] Loaded ${_cities.length} cities from cities500');
-    } catch (e) {
-      print('[NearestRegion] Failed to load cities500: $e');
+  static Future<void> _appendInChunks<T>(List<T> target, List<T> source) async {
+    const chunk = 8000;
+    for (var i = 0; i < source.length; i += chunk) {
+      final end = i + chunk > source.length ? source.length : i + chunk;
+      target.addAll(source.sublist(i, end));
+      await Future<void>.delayed(Duration.zero);
     }
   }
 
-  Future<void> _loadAdmin1Codes() async {
-    try {
-      final raw = await rootBundle.loadString('assets/admin1codes.csv');
-      final rows = const CsvToListConverter(
-        shouldParseNumbers: false,
-        eol: '\n',
-      ).convert(raw);
-      for (int i = 1; i < rows.length; i++) {
-        final row = rows[i];
-        if (row.length < 2) continue;
-        _admin1Names[row[0].toString()] = row[1].toString();
-      }
-      print('[NearestRegion] Loaded ${_admin1Names.length} admin1 codes');
-    } catch (e) {
-      print('[NearestRegion] Failed to load admin1codes: $e');
-    }
-  }
-
-  Future<void> _loadAdminPolygons() async {
-    try {
-      final raw = await rootBundle.loadString('assets/geo/ne_10m_admin1.json');
-      final geojson = jsonDecode(raw) as Map<String, dynamic>;
-      final features = geojson['features'] as List;
-      for (final f in features) {
-        final props = f['properties'] as Map<String, dynamic>;
-        final geom = f['geometry'] as Map<String, dynamic>;
-        final name = props['n']?.toString() ?? '';
-        final cc = props['c']?.toString() ?? '';
-        final type = geom['type']?.toString() ?? '';
-
-        final polygons = <List<List<double>>>[];
-        if (type == 'Polygon') {
-          final coords = geom['coordinates'] as List;
-          for (final ring in coords) {
-            polygons.add((ring as List).map((p) => [
-              (p[0] as num).toDouble(),
-              (p[1] as num).toDouble(),
-            ]).toList());
-          }
-        } else if (type == 'MultiPolygon') {
-          final multiCoords = geom['coordinates'] as List;
-          for (final poly in multiCoords) {
-            for (final ring in (poly as List)) {
-              polygons.add((ring as List).map((p) => [
-                (p[0] as num).toDouble(),
-                (p[1] as num).toDouble(),
-              ]).toList());
-            }
-          }
-        }
-
-        if (polygons.isNotEmpty) {
-          double minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-          for (final ring in polygons) {
-            for (final pt in ring) {
-              if (pt[1] < minLat) minLat = pt[1];
-              if (pt[1] > maxLat) maxLat = pt[1];
-              if (pt[0] < minLng) minLng = pt[0];
-              if (pt[0] > maxLng) maxLng = pt[0];
-            }
-          }
-          _adminPolygons.add(_AdminPolygon(
-            name: name,
-            countryCode: cc,
-            rings: polygons,
-            minLat: minLat,
-            maxLat: maxLat,
-            minLng: minLng,
-            maxLng: maxLng,
-          ));
-        }
-      }
-      print('[NearestRegion] Loaded ${_adminPolygons.length} admin polygons');
-    } catch (e) {
-      print('[NearestRegion] Failed to load admin polygons: $e');
-    }
+  static Future<Uint8List> _assetBytes(String path) async {
+    final data = await rootBundle.load(path);
+    // Copy so Isolate.run can transfer a standalone buffer (not a view).
+    return Uint8List.fromList(
+      data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+    );
   }
 
   String? findStateByPolygon(double lat, double lng, {String? countryCode}) {
     for (final poly in _adminPolygons) {
       if (lat < poly.minLat || lat > poly.maxLat) continue;
       if (lng < poly.minLng || lng > poly.maxLng) continue;
-      if (countryCode != null && countryCode.isNotEmpty && poly.countryCode != countryCode) continue;
+      if (countryCode != null &&
+          countryCode.isNotEmpty &&
+          poly.countryCode != countryCode) {
+        continue;
+      }
       for (final ring in poly.rings) {
         if (_pointInRing(lat, lng, ring)) {
-          print('[NearestRegion] Polygon match: ${poly.name} (${poly.countryCode})');
           return poly.name;
         }
       }
@@ -202,21 +130,36 @@ class NearestRegionService {
 
     final polyState = findStateByPolygon(lat, lng, countryCode: countryCode);
     if (polyState != null) {
-      final match = _regions.where((r) =>
-        r.name.toLowerCase() == polyState.toLowerCase() &&
-        (countryCode == null || countryCode.isEmpty || r.countryCode == countryCode)
-      ).toList();
+      final match = _regions
+          .where(
+            (r) =>
+                r.name.toLowerCase() == polyState.toLowerCase() &&
+                (countryCode == null ||
+                    countryCode.isEmpty ||
+                    r.countryCode == countryCode),
+          )
+          .toList();
       if (match.isNotEmpty) {
-        print('[NearestRegion] Polygon resolved to region: ${match.first.name}');
         return match.first;
       }
       return Region(
-        id: 0, name: polyState, countryId: 0,
-        countryCode: countryCode ?? '', countryName: '',
-        iso2: '', iso3166_2: '', fipsCode: '',
-        type: 'polygon-derived', level: '', parentId: null,
-        nativeName: '', latitude: lat, longitude: lng,
-        timezone: '', wikiDataId: '', population: 0,
+        id: 0,
+        name: polyState,
+        countryId: 0,
+        countryCode: countryCode ?? '',
+        countryName: '',
+        iso2: '',
+        iso3166_2: '',
+        fipsCode: '',
+        type: 'polygon-derived',
+        level: '',
+        parentId: null,
+        nativeName: '',
+        latitude: lat,
+        longitude: lng,
+        timezone: '',
+        wikiDataId: '',
+        population: 0,
       );
     }
 
@@ -252,21 +195,15 @@ class NearestRegionService {
 
     candidates.sort((a, b) => b.score.compareTo(a.score));
 
-    print('[NearestRegion] Query: $lat, $lng | countryCode: $countryCode | found: ${candidates.length}');
-    for (int i = 0; i < candidates.length && i < 10; i++) {
-      final c = candidates[i];
-      print('[NearestRegion] #${i + 1}: ${c.region.name}, ${c.region.countryName} (${c.region.countryCode}) | dist: ${c.distance.toStringAsFixed(2)} km | score: ${c.score.toStringAsFixed(4)}');
-    }
-
     if (countryCode != null && countryCode.isNotEmpty) {
-      final countryMatches = candidates.where((c) => c.region.countryCode == countryCode).toList();
+      final countryMatches = candidates
+          .where((c) => c.region.countryCode == countryCode)
+          .toList();
       if (countryMatches.isNotEmpty) {
-        print('[NearestRegion] Selected(state): ${countryMatches.first.region.name} | dist: ${countryMatches.first.distance.toStringAsFixed(2)} km');
         return countryMatches.first.region;
       }
     }
 
-    print('[NearestRegion] Selected(state): ${candidates.first.region.name}');
     return candidates.first.region;
   }
 
@@ -291,35 +228,33 @@ class NearestRegionService {
     if (candidates.isEmpty) return null;
 
     for (final c in candidates) {
-      c.score = 1.0 / (1.0 + c.distance) + (c.city.population > 0 ? log(c.city.population.toDouble()) / 20.0 : 0.0);
+      c.score = 1.0 / (1.0 + c.distance) +
+          (c.city.population > 0
+              ? log(c.city.population.toDouble()) / 20.0
+              : 0.0);
     }
 
     candidates.sort((a, b) => b.score.compareTo(a.score));
 
     if (countryCode != null && countryCode.isNotEmpty) {
-      final countryMatches = candidates.where((c) => c.city.countryCode == countryCode).toList();
+      final countryMatches = candidates
+          .where((c) => c.city.countryCode == countryCode)
+          .toList();
       if (countryMatches.isNotEmpty) candidates = countryMatches;
-    }
-
-    print('[NearestCity] Query: $lat, $lng | found: ${candidates.length}');
-    for (int i = 0; i < candidates.length && i < 10; i++) {
-      final c = candidates[i];
-      final admin1Key = '${c.city.countryCode}.${c.city.admin1}';
-      final stateName = _admin1Names[admin1Key] ?? c.city.admin1;
-      print('[NearestCity] #${i + 1}: ${c.city.name} (${c.city.countryCode}) | admin1: $stateName | pop: ${c.city.population} | dist: ${c.distance.toStringAsFixed(2)} km | score: ${c.score.toStringAsFixed(4)}');
     }
 
     final best = candidates.first;
     final admin1Key = '${best.city.countryCode}.${best.city.admin1}';
     final stateName = _admin1Names[admin1Key] ?? best.city.admin1;
 
-    print('[NearestCity] Selected: ${best.city.name} -> state: $stateName | dist: ${best.distance.toStringAsFixed(2)} km');
-
-    final matchingRegion = _regions.where((r) =>
-      r.countryCode == best.city.countryCode &&
-      (r.name.toLowerCase() == stateName.toLowerCase() ||
-       r.iso2.toLowerCase() == best.city.admin1.toLowerCase())
-    ).toList();
+    final matchingRegion = _regions
+        .where(
+          (r) =>
+              r.countryCode == best.city.countryCode &&
+              (r.name.toLowerCase() == stateName.toLowerCase() ||
+                  r.iso2.toLowerCase() == best.city.admin1.toLowerCase()),
+        )
+        .toList();
 
     if (matchingRegion.isNotEmpty) return matchingRegion.first;
 
@@ -346,7 +281,9 @@ class NearestRegionService {
 
   double _calcScore(_RankedRegion c) {
     final distPenalty = 1.0 / (1.0 + c.distance);
-    final popBonus = c.region.population > 0 ? log(c.region.population.toDouble()) / 20.0 : 0.0;
+    final popBonus = c.region.population > 0
+        ? log(c.region.population.toDouble()) / 20.0
+        : 0.0;
     return distPenalty + popBonus;
   }
 
@@ -369,6 +306,163 @@ class NearestRegionService {
   double _deg(double d) => d * pi / 180;
 }
 
+List<Region> _parseStatesCsvBytes(Uint8List bytes) =>
+    _parseStatesCsv(utf8.decode(bytes));
+
+List<_CityEntry> _parseCities500CsvBytes(Uint8List bytes) =>
+    _parseCities500Csv(utf8.decode(bytes));
+
+Map<String, String> _parseAdmin1CsvBytes(Uint8List bytes) =>
+    _parseAdmin1Csv(utf8.decode(bytes));
+
+List<_AdminPolygon> _parseAdminPolygonsJsonBytes(Uint8List bytes) =>
+    _parseAdminPolygonsJson(utf8.decode(bytes));
+
+List<Region> _parseStatesCsv(String raw) {
+  final rows = const CsvToListConverter(
+    shouldParseNumbers: false,
+    eol: '\n',
+  ).convert(raw);
+  final out = <Region>[];
+  for (int i = 1; i < rows.length; i++) {
+    final row = rows[i];
+    if (row.length < 17) continue;
+    out.add(
+      Region(
+        id: int.tryParse(row[0].toString()) ?? 0,
+        name: row[1].toString(),
+        countryId: int.tryParse(row[2].toString()) ?? 0,
+        countryCode: row[3].toString(),
+        countryName: row[4].toString(),
+        iso2: row[5].toString(),
+        iso3166_2: row[6].toString(),
+        fipsCode: row[7].toString(),
+        type: row[8].toString(),
+        level: row[9].toString(),
+        parentId: row[10].toString().isEmpty
+            ? null
+            : int.tryParse(row[10].toString()),
+        nativeName: row[11].toString(),
+        latitude: double.tryParse(row[12].toString()) ?? 0.0,
+        longitude: double.tryParse(row[13].toString()) ?? 0.0,
+        timezone: row[14].toString(),
+        wikiDataId: row[15].toString(),
+        population: row[16].toString().isEmpty
+            ? 0
+            : int.tryParse(row[16].toString()) ?? 0,
+      ),
+    );
+  }
+  return out;
+}
+
+List<_CityEntry> _parseCities500Csv(String raw) {
+  final rows = const CsvToListConverter(
+    shouldParseNumbers: false,
+    eol: '\n',
+  ).convert(raw);
+  final out = <_CityEntry>[];
+  for (int i = 1; i < rows.length; i++) {
+    final row = rows[i];
+    if (row.length < 7) continue;
+    out.add(
+      _CityEntry(
+        name: row[0].toString(),
+        latitude: double.tryParse(row[1].toString()) ?? 0.0,
+        longitude: double.tryParse(row[2].toString()) ?? 0.0,
+        countryCode: row[3].toString(),
+        admin1: row[4].toString(),
+        admin2: row[5].toString(),
+        population: int.tryParse(row[6].toString()) ?? 0,
+      ),
+    );
+  }
+  return out;
+}
+
+Map<String, String> _parseAdmin1Csv(String raw) {
+  final rows = const CsvToListConverter(
+    shouldParseNumbers: false,
+    eol: '\n',
+  ).convert(raw);
+  final out = <String, String>{};
+  for (int i = 1; i < rows.length; i++) {
+    final row = rows[i];
+    if (row.length < 2) continue;
+    out[row[0].toString()] = row[1].toString();
+  }
+  return out;
+}
+
+List<_AdminPolygon> _parseAdminPolygonsJson(String raw) {
+  final geojson = jsonDecode(raw) as Map<String, dynamic>;
+  final features = geojson['features'] as List;
+  final out = <_AdminPolygon>[];
+  for (final f in features) {
+    final props = f['properties'] as Map<String, dynamic>;
+    final geom = f['geometry'] as Map<String, dynamic>;
+    final name = props['n']?.toString() ?? '';
+    final cc = props['c']?.toString() ?? '';
+    final type = geom['type']?.toString() ?? '';
+
+    final polygons = <List<List<double>>>[];
+    if (type == 'Polygon') {
+      final coords = geom['coordinates'] as List;
+      for (final ring in coords) {
+        polygons.add(
+          (ring as List)
+              .map(
+                (p) => [
+                  (p[0] as num).toDouble(),
+                  (p[1] as num).toDouble(),
+                ],
+              )
+              .toList(),
+        );
+      }
+    } else if (type == 'MultiPolygon') {
+      final multiCoords = geom['coordinates'] as List;
+      for (final poly in multiCoords) {
+        for (final ring in (poly as List)) {
+          polygons.add(
+            (ring as List)
+                .map(
+                  (p) => [
+                    (p[0] as num).toDouble(),
+                    (p[1] as num).toDouble(),
+                  ],
+                )
+                .toList(),
+          );
+        }
+      }
+    }
+
+    if (polygons.isEmpty) continue;
+
+    double minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+    for (final ring in polygons) {
+      for (final pt in ring) {
+        if (pt[1] < minLat) minLat = pt[1];
+        if (pt[1] > maxLat) maxLat = pt[1];
+        if (pt[0] < minLng) minLng = pt[0];
+        if (pt[0] > maxLng) maxLng = pt[0];
+      }
+    }
+    out.add(
+      _AdminPolygon(
+        name: name,
+        countryCode: cc,
+        rings: polygons,
+        minLat: minLat,
+        maxLat: maxLat,
+        minLng: minLng,
+        maxLng: maxLng,
+      ),
+    );
+  }
+  return out;
+}
 
 class Region {
   final int id;
@@ -408,27 +502,7 @@ class Region {
     required this.wikiDataId,
     required this.population,
   });
-
-  /// Print all data (debug / detail screen)
-  void printAll() {
-    print('printAll ID: $id');
-    print('printAll State Name: $name');
-    print('printAll Native Name: $nativeName');
-    print('printAll Country: $countryName ($countryCode)');
-    print('printAll ISO2: $iso2');
-    print('printAll ISO 3166-2: $iso3166_2');
-    print('printAll FIPS Code: $fipsCode');
-    print('printAll Type: $type');
-    print('printAll Level: $level');
-    print('printAll Parent ID: $parentId');
-    print('printAll Latitude: $latitude');
-    print('printAll Longitude: $longitude');
-    print('printAll Timezone: $timezone');
-    print('printAll Wikidata ID: $wikiDataId');
-    print('printAll Population: $population');
-  }
 }
-
 
 class _RankedRegion {
   final Region region;
