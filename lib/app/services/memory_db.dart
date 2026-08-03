@@ -1425,7 +1425,10 @@ class DatabaseHelper {
     if (t.startsWith('/') ||
         t.startsWith('memory_images/') ||
         t.startsWith('memory_videos/') ||
-        t.startsWith('audio_files/')) {
+        t.startsWith('memory_audios/') ||
+        t.startsWith('audio_files/') ||
+        t.startsWith('imported_media/') ||
+        t.startsWith('temp_draft_')) {
       return true;
     }
     if (t.contains(r'\')) return true;
@@ -1445,6 +1448,77 @@ class DatabaseHelper {
       if (await f.exists()) await f.delete();
     } catch (e) {
       debugPrint('[DatabaseHelper] file delete skipped: $path ($e)');
+    }
+  }
+
+  /// Public helper for edit flows that drop media refs without erase-all.
+  Future<void> deleteStoredMediaFileIfPresent(String storedValue) async {
+    if (storedValue.isEmpty) return;
+    if (!_storedValueLooksLikeFilesystemMediaRef(storedValue) &&
+        !storedValue.startsWith('memory_audios/') &&
+        !storedValue.startsWith('/') &&
+        !storedValue.contains('.mp4') &&
+        !storedValue.contains('.mov') &&
+        !storedValue.contains('.m4a') &&
+        !storedValue.contains('.jpg') &&
+        !storedValue.contains('.jpeg') &&
+        !storedValue.contains('.png') &&
+        !storedValue.contains('.webp')) {
+      return;
+    }
+    await _tryDeleteFilePath(await _absolutePathUnderDocuments(storedValue));
+  }
+
+  /// Known on-disk media folders under Documents (not offline tiles / mbtiles).
+  static const List<String> memoryMediaDirectoryNames = [
+    'memory_images',
+    'memory_videos',
+    'memory_audios',
+    'audio_files',
+    'temp_draft_images',
+    'temp_draft_audio',
+    'temp_draft_videos',
+    'imported_media',
+  ];
+
+  Future<void> _wipeDirectoryContents(Directory dir) async {
+    if (!await dir.exists()) return;
+    try {
+      await for (final entity in dir.list(followLinks: false)) {
+        try {
+          await entity.delete(recursive: true);
+        } catch (e) {
+          debugPrint(
+            '[DatabaseHelper] wipe skipped ${entity.path}: $e',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[DatabaseHelper] wipe dir failed ${dir.path}: $e');
+    }
+  }
+
+  /// Deletes all memory media files under Documents (+ GPS import staging).
+  /// Does not touch offline MBTiles / Mapbox tile caches.
+  Future<void> purgeAllMemoryMediaFromDisk() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    for (final name in memoryMediaDirectoryNames) {
+      await _wipeDirectoryContents(Directory(join(appDir.path, name)));
+    }
+
+    // Import staging under temp/cache — leave mapbox_tiles alone.
+    for (final getDir in [
+      getTemporaryDirectory,
+      getApplicationCacheDirectory,
+    ]) {
+      try {
+        final root = await getDir();
+        await _wipeDirectoryContents(
+          Directory(join(root.path, 'media_gps_file_staging')),
+        );
+      } catch (e) {
+        debugPrint('[DatabaseHelper] staging wipe skipped: $e');
+      }
     }
   }
 
@@ -1497,23 +1571,34 @@ class DatabaseHelper {
   }
 
   Future<int> deleteMemory(int id) async {
+    // Purge files while DB rows still exist (works with or without FK cascade).
+    await purgeMemoryMediaFilesFromDisk(id);
+
     final Database db = await instance.database;
-    final deleted = await db.transaction((txn) async {
+    return db.transaction((txn) async {
       await purgeImportedGalleryDedupeForMemory(txn, id);
       await purgeTrackImportLogEntriesForMemory(txn, id);
+      await txn.delete(
+        tableImages,
+        where: '$columnMemoryId = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        tableAudios,
+        where: '$columnAudioMemoryId = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        tableVideos,
+        where: '$columnVideoMemoryId = ?',
+        whereArgs: [id],
+      );
       return txn.delete(
         tableMemories,
         where: '$columnId = ?',
         whereArgs: [id],
       );
     });
-    // Media file cleanup is slow — run after the DB row is gone so delete feels instant.
-    unawaited(
-      purgeMemoryMediaFilesFromDisk(id).catchError((Object e, StackTrace st) {
-        debugPrint('[DatabaseHelper] background media purge for $id: $e\n$st');
-      }),
-    );
-    return deleted;
   }
 
   // Image operations
@@ -1704,7 +1789,7 @@ class DatabaseHelper {
   }
 
   // Get video details with order for a specific memory
-  Future<List<Map<String, dynamic>>> getMemoryVideosWithOrder(
+  Future<List<Map<String, dynamic>>> getMemoryVideameosWithOrder(
     int memoryId,
   ) async {
     Database db = await instance.database;
@@ -2348,9 +2433,14 @@ class DatabaseHelper {
   }
 
   /// Clear all memories and memory-attached media/log rows only.
+  /// Also wipes on-disk media folders (images/videos/audio/drafts) so app size
+  /// shrinks on iOS/Android. Offline MBTiles are left untouched.
   Future<void> clearAllMemories() async {
     try {
       debugPrint('[DatabaseHelper][clearAllMemories] Starting memories cleanup...');
+      // Files first — catches orphans from edit-remove and erase-all.
+      await purgeAllMemoryMediaFromDisk();
+
       final db = await database;
       await db.transaction((txn) async {
         await txn.delete(tableTrackImportLogItems);

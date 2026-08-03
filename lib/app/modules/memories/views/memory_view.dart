@@ -844,7 +844,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       final memoryController = Get.find<MemoryController>();
       final databaseHelper = DatabaseHelper.instance;
 
-      await databaseHelper.deleteMemoryImages(memoryId);
+      final existingImages = await databaseHelper.getMemoryImages(memoryId);
 
       final originalBase64Images =
           widget.memoryData?['base64Images'] as List<String>? ?? [];
@@ -874,6 +874,15 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           }
         }
       }
+
+      // Drop files for images removed during edit (DB rows alone left orphans).
+      final keep = finalBase64Images.toSet();
+      for (final data in existingImages) {
+        if (keep.contains(data)) continue;
+        await databaseHelper.deleteStoredMediaFileIfPresent(data);
+      }
+
+      await databaseHelper.deleteMemoryImages(memoryId);
 
       for (int i = 0; i < finalBase64Images.length; i++) {
         await databaseHelper.insertMemoryImage(
@@ -986,7 +995,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       final memoryController = Get.find<MemoryController>();
       final databaseHelper = DatabaseHelper.instance;
 
-      await databaseHelper.deleteMemoryVideos(memoryId);
+      final existingVideos =
+          await databaseHelper.getMemoryVideosWithOrder(memoryId);
 
       final originalVideoPaths =
           widget.memoryData?['videoPaths'] as List<String>? ?? [];
@@ -1016,6 +1026,22 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           }
         }
       }
+
+      final keep = finalVideoPaths.toSet();
+      for (final row in existingVideos) {
+        final vp =
+            (row[DatabaseHelper.columnVideoFilePath] ?? '').toString();
+        final tp =
+            (row[DatabaseHelper.columnVideoThumbnailPath] ?? '').toString();
+        if (vp.isNotEmpty && !keep.contains(vp)) {
+          await databaseHelper.deleteStoredMediaFileIfPresent(vp);
+          if (tp.isNotEmpty) {
+            await databaseHelper.deleteStoredMediaFileIfPresent(tp);
+          }
+        }
+      }
+
+      await databaseHelper.deleteMemoryVideos(memoryId);
 
       for (int i = 0; i < finalVideoPaths.length; i++) {
         await databaseHelper.insertMemoryVideo(

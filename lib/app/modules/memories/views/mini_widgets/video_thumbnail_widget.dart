@@ -27,6 +27,10 @@ class VideoThumbnailWidget extends StatefulWidget {
     this.existingThumbnailPath,
   });
 
+  /// Deletes generated JPEG thumbs under temp and clears the in-memory map.
+  static Future<void> clearCachedThumbnails() =>
+      _VideoThumbnailWidgetState.clearCachedThumbnails();
+
   @override
   State<VideoThumbnailWidget> createState() => _VideoThumbnailWidgetState();
 }
@@ -34,6 +38,18 @@ class VideoThumbnailWidget extends StatefulWidget {
 class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   /// Path → generated thumb file (keeps list scroll from re-decoding the same video).
   static final Map<String, String> _pathCache = <String, String>{};
+
+  /// Deletes generated JPEG thumbs under temp and clears the in-memory map.
+  static Future<void> clearCachedThumbnails() async {
+    final paths = List<String>.from(_pathCache.values);
+    _pathCache.clear();
+    for (final path in paths) {
+      try {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+  }
 
   String? _thumbnailPath;
   bool _isLoading = true;

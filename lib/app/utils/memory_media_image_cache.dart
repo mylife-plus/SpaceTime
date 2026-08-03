@@ -64,6 +64,11 @@ class MemoryMediaImageProviderCache {
     return created;
   }
 
+  /// Drop decoded providers after erase-all / bulk delete.
+  void clear() {
+    _providers.clear();
+  }
+
   Future<void> precache(
     BuildContext context,
     String imageData, {

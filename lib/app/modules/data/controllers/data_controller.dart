@@ -17,7 +17,9 @@ import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_import_delet
 import 'package:spacetime/app/modules/media_gps_upload/bindings/media_gps_upload_binding.dart';
 import 'package:spacetime/app/modules/media_gps_upload/views/media_gps_upload_view.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
+import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'package:spacetime/app/utils/memory_media_image_cache.dart';
 import 'package:spacetime/services/app_lock_controller.dart';
 
 class DataController extends GetxController {
@@ -365,6 +367,12 @@ class DataController extends GetxController {
     isBusy.value = true;
     try {
       await DatabaseHelper.instance.clearAllMemories();
+
+      // Drop in-memory / temp thumbnail caches (disk media already wiped).
+      MemoryMediaImageProviderCache.instance.clear();
+      await VideoThumbnailWidget.clearCachedThumbnails();
+      imageCache.clear();
+      imageCache.clearLiveImages();
 
       if (Get.isRegistered<FilterController>()) {
         Get.find<FilterController>().resetFilters();
