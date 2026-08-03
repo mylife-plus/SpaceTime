@@ -1789,7 +1789,7 @@ class DatabaseHelper {
   }
 
   // Get video details with order for a specific memory
-  Future<List<Map<String, dynamic>>> getMemoryVideameosWithOrder(
+  Future<List<Map<String, dynamic>>> getMemoryVideosWithOrder(
     int memoryId,
   ) async {
     Database db = await instance.database;
