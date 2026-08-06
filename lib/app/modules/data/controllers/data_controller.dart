@@ -366,13 +366,13 @@ class DataController extends GetxController {
 
     isBusy.value = true;
     try {
-      await DatabaseHelper.instance.clearAllMemories();
-
-      // Drop in-memory / temp thumbnail caches (disk media already wiped).
+      // Release file handles before deleting media (open thumbs/images can block).
       MemoryMediaImageProviderCache.instance.clear();
       await VideoThumbnailWidget.clearCachedThumbnails();
       imageCache.clear();
       imageCache.clearLiveImages();
+
+      await DatabaseHelper.instance.clearAllMemories();
 
       if (Get.isRegistered<FilterController>()) {
         Get.find<FilterController>().resetFilters();

@@ -1479,12 +1479,50 @@ class DatabaseHelper {
     'temp_draft_audio',
     'temp_draft_videos',
     'imported_media',
+    'backups',
   ];
+
+  /// Folders under Library/Caches (or temp) that are safe to wipe on erase-all.
+  static const List<String> memoryCacheDirectoryNames = [
+    'media_gps_file_staging',
+    'mapbox_tiles',
+  ];
+
+  Future<int> _directorySizeBytes(Directory dir) async {
+    if (!await dir.exists()) return 0;
+    var total = 0;
+    try {
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          try {
+            total += await entity.length();
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    return total;
+  }
+
+  Future<void> _deleteDirectoryFully(Directory dir) async {
+    if (!await dir.exists()) return;
+    try {
+      await dir.delete(recursive: true);
+    } catch (e) {
+      debugPrint(
+        '[DatabaseHelper] full delete failed ${dir.path}: $e — wiping contents',
+      );
+      await _wipeDirectoryContents(dir);
+      try {
+        if (await dir.exists()) await dir.delete(recursive: true);
+      } catch (_) {}
+    }
+  }
 
   Future<void> _wipeDirectoryContents(Directory dir) async {
     if (!await dir.exists()) return;
     try {
-      await for (final entity in dir.list(followLinks: false)) {
+      final children = await dir.list(followLinks: false).toList();
+      for (final entity in children) {
         try {
           await entity.delete(recursive: true);
         } catch (e) {
@@ -1498,28 +1536,107 @@ class DatabaseHelper {
     }
   }
 
-  /// Deletes all memory media files under Documents (+ GPS import staging).
-  /// Does not touch offline MBTiles / Mapbox tile caches.
+  /// True for Application Support children that must survive erase-all.
+  bool _isPreservedSupportName(String name) {
+    // Offline MBTiles live here — leave the whole offline_tiles tree alone.
+    return name == 'offline_tiles';
+  }
+
+  /// Deletes all memory media / temp / non-map caches.
+  /// Preserves `offline_tiles` (MBTiles). Does not touch SharedPreferences.
   Future<void> purgeAllMemoryMediaFromDisk() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    for (final name in memoryMediaDirectoryNames) {
-      await _wipeDirectoryContents(Directory(join(appDir.path, name)));
+    Future<void> logSize(String label, Directory dir) async {
+      final bytes = await _directorySizeBytes(dir);
+      if (bytes <= 0) return;
+      final mb = (bytes / (1024 * 1024)).toStringAsFixed(1);
+      debugPrint('[DatabaseHelper] disk before wipe: $label = ${mb}MB');
     }
 
-    // Import staging under temp/cache — leave mapbox_tiles alone.
-    for (final getDir in [
-      getTemporaryDirectory,
-      getApplicationCacheDirectory,
-    ]) {
-      try {
-        final root = await getDir();
-        await _wipeDirectoryContents(
-          Directory(join(root.path, 'media_gps_file_staging')),
-        );
-      } catch (e) {
-        debugPrint('[DatabaseHelper] staging wipe skipped: $e');
-      }
+    final appDir = await getApplicationDocumentsDirectory();
+    await logSize('Documents', appDir);
+
+    for (final name in memoryMediaDirectoryNames) {
+      await _deleteDirectoryFully(Directory(join(appDir.path, name)));
     }
+
+    // Loose media files that may sit at Documents root (legacy absolute copies).
+    try {
+      await for (final entity in appDir.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final lower = entity.path.toLowerCase();
+        const mediaExts = [
+          '.jpg',
+          '.jpeg',
+          '.png',
+          '.webp',
+          '.heic',
+          '.mp4',
+          '.mov',
+          '.m4v',
+          '.m4a',
+          '.aac',
+          '.mp3',
+          '.wav',
+          '.caf',
+        ];
+        if (mediaExts.any(lower.endsWith)) {
+          await _tryDeleteFilePath(entity.path);
+        }
+      }
+    } catch (e) {
+      debugPrint('[DatabaseHelper] documents root media scan: $e');
+    }
+
+    // Temp: edit sessions, video thumbs, backup zips, GPS staging.
+    try {
+      final tmp = await getTemporaryDirectory();
+      await logSize('tmp', tmp);
+      await _wipeDirectoryContents(tmp);
+    } catch (e) {
+      debugPrint('[DatabaseHelper] temp wipe skipped: $e');
+    }
+
+    // Cache: wipe known folders + anything except nothing map-critical here.
+    // MBTiles are under Application Support, not Caches.
+    try {
+      final cache = await getApplicationCacheDirectory();
+      await logSize('cache', cache);
+      for (final name in memoryCacheDirectoryNames) {
+        await _deleteDirectoryFully(Directory(join(cache.path, name)));
+      }
+      // Wipe remaining cache children (Flutter/imagepicker leftovers, etc.).
+      await for (final entity in cache.list(followLinks: false)) {
+        final name = basename(entity.path);
+        // Keep nothing map-related in Caches; mbtiles are elsewhere.
+        if (name.startsWith('.')) continue;
+        try {
+          await entity.delete(recursive: true);
+        } catch (e) {
+          debugPrint('[DatabaseHelper] cache wipe skipped $name: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('[DatabaseHelper] cache wipe skipped: $e');
+    }
+
+    // Application Support: keep only offline_tiles (MBTiles + style).
+    try {
+      final support = await getApplicationSupportDirectory();
+      await logSize('support', support);
+      await for (final entity in support.list(followLinks: false)) {
+        final name = basename(entity.path);
+        if (_isPreservedSupportName(name)) continue;
+        try {
+          await entity.delete(recursive: true);
+        } catch (e) {
+          debugPrint('[DatabaseHelper] support wipe skipped $name: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('[DatabaseHelper] support wipe skipped: $e');
+    }
+
+    debugPrint('[DatabaseHelper] purgeAllMemoryMediaFromDisk finished');
   }
 
   /// Deletes media files on disk for this memory (paths in images/videos/audios tables).
@@ -2433,11 +2550,23 @@ class DatabaseHelper {
   }
 
   /// Clear all memories and memory-attached media/log rows only.
-  /// Also wipes on-disk media folders (images/videos/audio/drafts) so app size
-  /// shrinks on iOS/Android. Offline MBTiles are left untouched.
+  /// Also wipes on-disk media / temp / non-map caches, then VACUUMs SQLite so
+  /// iOS/Android Settings reflect reclaimed space. Offline MBTiles are kept.
   Future<void> clearAllMemories() async {
     try {
       debugPrint('[DatabaseHelper][clearAllMemories] Starting memories cleanup...');
+
+      // Log DB size before (base64-era rows can leave a multi-GB file).
+      try {
+        final docs = await getApplicationDocumentsDirectory();
+        final dbFile = File(join(docs.path, _databaseName));
+        if (await dbFile.exists()) {
+          final mb =
+              ((await dbFile.length()) / (1024 * 1024)).toStringAsFixed(1);
+          debugPrint('[DatabaseHelper][clearAllMemories] DB size before: ${mb}MB');
+        }
+      } catch (_) {}
+
       // Files first — catches orphans from edit-remove and erase-all.
       await purgeAllMemoryMediaFromDisk();
 
@@ -2451,6 +2580,30 @@ class DatabaseHelper {
         await txn.delete(tableMemories);
         await txn.delete(tableTrackImportLog);
       });
+
+      // Reclaim disk: DELETE alone does not shrink the SQLite file.
+      try {
+        await db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
+      } catch (e) {
+        debugPrint('[DatabaseHelper][clearAllMemories] wal_checkpoint: $e');
+      }
+      try {
+        await db.execute('VACUUM');
+        debugPrint('[DatabaseHelper][clearAllMemories] ✅ VACUUM complete');
+      } catch (e) {
+        debugPrint('[DatabaseHelper][clearAllMemories] VACUUM failed: $e');
+      }
+
+      try {
+        final docs = await getApplicationDocumentsDirectory();
+        final dbFile = File(join(docs.path, _databaseName));
+        if (await dbFile.exists()) {
+          final mb =
+              ((await dbFile.length()) / (1024 * 1024)).toStringAsFixed(1);
+          debugPrint('[DatabaseHelper][clearAllMemories] DB size after: ${mb}MB');
+        }
+      } catch (_) {}
+
       debugPrint('[DatabaseHelper][clearAllMemories] ✅ All memories cleared');
     } catch (e) {
       debugPrint('[DatabaseHelper][clearAllMemories] ❌ Error clearing memories: $e');
