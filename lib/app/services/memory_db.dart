@@ -1536,14 +1536,29 @@ class DatabaseHelper {
     }
   }
 
-  /// True for Application Support children that must survive erase-all.
-  bool _isPreservedSupportName(String name) {
-    // Offline MBTiles live here — leave the whole offline_tiles tree alone.
-    return name == 'offline_tiles';
+  /// Map assets that must survive erase-all (MBTiles + style JSON).
+  static const String offlineTilesDirectoryName = 'offline_tiles';
+
+  /// Style filenames that must never be deleted during memory wipe.
+  static const List<String> preservedMapStyleFileNames = [
+    'custom-style.json',
+    'style.json',
+  ];
+
+  /// True for Application Support / Documents children that must survive erase-all.
+  bool _isPreservedMapStorageName(String name) {
+    // offline_tiles holds tiles.mbtiles AND custom-style.json.
+    return name == offlineTilesDirectoryName;
+  }
+
+  bool _isPreservedMapStyleFile(String path) {
+    final name = basename(path).toLowerCase();
+    return preservedMapStyleFileNames.any((f) => f.toLowerCase() == name);
   }
 
   /// Deletes all memory media / temp / non-map caches.
-  /// Preserves `offline_tiles` (MBTiles). Does not touch SharedPreferences.
+  /// Preserves `offline_tiles` (MBTiles + map style JSON). Does not touch
+  /// SharedPreferences.
   Future<void> purgeAllMemoryMediaFromDisk() async {
     Future<void> logSize(String label, Directory dir) async {
       final bytes = await _directorySizeBytes(dir);
@@ -1556,12 +1571,17 @@ class DatabaseHelper {
     await logSize('Documents', appDir);
 
     for (final name in memoryMediaDirectoryNames) {
+      if (_isPreservedMapStorageName(name)) continue;
       await _deleteDirectoryFully(Directory(join(appDir.path, name)));
     }
 
     // Loose media files that may sit at Documents root (legacy absolute copies).
+    // Never delete map style JSON or the offline_tiles folder.
     try {
       await for (final entity in appDir.list(followLinks: false)) {
+        final name = basename(entity.path);
+        if (_isPreservedMapStorageName(name)) continue;
+        if (entity is File && _isPreservedMapStyleFile(entity.path)) continue;
         if (entity is! File) continue;
         final lower = entity.path.toLowerCase();
         const mediaExts = [
@@ -1588,27 +1608,27 @@ class DatabaseHelper {
     }
 
     // Temp: edit sessions, video thumbs, backup zips, GPS staging.
+    // Skip style JSON / offline_tiles if they ever land here.
     try {
       final tmp = await getTemporaryDirectory();
       await logSize('tmp', tmp);
-      await _wipeDirectoryContents(tmp);
+      await _wipeDirectoryContentsPreservingMapAssets(tmp);
     } catch (e) {
       debugPrint('[DatabaseHelper] temp wipe skipped: $e');
     }
 
-    // Cache: wipe known folders + anything except nothing map-critical here.
-    // MBTiles are under Application Support, not Caches.
+    // Cache: wipe known folders + leftovers. Preserve map style if present.
     try {
       final cache = await getApplicationCacheDirectory();
       await logSize('cache', cache);
       for (final name in memoryCacheDirectoryNames) {
         await _deleteDirectoryFully(Directory(join(cache.path, name)));
       }
-      // Wipe remaining cache children (Flutter/imagepicker leftovers, etc.).
       await for (final entity in cache.list(followLinks: false)) {
         final name = basename(entity.path);
-        // Keep nothing map-related in Caches; mbtiles are elsewhere.
         if (name.startsWith('.')) continue;
+        if (_isPreservedMapStorageName(name)) continue;
+        if (entity is File && _isPreservedMapStyleFile(entity.path)) continue;
         try {
           await entity.delete(recursive: true);
         } catch (e) {
@@ -1619,13 +1639,24 @@ class DatabaseHelper {
       debugPrint('[DatabaseHelper] cache wipe skipped: $e');
     }
 
-    // Application Support: keep only offline_tiles (MBTiles + style).
+    // Application Support: keep offline_tiles (MBTiles + custom-style.json).
     try {
       final support = await getApplicationSupportDirectory();
       await logSize('support', support);
       await for (final entity in support.list(followLinks: false)) {
         final name = basename(entity.path);
-        if (_isPreservedSupportName(name)) continue;
+        if (_isPreservedMapStorageName(name)) {
+          debugPrint(
+            '[DatabaseHelper] preserving map assets: ${entity.path}',
+          );
+          continue;
+        }
+        if (entity is File && _isPreservedMapStyleFile(entity.path)) {
+          debugPrint(
+            '[DatabaseHelper] preserving map style file: ${entity.path}',
+          );
+          continue;
+        }
         try {
           await entity.delete(recursive: true);
         } catch (e) {
@@ -1636,7 +1667,32 @@ class DatabaseHelper {
       debugPrint('[DatabaseHelper] support wipe skipped: $e');
     }
 
-    debugPrint('[DatabaseHelper] purgeAllMemoryMediaFromDisk finished');
+    debugPrint(
+      '[DatabaseHelper] purgeAllMemoryMediaFromDisk finished '
+      '(offline_tiles + style JSON preserved)',
+    );
+  }
+
+  /// Wipe dir contents but keep offline_tiles / style JSON.
+  Future<void> _wipeDirectoryContentsPreservingMapAssets(Directory dir) async {
+    if (!await dir.exists()) return;
+    try {
+      final children = await dir.list(followLinks: false).toList();
+      for (final entity in children) {
+        final name = basename(entity.path);
+        if (_isPreservedMapStorageName(name)) continue;
+        if (entity is File && _isPreservedMapStyleFile(entity.path)) continue;
+        try {
+          await entity.delete(recursive: true);
+        } catch (e) {
+          debugPrint(
+            '[DatabaseHelper] wipe skipped ${entity.path}: $e',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[DatabaseHelper] wipe dir failed ${dir.path}: $e');
+    }
   }
 
   /// Deletes media files on disk for this memory (paths in images/videos/audios tables).
