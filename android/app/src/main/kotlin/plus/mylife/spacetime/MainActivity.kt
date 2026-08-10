@@ -1,4 +1,4 @@
-package com.example.spacetime
+package plus.mylife.spacetime
 
 import android.content.ContentValues
 import android.location.Address
