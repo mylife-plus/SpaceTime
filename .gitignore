@@ -137,8 +137,8 @@ coverage/
 # pubspec.lock
 **/Podfile.lock
 
-# Development tools
-devtools_options.yaml
+# Development tools — keep DevTools project yaml tracked (do not ignore *.yaml).
+# previously: devtools_options.yaml
 
 # Large data files (optional - uncomment if you want to ignore these)
 # assets/cities*.txt
