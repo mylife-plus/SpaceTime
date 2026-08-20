@@ -103,7 +103,14 @@ Future<void> _bootstrapAfterFirstPaint() async {
     debugPrint('[main] dotenv / Mapbox token: $e');
   }
 
-  FileDownloader().trackTasks();
+  await FileDownloader().start();
+  if (Platform.isAndroid) {
+    await FileDownloader().configure(
+      globalConfig: [
+        (Config.runInForeground, true),
+      ],
+    );
+  }
   FileDownloader().configureNotification(
     running: const TaskNotification('Downloading', 'Download in progress'),
     complete: const TaskNotification('Download complete', 'File downloaded successfully'),

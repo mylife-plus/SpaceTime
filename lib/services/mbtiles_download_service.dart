@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
@@ -37,6 +37,59 @@ class MbtilesDownloadService extends GetxController {
   String _statusL10nKey = '';
   List<Object?> _statusL10nArgs = const [];
 
+  /// Last real download fraction in \[0, 1\]. Used so special downloader
+  /// sentinel values (retry=-4, paused=-5, …) do not flash as -400% in the UI
+  /// or reset the bar to 0 on every retry.
+  double _lastGoodProgress = 0.0;
+
+  /// Maps [background_downloader] progress (including sentinels) to a stable
+  /// 0–1 value for the UI.
+  double _displayProgressFrom(double raw) {
+    if (raw >= 0.0 && raw <= 1.0) {
+      _lastGoodProgress = raw;
+      return raw;
+    }
+    // Special values from background_downloader models.dart:
+    // progressFailed=-1, canceled=-2, notFound=-3, waitingToRetry=-4, paused=-5
+    if (raw == progressWaitingToRetry ||
+        raw == progressPaused ||
+        raw == progressFailed ||
+        raw == progressCanceled ||
+        raw == progressNotFound) {
+      return _lastGoodProgress;
+    }
+    return _lastGoodProgress;
+  }
+
+  void _applyProgress(double raw) {
+    downloadProgress.value = _displayProgressFrom(raw);
+  }
+
+  /// Best-effort progress from a partial tiles.mbtiles when the downloader
+  /// only reports a sentinel (e.g. waitingToRetry = -4).
+  Future<void> _seedProgressFromPartialFileIfNeeded() async {
+    try {
+      final appDir = await getApplicationSupportDirectory();
+      final partial =
+          File('${appDir.path}/offline_tiles/$LOCAL_MBTILES_FILENAME');
+      if (!await partial.exists()) return;
+      final len = await partial.length();
+      if (len <= 0) return;
+      const expectedBytes = _approxExpectedBytes;
+      final approx = (len / expectedBytes).clamp(0.0, 0.99);
+      if (approx > _lastGoodProgress) {
+        _lastGoodProgress = approx;
+        downloadProgress.value = approx;
+        debugPrint(
+          '[MbtilesDownload] 📐 Seeded progress from partial file: '
+          '${(approx * 100).toStringAsFixed(1)}% ($len bytes)',
+        );
+      }
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Could not seed progress from file: $e');
+    }
+  }
+
   void _setStatusText(String key, [List<Object?> args = const []]) {
     _statusL10nKey = key;
     _statusL10nArgs = args.isEmpty ? const [] : List<Object?>.from(args);
@@ -50,6 +103,17 @@ class MbtilesDownloadService extends GetxController {
         ? _statusL10nKey.tr
         : trKey(_statusL10nKey, List<Object?>.from(_statusL10nArgs));
   }
+
+  /// Always returns status in the current app locale (safe after language switch).
+  String get displayStatusText {
+    if (_statusL10nKey.isEmpty) return statusText.value;
+    return _statusL10nArgs.isEmpty
+        ? _statusL10nKey.tr
+        : trKey(_statusL10nKey, List<Object?>.from(_statusL10nArgs));
+  }
+
+  /// Re-apply current locale to cached status key/args.
+  void refreshStatusForLocale() => _refreshLocalizedStatus();
 
   // Cloudflare R2 storage configuration
   // TODO: Replace with your public R2 URL (e.g., https://pub-xxxxx.r2.dev)
@@ -92,6 +156,101 @@ class MbtilesDownloadService extends GetxController {
 
   String? _localMbtilesPath;
   DownloadTask? _backgroundTask;
+  Timer? _androidProgressPollTimer;
+  bool _downloaderConfigured = false;
+
+  /// Expected mbtiles size (~4.5 GB for zoom 11) used when Content-Length is unknown.
+  static const int _approxExpectedBytes = 4831838208; // 4.5 * 1024^3
+
+  Future<String> _resolveLocalMbtilesPath() async {
+    if (_localMbtilesPath != null && _localMbtilesPath!.isNotEmpty) {
+      return _localMbtilesPath!;
+    }
+    final appDir = await getApplicationSupportDirectory();
+    return '${appDir.path}/offline_tiles/$LOCAL_MBTILES_FILENAME';
+  }
+
+  void _startAndroidProgressPolling() {
+    if (!Platform.isAndroid) return;
+    _androidProgressPollTimer?.cancel();
+    _androidProgressPollTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => unawaited(_syncProgressFromDatabaseAndFile()),
+    );
+    unawaited(_syncProgressFromDatabaseAndFile());
+  }
+
+  void _stopAndroidProgressPolling() {
+    _androidProgressPollTimer?.cancel();
+    _androidProgressPollTimer = null;
+  }
+
+  /// When the native worker cannot post to the Flutter background channel
+  /// (common on Android / MIUI), progress is stored locally — poll DB + file.
+  Future<void> _syncProgressFromDatabaseAndFile() async {
+    if (!isDownloading.value && !isCompleted.value) return;
+    try {
+      unawaited(FileDownloader().resumeFromBackground());
+
+      final records = await FileDownloader().database.allRecords();
+      for (final record in records) {
+        if (record.task.filename != LOCAL_MBTILES_FILENAME) continue;
+
+        if (record.status == TaskStatus.running ||
+            record.status == TaskStatus.enqueued ||
+            record.status == TaskStatus.waitingToRetry ||
+            record.status == TaskStatus.paused) {
+          isDownloading.value = true;
+        }
+
+        if (record.progress >= 0.0 && record.progress <= 1.0) {
+          _applyProgress(record.progress);
+        } else if (record.progress == progressWaitingToRetry) {
+          await _seedProgressFromPartialFileIfNeeded();
+        }
+
+        if (record.expectedFileSize > 0) {
+          totalBytes.value = record.expectedFileSize;
+          downloadedBytes.value =
+              (downloadProgress.value * record.expectedFileSize).round();
+        }
+
+        if (record.status == TaskStatus.complete && !isCompleted.value) {
+          debugPrint('[MbtilesDownload] 📦 DB reports complete — finalizing');
+          await _finalizeSuccessfulDownload(
+            await _resolveLocalMbtilesPath(),
+            await getSelectedZoomLevel(),
+          );
+          return;
+        }
+
+        if (record.status == TaskStatus.failed && !hasError.value) {
+          isDownloading.value = false;
+          hasError.value = true;
+          _setStatusText('text_download_failed');
+          _stopAndroidProgressPolling();
+          return;
+        }
+      }
+
+      await _seedProgressFromPartialFileIfNeeded();
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Progress sync failed: $e');
+    }
+  }
+
+  /// Pull updates stored while the app/engine was disconnected (Android).
+  Future<void> resumeDownloadUpdatesFromBackground() async {
+    if (!Platform.isAndroid) return;
+    await FileDownloader().resumeFromBackground();
+    await _syncProgressFromDatabaseAndFile();
+  }
+
+  @override
+  void onClose() {
+    _stopAndroidProgressPolling();
+    super.onClose();
+  }
 
   @override
   void onInit() {
@@ -119,14 +278,22 @@ class MbtilesDownloadService extends GetxController {
 
           if (record.status == TaskStatus.running || record.status == TaskStatus.enqueued) {
             isDownloading.value = true;
-            downloadProgress.value = record.progress;
+            _applyProgress(record.progress);
             _setStatusText('mbtiles_status_resuming');
-            debugPrint('[MbtilesDownload] ▶️ Resuming download from ${(record.progress * 100).toStringAsFixed(1)}%');
+            debugPrint('[MbtilesDownload] ▶️ Resuming download from ${(downloadProgress.value * 100).toStringAsFixed(1)}%');
           } else if (record.status == TaskStatus.paused) {
-            downloadProgress.value = record.progress;
+            _applyProgress(record.progress);
             _setStatusText(
               'mbtiles_status_paused_at_pct',
-              [(record.progress * 100).toStringAsFixed(1)],
+              [(downloadProgress.value * 100).toStringAsFixed(1)],
+            );
+          } else if (record.status == TaskStatus.waitingToRetry) {
+            isDownloading.value = true;
+            _applyProgress(record.progress);
+            await _seedProgressFromPartialFileIfNeeded();
+            _setStatusText('mbtiles_status_resuming');
+            debugPrint(
+              '[MbtilesDownload] ⏳ Waiting to retry — holding UI at ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
             );
           }
         }
@@ -137,7 +304,18 @@ class MbtilesDownloadService extends GetxController {
   }
 
   Future<void> _initializeBackgroundDownloader() async {
-    await FileDownloader().trackTasks();
+    if (!_downloaderConfigured) {
+      if (Platform.isAndroid) {
+        await FileDownloader().configure(
+          globalConfig: [
+            (Config.runInForeground, true),
+          ],
+        );
+      }
+      _downloaderConfigured = true;
+    }
+
+    await FileDownloader().resumeFromBackground();
 
     // Listen to ALL updates and filter by metadata or filename
     FileDownloader().updates.listen((update) async {
@@ -154,15 +332,40 @@ class MbtilesDownloadService extends GetxController {
         }
 
         if (update is TaskProgressUpdate) {
-          downloadProgress.value = update.progress;
+          // Never feed sentinel values (-4 waitingToRetry, etc.) straight to the UI.
+          if (update.progress == progressWaitingToRetry) {
+            isDownloading.value = true;
+            _applyProgress(update.progress);
+            await _seedProgressFromPartialFileIfNeeded();
+            _setStatusText('mbtiles_status_resuming');
+            debugPrint(
+              '[MbtilesDownload] ⏳ Retrying — UI stays at ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
+            );
+            return;
+          }
+          if (update.progress == progressPaused) {
+            _applyProgress(update.progress);
+            _setStatusText('mbtiles_status_download_paused');
+            return;
+          }
+          if (update.progress < 0) {
+            // failed / canceled / notFound — keep last good % until status update
+            _applyProgress(update.progress);
+            debugPrint(
+              '[MbtilesDownload] ⚠️ Non-display progress sentinel: ${update.progress}',
+            );
+            return;
+          }
 
-          debugPrint('[MbtilesDownload] 📊 Progress update: ${(update.progress * 100).toStringAsFixed(1)}%');
+          _applyProgress(update.progress);
+
+          debugPrint('[MbtilesDownload] 📊 Progress update: ${(downloadProgress.value * 100).toStringAsFixed(1)}%');
           debugPrint('[MbtilesDownload] 📊 Expected file size: ${update.expectedFileSize}');
           debugPrint('[MbtilesDownload] 📊 Network speed: ${update.networkSpeed}');
           debugPrint('[MbtilesDownload] 📊 Time remaining: ${update.timeRemaining}');
 
           if (update.expectedFileSize > 0) {
-            final received = (update.progress * update.expectedFileSize).toInt();
+            final received = (downloadProgress.value * update.expectedFileSize).toInt();
             downloadedBytes.value = received;
             totalBytes.value = update.expectedFileSize;
 
@@ -175,7 +378,7 @@ class MbtilesDownloadService extends GetxController {
             );
             debugPrint('[MbtilesDownload] 📊 Downloaded: $receivedGB GB / $totalGB GB');
           } else {
-            final received = (update.progress * 1024 * 1024 * 1024).toInt();
+            final received = (downloadProgress.value * 1024 * 1024 * 1024).toInt();
             final receivedGB = (received / (1024 * 1024 * 1024)).toStringAsFixed(2);
             _setStatusText('mbtiles_status_downloading_gb_only', [receivedGB]);
             debugPrint('[MbtilesDownload] 📊 Downloaded: $receivedGB GB (size unknown)');
@@ -183,19 +386,32 @@ class MbtilesDownloadService extends GetxController {
         } else if (update is TaskStatusUpdate) {
           debugPrint('[MbtilesDownload] 📡 Status update: ${update.status}');
 
-          if (update.status == TaskStatus.running) {
+          if (update.status == TaskStatus.running ||
+              update.status == TaskStatus.enqueued ||
+              update.status == TaskStatus.waitingToRetry) {
             isDownloading.value = true;
-            _setStatusText('mbtiles_status_downloading');
+            if (update.status == TaskStatus.waitingToRetry) {
+              _setStatusText('mbtiles_status_resuming');
+            } else {
+              _setStatusText('mbtiles_status_downloading');
+            }
           } else if (update.status == TaskStatus.complete) {
             isDownloading.value = false;
             isCompleted.value = true;
+            _applyProgress(1.0);
             _setStatusText('text_download_completed');
+            _stopAndroidProgressPolling();
 
-            await _markDownloadAsCompleted();
+            final localPath = await _resolveLocalMbtilesPath();
+            await _finalizeSuccessfulDownload(
+              localPath,
+              await getSelectedZoomLevel(),
+            );
           } else if (update.status == TaskStatus.failed) {
             isDownloading.value = false;
             _setStatusText('text_download_failed');
             hasError.value = true;
+            _stopAndroidProgressPolling();
           } else if (update.status == TaskStatus.paused) {
             _setStatusText('mbtiles_status_download_paused');
           }
@@ -204,25 +420,49 @@ class MbtilesDownloadService extends GetxController {
     });
   }
 
-  Future<void> _markDownloadAsCompleted() async {
+  Future<void> _finalizeSuccessfulDownload(
+    String localFilePath,
+    int selectedZoom,
+  ) async {
+    if (isCompleted.value) return;
     try {
-      final localFilePath = getLocalMbtilesPath();
-      if (localFilePath == null) {
-        debugPrint('[MbtilesDownload] ⚠️ Cannot mark as completed - no local path');
-        return;
-      }
-
       final localFile = File(localFilePath);
       if (!await localFile.exists()) {
-        debugPrint('[MbtilesDownload] ⚠️ Cannot mark as completed - file does not exist');
+        debugPrint('[MbtilesDownload] ⚠️ Finalize skipped — file missing');
         return;
       }
 
       final fileSize = await localFile.length();
       final fileSizeGB = (fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2);
 
-      debugPrint('[MbtilesDownload] ✅ Marking download as completed in preferences');
-      debugPrint('[MbtilesDownload] 📁 File size: $fileSizeGB GB');
+      final bytes = await localFile.openRead(0, 200).first;
+      final header = String.fromCharCodes(bytes.take(100).toList());
+      if (header.contains('<!DOCTYPE') ||
+          header.contains('<html') ||
+          header.contains('<HTML')) {
+        debugPrint('[MbtilesDownload] ❌ Downloaded file is HTML, not mbtiles!');
+        await localFile.delete();
+        hasError.value = true;
+        errorMessage.value = trKey(
+          'dialog_content_mbtiles_server_returned_html',
+          [getDownloadUrl(selectedZoom), selectedZoom],
+        );
+        _setStatusText('mbtiles_status_download_failed_server_error');
+        isCompleted.value = false;
+        isDownloading.value = false;
+        return;
+      }
+
+      const minExpectedSize = 4 * 1024 * 1024 * 1024;
+      if (fileSize < minExpectedSize) {
+        debugPrint('[MbtilesDownload] ❌ File size too small: $fileSizeGB GB');
+        hasError.value = true;
+        errorMessage.value = trKey('mbtiles_error_file_too_small', [fileSizeGB]);
+        _setStatusText('mbtiles_status_download_failed_file_small');
+        isCompleted.value = false;
+        isDownloading.value = false;
+        return;
+      }
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
@@ -233,11 +473,25 @@ class MbtilesDownloadService extends GetxController {
       await prefs.setInt('offline_downloaded_tile_count', estimatedTileCount);
 
       _localMbtilesPath = localFilePath;
-
-      debugPrint('[MbtilesDownload] ✅ Download marked as completed in preferences');
+      isCompleted.value = true;
+      isDownloading.value = false;
+      hasError.value = false;
+      _applyProgress(1.0);
+      _setStatusText('mbtiles_status_download_completed_gb', [fileSizeGB]);
+      _stopAndroidProgressPolling();
+      _backgroundTask = null;
+      debugPrint('[MbtilesDownload] ✅ Download finalized: $fileSizeGB GB');
     } catch (e) {
-      debugPrint('[MbtilesDownload] ⚠️ Error marking download as completed: $e');
+      debugPrint('[MbtilesDownload] ⚠️ Error finalizing download: $e');
     }
+  }
+
+  /// @deprecated Use [_finalizeSuccessfulDownload] instead.
+  Future<void> _markDownloadAsCompleted() async {
+    await _finalizeSuccessfulDownload(
+      await _resolveLocalMbtilesPath(),
+      await getSelectedZoomLevel(),
+    );
   }
 
   /// Get selected zoom level from preferences
@@ -287,35 +541,39 @@ class MbtilesDownloadService extends GetxController {
           await prefs.remove(PREFS_KEY_MBTILES_PATH);
           await prefs.remove('offline_downloaded_tile_count');
 
-          // Reset states for fresh download
-          hasError.value = false;
-          errorMessage.value = "";
-          isCompleted.value = false;
-          isDownloading.value = false;
-          downloadProgress.value = 0.0;
-          _setStatusText('mbtiles_status_ready_to_download');
+          // Do not wipe live download UI state — a check during an in-flight
+          // download was resetting progress to 0% (and briefly showing -400%).
+          if (!isDownloading.value) {
+            hasError.value = false;
+            errorMessage.value = "";
+            isCompleted.value = false;
+            downloadProgress.value = 0.0;
+            _lastGoodProgress = 0.0;
+            _setStatusText('mbtiles_status_ready_to_download');
+          }
         }
       } else {
         debugPrint('[MbtilesDownload] ❌ MBTiles not marked as downloaded in preferences');
 
-        // Reset states for fresh download
-        hasError.value = false;
-        errorMessage.value = "";
-        isCompleted.value = false;
-        isDownloading.value = false;
-        downloadProgress.value = 0.0;
-        _setStatusText('mbtiles_status_ready_to_download');
+        if (!isDownloading.value) {
+          hasError.value = false;
+          errorMessage.value = "";
+          isCompleted.value = false;
+          downloadProgress.value = 0.0;
+          _lastGoodProgress = 0.0;
+          _setStatusText('mbtiles_status_ready_to_download');
+        }
       }
 
       return false;
     } catch (e) {
       debugPrint('[MbtilesDownload] ❌ Error checking mbtiles: $e');
 
-      // Reset states on error
-      hasError.value = false;
-      errorMessage.value = "";
-      isCompleted.value = false;
-      isDownloading.value = false;
+      if (!isDownloading.value) {
+        hasError.value = false;
+        errorMessage.value = "";
+        isCompleted.value = false;
+      }
 
       return false;
     }
@@ -446,10 +704,50 @@ class MbtilesDownloadService extends GetxController {
   /// [zoomLevel] - The zoom level to download (11 or 12)
   /// [enableBackgroundDownload] - If false, download will only work in foreground (iOS without background refresh)
   Future<String?> downloadMbtiles({int? zoomLevel, bool enableBackgroundDownload = true}) async {
-    // if (isDownloading.value) {
-    //   debugPrint('[MbtilesDownload] ⚠️ Download already in progress');
-    //   return null;
-    // }
+    if (isDownloading.value) {
+      debugPrint(
+        '[MbtilesDownload] ⚠️ Download already in progress at ${(downloadProgress.value * 100).toStringAsFixed(1)}% — not restarting',
+      );
+      return null;
+    }
+
+    // Prefer resuming an existing incomplete task over wiping offline_tiles
+    // and starting from 0% again (common after retry / screen revisit).
+    try {
+      final existing = await FileDownloader().database.allRecords();
+      for (final record in existing) {
+        if (record.task.filename != LOCAL_MBTILES_FILENAME) continue;
+        final active = record.status == TaskStatus.running ||
+            record.status == TaskStatus.enqueued ||
+            record.status == TaskStatus.waitingToRetry ||
+            record.status == TaskStatus.paused;
+        if (!active) continue;
+
+        _backgroundTask = record.task as DownloadTask;
+        isDownloading.value = true;
+        hasError.value = false;
+        isCompleted.value = false;
+        _applyProgress(record.progress);
+        debugPrint(
+          '[MbtilesDownload] ▶️ Reusing existing task ${record.task.taskId} '
+          '(${record.status}) at ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
+        );
+
+        if (record.status == TaskStatus.paused) {
+          final task = record.task as DownloadTask;
+          final resumed = await FileDownloader().resume(task);
+          debugPrint('[MbtilesDownload] ▶️ resume() => $resumed');
+          _setStatusText('mbtiles_status_resuming');
+        } else {
+          _setStatusText('mbtiles_status_downloading');
+        }
+        _startAndroidProgressPolling();
+        // Completion is handled by the global updates listener + DB polling.
+        return null;
+      }
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Could not check existing tasks: $e');
+    }
 
     try { 
        final appDir = await getApplicationSupportDirectory();
@@ -478,6 +776,7 @@ class MbtilesDownloadService extends GetxController {
       isDownloading.value = true;
       hasError.value = false;
       isCompleted.value = false;
+      _lastGoodProgress = 0.0;
       downloadProgress.value = 0.0;
       _setStatusText('mbtiles_status_preparing_download');
 
@@ -622,22 +921,27 @@ class MbtilesDownloadService extends GetxController {
         progressBar: true,
       );
       final downloader = FileDownloader();
-
-await downloader.configure(
-  globalConfig: [
-    (Config.runInForeground, true),
-    //  (Config., true),
-  ],
-);
       debugPrint('[MbtilesDownload] 🔔 Notifications configured');
 
       debugPrint('[MbtilesDownload] 🚀 Starting download...');
 
-      final result = await FileDownloader().download(
+      if (Platform.isAndroid) {
+        final enqueued = await downloader.enqueue(_backgroundTask!);
+        if (!enqueued) {
+          throw Exception('Failed to enqueue mbtiles download task');
+        }
+        debugPrint('[MbtilesDownload] 📋 Enqueued on Android (background worker)');
+        _startAndroidProgressPolling();
+        return null;
+      }
+
+      final result = await downloader.download(
         _backgroundTask!,
         onProgress: (progress) {
-          downloadProgress.value = progress;
-          debugPrint('[MbtilesDownload] 📊 Progress: ${(progress * 100).toStringAsFixed(1)}%');
+          _applyProgress(progress);
+          debugPrint(
+            '[MbtilesDownload] 📊 Progress: ${(downloadProgress.value * 100).toStringAsFixed(1)}% (raw=$progress)',
+          );
         },
         onStatus: (status) {
           debugPrint('[MbtilesDownload] 📡 Status: $status');
@@ -650,6 +954,9 @@ await downloader.configure(
             hasError.value = true;
             errorMessage.value = 'text_download_failed'.tr;
             _setStatusText('text_download_failed');
+          } else if (status == TaskStatus.waitingToRetry) {
+            debugPrint('[MbtilesDownload] ⏳ Waiting to retry (keeping last progress)');
+            _setStatusText('mbtiles_status_resuming');
           } else if (status == TaskStatus.running) {
             debugPrint('[MbtilesDownload] 🏃 Download running');
             _setStatusText('mbtiles_status_downloading');
@@ -667,73 +974,8 @@ await downloader.configure(
       }
 
       debugPrint('[MbtilesDownload] ✅ Download completed: $localFilePath');
-
-      // Verify file was written correctly
-      if (await localFile.exists()) {
-        final fileSize = await localFile.length();
-        final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(1);
-        final fileSizeGB = (fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2);
-
-        debugPrint('[MbtilesDownload] 📊 Verifying downloaded file...');
-        debugPrint('[MbtilesDownload] 📁 File size: $fileSizeGB GB ($fileSizeMB MB) = $fileSize bytes');
-
-        // Read first few bytes to check file type
-        final bytes = await localFile.openRead(0, 200).first;
-        final header = String.fromCharCodes(bytes.take(100).toList());
-
-        debugPrint('[MbtilesDownload] 🔍 File header (first 100 chars): ${header.substring(0, header.length > 100 ? 100 : header.length)}');
-
-        // Check if it's HTML (error page)
-        if (header.contains('<!DOCTYPE') || header.contains('<html') || header.contains('<HTML')) {
-          debugPrint('[MbtilesDownload] ❌ Downloaded file is HTML, not mbtiles!');
-          debugPrint('[MbtilesDownload] 📄 Full header: $header');
-          await localFile.delete();
-          hasError.value = true;
-          errorMessage.value = trKey(
-            'dialog_content_mbtiles_server_returned_html',
-            [downloadUrl, selectedZoom],
-          );
-          _setStatusText('mbtiles_status_download_failed_server_error');
-          return null;
-        }
-
-        // Validate file size - should be at least 4GB for the mbtiles file
-        const minExpectedSize = 4 * 1024 * 1024 * 1024; // 4GB in bytes
-
-        if (fileSize < minExpectedSize) {
-          debugPrint('[MbtilesDownload] ❌ File size too small! Expected at least 4GB, got $fileSizeGB GB');
-          debugPrint('[MbtilesDownload] ⚠️ This might be an error response from Google Drive');
-
-          hasError.value = true;
-          errorMessage.value = trKey('mbtiles_error_file_too_small', [fileSizeGB]);
-          _setStatusText('mbtiles_status_download_failed_file_small');
-          return null;
-        }
-
-        debugPrint('[MbtilesDownload] ✅ File size validation passed');
-
-        // Save to preferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
-        await prefs.setString(PREFS_KEY_MBTILES_PATH, localFilePath);
-
-        // Update estimated tile count (approximate based on file size)
-        final estimatedTileCount = (fileSize / 20000).round();
-        await prefs.setInt('offline_downloaded_tile_count', estimatedTileCount);
-        debugPrint('[MbtilesDownload] 📊 Estimated tile count: $estimatedTileCount');
-
-        _localMbtilesPath = localFilePath;
-        isCompleted.value = true;
-        _setStatusText('mbtiles_status_download_completed_gb', [fileSizeGB]);
-
-        return localFilePath;
-      } else {
-        debugPrint('[MbtilesDownload] ❌ Failed to verify downloaded file - file does not exist');
-        hasError.value = true;
-        errorMessage.value = 'mbtiles_error_verify_file_failed'.tr;
-        _setStatusText('text_download_failed');
-        return null;
-      }
+      await _finalizeSuccessfulDownload(localFilePath, selectedZoom);
+      return localFilePath;
     } catch (e) {
       debugPrint('[MbtilesDownload] ❌ Error downloading mbtiles: $e');
       hasError.value = true;
@@ -741,8 +983,11 @@ await downloader.configure(
       _setStatusText('mbtiles_error_download_with_message', [e.toString()]);
       return null;
     } finally {
-      isDownloading.value = false;
-      _backgroundTask = null;
+      _stopAndroidProgressPolling();
+      if (!Platform.isAndroid) {
+        isDownloading.value = false;
+        _backgroundTask = null;
+      }
     }
   }
 
@@ -755,6 +1000,7 @@ await downloader.configure(
       _setStatusText('mbtiles_status_download_cancelled');
       isDownloading.value = false;
       _backgroundTask = null;
+      _stopAndroidProgressPolling();
     }
   }
 

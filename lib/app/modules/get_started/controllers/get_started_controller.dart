@@ -79,6 +79,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   Completer<bool>? _waitingForBackgroundRefreshCompleter;
   bool _backgroundRefreshPopupShowing = false;
 
+  // Android battery optimization gating (unrestricted battery for tile download)
+  Completer<bool>? _waitingForBatteryOptimizationCompleter;
+  bool _batteryOptimizationPopupShowing = false;
+
   /// Shown below Start after the one-time B.A.R. dialog was seen and refresh is still off.
   final RxBool iosBackgroundRefreshBannerVisible = false.obs;
 
@@ -100,11 +104,12 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   void _setStatusFromMbtilesService() {
     final svc = _mbtilesDownloadService;
     if (svc == null) return;
-    final s = svc.statusText.value;
-    if (s.isEmpty) return;
     _statusBinding = _kStatusMbtiles;
     _statusL10nKey = '';
-    statusText.value = s;
+    svc.refreshStatusForLocale();
+    final localized = svc.displayStatusText;
+    if (localized.isEmpty) return;
+    statusText.value = localized;
   }
 
   void _setStatusFromOfflineService(String s) {
@@ -163,7 +168,19 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
 
-    // 1) Resolve any pending "wait for background refresh enabled" request
+    // 1) Resolve any pending "wait for battery optimization disabled" request (Android)
+    final batteryCompleter = _waitingForBatteryOptimizationCompleter;
+    if (batteryCompleter != null) {
+      _waitingForBatteryOptimizationCompleter = null;
+      unawaited(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        final granted = await _isBatteryUnrestricted();
+        if (!batteryCompleter.isCompleted) batteryCompleter.complete(granted);
+      }());
+      return;
+    }
+
+    // 2) Resolve any pending "wait for background refresh enabled" request (iOS)
     final completer = _waitingForBackgroundRefreshCompleter;
     if (completer != null) {
       _waitingForBackgroundRefreshCompleter = null;
@@ -181,6 +198,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     }
 
     unawaited(refreshIosBackgroundRefreshBanner());
+
+    if (Platform.isAndroid) {
+      unawaited(MbtilesDownloadService.instance.resumeDownloadUpdatesFromBackground());
+    }
   }
 
   /// Called from [main] after core services register (native splash already removed).
@@ -818,6 +839,170 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     iosBackgroundRefreshBannerVisible.value = show;
   }
 
+  Future<bool> _isBatteryUnrestricted() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      return await Permission.ignoreBatteryOptimizations.isGranted;
+    } catch (e) {
+      debugPrint('[GetStartedController] Error checking battery optimization: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _showBatteryOptimizationPopup() async {
+    if (!Platform.isAndroid) return true;
+    if (_batteryOptimizationPopupShowing) return false;
+
+    _batteryOptimizationPopupShowing = true;
+    final uiController = Get.find<UiController>();
+    final isDark = uiController.darkMode.value;
+    final bgColor = isDark
+        ? uiController.darkSurfaceColor
+        : uiController.getLightModeBackgroundColor(uiController.mainColor.value);
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final contentColor = isDark ? Colors.white70 : Colors.black54;
+    final ignoreColor = isDark ? Colors.white70 : Colors.grey.shade600;
+    final accentColor = uiController.currentMainColor;
+
+    try {
+      final completer = Completer<bool>();
+      Get.dialog(
+        AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          backgroundColor: bgColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
+              width: 1,
+            ),
+          ),
+          title: SizedBox(
+            width: double.infinity,
+            child: Text(
+              'text_battery_optimization_restricted'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: titleColor,
+              ),
+            ),
+          ),
+          content: SizedBox(
+            width: double.infinity,
+            child: Text(
+              'text_allow_battery_unrestricted_for_tile_download'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontSize: 14,
+                height: 1.35,
+                color: contentColor,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (Get.isDialogOpen != true) return;
+                Get.back();
+                if (!completer.isCompleted) completer.complete(false);
+              },
+              child: Text(
+                'text_not_now'.tr,
+                style: TextStyle(
+                  fontFamily: 'KumbhSans',
+                  color: ignoreColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Get.back();
+                // Skip lock on return from the system battery dialog.
+                // Do NOT restart — Restart.restartApp blanks the Get Started screen.
+                if (Get.isRegistered<AppLockController>()) {
+                  Get.find<AppLockController>().skipLockOnNextResumeFromSettings();
+                }
+                if (!completer.isCompleted) completer.complete(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accentColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: Text(
+                'text_allow'.tr,
+                style: TextStyle(
+                  fontFamily: 'KumbhSans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+      );
+
+      return await completer.future;
+    } finally {
+      _batteryOptimizationPopupShowing = false;
+    }
+  }
+
+  Future<bool> _waitForBatteryOptimizationGranted({
+    Duration timeout = const Duration(seconds: 90),
+  }) async {
+    if (!Platform.isAndroid) return true;
+
+    if (await _isBatteryUnrestricted()) return true;
+
+    final completer = Completer<bool>();
+    _waitingForBatteryOptimizationCompleter = completer;
+    try {
+      return await completer.future.timeout(timeout);
+    } on TimeoutException {
+      return await _isBatteryUnrestricted();
+    } finally {
+      if (_waitingForBatteryOptimizationCompleter == completer) {
+        _waitingForBatteryOptimizationCompleter = null;
+      }
+    }
+  }
+
+  Future<bool> _ensureBatteryUnrestrictedForDownload() async {
+    if (!Platform.isAndroid) return true;
+
+    if (await _isBatteryUnrestricted()) return true;
+
+    debugPrint('[GetStartedController] Battery optimization active — showing popup');
+    final userAccepted = await _showBatteryOptimizationPopup();
+    if (!userAccepted) {
+      debugPrint('[GetStartedController] User declined battery unrestricted prompt');
+      return false;
+    }
+
+    debugPrint('[GetStartedController] Requesting ignore battery optimizations...');
+    final result = await Permission.ignoreBatteryOptimizations.request();
+    debugPrint('[GetStartedController] Battery optimization request result: $result');
+
+    if (result.isGranted) return true;
+
+    // System dialog may require returning to the app before status updates.
+    final granted = await _waitForBatteryOptimizationGranted();
+    debugPrint('[GetStartedController] Battery unrestricted after wait: $granted');
+    return granted;
+  }
+
   Future<void> startDownload() async {
     if (isDownloading.value) {
       debugPrint('[GetStartedController] Download already in progress, ignoring tap');
@@ -869,6 +1054,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         await refreshIosBackgroundRefreshBanner();
       } else {
         iosBackgroundRefreshBannerVisible.value = false;
+        final batteryOk = await _ensureBatteryUnrestrictedForDownload();
+        if (!batteryOk) {
+          debugPrint(
+            '[GetStartedController] Start blocked: battery optimization not disabled',
+          );
+          return;
+        }
       }
 
       debugPrint('[GetStartedController] 🔔 Checking notification permission...');
@@ -907,7 +1099,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         debugPrint('[GetStartedController] ✅ MbtilesDownloadService initialized successfully');
       }
 
-      // Reset state before starting download
+      // Reset state before starting download — keep progress if service already
+      // has an in-flight download (avoids flashing 0% / -400% on revisit).
       isDownloading.value = true;
       hasError.value = false;
       isCompleted.value = false;
@@ -916,7 +1109,12 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         'get_started_status_preparing_zoom',
         [selectedZoomLevel.value],
       );
-      downloadProgress.value = 0.0;
+      final existingProgress =
+          _mbtilesDownloadService?.downloadProgress.value ?? 0.0;
+      downloadProgress.value =
+          existingProgress >= 0.0 && existingProgress <= 1.0
+              ? existingProgress
+              : 0.0;
       unawaited(refreshIosBackgroundRefreshBanner());
 
       _setupMbtilesDownloadListeners();
@@ -1043,15 +1241,17 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         return;
       }
 
-      // Update progress
+      // Update progress (ignore downloader sentinel values like -4)
       final progress = _mbtilesDownloadService!.downloadProgress.value;
-      if (downloadProgress.value != progress) {
-        downloadProgress.value = progress;
-        debugPrint('[GetStartedController] 📊 Download progress: ${(progress * 100).toStringAsFixed(1)}%');
+      final displayProgress =
+          (progress >= 0.0 && progress <= 1.0) ? progress : downloadProgress.value;
+      if (downloadProgress.value != displayProgress) {
+        downloadProgress.value = displayProgress;
+        debugPrint('[GetStartedController] 📊 Download progress: ${(displayProgress * 100).toStringAsFixed(1)}%');
       }
 
       // Update status text (service owns l10n; mirror here for binding)
-      final status = _mbtilesDownloadService!.statusText.value;
+      final status = _mbtilesDownloadService!.displayStatusText;
       if (status.isNotEmpty && statusText.value != status) {
         _setStatusFromMbtilesService();
         debugPrint('[GetStartedController] 📝 Status: $status');
@@ -1086,10 +1286,15 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         }
       }
 
-      // Cancel timer if download is no longer in progress and not completed
+      // Cancel timer only when download is truly idle (not just missing live updates).
       if (!downloading && !completed && !hasErr) {
-        debugPrint('[GetStartedController] ⏹️ Download stopped, canceling listener timer');
-        timer.cancel();
+        final progressVal = _mbtilesDownloadService!.downloadProgress.value;
+        final stillActive = _mbtilesDownloadService!.isDownloading.value ||
+            (progressVal > 0.0 && progressVal < 1.0);
+        if (!stillActive) {
+          debugPrint('[GetStartedController] ⏹️ Download stopped, canceling listener timer');
+          timer.cancel();
+        }
       }
     });
 

@@ -42,17 +42,32 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+            require(keystorePropertiesFile.exists()) {
+                "Missing android/key.properties — required for Play Store release signing."
+            }
+            val storeFileName = keystoreProperties.getProperty("storeFile")
+                ?: error("key.properties is missing storeFile")
+            val releaseStoreFile = file(storeFileName)
+            require(releaseStoreFile.exists()) {
+                "Release keystore not found at ${releaseStoreFile.absolutePath}"
+            }
+            storeFile = releaseStoreFile
             storePassword = keystoreProperties.getProperty("storePassword")
+                ?: error("key.properties is missing storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+                ?: error("key.properties is missing keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+                ?: error("key.properties is missing keyPassword")
         }
     }
 
     buildTypes {
         release {
-            // Use release signing config
+            // Play Store upload: signed with spacetime-release-key.jks only.
             signingConfig = signingConfigs.getByName("release")
+            isDebuggable = false
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

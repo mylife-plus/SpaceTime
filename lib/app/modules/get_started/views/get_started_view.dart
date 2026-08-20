@@ -654,8 +654,10 @@ const SizedBox(height: 8),
       ),
       child: Column(
         children: [
-          // Status text
-          Obx(() => Text(
+          // Status text — depend on locale so download label updates on language switch
+          Obx(() {
+            uiController.selectedLanguage.value;
+            return Text(
             controller.statusText.value.replaceAll('4.50', '5.0'),
             style: TextStyle(
               fontFamily: 'KumbhSans',
@@ -671,7 +673,8 @@ const SizedBox(height: 8),
               ],
             ),
             textAlign: TextAlign.center,
-          )),
+          );
+          }),
 
           const SizedBox(height: 4),
 
@@ -712,10 +715,14 @@ const SizedBox(height: 8),
 
   /// Build progress state
   Widget _buildProgressState(UiController uiController) {
-    return Obx(() => Column(
+    return Obx(() {
+      // background_downloader sentinels (e.g. -4 waitingToRetry) must not show as -400%
+      final progress =
+          controller.downloadProgress.value.clamp(0.0, 1.0).toDouble();
+      return Column(
       children: [
         LinearProgressIndicator(
-          value: controller.downloadProgress.value,
+          value: progress,
           backgroundColor: Colors.white.withValues(alpha: 0.3),
           valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
           minHeight: 6,
@@ -726,7 +733,7 @@ const SizedBox(height: 8),
         Text(
           trKey(
             'text_controller_downloadprogress_value_100_tostringasfix',
-            [(controller.downloadProgress.value * 100).toStringAsFixed(1)],
+            [(progress * 100).toStringAsFixed(1)],
           ),
           style: TextStyle(
             fontFamily: 'KumbhSans',
@@ -743,7 +750,8 @@ const SizedBox(height: 8),
           ),
         ),
       ],
-    ));
+    );
+    });
   }
 
   /// Build completed state
