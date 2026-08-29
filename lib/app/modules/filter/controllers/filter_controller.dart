@@ -28,6 +28,14 @@ class FilterController extends GetxController {
   /// In-flight full library load so Filter + AddMemories share one pass.
   Future<void>? _loadInFlight;
 
+  /// True once a full DB load has completed at least once. Lets callers that
+  /// just need "is data available" (e.g. MapControllerNew on cold start) skip
+  /// triggering another full scan+transform instead of reloading every time.
+  /// Callers that need a guaranteed fresh reload (data changed) should keep
+  /// calling [loadAndApplyFilters] directly — this flag only short-circuits
+  /// [ensureMemoriesLoaded].
+  bool _hasLoadedOnce = false;
+
   // ============================================================================
   // FILTER STATE
   // ============================================================================
@@ -684,6 +692,18 @@ class FilterController extends GetxController {
   // UI TRANSFORMATION METHODS
   // ============================================================================
 
+  /// Ensures memories have been loaded from the database at least once.
+  /// Reuses an already-completed load or an in-flight one instead of
+  /// triggering a redundant full DB scan + transform — use this when a
+  /// caller only needs "is data available" (e.g. MapControllerNew on cold
+  /// start). Callers that need a guaranteed fresh reload because data
+  /// changed (memory added/deleted/imported) should keep calling
+  /// [loadAndApplyFilters] directly.
+  Future<void> ensureMemoriesLoaded() async {
+    if (_hasLoadedOnce) return;
+    await loadAndApplyFilters();
+  }
+
   /// Load memories from database and apply filters
   /// This is the main orchestration method that should be called to load and filter memories
   Future<void> loadAndApplyFilters() async {
@@ -693,6 +713,7 @@ class FilterController extends GetxController {
     _loadInFlight = _loadAndApplyFiltersImpl();
     try {
       await _loadInFlight;
+      _hasLoadedOnce = true;
     } finally {
       _loadInFlight = null;
     }

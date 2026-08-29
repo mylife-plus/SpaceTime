@@ -102,6 +102,10 @@ class StyleJsonDownloadService extends GetxService {
         directory: 'offline_tiles',
         baseDirectory: BaseDirectory.applicationSupport,
         updates: Updates.statusAndProgress,
+        // Was left at the default (0) — a single transient network blip on
+        // Android failed this outright with no automatic retry, unlike the
+        // mbtiles download which already sets retries: 3.
+        retries: 3,
       );
 
       final result = await FileDownloader().download(

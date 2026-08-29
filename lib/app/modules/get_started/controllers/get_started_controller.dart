@@ -1175,9 +1175,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
     String? styleJsonPath;
     try {
-      styleJsonPath =
-          await (_styleDownloadFuture ??
-              _styleJsonDownloadService?.downloadStyleJson());
+      // Bounded — without this, a hung native callback (no terminal status
+      // ever posted, e.g. under Android background restrictions) left this
+      // await pending forever with _isFinalizingDownload stuck true, no
+      // error ever surfaced, and no way for the user to retry.
+      styleJsonPath = await (_styleDownloadFuture ??
+              _styleJsonDownloadService?.downloadStyleJson())
+          ?.timeout(const Duration(minutes: 2), onTimeout: () => null);
       if (styleJsonPath != null) {
         debugPrint('[GetStartedController] ✅ Style.json downloaded successfully to: $styleJsonPath');
       } else {

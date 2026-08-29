@@ -124,6 +124,17 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
               );
             }
             final memory = controller.displayMemories[index];
+            // Prefetch: start loading the next batch once the user has
+            // scrolled past the halfway point of what's currently loaded,
+            // instead of waiting until they hit the footer at the very end.
+            // For a page of 30 this kicks off around item 15, so by the
+            // time the user actually reaches item 30 the next batch is
+            // already staggered in and reveals smoothly instead of
+            // pausing on the loading footer. Re-applies each time `loaded`
+            // grows, since the threshold is relative to its current value.
+            if (hasMore && !loadingMore && index >= loaded ~/ 2) {
+              controller.scheduleLoadMoreDisplayItems();
+            }
             return MemoryCard(
               key: ValueKey(memory['id']),
               memoryData: memory,

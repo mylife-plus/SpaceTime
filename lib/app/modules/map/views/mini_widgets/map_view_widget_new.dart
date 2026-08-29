@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' as io;
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -50,10 +51,21 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   String? _styleLoadCacheKey;
   Future<String>? _styleJsonLoadFuture;
 
+  /// TEMP diagnostic timing — pinpoints where "Preparing map" time actually
+  /// goes (tile server vs style JSON read vs native style parse). Remove
+  /// once the remaining delay is confirmed fixed on-device.
+  final Stopwatch _mapInitStopwatch = Stopwatch()..start();
+  void _logInitTiming(String milestone) {
+    debugPrint(
+      '[MapInitTiming] ⏱️ $milestone at ${_mapInitStopwatch.elapsedMilliseconds}ms',
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _logInitTiming('initState');
 
     controller = Get.find<MapControllerNew>();
 
@@ -66,6 +78,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   void _beginTileServerInit() {
     if (!mounted || _serverInitScheduled) return;
     _serverInitScheduled = true;
+    _logInitTiming('beginTileServerInit');
     _initializeLocalTileServer();
   }
 
@@ -93,6 +106,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 
       // Check if server is already running (started in main.dart)
       if (serverService.isRunning && serverService.serverUrl != null) {
+        _logInitTiming('tileServer already running (fast path)');
         setState(() {
           _serverUrl = serverService.serverUrl;
           _isInitializing = false;
@@ -100,6 +114,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
         return;
       }
 
+      _logInitTiming('tileServer NOT running yet — starting fresh');
       final mbtilesService = MbtilesDownloadService.instance;
       final isDownloaded = await mbtilesService.isMbtilesDownloaded();
       final tilesPath = mbtilesService.getLocalMbtilesPath();
@@ -114,6 +129,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       }
 
       final url = await serverService.startServer(tilesPath);
+      _logInitTiming('tileServer.startServer() returned');
 
       if (url != null) {
         setState(() {
@@ -465,7 +481,12 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     final styleKey = '$serverUrl|$tileUrl';
     if (_styleLoadCacheKey != styleKey) {
       _styleLoadCacheKey = styleKey;
-      _styleJsonLoadFuture = _loadStyleJsonFromAssets(tileUrl, serverUrl);
+      _logInitTiming('_loadStyleJsonFromAssets() starting');
+      _styleJsonLoadFuture = _loadStyleJsonFromAssets(tileUrl, serverUrl)
+          .then((json) {
+        _logInitTiming('_loadStyleJsonFromAssets() resolved');
+        return json;
+      });
     }
 
     return FutureBuilder<String>(
@@ -513,6 +534,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           textureView:
               io.Platform.isAndroid, // Only use texture view on Android
           onMapCreated: (mapboxMap) async {
+            _logInitTiming('onMapCreated fired');
             debugPrint(
               '[MapViewWidgetNew] 🗺️ onMapCreated callback triggered',
             );
@@ -547,13 +569,18 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
               );
             }
 
+            _logInitTiming('loadStyleJson() call starting');
             await mapboxMap.loadStyleJson(styleJson);
+            _logInitTiming('loadStyleJson() call returned');
 
             debugPrint(
               '[MapViewWidgetNew] ✅ Custom style JSON loaded into Mapbox successfully',
             );
           },
           onStyleLoadedListener: (styleLoadedEventData) async {
+            _logInitTiming(
+              'onStyleLoaded fired — overlay dismisses now (TOTAL prepare time)',
+            );
             debugPrint(
               '[MapViewWidgetNew] 🎨 onStyleLoaded callback triggered',
             );
@@ -656,6 +683,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           .replaceAll('{LOCAL_SERVER_URL}', serverUrl)
           .replaceAll('{LOCAL_TILE_URL}', tileUrl);
 
+      modifiedStyleJson = _localizeSpriteAndGlyphs(modifiedStyleJson, serverUrl);
+
       return modifiedStyleJson;
     } catch (e) {
       // Fallback to a simplified style if assets/style.json is not found
@@ -701,6 +730,31 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   ]
 }
 ''';
+    }
+  }
+
+  /// The style JSON we download/bundle is derived from Mapbox's default
+  /// "streets-v12" template, which still points `sprite`/`glyphs` at
+  /// Mapbox's remote CDN (`mapbox://...`). Resolving those on every cold
+  /// start requires a live network round-trip and is a major contributor to
+  /// the "Preparing map" delay, independent of memory count. Both resources
+  /// are already served locally by [MbtilesServerService] (`/sprites/...`,
+  /// `/fonts/{fontstack}/{range}.pbf`), so rewrite the style to point there
+  /// instead — regardless of what the remote-hosted style.json contains.
+  String _localizeSpriteAndGlyphs(String styleJson, String serverUrl) {
+    try {
+      final decoded = jsonDecode(styleJson);
+      if (decoded is! Map<String, dynamic>) return styleJson;
+
+      decoded['sprite'] = '$serverUrl/sprites/custom-sprite';
+      decoded['glyphs'] = '$serverUrl/fonts/{fontstack}/{range}.pbf';
+
+      return jsonEncode(decoded);
+    } catch (e) {
+      debugPrint(
+        '[MapViewWidgetNew] ⚠️ Could not localize sprite/glyphs, using style as-is: $e',
+      );
+      return styleJson;
     }
   }
 }

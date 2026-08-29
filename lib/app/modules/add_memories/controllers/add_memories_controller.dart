@@ -69,8 +69,15 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
   /// Page size for add-memories list (lazy load on scroll).
   /// Android uses a smaller first window to reduce decode/layout jank.
+  /// Was 20, dropped to 8 after a real-device ANR traced to bursts of
+  /// simultaneous first-time media decode/thumbnail work; raised to 30 now
+  /// that _revealStepSize (see _growLoadedDisplayCount) staggers every
+  /// reveal into small sub-batches regardless of page size, and per-item
+  /// decode/thumbnail cost on Android is separately capped at ~50% quality
+  /// (see MemoryMediaImageProviderCache / VideoThumbnailWidget) — so a
+  /// bigger page no longer means a bigger single-frame burst.
   static int get memoryListPageSize =>
-      !kIsWeb && Platform.isAndroid ? 20 : 50;
+      !kIsWeb && Platform.isAndroid ? 30 : 50;
 
   /// Sorted memories shown in the list (rebuilt when source data/filters change).
   final RxList<Map<String, dynamic>> displayMemories =
@@ -312,10 +319,41 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
     displayMemories.value = sorted;
     final total = displayMemories.length;
-    loadedDisplayCount.value =
-        total == 0 ? 0 : memoryListPageSize.clamp(0, total);
+    loadedDisplayCount.value = 0;
     isLoadingMoreDisplay.value = false;
     _loadMoreScheduled = false;
+    if (total > 0) {
+      unawaited(_growLoadedDisplayCount(memoryListPageSize, stopToken: token));
+    }
+  }
+
+  /// How many additional rows to reveal per step when growing
+  /// [loadedDisplayCount] toward a target, instead of jumping there in one
+  /// atomic assignment. Confirmed on a real device: revealing a full page
+  /// of image/video-heavy MemoryCards in a single step mounted that many
+  /// widgets at once, each starting real (if now off-main-thread) decode/
+  /// thumbnail work simultaneously — visibly laggy, and a contributing
+  /// factor in a real ANR from concurrent video thumbnail generation.
+  static const int _revealStepSize = 4;
+  static const Duration _revealStepDelay = Duration(milliseconds: 32);
+
+  /// Grows [loadedDisplayCount] toward [target] in small steps across
+  /// multiple frames instead of one atomic jump. [stopToken], when given,
+  /// lets a newer [rebuildDisplayListAsync] call cancel an in-flight
+  /// staggered reveal left over from an older one.
+  Future<void> _growLoadedDisplayCount(int target, {int? stopToken}) async {
+    final total = displayMemories.length;
+    final clampedTarget = target.clamp(0, total);
+    while (loadedDisplayCount.value < clampedTarget) {
+      if (stopToken != null && stopToken != _displayListRebuildToken) return;
+      final next = (loadedDisplayCount.value + _revealStepSize).clamp(
+        0,
+        clampedTarget,
+      );
+      loadedDisplayCount.value = next;
+      if (next >= clampedTarget) return;
+      await Future<void>.delayed(_revealStepDelay);
+    }
   }
 
   /// Fast path after a single delete — no full re-sort.
@@ -402,12 +440,15 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     if (!hasMoreDisplayItems || isLoadingMoreDisplay.value) return;
 
     isLoadingMoreDisplay.value = true;
-    await Future<void>.delayed(Duration.zero);
     try {
       final total = displayMemories.length;
       if (loadedDisplayCount.value >= total) return;
-      final next = loadedDisplayCount.value + memoryListPageSize;
-      loadedDisplayCount.value = next > total ? total : next;
+      final target = loadedDisplayCount.value + memoryListPageSize;
+      // Staggered — see _growLoadedDisplayCount doc comment. Kept under
+      // isLoadingMoreDisplay the whole time so the footer's "hasMore &&
+      // !loadingMore" guard doesn't schedule an overlapping load-more
+      // while this batch is still revealing.
+      await _growLoadedDisplayCount(target.clamp(0, total));
     } finally {
       isLoadingMoreDisplay.value = false;
     }

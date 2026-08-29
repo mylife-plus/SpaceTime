@@ -1170,6 +1170,8 @@
   "mbtiles_error_download_with_message": "Échec du téléchargement : $1",
   "mbtiles_error_file_too_small": "Le fichier téléchargé est trop petit ($1 Go). Au moins 4 Go sont attendus. Vérifiez que le fichier est accessible publiquement.",
   "mbtiles_error_invalid_zoom": "Niveau de zoom non valide",
+  "mbtiles_error_stalled": "Le téléchargement est bloqué — aucune progression depuis un moment. Veuillez réessayer.",
+  "mbtiles_error_file_missing_after_complete": "Le téléchargement est terminé mais le fichier est introuvable. Veuillez réessayer.",
   "mbtiles_error_verify_file_failed": "Impossible de vérifier le fichier téléchargé",
   "mbtiles_notif_complete_body": "Les tuiles de carte sont prêtes",
   "mbtiles_notif_complete_title": "Téléchargement terminé !",

@@ -15,6 +15,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spacetime/app/services/offline_map_service.dart';
 import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
+import 'package:spacetime/app/utils/memory_sort.dart';
 import 'package:spacetime/utils/cluster_icon_generator.dart';
 import '../../../../services/permission_service.dart';
 import '../../../../services/connectivity_service.dart';
@@ -165,7 +166,17 @@ class MapControllerNew extends GetxController {
 
     loadFilterData();
 
-    _initializeMap();
+    // NOTE: _initializeMap() (location permission request) is deliberately
+    // NOT called here. onInit() fires before the native MapWidget/TextureView
+    // is even created, so Geolocator.requestPermission()'s system dialog was
+    // launching concurrently with native map view creation — the dialog
+    // stealing window focus while Android was still setting up the map's
+    // TextureView caused onMapCreated to stall for the permission request's
+    // full timeout and triggered a real ANR ("Input dispatching timed out...
+    // waiting for FocusEvent") on at least one real device. It's called from
+    // _proceedWithMapInitialization() instead, which only runs after
+    // onStyleLoaded — i.e. once the map is already visible — so the
+    // permission dialog can no longer collide with native view creation.
 
     // Start periodic permission checking to catch changes from permission service
     _startPermissionMonitoring();
@@ -364,6 +375,9 @@ class MapControllerNew extends GetxController {
     isStyleReady.value = false;
     mapboxMap = mapboxMapInstance;
     isMapReady.value = true;
+    // A fresh MapboxMap instance means a fresh style with no style images
+    // loaded yet — force the color badge icons to be (re)loaded into it.
+    _clusterBadgeIconsLoaded = false;
   }
 
   /// Initialize map components after creation (iOS-safe)
@@ -375,6 +389,11 @@ class MapControllerNew extends GetxController {
     _setupCameraChangeListener();
 
     initializeMapData();
+
+    // Moved here from onInit() — see the comment there. The map is already
+    // visible at this point (onStyleLoaded already fired), so the location
+    // permission dialog can't collide with native map view creation anymore.
+    _initializeMap();
 
     // Do not schedule _moveCameraToCurrentLocation here so that loadMemoriesFromDB()
     // can focus on latest memory on launch; when there are no memories,
@@ -563,8 +582,6 @@ class MapControllerNew extends GetxController {
     }
   }
 
-  final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
-
   /// Load memories from FilterController (single source of truth)
   /// Now delegates to FilterController which handles all memory loading and filtering
   Future<void> loadMemoriesFromDB([
@@ -591,111 +608,24 @@ class MapControllerNew extends GetxController {
       return;
     }
 
-    final db = await _databaseHelper.database;
-    if (!db.isOpen) {
-      await _databaseHelper.resetDatabaseConnection();
-    }
-
-    // Load all memories from database (may be empty)
-    final mem1 = await _databaseHelper.getAllMemoriesWithDetails();
-
-    // Transform database memories to UI format
-    final transformedMemories = <Map<String, dynamic>>[];
-    for (final memory in mem1) {
-      try {
-        final transformed = await _filterController.transformDatabaseMemoryToUI(
-          memory,
-        );
-        transformedMemories.add(transformed);
-      } catch (e) {
-        // debugPrint('$tag Error transforming memory ${memory['id']}: $e');
-      }
-    }
-
-    transformedMemories.sort((a, b) {
-      try {
-        final aDate = a['date'] as String? ?? '';
-        final bDate = b['date'] as String? ?? '';
-        final aYear = a['year'] as String? ?? '';
-        final bYear = b['year'] as String? ?? '';
-        final aTime = a['time'] as String? ?? '';
-        final bTime = b['time'] as String? ?? '';
-
-        DateTime? aDateTime;
-        DateTime? bDateTime;
-
-        String format =
-            io.Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
-
-        if (aTime.toLowerCase().contains('am') ||
-            aTime.toLowerCase().contains('pm')) {
-          format = "d. MMMM yyyy hh:mm a";
-        } else {
-          format = "d. MMMM yyyy HH:mm";
-        }
-
-        // Try to parse memory A
-        try {
-          if (aDate.isNotEmpty) {
-            if (aDate.contains(' ') && aDate.split(' ').length >= 4) {
-              aDateTime = DateTime.tryParse(aDate);
-            } else if (aYear.isNotEmpty) {
-              String dateTimeStr = '$aDate $aYear';
-              if (aTime.isNotEmpty) {
-                dateTimeStr += ' $aTime';
-              }
-              aDateTime = DateTime.tryParse(dateTimeStr);
-            }
-          }
-        } catch (e) {
-          // debugPrint('$tag Error parsing date A: $e');
-        }
-
-        // Try to parse memory B
-        try {
-          if (bDate.isNotEmpty) {
-            if (bDate.contains(' ') && bDate.split(' ').length >= 4) {
-              bDateTime = DateTime.tryParse(bDate);
-            } else if (bYear.isNotEmpty) {
-              String dateTimeStr = '$bDate $bYear';
-              if (bTime.isNotEmpty) {
-                dateTimeStr += ' $bTime';
-              }
-              bDateTime = DateTime.tryParse(dateTimeStr);
-            }
-          }
-        } catch (e) {
-          // debugPrint('$tag Error parsing date B: $e');
-        }
-
-        // Compare dates
-        if (aDateTime != null && bDateTime != null) {
-          return bDateTime.compareTo(aDateTime); // Newest first
-        } else if (aDateTime != null) {
-          return -1;
-        } else if (bDateTime != null) {
-          return 1;
-        }
-        return 0;
-      } catch (e) {
-        // debugPrint('$tag Error sorting memories: $e');
-        return 0;
-      }
-    });
+    // FilterController owns the single full DB scan + transform + sort pass
+    // (chunked/yielded, isolate-offloaded sort — see MemorySort). Ensure it
+    // has run at least once and reuse its result instead of repeating the
+    // same getAllMemoriesWithDetails() query + transform + sort here, which
+    // used to run a second time on every cold start. Callers that need a
+    // guaranteed fresh reload (data changed) go through refreshMapView(),
+    // which forces FilterController to reload before we get here — so by
+    // the time we reach ensureMemoriesLoaded() below it's already fresh and
+    // this is a no-op read.
+    await _filterController.ensureMemoriesLoaded();
+    final transformedMemories = _filterController.allMemories.toList();
 
     debugPrint('[MapControllerNew] loadMemoriesFromDB called');
     allMemoriesWithoutFilter.clear();
     allMemoriesWithoutFilter.addAll(transformedMemories);
     _currentMemories.clear();
 
-    List<Map<String, dynamic>> memories;
-    if (filteredMemoriesData != null) {
-      memories = filteredMemoriesData;
-    } else {
-      _filterController.allMemories.value = transformedMemories;
-      _filterController.applyAllFilters();
-      memories = _filterController.filteredMemories.toList();
-    }
+    final memories = _filterController.filteredMemories.toList();
 
     // Spread out memories with same coordinates (~20 meters apart)
     final spreadMemories = await MemoryMapIsolate.spreadOverlappingMemories(
@@ -1792,42 +1722,6 @@ class MapControllerNew extends GetxController {
         _toDouble(memory['longitude']);
   }
 
-  /// Parse a memory's user-selected date+time into a comparable DateTime.
-  /// Mirrors the timeline/arrow ordering logic (uses memory['date']/['year']/['time'],
-  /// NOT created_at) so camera focus and the chronological arrows agree on which
-  /// memory is the "latest" one.
-  DateTime? _parseMemoryDateTime(Map<String, dynamic> memory) {
-    final date = (memory['date'] as String?) ?? '';
-    final year = (memory['year'] as String?) ?? '';
-    final time = (memory['time'] as String?) ?? '';
-    try {
-      if (date.isNotEmpty && year.isNotEmpty) {
-        if (time.isNotEmpty) {
-          String format =
-              io.Platform.isIOS ? "d. MMMM yyyy hh:mm a" : "d. MMMM yyyy HH:mm";
-          if (time.toLowerCase().contains('am') ||
-              time.toLowerCase().contains('pm')) {
-            format = "d. MMMM yyyy hh:mm a";
-          } else {
-            format = "d. MMMM yyyy HH:mm";
-          }
-          return DateFormat(format).parse('$date $year $time');
-        }
-        return DateFormat("d. MMMM yyyy").parse('$date $year');
-      }
-      // Fallback: date may already be a fully-formed parseable string.
-      if (date.isNotEmpty) {
-        final parsed = DateTime.tryParse(date);
-        if (parsed != null) return parsed;
-      }
-    } catch (e) {
-      debugPrint(
-        '[MapControllerNew] _parseMemoryDateTime failed for "$date $year $time": $e',
-      );
-    }
-    return null;
-  }
-
   /// Find the latest memory with valid coordinates in a list
   Map<String, double>? _getLatestMemoryLatLng(
     List<Map<String, dynamic>> memories,
@@ -1916,16 +1810,10 @@ class MapControllerNew extends GetxController {
         (allMemories != null && allMemories.isNotEmpty)
             ? allMemories
             : allMemoriesWithoutFilter.toList();
-    final sorted = List<Map<String, dynamic>>.from(candidates)..sort((a, b) {
-      final ad = _parseMemoryDateTime(a);
-      final bd = _parseMemoryDateTime(b);
-      if (ad != null && bd != null) return bd.compareTo(ad); // newest first
-      if (ad != null) return -1;
-      if (bd != null) return 1;
-      final ac = (a['created_at'] as String?) ?? '';
-      final bc = (b['created_at'] as String?) ?? '';
-      return bc.compareTo(ac); // fallback: newest created_at first
-    });
+    // MemorySort precomputes each memory's parsed date once instead of
+    // re-parsing it on every comparator call (was O(n log n) DateFormat
+    // parses here), using the same date/time rules described above.
+    final sorted = MemorySort.memoriesNewestFirst(candidates);
 
     Map<String, double>? latest = _getLatestMemoryLatLng(sorted);
 
@@ -2158,10 +2046,12 @@ class MapControllerNew extends GetxController {
     // Clear existing lines/arrows first
     await clearAllLines();
 
-    // allMemories = _filterController.filteredMemories,v;
-    // Reload memories from database
+    // Force FilterController to re-run its full DB load (data may have
+    // changed) before loadMemoriesFromDB() reads its result — this is the
+    // one no-arg call site that genuinely needs fresh data rather than
+    // reusing whatever FilterController already had loaded.
+    await _filterController.loadAndApplyFilters();
     await loadMemoriesFromDB();
-    // await _
     // Refresh AddMemoriesController if it exists
     try {
       final addMemoriesController = Get.find<AddMemoriesController>();
@@ -3492,46 +3382,68 @@ class MapControllerNew extends GetxController {
   }
 
   /// Load custom cluster icons into the map style
+  /// Once true, [_loadClusterIcons] is a no-op — the badge set is a fixed
+  /// size (one image per color, not per cluster/memory) so it only needs to
+  /// be generated and loaded into the style once per map session.
+  bool _clusterBadgeIconsLoaded = false;
+
+  static const String _clusterBadgeIconPrefix = 'memory-color-badge-';
+
+  /// Load a small, fixed set of colored circle badge icons (one per entry in
+  /// [MemoryGeoJsonService.colors] — the same palette [color_index] /
+  /// [latest_color_index] already index into for the rest of the map) for
+  /// use as `icon-image` on the cluster and individual-point layers. Exact
+  /// counts are rendered separately by the native text layer, so this never
+  /// needs to scale with memory/cluster count — just the fixed color count.
   Future<void> _loadClusterIcons() async {
-    if (mapboxMap == null) return;
+    if (mapboxMap == null || _clusterBadgeIconsLoaded) return;
 
     try {
-      debugPrint('[MapControllerNew] 🎨 Loading custom cluster icons...');
+      debugPrint('[MapControllerNew] 🎨 Loading memory color badge icons...');
 
-      // Generate cluster icon set using defined size tiers
-      final icons = await ClusterIconGenerator.generateClusterIconSet(
-        counts: CLUSTER_SIZE_TIERS,
-        size: 30.0,
+      final badges = await ClusterIconGenerator.generateColorBadgeSet(
+        hexColors: MemoryGeoJsonService.colors,
+        size: 40.0,
       );
 
-      // Add each icon to the map style
-      for (final entry in icons.entries) {
-        final iconName = entry.key;
-        final iconData = entry.value;
-
+      for (final entry in badges.entries) {
+        final iconName = '$_clusterBadgeIconPrefix${entry.key}';
         try {
           await mapboxMap!.style.addStyleImage(
             iconName,
             1.0, // scale
-            mapbox.MbxImage(width: 30, height: 30, data: iconData),
+            mapbox.MbxImage(width: 40, height: 40, data: entry.value),
             false, // sdf (signed distance field)
             [], // stretchX
             [], // stretchY
             null, // content
           );
-          debugPrint('[MapControllerNew] ✅ Added cluster icon: $iconName');
         } catch (e) {
-          debugPrint('[MapControllerNew] ❌ Failed to add icon $iconName: $e');
+          debugPrint('[MapControllerNew] ❌ Failed to add badge $iconName: $e');
         }
       }
 
-      // Generate and add individual point icon
-      debugPrint('[MapControllerNew] 🎨 Generating individual point icon...');
-
-      debugPrint('[MapControllerNew] ✅ All cluster icons loaded successfully');
+      _clusterBadgeIconsLoaded = true;
+      debugPrint(
+        '[MapControllerNew] ✅ Loaded ${badges.length} memory color badge icons',
+      );
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error loading cluster icons: $e');
     }
+  }
+
+  /// Mapbox `match` expression selecting a pre-loaded color badge icon by
+  /// [propertyName] (e.g. `color_index` on individual points,
+  /// `latest_color_index` on clusters). Falls back to color 0's badge for
+  /// any out-of-range/missing value.
+  List<Object> _colorBadgeIconExpression(String propertyName) {
+    final expression = <Object>['match', <Object>['get', propertyName]];
+    for (var i = 0; i < MemoryGeoJsonService.colors.length; i++) {
+      expression.add(i);
+      expression.add('$_clusterBadgeIconPrefix$i');
+    }
+    expression.add('${_clusterBadgeIconPrefix}0'); // default/fallback
+    return expression;
   }
 
   /// Add MapBox cluster layers with enhanced styling and proper layer ordering
@@ -3544,8 +3456,9 @@ class MapControllerNew extends GetxController {
         '[MapControllerNew] 🎨 Adding enhanced cluster layers with custom icons...',
       );
 
-      // Load custom cluster icons first
-      // await _loadClusterIcons();
+      // Load the fixed-size color badge icon set (one per color, cached
+      // after the first call — see _loadClusterIcons doc comment).
+      await _loadClusterIcons();
 
       // Avoid getStyleLayers() (can return 200+ layers and stall the UI isolate).
       // Prefer known label layer ids from our offline style.
@@ -3566,69 +3479,25 @@ class MapControllerNew extends GetxController {
       }
 
       try {
+        // Custom-drawn colored badge icon (white ring + fill), colored by
+        // the cluster's latest_color_index — same color mapping the flat
+        // circle-color match expression used to render, now as a real
+        // pre-drawn image per the "custom per-cluster image" request. The
+        // exact count is still rendered separately by the native text layer
+        // below, so this stays a fixed 21-image set regardless of how many
+        // clusters/memories exist.
         await mapboxMap!.style.addLayer(
-          mapbox.CircleLayer(
+          mapbox.SymbolLayer(
             id: CLUSTERS_CIRCLE_LAYER_ID,
             sourceId: MEMORY_SOURCE_ID,
             filter: ['has', 'point_count'],
-
-            // Initial simple paint; will refine via setStyleLayerProperty below if needed
-            circleColor: 0xFF11B4DA, // default (will be overridden)
-            circleRadius: 12.0,
-            circleStrokeWidth: 5.0,
-            circleStrokeColor: 0xFFFFFFFF,
-            circleOpacity: 1.0,
+            iconImageExpression: _colorBadgeIconExpression(
+              'latest_color_index',
+            ),
+            iconSize: 0.6,
+            iconAllowOverlap: true,
+            iconIgnorePlacement: true,
           ),
-        );
-        await Future<void>.delayed(Duration.zero);
-        await mapboxMap!.style.setStyleLayerProperty(
-          CLUSTERS_CIRCLE_LAYER_ID,
-          'circle-color',
-          [
-            'match',
-            ['get', 'latest_color_index'],
-            0,
-            '#0080FF',
-            1,
-            '#0051FF',
-            2,
-            '#2200FF',
-            3,
-            '#5E00FF',
-            4,
-            '#7700FF',
-            5,
-            '#A100FF',
-            6,
-            '#E500FF',
-            7,
-            '#FF00AE',
-            8,
-            '#FF0073',
-            9,
-            '#FF001E',
-            10,
-            '#FF5100',
-            11,
-            '#FFA100',
-            12,
-            '#FFD900',
-            13,
-            '#BBFF00',
-            14,
-            '#66FF00',
-            15,
-            '#00FF73',
-            16,
-            '#00EEFF',
-            17,
-            '#004D99',
-            18,
-            '#6600CC',
-            19,
-            '#FF2D55',
-            '#004D99',
-          ],
         );
       } catch (_) {}
 
@@ -3641,6 +3510,12 @@ class MapControllerNew extends GetxController {
             sourceId: MEMORY_SOURCE_ID,
             filter: ['has', 'point_count'],
             textField: '', // or null; gets overridden
+            // Explicit — without this the layer relies on whatever default
+            // font the style/SDK falls back to for a layer that doesn't
+            // specify one, which is exactly the kind of ambiguity that can
+            // silently render no glyphs at all. Matches the font actually
+            // served locally (assets/fonts/Noto Sans Regular/*.pbf).
+            textFont: const ['Noto Sans Regular'],
             textSize: 14.0,
             textHaloColor: 0xFF000000,
             textColor: 0xFFFFFFFF,
@@ -3672,84 +3547,60 @@ class MapControllerNew extends GetxController {
         await mapboxMap!.style.removeStyleLayer(UNCLUSTERED_LAYER_ID);
       } catch (_) {}
       try {
+        // Same pre-drawn color badge icons as the cluster layer above,
+        // keyed by each individual point's own color_index — replaces the
+        // flat circle-color match expression with the custom-drawn badge.
         await mapboxMap!.style.addLayer(
-          mapbox.CircleLayer(
+          mapbox.SymbolLayer(
             id: UNCLUSTERED_LAYER_ID,
             sourceId: MEMORY_SOURCE_ID,
             filter: [
               '!',
               ['has', 'point_count'],
             ],
-            // circleColor: 0xFF11B4DA, // default (will be overridden)
-            circleRadius: 12.0,
-            circleStrokeWidth: 5.0,
-            circleStrokeColor: 0xFFFFFFFF,
-            circleOpacity: 1.0,
+            iconImageExpression: _colorBadgeIconExpression('color_index'),
+            iconSize: 0.6,
+            iconAllowOverlap: true,
+            iconIgnorePlacement: true,
           ),
         );
-
-        debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
-
         debugPrint('[MapControllerNew] ✅ Individual point icon layer added');
       } catch (e) {
         debugPrint(
           '[MapControllerNew] ❌ Failed to add individual icon layer: $e',
         );
-        // Fallback: use circle layer if icon fails
-        debugPrint(
-          '[MapControllerNew] 🔄 Adding fallback circle layer for individual points...',
-        );
-
-        // );
-        try {
-          await mapboxMap!.style.addLayer(
-            mapbox.CircleLayer(
-              id: UNCLUSTERED_LAYER_ID,
-              sourceId: MEMORY_SOURCE_ID,
-              filter: [
-                '!',
-                ['has', 'point_count'],
-              ],
-              circleColor: 0xFF11B4DA,
-              circleRadius: 12.0,
-              circleStrokeWidth: .0,
-              circleStrokeColor: 0xFFFFFFFF,
-              circleOpacity: 1.0,
-            ),
-          );
-        } catch (_) {}
-
-        debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
       }
-
-      try {
-        await mapboxMap!.style.setStyleLayerProperty(
-          UNCLUSTERED_LAYER_ID,
-          'circle-color',
-          ['get', 'color'],
-        );
-      } catch (e) {
-        print('MapControllerNew toMemoryYear circle-color erro $e');
-      }
-
-      // Note: Individual points now use icon with embedded "1" text
-      // No separate text layer needed since the icon includes the number
-      debugPrint(
-        '[MapControllerNew] ✅ Individual point icon includes embedded "1" text',
-      );
       // Move all cluster layers above the symbol/label layer for proper ordering
       if (labelLayerId != null) {
-        // Move all cluster size tiers
-        final clusterLayerIds = [];
+        // Was an empty list ([]) — a leftover from when this moved the old
+        // per-count-tier icon layers, never updated after that system was
+        // replaced. CLUSTERS_CIRCLE_LAYER_ID/CLUSTERS_COUNT_LAYER_ID were
+        // the only layers here NOT explicitly repositioned above labels
+        // (UNCLUSTERED_LAYER_ID below was), so on later calls — once
+        // addLayer() for them silently no-ops as "already exists" and
+        // nothing else keeps them pinned in place — later-added style
+        // layers could end up stacking on top and hiding the cluster
+        // count text. Move the count layer last so it renders above its
+        // own circle badge too.
+        final clusterLayerIds = [
+          CLUSTERS_CIRCLE_LAYER_ID,
+          CLUSTERS_COUNT_LAYER_ID,
+        ];
 
         for (final layerId in clusterLayerIds) {
-          await mapboxMap!.style.moveStyleLayer(
-            layerId,
-            mapbox.LayerPosition(above: labelLayerId),
-          );
+          try {
+            await mapboxMap!.style.moveStyleLayer(
+              layerId,
+              mapbox.LayerPosition(above: labelLayerId),
+            );
+          } catch (e) {
+            debugPrint(
+              '[MapControllerNew] ⚠️ Could not move $layerId above $labelLayerId: $e',
+            );
+          }
         }
 
-        // Move individual points icon layer (includes embedded "1" text)
+        // Move individual points icon layer
         await mapboxMap!.style.moveStyleLayer(
           UNCLUSTERED_LAYER_ID,
           mapbox.LayerPosition(above: labelLayerId),

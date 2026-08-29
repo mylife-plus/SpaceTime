@@ -23,8 +23,27 @@ import 'package:background_downloader/background_downloader.dart';
 /// not practical, so we use Application Support and auto-detect missing files.
 class MbtilesDownloadService extends GetxController {
   static MbtilesDownloadService? _instance;
-  static MbtilesDownloadService get instance =>
-      _instance ??= MbtilesDownloadService._();
+
+  /// IMPORTANT: this must go through [Get.put] (not just a plain
+  /// constructor call) — GetX only invokes [onInit] for instances created
+  /// through its DI container. Before this fix, `_instance ??=
+  /// MbtilesDownloadService._()` bypassed that entirely, so onInit() (and
+  /// therefore the global download-status stream listener,
+  /// resumeFromBackground(), and _checkForResumedDownloads()) never ran on
+  /// Android — the only thing left driving progress/completion was a
+  /// one-shot resync on app resume, which is exactly why downloads would
+  /// "sometimes" complete (app happened to be backgrounded/foregrounded)
+  /// and otherwise sit stuck with no error and no way to retry.
+  static MbtilesDownloadService get instance {
+    if (_instance == null) {
+      _instance = MbtilesDownloadService._();
+      if (Get.isRegistered<MbtilesDownloadService>()) {
+        Get.delete<MbtilesDownloadService>(force: true);
+      }
+      Get.put<MbtilesDownloadService>(_instance!, permanent: true);
+    }
+    return _instance!;
+  }
 
   MbtilesDownloadService._() {
     if (Get.isRegistered<UiController>()) {
@@ -159,6 +178,16 @@ class MbtilesDownloadService extends GetxController {
   Timer? _androidProgressPollTimer;
   bool _downloaderConfigured = false;
 
+  /// Stall watchdog: if progress hasn't moved for [_stallTimeout] while
+  /// `isDownloading` is true, surface a retryable error instead of leaving
+  /// the UI spinning forever with no recourse (previously nothing reset
+  /// `isDownloading`/`hasError` on a genuine stall, so the "already in
+  /// progress" guard in [downloadMbtiles] permanently blocked retry and
+  /// [retryDownload] — gated on `hasError` — was unreachable).
+  static const Duration _stallTimeout = Duration(minutes: 3);
+  DateTime? _lastProgressAt;
+  double _lastWatchedProgress = -1;
+
   /// Expected mbtiles size (~4.5 GB for zoom 11) used when Content-Length is unknown.
   static const int _approxExpectedBytes = 4831838208; // 4.5 * 1024^3
 
@@ -172,6 +201,10 @@ class MbtilesDownloadService extends GetxController {
 
   void _startAndroidProgressPolling() {
     if (!Platform.isAndroid) return;
+    // Fresh watchdog window for this attempt — avoid a stale timestamp from
+    // a previous stalled/retried download immediately tripping the watchdog.
+    _lastProgressAt = DateTime.now();
+    _lastWatchedProgress = downloadProgress.value;
     _androidProgressPollTimer?.cancel();
     _androidProgressPollTimer = Timer.periodic(
       const Duration(seconds: 2),
@@ -234,9 +267,43 @@ class MbtilesDownloadService extends GetxController {
       }
 
       await _seedProgressFromPartialFileIfNeeded();
+
+      _checkForStall();
     } catch (e) {
       debugPrint('[MbtilesDownload] ⚠️ Progress sync failed: $e');
     }
+  }
+
+  /// Called on every poll tick. If progress hasn't moved for [_stallTimeout]
+  /// while still marked as downloading, treat it as stalled: surface a
+  /// retryable error and reset `isDownloading` so the UI stops spinning
+  /// forever and the user can actually tap retry again.
+  void _checkForStall() {
+    if (!isDownloading.value || hasError.value || isCompleted.value) return;
+
+    if (downloadProgress.value != _lastWatchedProgress) {
+      _lastWatchedProgress = downloadProgress.value;
+      _lastProgressAt = DateTime.now();
+      return;
+    }
+
+    final lastProgressAt = _lastProgressAt;
+    if (lastProgressAt == null) {
+      _lastProgressAt = DateTime.now();
+      return;
+    }
+
+    if (DateTime.now().difference(lastProgressAt) < _stallTimeout) return;
+
+    debugPrint(
+      '[MbtilesDownload] ⏱️ Stall detected — no progress for '
+      '${_stallTimeout.inMinutes}min, surfacing retryable error',
+    );
+    isDownloading.value = false;
+    hasError.value = true;
+    errorMessage.value = 'mbtiles_error_stalled'.tr;
+    _setStatusText('mbtiles_error_stalled');
+    _stopAndroidProgressPolling();
   }
 
   /// Pull updates stored while the app/engine was disconnected (Android).
@@ -396,8 +463,15 @@ class MbtilesDownloadService extends GetxController {
               _setStatusText('mbtiles_status_downloading');
             }
           } else if (update.status == TaskStatus.complete) {
-            isDownloading.value = false;
-            isCompleted.value = true;
+            // isDownloading intentionally stays true until finalize actually
+            // confirms success below. Clearing it here left a window where
+            // downloadMbtiles()'s "already in progress" reentrancy guard
+            // would pass for a second call arriving in that window, and its
+            // directory-wipe-on-fresh-start logic would delete the
+            // just-completed file before finalize ever got to read it —
+            // silently stranding the app with isDownloading=false,
+            // isCompleted=false and no error, which is exactly the "stuck
+            // on Get Started even though tiles finished" symptom.
             _applyProgress(1.0);
             _setStatusText('text_download_completed');
             _stopAndroidProgressPolling();
@@ -407,6 +481,12 @@ class MbtilesDownloadService extends GetxController {
               localPath,
               await getSelectedZoomLevel(),
             );
+            // _finalizeSuccessfulDownload clears isDownloading itself on
+            // both its success and validation-failure paths. This is only
+            // a safety net for any path that returns without touching it.
+            if (!isCompleted.value && !hasError.value) {
+              isDownloading.value = false;
+            }
           } else if (update.status == TaskStatus.failed) {
             isDownloading.value = false;
             _setStatusText('text_download_failed');
@@ -428,7 +508,15 @@ class MbtilesDownloadService extends GetxController {
     try {
       final localFile = File(localFilePath);
       if (!await localFile.exists()) {
+        // Previously left isDownloading/isCompleted/hasError all false here
+        // — a silent dead end with no error shown and no way to retry
+        // (retryDownload() is gated on hasError). Surface it instead.
         debugPrint('[MbtilesDownload] ⚠️ Finalize skipped — file missing');
+        hasError.value = true;
+        errorMessage.value = 'mbtiles_error_file_missing_after_complete'.tr;
+        _setStatusText('mbtiles_error_file_missing_after_complete');
+        isDownloading.value = false;
+        isCompleted.value = false;
         return;
       }
 
@@ -711,6 +799,21 @@ class MbtilesDownloadService extends GetxController {
       return null;
     }
 
+    // Defense-in-depth against wiping a real, already-finalized download:
+    // the directory-cleanup step below deletes everything in offline_tiles
+    // before starting a "fresh" download. If this method is ever re-entered
+    // right after a genuine completion (the isDownloading guard above is
+    // the primary protection, but should not be the only one), this check
+    // stops it from destroying a file that's already valid.
+    if (zoomLevel == null || zoomLevel == await getSelectedZoomLevel()) {
+      if (await isMbtilesDownloaded()) {
+        debugPrint(
+          '[MbtilesDownload] ✅ Already downloaded at the requested zoom — skipping re-download',
+        );
+        return _localMbtilesPath;
+      }
+    }
+
     // Prefer resuming an existing incomplete task over wiping offline_tiles
     // and starting from 0% again (common after retry / screen revisit).
     try {
@@ -758,6 +861,12 @@ class MbtilesDownloadService extends GetxController {
             debugPrint('[MbtilesDownload] 🗺️ File Creation issue ${e}');
 
     }
+
+    // Set right before the Android enqueue-success return below so `finally`
+    // knows NOT to stop the just-started polling timer. Without this, the
+    // finally block ran immediately after that return and canceled the
+    // Android DB-polling safety net on every single fresh download attempt.
+    var didEnqueueOnAndroid = false;
 
     try {
       // Get or use default zoom level
@@ -932,6 +1041,7 @@ class MbtilesDownloadService extends GetxController {
         }
         debugPrint('[MbtilesDownload] 📋 Enqueued on Android (background worker)');
         _startAndroidProgressPolling();
+        didEnqueueOnAndroid = true;
         return null;
       }
 
@@ -983,15 +1093,15 @@ class MbtilesDownloadService extends GetxController {
       _setStatusText('mbtiles_error_download_with_message', [e.toString()]);
       return null;
     } finally {
-      _stopAndroidProgressPolling();
+      if (!didEnqueueOnAndroid) {
+        _stopAndroidProgressPolling();
+      }
       if (!Platform.isAndroid) {
         isDownloading.value = false;
         _backgroundTask = null;
       }
     }
   }
-
-  
 
   Future<void> cancelDownload() async {
     if (_backgroundTask != null) {

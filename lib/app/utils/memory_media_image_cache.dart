@@ -1,9 +1,66 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:extended_image/extended_image.dart';
+import 'package:flutter/foundation.dart' show SynchronousFuture, compute, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
+
+/// Decodes a base64 image string off the main isolate — for a full-size
+/// camera photo this can be several MB of base64 text, and `base64Decode`
+/// is a synchronous, CPU-bound conversion. Doing it inline on the calling
+/// isolate (as [MemoryImage.new] requires its caller to) blocked the UI
+/// thread on every first-time render of a base64-stored memory photo,
+/// contributing to "Add Memories" scroll jank / ANRs.
+Uint8List _decodeBase64Isolate(String data) => base64Decode(data);
+
+/// Like [MemoryImage], but for base64-encoded source strings: defers the
+/// (synchronous, CPU-bound) base64 decode into the async image-loading
+/// pipeline instead of doing it eagerly on whichever isolate constructs the
+/// provider. See [_decodeBase64Isolate].
+class _Base64ImageProvider extends ImageProvider<_Base64ImageProvider> {
+  const _Base64ImageProvider(this.data);
+
+  final String data;
+
+  @override
+  Future<_Base64ImageProvider> obtainKey(ImageConfiguration configuration) {
+    return SynchronousFuture<_Base64ImageProvider>(this);
+  }
+
+  @override
+  ImageStreamCompleter loadImage(
+    _Base64ImageProvider key,
+    ImageDecoderCallback decode,
+  ) {
+    return MultiFrameImageStreamCompleter(
+      codec: _loadAsync(key, decode),
+      scale: 1.0,
+      debugLabel: 'Base64ImageProvider(${data.length} chars)',
+    );
+  }
+
+  Future<ui.Codec> _loadAsync(
+    _Base64ImageProvider key,
+    ImageDecoderCallback decode,
+  ) async {
+    final bytes = await compute(_decodeBase64Isolate, key.data);
+    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    return decode(buffer);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other.runtimeType != runtimeType) return false;
+    return other is _Base64ImageProvider && other.data == data;
+  }
+
+  @override
+  int get hashCode => data.hashCode;
+}
 
 /// App-wide decoded-image cache for memory photos.
 ///
@@ -47,10 +104,21 @@ class MemoryMediaImageProviderCache {
     int maxDecode = 2048,
   }) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final w = layoutWidth ?? layoutHeight;
+    var w = layoutWidth ?? layoutHeight;
+    // `double.infinity` is the normal Flutter idiom for "fill available
+    // width" (e.g. SizedBox(width: double.infinity)) — it does NOT mean
+    // unknown/unbounded. Treating it as unbounded fell through to the
+    // `!px.isFinite` guard below and returned the full maxDecode (2048)
+    // uncapped, so every list-view image decoded at up to 2048px wide
+    // regardless of how small it actually renders (a ~260px-tall card).
+    // Fall back to the real screen width instead, which is what "fill
+    // available width" actually resolves to for a full-bleed card.
+    if (!w.isFinite) {
+      w = MediaQuery.sizeOf(context).width;
+    }
     final px = w * dpr;
-    // Guard against unbounded constraints (double.infinity) or a degenerate
-    // 0/NaN layout: `.round()` on Infinity/NaN throws "Infinity or NaN toInt".
+    // Guard against a degenerate 0/NaN layout: `.round()` on Infinity/NaN
+    // throws "Infinity or NaN toInt".
     if (!px.isFinite || px <= 0) return maxDecode < 240 ? 240 : maxDecode;
     return px.round().clamp(240, maxDecode);
   }
@@ -67,6 +135,9 @@ class MemoryMediaImageProviderCache {
   /// Drop decoded providers after erase-all / bulk delete.
   void clear() {
     _providers.clear();
+    try {
+      clearMemoryImageCache();
+    } catch (_) {}
   }
 
   Future<void> precache(
@@ -101,26 +172,65 @@ class MemoryMediaImageProviderCache {
       return errorChild ?? _defaultError(height: height, width: width);
     }
 
-    final decodeW = cacheWidth ??
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+
+    // On Android, reduce decode width slightly and apply lower quality for snappy list scrolling
+    final rawDecodeW = cacheWidth ??
         (height != null
             ? decodeWidthForLayout(
                 context,
                 layoutHeight: height,
                 layoutWidth: width,
+                maxDecode: isAndroid ? 350 : 2048,
               )
             : null);
+    final decodeW = isAndroid && rawDecodeW != null ? rawDecodeW.clamp(180, 400) : rawDecodeW;
 
-    var image = resolve(imageData, cacheWidth: decodeW);
+    var provider = resolve(imageData, cacheWidth: decodeW);
     if (decodeW != null || cacheHeight != null) {
-      image = ResizeImage(
-        image,
+      provider = ResizeImage(
+        provider,
         width: decodeW,
         height: cacheHeight,
       );
     }
 
+    if (isAndroid) {
+      return ExtendedImage(
+        image: provider,
+        fit: fit,
+        width: width,
+        height: height,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.low,
+        clearMemoryCacheWhenDispose: false,
+        loadStateChanged: (ExtendedImageState state) {
+          switch (state.extendedImageLoadState) {
+            case LoadState.loading:
+              return ColoredBox(
+                color: placeholderColor ?? Colors.grey.shade300,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+              );
+            case LoadState.failed:
+              return errorChild ?? _defaultError(height: height, width: width);
+            case LoadState.completed:
+              return null;
+          }
+        },
+      );
+    }
+
     return Image(
-      image: image,
+      image: provider,
       fit: fit,
       width: width,
       height: height,
@@ -153,7 +263,13 @@ class MemoryMediaImageProviderCache {
       return FileImage(File(path));
     }
     if (_isBase64Image(imageData)) {
-      return MemoryImage(base64Decode(imageData));
+      // Was MemoryImage(base64Decode(imageData)) — base64Decode of a full
+      // camera photo (several MB of base64 text) is synchronous and
+      // CPU-bound; calling it eagerly here (on whatever isolate builds the
+      // widget) blocked the UI thread on every first-time render of a
+      // base64-stored memory photo. _Base64ImageProvider defers the decode
+      // into the async image-loading pipeline via compute() instead.
+      return _Base64ImageProvider(imageData);
     }
     return AssetImage(imageData);
   }

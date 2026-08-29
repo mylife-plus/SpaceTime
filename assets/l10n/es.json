@@ -1154,6 +1154,8 @@
   "mbtiles_error_download_with_message": "Descarga fallida: $1",
   "mbtiles_error_file_too_small": "El archivo descargado es demasiado pequeño ($1 GB). Se esperaban al menos 4 GB. Asegúrate de que el archivo sea accesible públicamente.",
   "mbtiles_error_invalid_zoom": "Nivel de zoom no válido",
+  "mbtiles_error_stalled": "La descarga se ha detenido: sin progreso durante un tiempo. Vuelve a intentarlo.",
+  "mbtiles_error_file_missing_after_complete": "La descarga terminó pero no se pudo encontrar el archivo. Vuelve a intentarlo.",
   "mbtiles_error_verify_file_failed": "No se pudo verificar el archivo descargado",
   "mbtiles_notif_complete_body": "Las teselas del mapa están listas",
   "mbtiles_notif_complete_title": "¡Descarga completada!",

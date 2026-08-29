@@ -186,7 +186,12 @@ class MemoryMapIsolate {
     }
 
     const arrowPositionFactor = 0.65;
-    const densifySegments = 120;
+    // Was a fixed 120 points per arrow segment regardless of memory count —
+    // at ~20,000 memories that's ~120*(N-1) ≈ 2.4M coordinate pairs
+    // JSON-encoded and shipped to native Mapbox on every map load. Small
+    // libraries keep full visual density; large ones scale segment count
+    // down to stay within a fixed total-point budget.
+    final densifySegments = _densifySegmentsFor(memories.length - 1);
 
     final parsedDates = <int, DateTime?>{};
     final fallbackKeys = <int, String>{};
@@ -310,6 +315,20 @@ class MemoryMapIsolate {
         'features': arrowPointFeatures,
       }),
     );
+  }
+
+  /// Total densified points across all arrow lines to stay under, so payload
+  /// size (JSON encode + isolate/platform-channel transfer) doesn't grow
+  /// unbounded with library size. [_minDensifySegments] keeps a visual floor
+  /// per line even when this budget is spread very thin at large N.
+  static const int _maxTotalDensifiedPoints = 60000;
+  static const int _minDensifySegments = 8;
+  static const int _maxDensifySegments = 120;
+
+  static int _densifySegmentsFor(int lineCount) {
+    if (lineCount <= 0) return _maxDensifySegments;
+    final perLine = _maxTotalDensifiedPoints ~/ lineCount;
+    return perLine.clamp(_minDensifySegments, _maxDensifySegments);
   }
 
   static List<List<double>> _densifyLine({

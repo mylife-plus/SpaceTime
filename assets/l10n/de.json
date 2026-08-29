@@ -1129,6 +1129,8 @@
   "mbtiles_error_download_with_message": "Download fehlgeschlagen: $1",
   "mbtiles_error_file_too_small": "Heruntergeladene Datei ist zu klein ($1 GB). Es werden mindestens 4 GB erwartet. Stellen Sie sicher, dass die Datei öffentlich zugänglich ist.",
   "mbtiles_error_invalid_zoom": "Ungültige Zoomstufe ausgewählt",
+  "mbtiles_error_stalled": "Download ins Stocken geraten – seit einiger Zeit kein Fortschritt. Bitte erneut versuchen.",
+  "mbtiles_error_file_missing_after_complete": "Der Download ist abgeschlossen, aber die Datei wurde nicht gefunden. Bitte erneut versuchen.",
   "mbtiles_error_verify_file_failed": "Heruntergeladene Datei konnte nicht überprüft werden",
   "mbtiles_notif_complete_body": "Kartenkacheln sind einsatzbereit",
   "mbtiles_notif_complete_title": "Download abgeschlossen!",

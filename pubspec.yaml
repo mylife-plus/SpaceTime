@@ -62,6 +62,8 @@ dependencies:
   auto_size_text: ^3.0.0
   video_player: ^2.10.1
   video_thumbnail: ^0.5.6
+  extended_image: ^10.1.0
+  flutter_cache_manager: ^3.4.1
   diacritic: ^0.1.6
   dio: ^5.9.0
   http: ^1.6.0
@@ -127,6 +129,17 @@ flutter:
     - assets/cities500.csv
     - assets/admin1codes.csv
     - assets/geo/ne_10m_admin1.json
+    # Local Mapbox sprite sheet (1x/2x), served by MbtilesServerService so the
+    # map style never needs a live network round-trip to Mapbox's sprite CDN.
+    - assets/custom-sprite.json
+    - assets/custom-sprite.png
+    - assets/custom-sprite@2x.json
+    - assets/custom-sprite@2x.png
+    # Local glyph (.pbf) ranges, served by MbtilesServerService's font route so
+    # map text labels don't depend on a live network round-trip either.
+    - assets/fonts/Noto Sans Regular/
+    - assets/fonts/Noto Sans Bold/
+    - assets/fonts/Noto Sans Italic/
     # Note: 11_included.mbtiles is too large (4.5GB) to include in app bundle
     # It should be downloaded separately or provided via external storage
 

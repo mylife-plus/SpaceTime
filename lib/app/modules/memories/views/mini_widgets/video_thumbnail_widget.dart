@@ -1,9 +1,9 @@
 import 'dart:io';
 
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:spacetime/app/utils/video_thumbnail_cache_manager.dart';
 
 class VideoThumbnailWidget extends StatefulWidget {
   final String videoPath;
@@ -27,22 +27,24 @@ class VideoThumbnailWidget extends StatefulWidget {
     this.existingThumbnailPath,
   });
 
-  /// Deletes generated JPEG thumbs under temp and clears the in-memory map.
-  static Future<void> clearCachedThumbnails() =>
-      _VideoThumbnailWidgetState.clearCachedThumbnails();
+  /// Deletes generated video thumbnails from cache and temp storage.
+  static Future<void> clearCachedThumbnails() async {
+    await VideoThumbnailCacheManager.clearCache();
+    await _VideoThumbnailWidgetState.clearLegacyCachedThumbnails();
+  }
 
   @override
   State<VideoThumbnailWidget> createState() => _VideoThumbnailWidgetState();
 }
 
 class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
-  /// Path → generated thumb file (keeps list scroll from re-decoding the same video).
-  static final Map<String, String> _pathCache = <String, String>{};
+  /// Legacy path cache for quick lookup
+  static final Map<String, String> _legacyPathCache = <String, String>{};
 
-  /// Deletes generated JPEG thumbs under temp and clears the in-memory map.
-  static Future<void> clearCachedThumbnails() async {
-    final paths = List<String>.from(_pathCache.values);
-    _pathCache.clear();
+  /// Clears any legacy cached files
+  static Future<void> clearLegacyCachedThumbnails() async {
+    final paths = List<String>.from(_legacyPathCache.values);
+    _legacyPathCache.clear();
     for (final path in paths) {
       try {
         final f = File(path);
@@ -54,7 +56,6 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   String? _thumbnailPath;
   bool _isLoading = true;
   bool _hasError = false;
-  bool _ownsGeneratedFile = false;
 
   @override
   void initState() {
@@ -80,51 +81,33 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         });
       }
 
-      final existing = widget.existingThumbnailPath;
-      if (existing != null && existing.isNotEmpty) {
-        final f = File(existing);
-        if (await f.exists()) {
-          if (!mounted) return;
-          setState(() {
-            _thumbnailPath = existing;
-            _ownsGeneratedFile = false;
-            _isLoading = false;
-          });
-          return;
-        }
-      }
-
-      final cached = _pathCache[widget.videoPath];
-      if (cached != null && await File(cached).exists()) {
+      // Check fast legacy cache first
+      final legacy = _legacyPathCache[widget.videoPath];
+      if (legacy != null && await File(legacy).exists()) {
         if (!mounted) return;
         setState(() {
-          _thumbnailPath = cached;
-          _ownsGeneratedFile = false;
+          _thumbnailPath = legacy;
           _isLoading = false;
         });
         return;
       }
 
-      final tempDir = await getTemporaryDirectory();
-      // Keep list thumbs small — full 1080 PNG was lagging Android scroll.
-      final thumbnailPath = await VideoThumbnail.thumbnailFile(
-        video: widget.videoPath,
-        thumbnailPath: tempDir.path,
-        imageFormat: ImageFormat.JPEG,
-        maxHeight: 320,
-        quality: 55,
+      // Use VideoThumbnailCacheManager (backed by flutter_cache_manager on Android / multi-platform)
+      final path = await VideoThumbnailCacheManager.getOrGenerateThumbnail(
+        videoPath: widget.videoPath,
+        existingDbThumbnail: widget.existingThumbnailPath,
+        isLowQuality: true,
       );
 
-      if (thumbnailPath != null && thumbnailPath.isNotEmpty) {
-        _pathCache[widget.videoPath] = thumbnailPath;
+      if (path != null && path.isNotEmpty) {
+        _legacyPathCache[widget.videoPath] = path;
       }
 
       if (!mounted) return;
       setState(() {
-        _thumbnailPath = thumbnailPath;
-        _ownsGeneratedFile = false; // kept in [_pathCache]
+        _thumbnailPath = path;
         _isLoading = false;
-        _hasError = thumbnailPath == null || thumbnailPath.isEmpty;
+        _hasError = path == null || path.isEmpty;
       });
     } catch (e) {
       debugPrint('[VideoThumbnailWidget] error: $e');
@@ -138,6 +121,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final isAndroid = !kIsWeb && Platform.isAndroid;
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
@@ -172,14 +156,24 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                 ),
               )
             else if (_thumbnailPath != null)
-              Image.file(
-                File(_thumbnailPath!),
-                width: widget.width,
-                height: widget.height,
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.low,
-                gaplessPlayback: true,
-              )
+              isAndroid
+                  ? ExtendedImage.file(
+                      File(_thumbnailPath!),
+                      width: widget.width,
+                      height: widget.height,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.low,
+                      clearMemoryCacheWhenDispose: false,
+                      gaplessPlayback: true,
+                    )
+                  : Image.file(
+                      File(_thumbnailPath!),
+                      width: widget.width,
+                      height: widget.height,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.low,
+                      gaplessPlayback: true,
+                    )
             else
               Container(
                 width: widget.width,
@@ -239,15 +233,6 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
 
   @override
   void dispose() {
-    // Cached thumbs are shared across list rebuilds — do not delete.
-    if (_ownsGeneratedFile && _thumbnailPath != null) {
-      try {
-        final file = File(_thumbnailPath!);
-        if (file.existsSync()) {
-          file.deleteSync();
-        }
-      } catch (_) {}
-    }
     super.dispose();
   }
 }

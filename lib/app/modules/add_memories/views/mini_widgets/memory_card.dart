@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:video_player/video_player.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -22,6 +23,7 @@ import '../../controllers/add_memories_controller.dart';
 import '../../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
+import 'package:extended_image/extended_image.dart';
 import 'package:spacetime/app/utils/memory_media_image_cache.dart';
 import 'package:spacetime/app/utils/search_utils.dart';
 import 'package:spacetime/app/widgets/keep_alive_page.dart';
@@ -381,6 +383,13 @@ class _MemoryCardState extends State<MemoryCard> {
   int _currentIndex = 0;
   final Map<int, VideoPlayerController> _inlineVideoControllers = {};
 
+  /// List-thumbnail decode cap for this screen only (not the full-screen
+  /// viewer). Android-only 50% cut from 700 — Android is where the
+  /// decode/memory-driven lag and ANRs were confirmed on a real device;
+  /// other platforms keep the higher-quality default.
+  static int get _listImageMaxDecode =>
+      !kIsWeb && Platform.isAndroid ? 350 : 700;
+
   @override
   void initState() {
     super.initState();
@@ -393,9 +402,14 @@ class _MemoryCardState extends State<MemoryCard> {
 
   void _precachePagerIndices(List<int> indices) {
     final media = _buildOrderedMediaList();
+    // Must match _buildImageWidget's cacheWidth exactly — otherwise this
+    // precaches a different-sized decode than what the actual Image widget
+    // requests, wasting the precache work and briefly holding two decoded
+    // copies of the same image in memory instead of one.
     final decodeW = MemoryMediaImageProviderCache.decodeWidthForLayout(
       context,
       layoutHeight: 260,
+      maxDecode: _listImageMaxDecode,
     );
     for (final i in indices) {
       if (i < 0 || i >= media.length) continue;
@@ -412,6 +426,14 @@ class _MemoryCardState extends State<MemoryCard> {
   }
 
   @override
+  void didUpdateWidget(covariant MemoryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.memoryData, widget.memoryData)) {
+      _cachedOrderedMedia = null;
+    }
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     for (final vc in _inlineVideoControllers.values) {
@@ -421,7 +443,21 @@ class _MemoryCardState extends State<MemoryCard> {
     super.dispose();
   }
 
+  List<Map<String, dynamic>>? _cachedOrderedMedia;
+
+  /// Building this list does real work (sorts by 'order', maps/allocates
+  /// new lists) — for a memory with several photos/videos that's not
+  /// free. It's called from build() (via _buildImageGallery) AND from
+  /// initState/page-change precaching, so without caching it recomputed on
+  /// EVERY rebuild of this card — which happens on every scroll-driven
+  /// isUIVisible toggle and every loadedDisplayCount change during list
+  /// scrolling/load-more, not just once per item. Cache it and only
+  /// recompute when memoryData actually changes (see didUpdateWidget).
   List<Map<String, dynamic>> _buildOrderedMediaList() {
+    return _cachedOrderedMedia ??= _computeOrderedMediaList();
+  }
+
+  List<Map<String, dynamic>> _computeOrderedMediaList() {
     // Prefer single list in upload order when provided (same as Memory View)
     final orderedMedia = widget.memoryData['orderedMedia'] as List<dynamic>?;
     if (orderedMedia != null && orderedMedia.isNotEmpty) {
@@ -599,6 +635,16 @@ class _MemoryCardState extends State<MemoryCard> {
         fit: BoxFit.cover,
         width: double.infinity,
         height: 260,
+        // Explicit, lower cap for the list/preview thumbnail — this is a
+        // scrolling list of cards, not the full-screen viewer, so it
+        // doesn't need anywhere near full-resolution decode. Reduces
+        // per-image memory substantially versus the (bugged, now-fixed)
+        // default that could decode up to 2048px wide for a 260px card.
+        cacheWidth: MemoryMediaImageProviderCache.decodeWidthForLayout(
+          context,
+          layoutHeight: 260,
+          maxDecode: _listImageMaxDecode,
+        ),
         errorChild: _buildErrorWidget('Image failed to load'),
       ),
     );
@@ -1523,9 +1569,28 @@ class SafeMemoryImage extends StatelessWidget {
                       final cacheWidth = w.clamp(200, 800).round();
                       final cacheHeight = h.clamp(150, 600).round();
 
+                      final isAndroid = !kIsWeb && Platform.isAndroid;
+                      if (isAndroid) {
+                        return ExtendedImage.memory(
+                          bytes,
+                          fit: BoxFit.fitWidth,
+                          semanticLabel: semanticLabel,
+                          filterQuality: FilterQuality.low,
+                          clearMemoryCacheWhenDispose: false,
+                          loadStateChanged: (state) {
+                            if (state.extendedImageLoadState == LoadState.failed) {
+                              return _fallback();
+                            }
+                            return null;
+                          },
+                        );
+                      }
+
                       return Image.memory(
                         bytes,
                         fit: BoxFit.fitWidth,
+                        cacheWidth: cacheWidth,
+                        cacheHeight: cacheHeight,
                         semanticLabel: semanticLabel,
                         errorBuilder: (context, error, stackTrace) {
                           debugPrint('Error loading memory image: $error');

@@ -22,7 +22,7 @@ class ImportedGalleryAssetRecord {
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      18; // imported_gallery_assets.media_created_at for GPS dedupe
+      19; // indexes for memory/images/audios/videos to keep large libraries fast
 
   static const tableImportedGalleryAssets = 'imported_gallery_assets';
   static const columnGalleryAssetRowId = 'row_id';
@@ -402,6 +402,8 @@ class DatabaseHelper {
       )
     ''');
 
+    await _createMemoryScaleIndexes(db);
+
     await db.execute('''
       CREATE TABLE $tableTags (
         $columnId INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -771,6 +773,38 @@ class DatabaseHelper {
       ''');
       debugPrint('✅ imported_gallery_assets.media_created_at');
     }
+
+    if (oldVersion < 19) {
+      // getAllMemoriesWithDetails() (ORDER BY created_at DESC + a batch
+      // load of ALL rows from images/audios/videos, ORDER BY memory_id) and
+      // the per-memory media lookups (WHERE memory_id = ?) both did full
+      // table scans + temp-sort on these tables with no supporting index.
+      // Harmless at 10-20 memories, but a real cost at ~20,000.
+      await _createMemoryScaleIndexes(db);
+      debugPrint('✅ memory/images/audios/videos indexes for scale');
+    }
+  }
+
+  /// Indexes backing [getAllMemoriesWithDetails]'s ORDER BY + the
+  /// per-memory `WHERE memory_id = ?` media lookups. IF NOT EXISTS so this
+  /// is safe to call from both a fresh [_onCreate] and the v19 migration.
+  Future<void> _createMemoryScaleIndexes(Database db) async {
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_memories_created_at
+      ON $tableMemories($columnCreatedAt)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_images_memory_id_order
+      ON $tableImages($columnMemoryId, $columnImageOrder)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_audios_memory_id_order
+      ON $tableAudios($columnAudioMemoryId, $columnAudioOrder)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_videos_memory_id_order
+      ON $tableVideos($columnVideoMemoryId, $columnVideoOrder)
+    ''');
   }
 
   // Migrate existing image data from memories table to images table
