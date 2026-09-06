@@ -18,6 +18,7 @@ import 'package:spacetime/app/widgets/track_past_upload_delete_confirm_dialog.da
 import 'package:spacetime/app/widgets/track_upload_refresh_icon.dart';
 
 import 'package:spacetime/app/utils/memory_media_image_cache.dart';
+import 'package:spacetime/app/utils/video_thumbnail_cache_manager.dart';
 import 'package:spacetime/app/widgets/keep_alive_page.dart';
 import 'mini_widgets/track_preview_summary_card.dart';
 
@@ -506,11 +507,26 @@ class _PastVideoPage extends StatefulWidget {
 class _PastVideoPageState extends State<_PastVideoPage> {
   VideoPlayerController? _controller;
   bool _failed = false;
+  String? _generatedThumbPath;
 
   @override
   void initState() {
     super.initState();
     _open();
+    _ensurePosterThumb();
+  }
+
+  Future<void> _ensurePosterThumb() async {
+    final tp = widget.thumbPath;
+    if (tp != null && tp.isNotEmpty && File(tp).existsSync()) return;
+    final path = await VideoThumbnailCacheManager.getOrGenerateThumbnail(
+      videoPath: widget.videoPath,
+      existingDbThumbnail: widget.thumbPath,
+      maxEdge: 720,
+      quality: VideoThumbnailCacheManager.defaultQuality,
+    );
+    if (!mounted || path == null || path.isEmpty) return;
+    setState(() => _generatedThumbPath = path);
   }
 
   @override
@@ -562,11 +578,20 @@ class _PastVideoPageState extends State<_PastVideoPage> {
   }
 
   Widget _poster() {
-    final tp = widget.thumbPath;
-    if (tp != null && tp.isNotEmpty) {
+    final candidates = <String?>[
+      widget.thumbPath,
+      _generatedThumbPath,
+    ];
+    for (final tp in candidates) {
+      if (tp == null || tp.isEmpty) continue;
       final tf = File(tp);
       if (tf.existsSync()) {
-        return Image.file(tf, fit: BoxFit.cover, gaplessPlayback: true);
+        return Image.file(
+          tf,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          filterQuality: FilterQuality.medium,
+        );
       }
     }
     return ColoredBox(

@@ -375,9 +375,6 @@ class MapControllerNew extends GetxController {
     isStyleReady.value = false;
     mapboxMap = mapboxMapInstance;
     isMapReady.value = true;
-    // A fresh MapboxMap instance means a fresh style with no style images
-    // loaded yet — force the color badge icons to be (re)loaded into it.
-    _clusterBadgeIconsLoaded = false;
   }
 
   /// Initialize map components after creation (iOS-safe)
@@ -3382,68 +3379,46 @@ class MapControllerNew extends GetxController {
   }
 
   /// Load custom cluster icons into the map style
-  /// Once true, [_loadClusterIcons] is a no-op — the badge set is a fixed
-  /// size (one image per color, not per cluster/memory) so it only needs to
-  /// be generated and loaded into the style once per map session.
-  bool _clusterBadgeIconsLoaded = false;
-
-  static const String _clusterBadgeIconPrefix = 'memory-color-badge-';
-
-  /// Load a small, fixed set of colored circle badge icons (one per entry in
-  /// [MemoryGeoJsonService.colors] — the same palette [color_index] /
-  /// [latest_color_index] already index into for the rest of the map) for
-  /// use as `icon-image` on the cluster and individual-point layers. Exact
-  /// counts are rendered separately by the native text layer, so this never
-  /// needs to scale with memory/cluster count — just the fixed color count.
   Future<void> _loadClusterIcons() async {
-    if (mapboxMap == null || _clusterBadgeIconsLoaded) return;
+    if (mapboxMap == null) return;
 
     try {
-      debugPrint('[MapControllerNew] 🎨 Loading memory color badge icons...');
+      debugPrint('[MapControllerNew] 🎨 Loading custom cluster icons...');
 
-      final badges = await ClusterIconGenerator.generateColorBadgeSet(
-        hexColors: MemoryGeoJsonService.colors,
-        size: 40.0,
+      // Generate cluster icon set using defined size tiers
+      final icons = await ClusterIconGenerator.generateClusterIconSet(
+        counts: CLUSTER_SIZE_TIERS,
+        size: 30.0,
       );
 
-      for (final entry in badges.entries) {
-        final iconName = '$_clusterBadgeIconPrefix${entry.key}';
+      // Add each icon to the map style
+      for (final entry in icons.entries) {
+        final iconName = entry.key;
+        final iconData = entry.value;
+
         try {
           await mapboxMap!.style.addStyleImage(
             iconName,
             1.0, // scale
-            mapbox.MbxImage(width: 40, height: 40, data: entry.value),
+            mapbox.MbxImage(width: 30, height: 30, data: iconData),
             false, // sdf (signed distance field)
             [], // stretchX
             [], // stretchY
             null, // content
           );
+          debugPrint('[MapControllerNew] ✅ Added cluster icon: $iconName');
         } catch (e) {
-          debugPrint('[MapControllerNew] ❌ Failed to add badge $iconName: $e');
+          debugPrint('[MapControllerNew] ❌ Failed to add icon $iconName: $e');
         }
       }
 
-      _clusterBadgeIconsLoaded = true;
-      debugPrint(
-        '[MapControllerNew] ✅ Loaded ${badges.length} memory color badge icons',
-      );
+      // Generate and add individual point icon
+      debugPrint('[MapControllerNew] 🎨 Generating individual point icon...');
+
+      debugPrint('[MapControllerNew] ✅ All cluster icons loaded successfully');
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error loading cluster icons: $e');
     }
-  }
-
-  /// Mapbox `match` expression selecting a pre-loaded color badge icon by
-  /// [propertyName] (e.g. `color_index` on individual points,
-  /// `latest_color_index` on clusters). Falls back to color 0's badge for
-  /// any out-of-range/missing value.
-  List<Object> _colorBadgeIconExpression(String propertyName) {
-    final expression = <Object>['match', <Object>['get', propertyName]];
-    for (var i = 0; i < MemoryGeoJsonService.colors.length; i++) {
-      expression.add(i);
-      expression.add('$_clusterBadgeIconPrefix$i');
-    }
-    expression.add('${_clusterBadgeIconPrefix}0'); // default/fallback
-    return expression;
   }
 
   /// Add MapBox cluster layers with enhanced styling and proper layer ordering
@@ -3456,9 +3431,8 @@ class MapControllerNew extends GetxController {
         '[MapControllerNew] 🎨 Adding enhanced cluster layers with custom icons...',
       );
 
-      // Load the fixed-size color badge icon set (one per color, cached
-      // after the first call — see _loadClusterIcons doc comment).
-      await _loadClusterIcons();
+      // Load custom cluster icons first
+      // await _loadClusterIcons();
 
       // Avoid getStyleLayers() (can return 200+ layers and stall the UI isolate).
       // Prefer known label layer ids from our offline style.
@@ -3479,60 +3453,132 @@ class MapControllerNew extends GetxController {
       }
 
       try {
-        // Custom-drawn colored badge icon (white ring + fill), colored by
-        // the cluster's latest_color_index — same color mapping the flat
-        // circle-color match expression used to render, now as a real
-        // pre-drawn image per the "custom per-cluster image" request. The
-        // exact count is still rendered separately by the native text layer
-        // below, so this stays a fixed 21-image set regardless of how many
-        // clusters/memories exist.
         await mapboxMap!.style.addLayer(
-          mapbox.SymbolLayer(
+          mapbox.CircleLayer(
             id: CLUSTERS_CIRCLE_LAYER_ID,
             sourceId: MEMORY_SOURCE_ID,
             filter: ['has', 'point_count'],
-            iconImageExpression: _colorBadgeIconExpression(
-              'latest_color_index',
-            ),
-            iconSize: 0.6,
-            iconAllowOverlap: true,
-            iconIgnorePlacement: true,
+
+            // Initial simple paint; will refine via setStyleLayerProperty below if needed
+            circleColor: 0xFF11B4DA, // default (will be overridden)
+            circleRadius: 12.0,
+            circleStrokeWidth: 5.0,
+            circleStrokeColor: 0xFFFFFFFF,
+            circleOpacity: 1.0,
           ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        await mapboxMap!.style.setStyleLayerProperty(
+          CLUSTERS_CIRCLE_LAYER_ID,
+          'circle-color',
+          [
+            'match',
+            ['get', 'latest_color_index'],
+            0,
+            '#0080FF',
+            1,
+            '#0051FF',
+            2,
+            '#2200FF',
+            3,
+            '#5E00FF',
+            4,
+            '#7700FF',
+            5,
+            '#A100FF',
+            6,
+            '#E500FF',
+            7,
+            '#FF00AE',
+            8,
+            '#FF0073',
+            9,
+            '#FF001E',
+            10,
+            '#FF5100',
+            11,
+            '#FFA100',
+            12,
+            '#FFD900',
+            13,
+            '#BBFF00',
+            14,
+            '#66FF00',
+            15,
+            '#00FF73',
+            16,
+            '#00EEFF',
+            17,
+            '#004D99',
+            18,
+            '#6600CC',
+            19,
+            '#FF2D55',
+            '#004D99',
+          ],
         );
       } catch (_) {}
 
       await Future<void>.delayed(Duration.zero);
 
+      // Count label layer — remove first so a fresh add lands near the top,
+      // then we explicitly move it to the absolute top of the style stack.
+      try {
+        if (await mapboxMap!.style.styleLayerExists(CLUSTERS_COUNT_LAYER_ID)) {
+          await mapboxMap!.style.removeStyleLayer(CLUSTERS_COUNT_LAYER_ID);
+        }
+      } catch (_) {}
+
+      // Count text MUST use a font we ship under assets/fonts/ and serve via
+      // MbtilesServerService. Glyphs are rewritten to the local server; without
+      // an explicit text-font Mapbox requests a default stack we don't have →
+      // empty glyphs → invisible labels (circles still render fine).
+      const clusterCountFont = 'Noto Sans Regular';
       try {
         await mapboxMap!.style.addLayer(
           mapbox.SymbolLayer(
             id: CLUSTERS_COUNT_LAYER_ID,
             sourceId: MEMORY_SOURCE_ID,
             filter: ['has', 'point_count'],
-            textField: '', // or null; gets overridden
-            // Explicit — without this the layer relies on whatever default
-            // font the style/SDK falls back to for a layer that doesn't
-            // specify one, which is exactly the kind of ambiguity that can
-            // silently render no glyphs at all. Matches the font actually
-            // served locally (assets/fonts/Noto Sans Regular/*.pbf).
-            textFont: const ['Noto Sans Regular'],
+            textFieldExpression: [
+              'to-string',
+              ['get', 'point_count'],
+            ],
+            textFont: [clusterCountFont],
             textSize: 14.0,
             textHaloColor: 0xFF000000,
             textColor: 0xFFFFFFFF,
-            // textHaloColor: 0xFF000000,  // Black stroke
             textHaloWidth: 2.0,
             textIgnorePlacement: true,
             textAllowOverlap: true,
+            textOpacity: 1.0,
+            visibility: mapbox.Visibility.VISIBLE,
           ),
         );
 
         await mapboxMap!.style.setStyleLayerProperty(
           CLUSTERS_COUNT_LAYER_ID,
           'text-field',
-          ['get', 'point_count_abbreviated'],
+          [
+            'to-string',
+            ['get', 'point_count'],
+          ],
         );
-      } catch (_) {}
-      // 2) Cluster count text (symbol layer)
+        await mapboxMap!.style.setStyleLayerProperty(
+          CLUSTERS_COUNT_LAYER_ID,
+          'text-font',
+          [clusterCountFont],
+        );
+        debugPrint(
+          '[MapControllerNew] ✅ Cluster COUNT layer added '
+          '(font=$clusterCountFont, text-field=to-string(point_count))',
+        );
+      } catch (e, st) {
+        debugPrint(
+          '[MapControllerNew] ❌ Failed to add cluster count label layer: $e',
+        );
+        debugPrint('[MapControllerNew] ❌ stack: $st');
+      }
 
       debugPrint(
         '[MapControllerNew] ✅ Cluster circle + count layers added',
@@ -3547,94 +3593,169 @@ class MapControllerNew extends GetxController {
         await mapboxMap!.style.removeStyleLayer(UNCLUSTERED_LAYER_ID);
       } catch (_) {}
       try {
-        // Same pre-drawn color badge icons as the cluster layer above,
-        // keyed by each individual point's own color_index — replaces the
-        // flat circle-color match expression with the custom-drawn badge.
         await mapboxMap!.style.addLayer(
-          mapbox.SymbolLayer(
+          mapbox.CircleLayer(
             id: UNCLUSTERED_LAYER_ID,
             sourceId: MEMORY_SOURCE_ID,
             filter: [
               '!',
               ['has', 'point_count'],
             ],
-            iconImageExpression: _colorBadgeIconExpression('color_index'),
-            iconSize: 0.6,
-            iconAllowOverlap: true,
-            iconIgnorePlacement: true,
+            // circleColor: 0xFF11B4DA, // default (will be overridden)
+            circleRadius: 12.0,
+            circleStrokeWidth: 5.0,
+            circleStrokeColor: 0xFFFFFFFF,
+            circleOpacity: 1.0,
           ),
         );
+
+        debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
+
         debugPrint('[MapControllerNew] ✅ Individual point icon layer added');
       } catch (e) {
         debugPrint(
           '[MapControllerNew] ❌ Failed to add individual icon layer: $e',
         );
+        // Fallback: use circle layer if icon fails
+        debugPrint(
+          '[MapControllerNew] 🔄 Adding fallback circle layer for individual points...',
+        );
+
+        // );
+        try {
+          await mapboxMap!.style.addLayer(
+            mapbox.CircleLayer(
+              id: UNCLUSTERED_LAYER_ID,
+              sourceId: MEMORY_SOURCE_ID,
+              filter: [
+                '!',
+                ['has', 'point_count'],
+              ],
+              circleColor: 0xFF11B4DA,
+              circleRadius: 12.0,
+              circleStrokeWidth: .0,
+              circleStrokeColor: 0xFFFFFFFF,
+              circleOpacity: 1.0,
+            ),
+          );
+        } catch (_) {}
+
+        debugPrint('[MapControllerNew] ✅ Fallback circle layer added');
       }
-      // Move all cluster layers above the symbol/label layer for proper ordering
-      if (labelLayerId != null) {
-        // Was an empty list ([]) — a leftover from when this moved the old
-        // per-count-tier icon layers, never updated after that system was
-        // replaced. CLUSTERS_CIRCLE_LAYER_ID/CLUSTERS_COUNT_LAYER_ID were
-        // the only layers here NOT explicitly repositioned above labels
-        // (UNCLUSTERED_LAYER_ID below was), so on later calls — once
-        // addLayer() for them silently no-ops as "already exists" and
-        // nothing else keeps them pinned in place — later-added style
-        // layers could end up stacking on top and hiding the cluster
-        // count text. Move the count layer last so it renders above its
-        // own circle badge too.
-        final clusterLayerIds = [
-          CLUSTERS_CIRCLE_LAYER_ID,
-          CLUSTERS_COUNT_LAYER_ID,
-        ];
 
-        for (final layerId in clusterLayerIds) {
-          try {
-            await mapboxMap!.style.moveStyleLayer(
-              layerId,
-              mapbox.LayerPosition(above: labelLayerId),
-            );
-          } catch (e) {
-            debugPrint(
-              '[MapControllerNew] ⚠️ Could not move $layerId above $labelLayerId: $e',
-            );
-          }
+      try {
+        await mapboxMap!.style.setStyleLayerProperty(
+          UNCLUSTERED_LAYER_ID,
+          'circle-color',
+          ['get', 'color'],
+        );
+      } catch (e) {
+        print('MapControllerNew toMemoryYear circle-color erro $e');
+      }
+
+      // Note: Individual points now use icon with embedded "1" text
+      // No separate text layer needed since the icon includes the number
+      debugPrint(
+        '[MapControllerNew] ✅ Individual point icon includes embedded "1" text',
+      );
+
+      // Stack order (bottom → top):
+      //   map labels → cluster circles → unclustered points → COUNT LABELS
+      // An empty LayerPosition moves a layer to the TOP of the style stack
+      // (see StyleManager.moveStyleLayer docs). That is what makes the count
+      // text visible above circles / other map content.
+      try {
+        if (labelLayerId != null) {
+          await mapboxMap!.style.moveStyleLayer(
+            CLUSTERS_CIRCLE_LAYER_ID,
+            mapbox.LayerPosition(above: labelLayerId),
+          );
         }
+      } catch (e) {
+        debugPrint(
+          '[MapControllerNew] ⚠️ Could not move cluster circle: $e',
+        );
+      }
 
-        // Move individual points icon layer
+      try {
         await mapboxMap!.style.moveStyleLayer(
           UNCLUSTERED_LAYER_ID,
-          mapbox.LayerPosition(above: labelLayerId),
+          mapbox.LayerPosition(above: CLUSTERS_CIRCLE_LAYER_ID),
         );
-
-        debugPrint(
-          '[MapControllerNew] ✅ Moved all cluster icon layers above symbol layer: $labelLayerId',
-        );
-      } else {
-        debugPrint(
-          '[MapControllerNew] ⚠️ No symbol layer found, layers added on top',
-        );
+      } catch (e) {
+        if (labelLayerId != null) {
+          try {
+            await mapboxMap!.style.moveStyleLayer(
+              UNCLUSTERED_LAYER_ID,
+              mapbox.LayerPosition(above: labelLayerId),
+            );
+          } catch (_) {}
+        }
       }
 
-      // Verify individual layer was added
-      final layerExists = await mapboxMap!.style.styleLayerExists(
-        UNCLUSTERED_LAYER_ID,
-      );
-      debugPrint('[MapControllerNew] 🔍 Individual layer exists: $layerExists');
-
-      if (layerExists) {
-        // Check current zoom level
-        final cameraState = await mapboxMap!.getCameraState();
-        final currentZoom = cameraState.zoom;
-        debugPrint(
-          '[MapControllerNew] 🔍 Current zoom: $currentZoom (individual points show at zoom >= 14)',
+      // CRITICAL: pin count labels at the very top so they are never covered.
+      try {
+        await mapboxMap!.style.moveStyleLayer(
+          CLUSTERS_COUNT_LAYER_ID,
+          mapbox.LayerPosition(), // empty => top of layer stack
         );
-
-        if (currentZoom < 14) {
+        debugPrint(
+          '[MapControllerNew] ✅ Moved cluster COUNT label layer to TOP of style',
+        );
+      } catch (e) {
+        // Fallback: place count explicitly above the circle layer
+        try {
+          await mapboxMap!.style.moveStyleLayer(
+            CLUSTERS_COUNT_LAYER_ID,
+            mapbox.LayerPosition(above: CLUSTERS_CIRCLE_LAYER_ID),
+          );
           debugPrint(
-            '[MapControllerNew] ⚠️ Zoom in to level 14+ to see individual points',
+            '[MapControllerNew] ✅ Moved cluster COUNT above circle (fallback)',
+          );
+        } catch (e2) {
+          debugPrint(
+            '[MapControllerNew] ❌ Could not move cluster COUNT layer: $e / $e2',
           );
         }
       }
+
+      // Re-assert layout after moves (some style ops can leave text stale).
+      try {
+        await mapboxMap!.style.setStyleLayerProperty(
+          CLUSTERS_COUNT_LAYER_ID,
+          'text-field',
+          [
+            'to-string',
+            ['get', 'point_count'],
+          ],
+        );
+        await mapboxMap!.style.setStyleLayerProperty(
+          CLUSTERS_COUNT_LAYER_ID,
+          'text-font',
+          [clusterCountFont],
+        );
+        await mapboxMap!.style.setStyleLayerProperty(
+          CLUSTERS_COUNT_LAYER_ID,
+          'text-allow-overlap',
+          true,
+        );
+        await mapboxMap!.style.setStyleLayerProperty(
+          CLUSTERS_COUNT_LAYER_ID,
+          'text-ignore-placement',
+          true,
+        );
+        await mapboxMap!.style.setStyleLayerProperty(
+          CLUSTERS_COUNT_LAYER_ID,
+          'visibility',
+          'visible',
+        );
+      } catch (e) {
+        debugPrint(
+          '[MapControllerNew] ⚠️ Could not re-assert count text props: $e',
+        );
+      }
+
+      await _debugClusterCountLayer();
 
       debugPrint(
         '[MapControllerNew] ✅ Successfully added all enhanced cluster layers',
@@ -3642,6 +3763,92 @@ class MapControllerNew extends GetxController {
     } catch (e) {
       debugPrint('[MapControllerNew] ❌ Error adding cluster layers: $e');
       // rethrow;
+    }
+  }
+
+  /// Logs everything needed to diagnose invisible cluster count labels.
+  Future<void> _debugClusterCountLayer() async {
+    if (mapboxMap == null) return;
+    const tag = '[MapControllerNew][CountDebug]';
+    try {
+      final style = mapboxMap!.style;
+      final exists = await style.styleLayerExists(CLUSTERS_COUNT_LAYER_ID);
+      final circleExists =
+          await style.styleLayerExists(CLUSTERS_CIRCLE_LAYER_ID);
+      final sourceExists = await style.styleSourceExists(MEMORY_SOURCE_ID);
+      debugPrint(
+        '$tag layerExists=$exists circleExists=$circleExists '
+        'sourceExists=$sourceExists',
+      );
+      if (!exists) {
+        debugPrint('$tag ❌ COUNT layer missing — text cannot render');
+        return;
+      }
+
+      Future<void> logProp(String name) async {
+        try {
+          final prop = await style.getStyleLayerProperty(
+            CLUSTERS_COUNT_LAYER_ID,
+            name,
+          );
+          debugPrint('$tag $name => value=${prop.value} kind=${prop.kind}');
+        } catch (e) {
+          debugPrint('$tag ❌ getStyleLayerProperty($name) failed: $e');
+        }
+      }
+
+      await logProp('text-field');
+      await logProp('text-font');
+      await logProp('text-size');
+      await logProp('text-color');
+      await logProp('text-opacity');
+      await logProp('visibility');
+      await logProp('filter');
+
+      try {
+        final styleJson = await style.getStyleJSON();
+        final decoded = jsonDecode(styleJson);
+        if (decoded is Map) {
+          debugPrint('$tag glyphs=${decoded['glyphs']}');
+        }
+      } catch (e) {
+        debugPrint('$tag ❌ getStyleJSON/glyphs failed: $e');
+      }
+
+      try {
+        final features = await mapboxMap!.querySourceFeatures(
+          MEMORY_SOURCE_ID,
+          mapbox.SourceQueryOptions(
+            filter: jsonEncode([
+              'has',
+              'point_count',
+            ]),
+          ),
+        );
+        debugPrint('$tag clusterFeatures=${features.length}');
+        for (final f in features.take(5)) {
+          if (f == null) continue;
+          final featureMap =
+              Map<String, dynamic>.from(f.queriedFeature.feature);
+          final props =
+              (featureMap['properties'] as Map?)?.cast<String, dynamic>();
+          debugPrint(
+            '$tag sample cluster point_count=${props?['point_count']} '
+            'abbrev=${props?['point_count_abbreviated']} '
+            'keys=${props?.keys.take(8).toList()}',
+          );
+        }
+        if (features.isEmpty) {
+          debugPrint(
+            '$tag ⚠️ No clustered features — counts only appear when '
+            '2+ memories share a cluster at current zoom',
+          );
+        }
+      } catch (e) {
+        debugPrint('$tag ❌ querySourceFeatures failed: $e');
+      }
+    } catch (e, st) {
+      debugPrint('$tag ❌ diagnostic failed: $e\n$st');
     }
   }
 

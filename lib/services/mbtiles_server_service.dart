@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:sqflite/sqflite.dart';
@@ -16,6 +17,9 @@ class MbtilesServerService {
   Database? _database;
   int _port = 8080;
   bool _isRunning = false;
+
+  /// Immutable asset bytes (glyphs/sprites) reused across style settle requests.
+  final Map<String, Uint8List> _assetByteCache = {};
 
   Database? get database => _database;
 
@@ -82,8 +86,6 @@ class MbtilesServerService {
   Future<void> _handleRequest(HttpRequest request) async {
     try {
       final uri = request.uri;
-      debugPrint('[MbtilesServer] 📥 Request: ${uri.path}');
-
       final pathSegments = uri.pathSegments;
 
       // Handle sprite requests: /sprites/{name}.json or /sprites/{name}.png or /sprites/{name}@2x.png
@@ -199,54 +201,84 @@ class MbtilesServerService {
     }
   }
 
+  /// Load an asset once and reuse bytes for subsequent HTTP serves.
+  Future<Uint8List?> _loadAssetBytesCached(String assetPath) async {
+    final cached = _assetByteCache[assetPath];
+    if (cached != null) return cached;
+    try {
+      final data = await rootBundle.load(assetPath);
+      final bytes = data.buffer.asUint8List();
+      _assetByteCache[assetPath] = bytes;
+      return bytes;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Serve font glyphs from assets
   /// Request format: /fonts/{fontstack}/{range}.pbf
   /// Example: /fonts/Noto Sans Regular/0-255.pbf
+  ///
+  /// Offline styles often request Mapbox defaults (e.g. Open Sans) that we do
+  /// not ship. Fall back to Noto Sans Regular so labels/cluster counts still
+  /// render instead of blank glyphs from an empty PBF.
   Future<void> _serveFont(HttpRequest request, String fontstack, String rangeFile) async {
+    const fallbackFont = 'Noto Sans Regular';
     try {
-      // Remove .pbf extension from range
       final range = rangeFile.replaceAll('.pbf', '');
-
-      // Construct asset path
-      // URL-decode fontstack to handle spaces (e.g., "Noto%20Sans%20Regular" -> "Noto Sans Regular")
       final decodedFontstack = Uri.decodeComponent(fontstack);
-      final assetPath = 'assets/fonts/$decodedFontstack/$range.pbf';
 
-      debugPrint('[MbtilesServer] 📝 Loading font: $assetPath');
+      // Fontstack can be comma-separated ("Open Sans Regular,Arial Unicode MS Regular").
+      final candidates = <String>[
+        ...decodedFontstack
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty),
+        if (!decodedFontstack.contains(fallbackFont)) fallbackFont,
+      ];
 
-      // Try to load font from assets
-      try {
-        final fontData = await rootBundle.load(assetPath);
-        final bytes = fontData.buffer.asUint8List();
+      for (final candidate in candidates) {
+        final assetPath = 'assets/fonts/$candidate/$range.pbf';
+        final fromCache = _assetByteCache.containsKey(assetPath);
+        final bytes = await _loadAssetBytesCached(assetPath);
+        if (bytes == null) continue;
 
-        // Set appropriate headers
-        request.response.headers.contentType = ContentType('application', 'x-protobuf');
+        request.response.headers.contentType =
+            ContentType('application', 'x-protobuf');
         request.response.headers.add('Access-Control-Allow-Origin', '*');
         request.response.add(bytes);
         await request.response.close();
 
-        debugPrint('[MbtilesServer] ✅ Served font: $decodedFontstack/$range.pbf (${bytes.length} bytes)');
-      } catch (assetError) {
-        // Font file doesn't exist (e.g., high Unicode ranges not included in font)
-        // Return an empty PBF instead of 404 to prevent map errors
-        debugPrint('[MbtilesServer] ⚠️ Font not found: $assetPath (returning empty PBF)');
-
-        // Empty PBF file (valid protobuf with no glyphs)
-        // This prevents Mapbox from showing errors for missing glyph ranges
-        final emptyPbf = <int>[];
-
-        request.response.headers.contentType = ContentType('application', 'x-protobuf');
-        request.response.headers.add('Access-Control-Allow-Origin', '*');
-        request.response.add(emptyPbf);
-        await request.response.close();
-
-        debugPrint('[MbtilesServer] ✅ Served empty PBF for missing font: $decodedFontstack/$range.pbf');
+        if (!fromCache) {
+          if (candidate != decodedFontstack &&
+              candidate != decodedFontstack.split(',').first.trim()) {
+            debugPrint(
+              '[MbtilesServer] ⚠️ Font "$decodedFontstack" missing → '
+              'served fallback $candidate/$range.pbf (${bytes.length} bytes)',
+            );
+          } else {
+            debugPrint(
+              '[MbtilesServer] ✅ Served font: $candidate/$range.pbf '
+              '(${bytes.length} bytes)',
+            );
+          }
+        }
+        return;
       }
+
+      debugPrint(
+        '[MbtilesServer] ❌ No glyphs for "$decodedFontstack" range $range '
+        '(tried $candidates) — returning empty PBF (text will be blank)',
+      );
+      request.response.headers.contentType =
+          ContentType('application', 'x-protobuf');
+      request.response.headers.add('Access-Control-Allow-Origin', '*');
+      request.response.add(<int>[]);
+      await request.response.close();
     } catch (e) {
       debugPrint('[MbtilesServer] ❌ Error serving font $fontstack/$rangeFile: $e');
-
-      // Return empty PBF even on error to prevent map load failures
-      request.response.headers.contentType = ContentType('application', 'x-protobuf');
+      request.response.headers.contentType =
+          ContentType('application', 'x-protobuf');
       request.response.headers.add('Access-Control-Allow-Origin', '*');
       request.response.add(<int>[]);
       await request.response.close();
@@ -258,17 +290,11 @@ class MbtilesServerService {
   /// Example: /sprites/osm-liberty.json, /sprites/osm-liberty.png
   Future<void> _serveSprite(HttpRequest request, String spritePath) async {
     try {
-      // Construct asset path
       final assetPath = 'assets/$spritePath';
+      final fromCache = _assetByteCache.containsKey(assetPath);
+      final bytes = await _loadAssetBytesCached(assetPath);
 
-      debugPrint('[MbtilesServer] 🎨 Loading sprite: $assetPath');
-
-      try {
-        // Load sprite from assets
-        final spriteData = await rootBundle.load(assetPath);
-        final bytes = spriteData.buffer.asUint8List();
-
-        // Set appropriate headers based on file extension
+      if (bytes != null) {
         if (spritePath.endsWith('.json')) {
           request.response.headers.contentType = ContentType.json;
         } else if (spritePath.endsWith('.png')) {
@@ -281,46 +307,45 @@ class MbtilesServerService {
         request.response.add(bytes);
         await request.response.close();
 
-        debugPrint('[MbtilesServer] ✅ Served sprite: $spritePath (${bytes.length} bytes)');
-      } catch (assetError) {
-        // Sprite file doesn't exist - return empty response
-        debugPrint('[MbtilesServer] ⚠️ Sprite not found: $assetPath (returning empty response)');
-
-        // Return appropriate empty content based on file type
-        if (spritePath.endsWith('.json')) {
-          // Empty JSON object for missing sprite metadata
-          request.response.headers.contentType = ContentType.json;
-          request.response.headers.add('Access-Control-Allow-Origin', '*');
-          request.response.write('{}');
-        } else if (spritePath.endsWith('.png')) {
-          // Empty PNG (1x1 transparent pixel)
-          request.response.headers.contentType = ContentType('image', 'png');
-          request.response.headers.add('Access-Control-Allow-Origin', '*');
-          // Minimal valid PNG: 1x1 transparent pixel
-          final emptyPng = [
-            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-            0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1 dimensions
-            0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, // RGBA, CRC
-            0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, // IDAT chunk
-            0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, // Compressed data
-            0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, // CRC
-            0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, // IEND chunk
-            0x42, 0x60, 0x82
-          ];
-          request.response.add(emptyPng);
-        } else {
-          request.response.headers.add('Access-Control-Allow-Origin', '*');
-          request.response.add(<int>[]);
+        if (!fromCache) {
+          debugPrint(
+            '[MbtilesServer] ✅ Served sprite: $spritePath (${bytes.length} bytes)',
+          );
         }
-
-        await request.response.close();
-        debugPrint('[MbtilesServer] ✅ Served empty response for missing sprite: $spritePath');
+        return;
       }
+
+      debugPrint(
+        '[MbtilesServer] ⚠️ Sprite not found: $assetPath (returning empty response)',
+      );
+
+      if (spritePath.endsWith('.json')) {
+        request.response.headers.contentType = ContentType.json;
+        request.response.headers.add('Access-Control-Allow-Origin', '*');
+        request.response.write('{}');
+      } else if (spritePath.endsWith('.png')) {
+        request.response.headers.contentType = ContentType('image', 'png');
+        request.response.headers.add('Access-Control-Allow-Origin', '*');
+        final emptyPng = [
+          0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+          0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+          0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+          0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+          0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
+          0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+          0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+          0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+          0x42, 0x60, 0x82
+        ];
+        request.response.add(emptyPng);
+      } else {
+        request.response.headers.add('Access-Control-Allow-Origin', '*');
+        request.response.add(<int>[]);
+      }
+
+      await request.response.close();
     } catch (e) {
       debugPrint('[MbtilesServer] ❌ Error serving sprite $spritePath: $e');
-
-      // Return empty response even on error
       request.response.headers.add('Access-Control-Allow-Origin', '*');
       request.response.add(<int>[]);
       await request.response.close();

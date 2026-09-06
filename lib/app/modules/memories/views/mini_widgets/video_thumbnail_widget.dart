@@ -38,7 +38,7 @@ class VideoThumbnailWidget extends StatefulWidget {
 }
 
 class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
-  /// Legacy path cache for quick lookup
+  /// Legacy path cache for quick lookup (keyed by video + target edge).
   static final Map<String, String> _legacyPathCache = <String, String>{};
 
   /// Clears any legacy cached files
@@ -57,17 +57,27 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   bool _isLoading = true;
   bool _hasError = false;
 
+  int get _targetEdge {
+    // Always generate a high-res source thumb; UI scales it down. Small
+    // widget sizes must not drive a tiny decode (looks soft on retina).
+    return VideoThumbnailCacheManager.defaultMaxEdge;
+  }
+
   @override
   void initState() {
     super.initState();
-    _generateThumbnail();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _generateThumbnail();
+    });
   }
 
   @override
   void didUpdateWidget(covariant VideoThumbnailWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoPath != widget.videoPath ||
-        oldWidget.existingThumbnailPath != widget.existingThumbnailPath) {
+        oldWidget.existingThumbnailPath != widget.existingThumbnailPath ||
+        oldWidget.width != widget.width ||
+        oldWidget.height != widget.height) {
       _generateThumbnail();
     }
   }
@@ -81,8 +91,9 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         });
       }
 
-      // Check fast legacy cache first
-      final legacy = _legacyPathCache[widget.videoPath];
+      final edge = _targetEdge;
+      final legacyKey = '${widget.videoPath}|$edge';
+      final legacy = _legacyPathCache[legacyKey];
       if (legacy != null && await File(legacy).exists()) {
         if (!mounted) return;
         setState(() {
@@ -92,15 +103,15 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         return;
       }
 
-      // Use VideoThumbnailCacheManager (backed by flutter_cache_manager on Android / multi-platform)
       final path = await VideoThumbnailCacheManager.getOrGenerateThumbnail(
         videoPath: widget.videoPath,
         existingDbThumbnail: widget.existingThumbnailPath,
-        isLowQuality: true,
+        maxEdge: edge,
+        quality: VideoThumbnailCacheManager.defaultQuality,
       );
 
       if (path != null && path.isNotEmpty) {
-        _legacyPathCache[widget.videoPath] = path;
+        _legacyPathCache[legacyKey] = path;
       }
 
       if (!mounted) return;
@@ -162,7 +173,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                       width: widget.width,
                       height: widget.height,
                       fit: BoxFit.cover,
-                      filterQuality: FilterQuality.low,
+                      filterQuality: FilterQuality.medium,
                       clearMemoryCacheWhenDispose: false,
                       gaplessPlayback: true,
                     )
@@ -171,7 +182,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                       width: widget.width,
                       height: widget.height,
                       fit: BoxFit.cover,
-                      filterQuality: FilterQuality.low,
+                      filterQuality: FilterQuality.medium,
                       gaplessPlayback: true,
                     )
             else

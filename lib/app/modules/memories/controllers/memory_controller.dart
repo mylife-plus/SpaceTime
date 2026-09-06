@@ -21,6 +21,7 @@ import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_cluster_candidate.dart';
 import 'package:spacetime/app/utils/memory_images_copy_compute.dart';
 import 'package:spacetime/app/utils/concurrency.dart';
+import 'package:spacetime/app/utils/video_thumbnail_cache_manager.dart';
 
 class MemoryController extends GetxController {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
@@ -928,10 +929,28 @@ class MemoryController extends GetxController {
             '💾 Prepared video $i: $videoPath (relative) -> $absolutePath ($fileSize bytes)',
           );
 
+          String thumbRelative = '';
+          try {
+            final thumbAbs =
+                await VideoThumbnailCacheManager.generatePersistentThumbnail(
+              videoAbsolutePath: absolutePath,
+            );
+            if (thumbAbs != null && thumbAbs.isNotEmpty) {
+              final docs = await getApplicationDocumentsDirectory();
+              if (thumbAbs.startsWith(docs.path)) {
+                thumbRelative = thumbAbs.substring(docs.path.length + 1);
+              } else {
+                thumbRelative = thumbAbs;
+              }
+            }
+          } catch (e) {
+            debugPrint('💾 Video thumbnail gen failed for $videoPath: $e');
+          }
+
           videoDataList.add({
             'path': videoPath, // Store RELATIVE path in database
             'duration': '', // Duration can be extracted later if needed
-            'thumbnail': '', // Thumbnail path can be generated later if needed
+            'thumbnail': thumbRelative,
           });
         } else {
           debugPrint('❌ Video file not found, skipping: $videoPath -> $absolutePath');
@@ -1703,10 +1722,25 @@ class MemoryController extends GetxController {
         final absolutePath = await getAbsolutePath(videoPath);
         final file = File(absolutePath);
         if (await file.exists()) {
+          String thumbRelative = '';
+          try {
+            final thumbAbs =
+                await VideoThumbnailCacheManager.generatePersistentThumbnail(
+              videoAbsolutePath: absolutePath,
+            );
+            if (thumbAbs != null && thumbAbs.isNotEmpty) {
+              final docs = await getApplicationDocumentsDirectory();
+              if (thumbAbs.startsWith(docs.path)) {
+                thumbRelative = thumbAbs.substring(docs.path.length + 1);
+              } else {
+                thumbRelative = thumbAbs;
+              }
+            }
+          } catch (_) {}
           videoDataList.add({
             'path': videoPath,
             'duration': '',
-            'thumbnail': '',
+            'thumbnail': thumbRelative,
           });
         }
       }

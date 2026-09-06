@@ -381,7 +381,7 @@ class _GalleryEntityThumbTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      future: entity.thumbnailDataWithSize(const ThumbnailSize(240, 240)),
+      future: entity.thumbnailDataWithSize(const ThumbnailSize(512, 512)),
       builder: (context, snap) {
         if (snap.hasData && snap.data != null && snap.data!.isNotEmpty) {
           return Image.memory(
@@ -412,8 +412,9 @@ class _FileThumbTile extends StatelessWidget {
         future: VideoThumbnail.thumbnailFile(
           video: path,
           imageFormat: ImageFormat.JPEG,
-          maxWidth: 240,
-          quality: 70,
+          maxWidth: 720,
+          maxHeight: 720,
+          quality: 80,
         ),
         builder: (context, snap) {
           final thumb = snap.data;

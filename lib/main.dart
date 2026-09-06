@@ -128,6 +128,10 @@ Future<void> _bootstrapAfterFirstPaint() async {
   Get.put(PermissionService(), permanent: true);
   Get.put(StyleJsonDownloadService(), permanent: true);
 
+  // Warm local MBTiles HTTP server ASAP so MapView hits the fast path
+  // instead of opening the DB on the "Preparing map" screen.
+  unawaited(_initializeBackgroundTileServer());
+
   if (Get.isRegistered<GetStartedController>()) {
     Get.find<GetStartedController>().runStartupInitialization();
   }

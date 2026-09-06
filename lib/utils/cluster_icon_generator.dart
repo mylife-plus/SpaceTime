@@ -166,61 +166,6 @@ class ClusterIconGenerator {
     return byteData!.buffer.asUint8List();
   }
 
-  /// Generate a plain colored circle badge with no baked-in text — the exact
-  /// count is rendered separately by a native Mapbox text layer on top, so
-  /// this only needs to vary by color (one image per color index), not by
-  /// count or per-cluster/per-memory identity. Same visual style (white
-  /// border + filled circle) as [generateClusterIcon] minus the text.
-  static Future<Uint8List> generateColorBadgeIcon({
-    required Color backgroundColor,
-    double size = 40.0,
-    Color strokeColor = Colors.white,
-    double strokeWidth = 3.0,
-  }) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final center = Offset(size / 2, size / 2);
-    final radius = (size / 2) - strokeWidth;
-
-    final strokePaint = Paint()
-      ..color = strokeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-    canvas.drawCircle(center, radius + (strokeWidth / 2), strokePaint);
-
-    final fillPaint = Paint()
-      ..color = backgroundColor
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius, fillPaint);
-
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(size.toInt(), size.toInt());
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    return byteData!.buffer.asUint8List();
-  }
-
-  /// Generate one color badge per entry in [hexColors] (e.g.
-  /// MemoryGeoJsonService.colors), keyed by index so it can be looked up via
-  /// the same `color_index`/`latest_color_index` feature properties already
-  /// computed for clustering — a small, fixed-size set (one per color, not
-  /// per cluster/memory) generated once and reused for every marker.
-  static Future<Map<int, Uint8List>> generateColorBadgeSet({
-    required List<String> hexColors,
-    double size = 40.0,
-  }) async {
-    final badges = <int, Uint8List>{};
-    for (var i = 0; i < hexColors.length; i++) {
-      final hex = hexColors[i].replaceFirst('#', '');
-      final color = Color(int.parse('FF$hex', radix: 16));
-      badges[i] = await generateColorBadgeIcon(
-        backgroundColor: color,
-        size: size,
-      );
-    }
-    return badges;
-  }
-
   /// Get the appropriate icon name based on cluster count
   static String getIconNameForCount(int count) {
     if (count < 5) return 'cluster-2';

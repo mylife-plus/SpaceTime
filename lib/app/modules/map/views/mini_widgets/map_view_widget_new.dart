@@ -51,6 +51,9 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
   String? _styleLoadCacheKey;
   Future<String>? _styleJsonLoadFuture;
 
+  /// Process-lifetime cache of localized style JSON (skip disk + jsonDecode on reopen).
+  static final Map<String, String> _localizedStyleCache = {};
+
   /// TEMP diagnostic timing — pinpoints where "Preparing map" time actually
   /// goes (tile server vs style JSON read vs native style parse). Remove
   /// once the remaining delay is confirmed fixed on-device.
@@ -59,6 +62,12 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     debugPrint(
       '[MapInitTiming] ⏱️ $milestone at ${_mapInitStopwatch.elapsedMilliseconds}ms',
     );
+  }
+
+  void _dismissPreparingOverlay(String reason) {
+    if (!mounted || _mapChromeReady) return;
+    _logInitTiming('Preparing overlay dismissed ($reason)');
+    setState(() => _mapChromeReady = true);
   }
 
   @override
@@ -506,9 +515,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             '[MapViewWidgetNew] ❌ Error in FutureBuilder: ${snapshot.error}',
           );
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && !_mapChromeReady) {
-              setState(() => _mapChromeReady = true);
-            }
+            _dismissPreparingOverlay('styleJson error');
           });
           return Center(
             child: Text(
@@ -576,10 +583,14 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             debugPrint(
               '[MapViewWidgetNew] ✅ Custom style JSON loaded into Mapbox successfully',
             );
+
+            // Show map chrome as soon as style JSON is accepted — do not wait
+            // for full glyph/tile settle (onStyleLoaded). Clustering still waits.
+            _dismissPreparingOverlay('loadStyleJson returned');
           },
           onStyleLoadedListener: (styleLoadedEventData) async {
             _logInitTiming(
-              'onStyleLoaded fired — overlay dismisses now (TOTAL prepare time)',
+              'onStyleLoaded fired — memories/clusters can start (TOTAL style settle)',
             );
             debugPrint(
               '[MapViewWidgetNew] 🎨 onStyleLoaded callback triggered',
@@ -589,9 +600,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             );
 
             controller.onStyleLoaded(styleLoadedEventData);
-            if (mounted) {
-              setState(() => _mapChromeReady = true);
-            }
+            _dismissPreparingOverlay('onStyleLoaded');
           },
           onMapLoadErrorListener: (mapLoadError) {
             debugPrint(
@@ -603,6 +612,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             debugPrint(
               '[MapViewWidgetNew] ❌ Error Timestamp: ${mapLoadError.timestamp}',
             );
+            _dismissPreparingOverlay('mapLoadError');
           },
         );
       },
@@ -653,6 +663,13 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     String tileUrl,
     String serverUrl,
   ) async {
+    final cacheKey = '$serverUrl|$tileUrl';
+    final cached = _localizedStyleCache[cacheKey];
+    if (cached != null) {
+      _logInitTiming('_loadStyleJsonFromAssets cache HIT');
+      return cached;
+    }
+
     try {
       debugPrint(
         '[MapViewWidgetNew] 📂 Loading style.json from local storage...',
@@ -685,6 +702,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
 
       modifiedStyleJson = _localizeSpriteAndGlyphs(modifiedStyleJson, serverUrl);
 
+      _localizedStyleCache[cacheKey] = modifiedStyleJson;
+      _logInitTiming('_loadStyleJsonFromAssets cache MISS — stored');
       return modifiedStyleJson;
     } catch (e) {
       // Fallback to a simplified style if assets/style.json is not found

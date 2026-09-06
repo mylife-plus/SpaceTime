@@ -68,14 +68,8 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   bool _isScrollingDown = false;
 
   /// Page size for add-memories list (lazy load on scroll).
-  /// Android uses a smaller first window to reduce decode/layout jank.
-  /// Was 20, dropped to 8 after a real-device ANR traced to bursts of
-  /// simultaneous first-time media decode/thumbnail work; raised to 30 now
-  /// that _revealStepSize (see _growLoadedDisplayCount) staggers every
-  /// reveal into small sub-batches regardless of page size, and per-item
-  /// decode/thumbnail cost on Android is separately capped at ~50% quality
-  /// (see MemoryMediaImageProviderCache / VideoThumbnailWidget) — so a
-  /// bigger page no longer means a bigger single-frame burst.
+  /// Android uses a slightly smaller first window. Thumbnail generation is
+  /// serialized and sized to the tile (VideoThumbnailCacheManager).
   static int get memoryListPageSize =>
       !kIsWeb && Platform.isAndroid ? 30 : 50;
 
