@@ -108,6 +108,7 @@ Future<void> _bootstrapAfterFirstPaint() async {
     await FileDownloader().configure(
       globalConfig: [
         (Config.runInForeground, true),
+        (Config.runInForegroundIfFileLargerThan, 50),
       ],
     );
   }

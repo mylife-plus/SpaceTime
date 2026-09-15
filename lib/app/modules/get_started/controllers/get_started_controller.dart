@@ -1245,13 +1245,16 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         return;
       }
 
-      // Update progress (ignore downloader sentinel values like -4)
+      // Trust the service value. It is already monotonic during a run, and
+      // intentionally resets after a wipe/restart — Get Started must follow
+      // that reset or the bar stays stuck (e.g. 34% while disk is at 0).
       final progress = _mbtilesDownloadService!.downloadProgress.value;
-      final displayProgress =
-          (progress >= 0.0 && progress <= 1.0) ? progress : downloadProgress.value;
-      if (downloadProgress.value != displayProgress) {
-        downloadProgress.value = displayProgress;
-        debugPrint('[GetStartedController] 📊 Download progress: ${(displayProgress * 100).toStringAsFixed(1)}%');
+      final next = (progress >= 0.0 && progress <= 1.0)
+          ? progress
+          : downloadProgress.value;
+      if (downloadProgress.value != next) {
+        downloadProgress.value = next;
+        debugPrint('[GetStartedController] 📊 Download progress: ${(next * 100).toStringAsFixed(1)}%');
       }
 
       // Update status text (service owns l10n; mirror here for binding)
@@ -1523,9 +1526,14 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
   /// Retry download if there was an error
   void retryDownload() {
-    debugPrint('[GetStartedController] Retrying download...');
+    debugPrint('[GetStartedController] Retrying download (resume-first)...');
     hasError.value = false;
     errorMessage.value = "";
+    // Prefer continuing a partial file / resumable task instead of wiping.
+    if (_mbtilesDownloadService != null) {
+      _mbtilesDownloadService!.hasError.value = false;
+      _mbtilesDownloadService!.errorMessage.value = '';
+    }
     startDownload();
   }
 
