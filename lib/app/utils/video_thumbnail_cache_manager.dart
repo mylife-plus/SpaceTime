@@ -23,6 +23,19 @@ class VideoThumbnailCacheManager {
     ),
   );
 
+  /// Android-only in-memory cache of resolved thumbnail file paths, keyed by
+  /// the same `cacheKey` as the disk cache.
+  ///
+  /// [VideoThumbnailWidget] only keeps a resolved path per-`State`, cleared
+  /// on dispose — so a card that scrolls out and back in (frequent on
+  /// Android given its smaller [ListView] `cacheExtent`) had to re-hit the
+  /// disk-backed [CacheManager] (`getFileFromCache`) to rediscover a
+  /// thumbnail that was already generated moments earlier. That repeated
+  /// disk I/O on remount was a measurable contributor to Add Memories
+  /// scroll jank on Android specifically. iOS is left untouched — this map
+  /// is only ever populated/consulted when running on Android.
+  static final Map<String, String> _androidResolvedPathCache = {};
+
   /// Serializes native thumbnail generation (VideoThumbnail) to prevent
   /// concurrent hardware video codec contention and ANRs on Android devices.
   static Future<void> _generationQueue = Future<void>.value();
@@ -58,6 +71,19 @@ class VideoThumbnailCacheManager {
     final q = quality.clamp(60, 95);
     final t = timeMs < 0 ? 0 : timeMs;
     final cacheKey = '$videoPath|e$edge|q$q|t$t|aspect';
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+
+    if (isAndroid) {
+      final resolved = _androidResolvedPathCache[cacheKey];
+      if (resolved != null && File(resolved).existsSync()) {
+        return resolved;
+      }
+    }
+
+    String remember(String path) {
+      if (isAndroid) _androidResolvedPathCache[cacheKey] = path;
+      return path;
+    }
 
     if (existingDbThumbnail != null && existingDbThumbnail.isNotEmpty) {
       final dbFile = File(existingDbThumbnail);
@@ -65,7 +91,7 @@ class VideoThumbnailCacheManager {
         final len = await dbFile.length();
         // Tiny files are usually old micro-thumbs — regenerate.
         if (len >= 12 * 1024) {
-          return existingDbThumbnail;
+          return remember(existingDbThumbnail);
         }
         debugPrint(
           '[VideoThumbnailCacheManager] Ignoring tiny DB thumb '
@@ -77,7 +103,7 @@ class VideoThumbnailCacheManager {
     try {
       final fileInfo = await instance.getFileFromCache(cacheKey);
       if (fileInfo != null && await fileInfo.file.exists()) {
-        return fileInfo.file.path;
+        return remember(fileInfo.file.path);
       }
     } catch (e) {
       debugPrint('[VideoThumbnailCacheManager] Cache lookup error: $e');
@@ -107,7 +133,7 @@ class VideoThumbnailCacheManager {
           bytes,
           fileExtension: 'jpg',
         );
-        return cachedFile.path;
+        return remember(cachedFile.path);
       }
     } catch (e) {
       debugPrint('[VideoThumbnailCacheManager] Thumbnail generation error: $e');
@@ -133,7 +159,7 @@ class VideoThumbnailCacheManager {
             bytes,
             fileExtension: 'jpg',
           );
-          return cached.path;
+          return remember(cached.path);
         }
       } catch (fallbackError) {
         debugPrint(
@@ -180,6 +206,7 @@ class VideoThumbnailCacheManager {
 
   /// Clears all video thumbnails from cache.
   static Future<void> clearCache() async {
+    _androidResolvedPathCache.clear();
     try {
       await instance.emptyCache();
       for (final oldKey in const [

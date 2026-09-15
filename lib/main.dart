@@ -10,8 +10,6 @@ import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_input_theme.dart';
 import 'package:spacetime/app/config/app_locale.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:spacetime/app/helpers/nearest_region_service.dart';
-import 'package:spacetime/app/helpers/offline_water_service.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/theme/app_system_ui.dart';
@@ -137,26 +135,16 @@ Future<void> _bootstrapAfterFirstPaint() async {
     Get.find<GetStartedController>().runStartupInitialization();
   }
 
-  unawaited(_deferGeoAssets());
-}
-
-Future<void> _deferGeoAssets() async {
-  // Wait until after first map frame / Get Started so CSV/GeoJSON workers
-  // do not compete with Mapbox style setup on a cold start (ANR risk).
-  await Future<void>.delayed(const Duration(seconds: 2));
-  await _initAssets();
-}
-
-Future<void> _initAssets() async {
-  try {
-    await NearestRegionService().loadFromAssets();
-    await OfflineWaterService.instance.init(
-      oceanGeoJson: 'assets/geo/ne_110m_geography_marine_polys.json',
-      lakeGeoJson: 'assets/geo/ne_110m_lakes.json',
-    );
-  } catch (e) {
-    debugPrint('[GetStartedController] Assets init error: $e');
-  }
+  // NearestRegionService/OfflineWaterService used to be warmed here
+  // unconditionally 2s after launch — a ~230k-city CSV + polygon GeoJSON
+  // parse (4 sequential Isolate.run calls + a chunked main-isolate copy-
+  // back) that ran regardless of which screen the user was on, and was a
+  // confirmed source of the first-30-40s lag on screens like Add Memories
+  // that have nothing to do with geocoding. Both services now self-trigger
+  // lazily on their first actual lookup (NearestRegionService.findNearest /
+  // OfflineWaterService.detect) instead, so only flows that actually need
+  // reverse-geocoding (e.g. adding a memory with a GPS location) pay for it,
+  // and only when they're first used.
 }
 
 Future<void> clearAppData() async {

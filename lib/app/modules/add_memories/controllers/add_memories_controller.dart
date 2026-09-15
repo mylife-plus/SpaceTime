@@ -1,10 +1,9 @@
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:async';
-import 'dart:io' show Platform;
 import '../../../../services/memory_clustering_service.dart';
 import '../../../services/memory_db.dart';
 import '../../memories/controllers/memory_controller.dart';
@@ -67,11 +66,34 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
   double _lastScrollOffset = 0.0;
   bool _isScrollingDown = false;
 
+  /// Accumulates delta in the direction opposite [_isScrollingDown] since
+  /// the last committed direction change. A single jittery scroll frame
+  /// (touch-sampling noise, overscroll bounce settling) during a fast
+  /// downward fling could otherwise register as one small upward delta and
+  /// instantly flip [_isScrollingDown], showing the header/FAB mid-fling.
+  /// Requiring the reversal to accumulate past a threshold before it's
+  /// trusted fixes that false "upward scroll" flicker.
+  double _pendingReverseDelta = 0.0;
+  static const double _scrollJitterThreshold = 5.0;
+
+  /// Reversal thresholds are asymmetric on purpose: re-revealing the header
+  /// + FAB (a small/slight upward scroll while reading down a list) is more
+  /// visually disruptive than hiding them, so it requires a more deliberate
+  /// upward scroll before it's trusted. Hiding on a downward reversal stays
+  /// at the smaller, original threshold.
+  static const double _hideReverseThreshold = 24.0;
+  static const double _showReverseThreshold = 80.0;
+
   /// Page size for add-memories list (lazy load on scroll).
-  /// Android uses a slightly smaller first window. Thumbnail generation is
-  /// serialized and sized to the tile (VideoThumbnailCacheManager).
-  static int get memoryListPageSize =>
-      !kIsWeb && Platform.isAndroid ? 30 : 50;
+  /// Thumbnail generation is serialized and sized to the tile
+  /// (VideoThumbnailCacheManager).
+  static const int memoryListPageSize = 50;
+
+  /// How many items before the end of the currently loaded window to start
+  /// prefetching the next page — e.g. for a page of 50 this fires once the
+  /// user reaches item 40, so the next batch is already staggered in by the
+  /// time they hit the footer.
+  static const int loadMoreTriggerOffsetFromEnd = 10;
 
   /// Sorted memories shown in the list (rebuilt when source data/filters change).
   final RxList<Map<String, dynamic>> displayMemories =
@@ -2453,26 +2475,57 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     searchType.value = 'general';
   }
 
+  /// TEMPORARY testing switch — flip to `false` to restore scroll-based
+  /// hide/show of the header + FAB. While `true`, [handleScrollUpdate] is a
+  /// no-op and the UI stays visible, so scroll-jank/scroll-jitter testing
+  /// isn't confounded by the show/hide animation or its rebuilds.
+  static const bool debugKeepUIAlwaysVisible = false;
+
   void handleScrollUpdate(double currentOffset, double maxScrollExtent) {
+    if (debugKeepUIAlwaysVisible) {
+      if (!isUIVisible.value) isUIVisible.value = true;
+      return;
+    }
+
     final isAtTop = currentOffset <= 10; // Small threshold for top
     final isAtBottom =
         currentOffset >= (maxScrollExtent - 10); // Small threshold for bottom
     final scrollDelta = currentOffset - _lastScrollOffset;
+    _lastScrollOffset = currentOffset;
 
-    // Only update if scroll delta is significant enough to avoid jitter
-    if (scrollDelta.abs() > 5) {
-      _isScrollingDown = scrollDelta > 0;
-
-      // Show UI if at top, bottom, or scrolling up
-      // Hide UI if scrolling down and not at top/bottom
-      if (isAtTop || isAtBottom || !_isScrollingDown) {
-        showUI();
-      } else if (_isScrollingDown && !isAtTop && !isAtBottom) {
-        hideUI();
-      }
+    if (isAtTop || isAtBottom) {
+      _pendingReverseDelta = 0.0;
+      showUI();
+      return;
     }
 
-    _lastScrollOffset = currentOffset;
+    // Ignore sub-jitter deltas entirely (touch-sampling noise / rounding).
+    if (scrollDelta.abs() <= _scrollJitterThreshold) return;
+
+    final scrollingDownNow = scrollDelta > 0;
+    if (scrollingDownNow == _isScrollingDown) {
+      // Same direction as the committed state — any partial reversal from
+      // a prior jittery frame no longer applies.
+      _pendingReverseDelta = 0.0;
+      return;
+    }
+
+    // Candidate direction reversal: require it to accumulate past a
+    // threshold before actually flipping, so one momentary backward frame
+    // during a fast fling — or a slight, non-deliberate upward scroll while
+    // reading down the list — can't toggle the header/FAB.
+    _pendingReverseDelta += scrollDelta;
+    final threshold =
+        scrollingDownNow ? _hideReverseThreshold : _showReverseThreshold;
+    if (_pendingReverseDelta.abs() < threshold) return;
+
+    _isScrollingDown = scrollingDownNow;
+    _pendingReverseDelta = 0.0;
+    if (_isScrollingDown) {
+      hideUI();
+    } else {
+      showUI();
+    }
   }
 
   void hideUI() {

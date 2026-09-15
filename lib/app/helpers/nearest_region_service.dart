@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math';
@@ -126,7 +127,19 @@ class NearestRegionService {
   }
 
   Region? findNearest(double lat, double lng, {String? countryCode}) {
-    if (!_isLoaded) return null;
+    if (!_isLoaded) {
+      // Lazy self-trigger: the ~230k-city/polygon parse used to run
+      // unconditionally 2s after app launch (main.dart's `_deferGeoAssets`),
+      // regardless of which screen the user was on — a real source of main-
+      // isolate/CPU contention (4 sequential Isolate.run parses + chunked
+      // main-isolate copy-back) that made unrelated screens (e.g. Add
+      // Memories) lag for 20-40s after a cold start. Loading only on first
+      // actual lookup means screens that never call findNearest/detect
+      // never pay for it, and repeat callers before it finishes still just
+      // get null (same degraded-but-safe behavior as before).
+      unawaited(loadFromAssets());
+      return null;
+    }
 
     final polyState = findStateByPolygon(lat, lng, countryCode: countryCode);
     if (polyState != null) {

@@ -124,15 +124,19 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
               );
             }
             final memory = controller.displayMemories[index];
-            // Prefetch: start loading the next batch once the user has
-            // scrolled past the halfway point of what's currently loaded,
-            // instead of waiting until they hit the footer at the very end.
-            // For a page of 30 this kicks off around item 15, so by the
-            // time the user actually reaches item 30 the next batch is
-            // already staggered in and reveals smoothly instead of
-            // pausing on the loading footer. Re-applies each time `loaded`
-            // grows, since the threshold is relative to its current value.
-            if (hasMore && !loadingMore && index >= loaded ~/ 2) {
+            // Prefetch: start loading the next batch shortly before the user
+            // reaches the end of what's currently loaded, instead of waiting
+            // until they hit the footer. For a page of 50 (with the default
+            // 10-item offset) this kicks off around item 40, so by the time
+            // the user reaches item 50 the next batch is already staggered
+            // in and reveals smoothly instead of pausing on the loading
+            // footer. Re-applies each time `loaded` grows, since the
+            // threshold is relative to its current value.
+            if (hasMore &&
+                !loadingMore &&
+                index >=
+                    loaded -
+                        AddMemoriesController.loadMoreTriggerOffsetFromEnd) {
               controller.scheduleLoadMoreDisplayItems();
             }
             return MemoryCard(
@@ -143,6 +147,88 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
         );
       }),
     );
+  }
+
+  /// Isolated from the outer screen `Obx` — depends only on [isUIVisible],
+  /// which flips on every scroll-direction reversal. Keeping it in the
+  /// mega-`Obx` below forced a brand-new (non-const) `ListView.builder`
+  /// subtree via `_buildMemoryList()` on every such flip: `SliverChildBuilderDelegate.shouldRebuild()`
+  /// defaults to `true`, so every mounted `MemoryCard` re-ran `build()` mid-scroll
+  /// even for plain text cards with no media. See add_memories_controller.dart's
+  /// `handleScrollUpdate`/`isUIVisible`.
+  Widget _buildCollapsibleHeader() {
+    return Obx(() {
+      final visible = controller.isUIVisible.value;
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        height: visible ? 65 : 0,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 300),
+          opacity: visible ? 1.0 : 0.0,
+          child: visible ? const Header() : const SizedBox.shrink(),
+        ),
+      );
+    });
+  }
+
+  /// Isolated the same way as [_buildCollapsibleHeader] — also only depends
+  /// on [isUIVisible] (plus dark-mode/color state that changes far less often
+  /// than scroll direction), so it must not sit inside the list-affecting
+  /// outer `Obx`.
+  Widget _buildFab(BuildContext context) {
+    return Obx(() {
+      final visible = controller.isUIVisible.value;
+      return AnimatedPositioned(
+        duration: const Duration(milliseconds: 300),
+        bottom: visible ? 20 : -80,
+        left: MediaQuery.of(context).size.width / 2 - 24.5,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 300),
+          opacity: visible ? 1.0 : 0.0,
+          child: GestureDetector(
+            onTap: () async {
+              // Don't reset filters when adding a new memory
+              // Filters should persist until manually removed or reset
+              Get.put(MemoryController());
+
+              final result = await openMemoryView();
+              // On success, MemoryView already prepended + refreshed the map.
+              // A full onAgainInit here races and can paint the same memory twice.
+              if (result == true) {
+                showTrSnackbar('snackbar_success',
+                  backgroundColor: Colors.green.withValues(
+                    alpha: 0.8,
+                  ),
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 2),);
+              } else {
+                debugPrint(
+                  'Returned from memory creation without save, refreshing add memories screen',
+                );
+                controller.onAgainInit();
+              }
+            },
+            child: Container(
+              width: 49,
+              height: 51,
+              padding: EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: uiController.darkMode.value
+                    ? (uiController.mainColor.value == 'blue'
+                        ? const Color(0xFF002B62)
+                        : (uiController.curentHomeIconColorDark))
+                    : uiController.currentHomeIconColor,
+              ),
+              child: Image.asset(
+                AppImages.addIcon,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -200,81 +286,19 @@ class AddMemoriesView extends GetView<AddMemoriesController> {
             children: [
                 Column(
                   children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      height: controller.isUIVisible.value ? 65 : 0,
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 300),
-                        opacity: controller.isUIVisible.value ? 1.0 : 0.0,
-                        child:
-                            controller.isUIVisible.value
-                                ? const Header()
-                                : const SizedBox.shrink(),
-                      ),
-                    ),
-          
+                    _buildCollapsibleHeader(),
+
                     // Search indicator
                     const SearchIndicator(),
-          
+
                     // Filter indicator
                     const FilterIndicator(),
-          
+
                     Expanded(child: _buildMemoryList()),
                   ],
                 ),
                 // Floating action button with animation
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  bottom: controller.isUIVisible.value ? 20 : -80,
-                  left: MediaQuery.of(context).size.width / 2 - 24.5,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 300),
-                    opacity: controller.isUIVisible.value ? 1.0 : 0.0,
-                    child: GestureDetector(
-                      onTap: () async {
-                        // Don't reset filters when adding a new memory
-                        // Filters should persist until manually removed or reset
-                        Get.put(MemoryController());
-          
-                        final result = await openMemoryView();
-                        // On success, MemoryView already prepended + refreshed the map.
-                        // A full onAgainInit here races and can paint the same memory twice.
-                        if (result == true) {
-                          showTrSnackbar('snackbar_success', 
-                            backgroundColor: Colors.green.withValues(
-                              alpha: 0.8,
-                            ),
-                            colorText: Colors.white,
-        duration: const Duration(seconds: 2),);
-                        } else {
-                          debugPrint(
-                            'Returned from memory creation without save, refreshing add memories screen',
-                          );
-                          controller.onAgainInit();
-                        }
-                      },
-                      child: Container(
-                        width: 49,
-                        height: 51,
-                        padding: EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                     // image: DecorationImage(
-                    borderRadius: BorderRadius.circular(8), 
-  color: uiController.darkMode.value
-    ? (uiController.mainColor.value == 'blue'
-        ? const Color(0xFF002B62)
-        : (uiController.curentHomeIconColorDark))
-    : uiController.currentHomeIconColor,// ✔ correct
-                  
-                ),
-                        child: Image.asset(
-                          AppImages.addIcon,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                _buildFab(context),
                 // Blur overlay when search is active
                 // if (controller.isSearchActive.value)
                 // Positioned.fill(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
@@ -24,12 +25,31 @@ class OfflineWaterService {
   final List<_PolyFeature> _lakes = [];
 
   bool _initialized = false;
+  Future<void>? _initializing;
 
-  /// ================= INIT (CALL ONCE IN main) =================
+  static const String _defaultOceanGeoJson =
+      'assets/geo/ne_110m_geography_marine_polys.json';
+  static const String _defaultLakeGeoJson = 'assets/geo/ne_110m_lakes.json';
+
+  /// ================= INIT =================
+  /// Defaults match the only paths ever passed in this app — kept as
+  /// defaults so [detect] can self-trigger a lazy load with no arguments.
   Future<void> init({
-    required String oceanGeoJson,
-    required String lakeGeoJson,
+    String oceanGeoJson = _defaultOceanGeoJson,
+    String lakeGeoJson = _defaultLakeGeoJson,
   }) async {
+    if (_initialized) return;
+    // Deduplicate concurrent callers (lazy detect() + any explicit caller).
+    if (_initializing != null) return _initializing!;
+    _initializing = _initImpl(oceanGeoJson, lakeGeoJson);
+    try {
+      await _initializing;
+    } finally {
+      _initializing = null;
+    }
+  }
+
+  Future<void> _initImpl(String oceanGeoJson, String lakeGeoJson) async {
     if (_initialized) return;
 
     await _loadPolygons(oceanGeoJson, _oceans);
@@ -45,6 +65,10 @@ class OfflineWaterService {
   /// - null → land
   WaterHit? detect(double lat, double lng) {
     if (!_initialized) {
+      // Lazy self-trigger — see NearestRegionService.findNearest's doc
+      // comment for why this moved off a fixed post-launch timer in
+      // main.dart. Screens that never call detect() never pay for this.
+      unawaited(init());
       return null;
     }
 

@@ -1195,8 +1195,6 @@ class _MemoryCardState extends State<MemoryCard> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<UiController>();
-
     return Obx(() {
       final _ = controller.selectedLanguage.value;
       controller.darkMode.value;

@@ -74,6 +74,18 @@ class MemoryMediaImageProviderCache {
   final Map<String, ImageProvider> _providers = {};
   String? _documentsRoot;
 
+  /// Android-only cache for [_isDisplayableImage]'s file-existence check.
+  ///
+  /// `existsSync()` is a synchronous disk stat, done on the UI thread on
+  /// every call — and `_isDisplayableImage` ran unconditionally, uncached,
+  /// on every [buildImage]/[precache] call, i.e. every rebuild of every
+  /// visible image (the whole card sits inside one `Obx`). Android's
+  /// scoped-storage-backed stat path is slower/more variable than iOS's
+  /// APFS, so this repeated stat was a measurable contributor to Add
+  /// Memories scroll jank on Android specifically. iOS is left uncached and
+  /// unchanged — this map is only ever populated when `isAndroid` is true.
+  final Map<String, bool> _androidExistsCache = {};
+
   /// Resolves app-relative paths (`memory_images/...`) for file I/O.
   Future<void> ensureDocumentsRoot() async {
     _documentsRoot ??= (await getApplicationDocumentsDirectory()).path;
@@ -135,6 +147,7 @@ class MemoryMediaImageProviderCache {
   /// Drop decoded providers after erase-all / bulk delete.
   void clear() {
     _providers.clear();
+    _androidExistsCache.clear();
     try {
       clearMemoryImageCache();
     } catch (_) {}
@@ -145,7 +158,8 @@ class MemoryMediaImageProviderCache {
     String imageData, {
     int? cacheWidth,
   }) async {
-    if (!_isDisplayableImage(imageData)) return;
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+    if (!_isDisplayableImage(imageData, useCache: isAndroid)) return;
     final provider = resolve(imageData, cacheWidth: cacheWidth);
     try {
       await precacheImage(
@@ -168,11 +182,11 @@ class MemoryMediaImageProviderCache {
     Color? placeholderColor,
     Widget? errorChild,
   }) {
-    if (!_isDisplayableImage(imageData)) {
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+
+    if (!_isDisplayableImage(imageData, useCache: isAndroid)) {
       return errorChild ?? _defaultError(height: height, width: width);
     }
-
-    final isAndroid = !kIsWeb && Platform.isAndroid;
 
     // On Android, reduce decode width slightly and apply lower quality for snappy list scrolling
     final rawDecodeW = cacheWidth ??
@@ -298,10 +312,19 @@ class MemoryMediaImageProviderCache {
     }
   }
 
-  bool _isDisplayableImage(String imageData) {
+  /// [useCache] is only ever passed `true` on Android (see
+  /// [_androidExistsCache]'s doc comment) — iOS always does the plain,
+  /// uncached `existsSync()` check, unchanged from before.
+  bool _isDisplayableImage(String imageData, {bool useCache = false}) {
     if (imageData.isEmpty) return false;
     if (_isFilePath(imageData)) {
-      return File(resolveStoragePath(imageData)).existsSync();
+      final path = resolveStoragePath(imageData);
+      if (!useCache) return File(path).existsSync();
+      final cached = _androidExistsCache[path];
+      if (cached != null) return cached;
+      final exists = File(path).existsSync();
+      _androidExistsCache[path] = exists;
+      return exists;
     }
     return _isBase64Image(imageData) || !imageData.contains('/');
   }

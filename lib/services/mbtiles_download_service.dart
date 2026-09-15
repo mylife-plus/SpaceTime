@@ -241,7 +241,13 @@ class MbtilesDownloadService extends GetxController {
   }
 
   /// Bytes already on disk for the *active* download.
-  Future<int> _activePartialBytesOnDisk() async {
+  ///
+  /// [minLiveTempBytes] is forwarded to [_bestLiveDownloaderTemp]. The
+  /// default (1MB) is fine for progress seeding, but the ghost-download
+  /// watchdog needs to see a live temp as soon as it exists (down to its own
+  /// 64KB threshold) — otherwise a real, slow-but-healthy download under 1MB
+  /// looks identical to an orphaned one and gets wiped + reset to 0%.
+  Future<int> _activePartialBytesOnDisk({int minLiveTempBytes = 1024 * 1024}) async {
     final appDir = await getApplicationSupportDirectory();
     var best = 0;
 
@@ -271,7 +277,10 @@ class MbtilesDownloadService extends GetxController {
       }
     }
 
-    final live = await _bestLiveDownloaderTemp(appDir.path);
+    final live = await _bestLiveDownloaderTemp(
+      appDir.path,
+      minBytes: minLiveTempBytes,
+    );
     if (live != null) {
       best = math.max(best, live.length);
     }
@@ -562,6 +571,10 @@ class MbtilesDownloadService extends GetxController {
   /// Consecutive Android polls where a "running" task has zero bytes on disk.
   /// Ghost progress after an unlinked temp FD needs a hard restart.
   int _emptyDiskWhileRunningPolls = 0;
+  /// Plugin-reported progress captured when the "empty disk" streak began —
+  /// used to tell a genuinely stuck download from one whose progress keeps
+  /// climbing (real, just invisible to our file scan) while we watch it.
+  double _emptyDiskBaselineProgress = 0.0;
   DateTime? _lastEnqueueAt;
 
   static const String _downloadGroup = 'mbtiles';
@@ -639,14 +652,29 @@ class MbtilesDownloadService extends GetxController {
 
         // Ghost download: plugin reports progress but the temp was deleted
         // (e.g. orphan cleanup unlinked an open FD). Restart cleanly.
-        final onDisk = await _activePartialBytesOnDisk();
+        //
+        // Use a low minBytes here (matching the 64KB ghost threshold below)
+        // — the default 1MB visibility floor made a real, slow-but-healthy
+        // temp under 1MB indistinguishable from a truly-orphaned one, which
+        // caused false wipe+reset-to-0% on healthy downloads.
+        final onDisk =
+            await _activePartialBytesOnDisk(minLiveTempBytes: 64 * 1024);
         final enqueueAge = _lastEnqueueAt == null
             ? const Duration(days: 1)
             : DateTime.now().difference(_lastEnqueueAt!);
+        // The plugin's own DB record progress is an independent signal from
+        // the native downloader — if it has moved past where we started
+        // watching, the download is alive even if our file scan missed it.
+        final pluginReportsProgress =
+            record.progress > 0.0 && record.progress > _emptyDiskBaselineProgress;
         if (onDisk < 64 * 1024 &&
+            !pluginReportsProgress &&
             enqueueAge > const Duration(seconds: 30) &&
             (record.status == TaskStatus.running ||
                 record.status == TaskStatus.enqueued)) {
+          if (_emptyDiskWhileRunningPolls == 0) {
+            _emptyDiskBaselineProgress = record.progress;
+          }
           _emptyDiskWhileRunningPolls++;
           if (_emptyDiskWhileRunningPolls >= 8) {
             // ~16s of empty disk while "running"
@@ -655,6 +683,7 @@ class MbtilesDownloadService extends GetxController {
               '(${_emptyDiskWhileRunningPolls} polls) — wipe + re-enqueue',
             );
             _emptyDiskWhileRunningPolls = 0;
+            _emptyDiskBaselineProgress = 0.0;
             _stopAndroidProgressPolling();
             await _wipePreviousMbtilesDownloadArtifacts();
             isDownloading.value = false;
@@ -663,6 +692,7 @@ class MbtilesDownloadService extends GetxController {
           }
         } else {
           _emptyDiskWhileRunningPolls = 0;
+          _emptyDiskBaselineProgress = 0.0;
         }
       }
 
@@ -1785,6 +1815,7 @@ class MbtilesDownloadService extends GetxController {
         debugPrint('[MbtilesDownload] 📋 Enqueued on Android (background worker)');
         _lastEnqueueAt = DateTime.now();
         _emptyDiskWhileRunningPolls = 0;
+        _emptyDiskBaselineProgress = 0.0;
         _startAndroidProgressPolling();
         didEnqueueOnAndroid = true;
         return null;
