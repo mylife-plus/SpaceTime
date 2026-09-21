@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -25,6 +26,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
   /// Avoid restarting style load when Obx rebuilds (e.g. error message text).
   String? _styleFutureServerKey;
   Future<String>? _memoizedStyleFuture;
+  bool _mapBootstrapDone = false;
+  bool _mapBootstrapping = false;
+  Completer<void>? _customStyleLoaded;
 
   @override
   void initState() {
@@ -186,38 +190,81 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidgetW
             textureView: Platform.isAndroid,
             
             onMapCreated: (mapboxMap) async {
+              if (_mapBootstrapDone || _mapBootstrapping) return;
+              _mapBootstrapping = true;
+              final session = controller.mapSessionGeneration;
+
               debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
               controller.mapController = mapboxMap;
 
-              // Disable Mapbox UI elements
-              mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-              mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-              mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
-              mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+              try {
+                mapboxMap.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+                mapboxMap.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+                mapboxMap.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+                mapboxMap.logo.updateSettings(mapbox.LogoSettings(enabled: false));
 
-              // STEP 1: Enable online mode FIRST to allow localhost tile server access
-              debugPrint('[MemoryLocationPicker] 🌐 STEP 1: Enabling online mode...');
-              await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-              debugPrint('[MemoryLocationPicker] ✅ Online mode ENABLED - localhost tile server can now be accessed');
+                debugPrint('[MemoryLocationPicker] 🌐 STEP 1: Enabling online mode...');
+                await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+                debugPrint('[MemoryLocationPicker] ✅ Online mode ENABLED - localhost tile server can now be accessed');
 
-              // STEP 2: Verify style JSON contains localhost URLs
-              debugPrint('[MemoryLocationPicker] 📊 STEP 2: Verifying style JSON...');
-              debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
-              if (styleJson.contains('localhost:8080')) {
-                debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
-              } else {
-                debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+                debugPrint('[MemoryLocationPicker] 📊 STEP 2: Verifying style JSON...');
+                debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
+                if (styleJson.contains('localhost:8080')) {
+                  debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
+                } else {
+                  debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+                }
+
+                final styleSettled = Completer<void>();
+                _customStyleLoaded = styleSettled;
+                debugPrint('[MemoryLocationPicker] 📥 STEP 3: Loading custom style JSON into Mapbox...');
+                await mapboxMap.loadStyleJson(styleJson);
+                debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
+
+                if (!styleSettled.isCompleted) {
+                  await styleSettled.future.timeout(
+                    const Duration(seconds: 5),
+                    onTimeout: () {
+                      debugPrint(
+                        '[MemoryLocationPicker] ⚠️ Custom style onStyleLoaded timeout — proceeding',
+                      );
+                    },
+                  );
+                }
+                _customStyleLoaded = null;
+
+                if (!controller.isMapSessionActive(session) || !mounted) return;
+
+                var ok = await controller.onMapStyleReady(
+                  mapboxMap,
+                  session: session,
+                );
+                if (!ok &&
+                    mounted &&
+                    controller.isMapSessionActive(session)) {
+                  await Future<void>.delayed(const Duration(milliseconds: 200));
+                  if (mounted && controller.isMapSessionActive(session)) {
+                    ok = await controller.onMapStyleReady(
+                      mapboxMap,
+                      session: session,
+                    );
+                  }
+                }
+                _mapBootstrapDone = ok;
+              } catch (e) {
+                debugPrint('[MemoryLocationPicker] ❌ Map bootstrap failed: $e');
+                _mapBootstrapDone = false;
+              } finally {
+                _customStyleLoaded = null;
+                _mapBootstrapping = false;
               }
-
-              // STEP 3: Load the custom style JSON with local tile server URLs
-              debugPrint('[MemoryLocationPicker] 📥 STEP 3: Loading custom style JSON into Mapbox...');
-              await mapboxMap.loadStyleJson(styleJson);
-              debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
-              await Future<void>.delayed(const Duration(milliseconds: 280));
-              await controller.onMapStyleReady(mapboxMap);
             },
             onStyleLoadedListener: (styleLoadedEventData) {
-              debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded (log only)');
+              debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded');
+              final gate = _customStyleLoaded;
+              if (gate != null && !gate.isCompleted) {
+                gate.complete();
+              }
             },
                   onTapListener: controller.onMapTap,
                 ),

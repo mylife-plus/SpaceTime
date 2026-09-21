@@ -1,9 +1,12 @@
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:spacetime/app/utils/memory_media_image_cache.dart';
+import 'package:spacetime/app/utils/video_thumbnail_cache_manager.dart';
 import '../../../../services/memory_clustering_service.dart';
 import '../../../services/memory_db.dart';
 import '../../memories/controllers/memory_controller.dart';
@@ -339,8 +342,99 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     isLoadingMoreDisplay.value = false;
     _loadMoreScheduled = false;
     if (total > 0) {
+      // Overlap first-page image decode / video-thumbnail generation with
+      // the staggered reveal below instead of paying that cost serially as
+      // each card mounts — see _warmupFirstPageMedia's doc comment.
+      _warmupFirstPageMedia(sorted);
       unawaited(_growLoadedDisplayCount(memoryListPageSize, stopToken: token));
     }
+  }
+
+  /// Android-only warm-up: kicks off decode of each of the first page's
+  /// primary (first) image, or thumbnail generation for its primary video,
+  /// concurrently with the staggered reveal instead of lazily on card mount.
+  /// Previously, ~50 cards mounting within ~400ms (4 items/32ms reveal)
+  /// meant the first unique decode/generation for every one of them landed
+  /// back-to-back right as the screen opened — a real, one-time cost (not
+  /// fixed by the image/video *caching* work, which only stops repeat
+  /// work). Starting it earlier, alongside the background sort, spreads
+  /// that cost over more wall-clock time before each card actually needs it.
+  ///
+  /// [cacheWidth] must match what `_buildImageWidget` in memory_card.dart
+  /// actually requests or this warms a differently-keyed decode and gains
+  /// nothing — see `_listImageMaxDecode`/`decodeWidthForLayout` there.
+  void _warmupFirstPageMedia(List<Map<String, dynamic>> items) {
+    if (kIsWeb || !Platform.isAndroid) return;
+    final context = Get.context;
+    final decodeWidth = context != null
+        ? MemoryMediaImageProviderCache.decodeWidthForLayout(
+            context,
+            layoutHeight: 260,
+            maxDecode: 350,
+          )
+        : 350;
+
+    final count = min(items.length, memoryListPageSize);
+    for (var i = 0; i < count; i++) {
+      final media = _firstMediaItemFor(items[i]);
+      if (media == null) continue;
+      if (media.type == 'video') {
+        unawaited(
+          VideoThumbnailCacheManager.getOrGenerateThumbnail(
+            videoPath: media.path,
+            existingDbThumbnail: media.thumbnail,
+          ),
+        );
+      } else {
+        unawaited(
+          MemoryMediaImageProviderCache.instance.warmDecode(
+            media.path,
+            cacheWidth: decodeWidth,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Mirrors MemoryCard's `_computeOrderedMediaList` fallback ordering
+  /// (images before videos when no explicit `orderedMedia`/order fields say
+  /// otherwise) closely enough for a best-effort warm-up — a mismatch here
+  /// only means a wasted precache, not incorrect rendering.
+  _FirstMedia? _firstMediaItemFor(Map<String, dynamic> memory) {
+    final ordered = memory['orderedMedia'] as List<dynamic>?;
+    if (ordered != null && ordered.isNotEmpty) {
+      final m = ordered.first as Map<String, dynamic>;
+      final path = m['path'] as String?;
+      if (path == null || path.isEmpty) return null;
+      final type = m['type'] as String?;
+      return _FirstMedia(type == 'video' ? 'video' : 'image', path, null);
+    }
+
+    final assetsImg = memory['assetsImg'];
+    if (assetsImg is String && assetsImg.isNotEmpty) {
+      return _FirstMedia('image', assetsImg, null);
+    }
+    if (assetsImg is List && assetsImg.isNotEmpty) {
+      final first = assetsImg.first;
+      if (first is String && first.isNotEmpty) {
+        return _FirstMedia('image', first, null);
+      }
+    }
+
+    final videoPaths = memory['videoPaths'];
+    if (videoPaths is List && videoPaths.isNotEmpty) {
+      final path = videoPaths.first;
+      if (path is String && path.isNotEmpty) {
+        String? thumb;
+        final thumbs = memory['videoThumbnails'];
+        if (thumbs is List && thumbs.isNotEmpty) {
+          final t = thumbs.first;
+          if (t is String && t.isNotEmpty) thumb = t;
+        }
+        return _FirstMedia('video', path, thumb);
+      }
+    }
+    return null;
   }
 
   /// How many additional rows to reveal per step when growing
@@ -3379,4 +3473,11 @@ class _MemoryFilterHelper {
 
     return earthRadiusMiles * c;
   }
+}
+
+class _FirstMedia {
+  final String type; // 'image' or 'video'
+  final String path;
+  final String? thumbnail;
+  const _FirstMedia(this.type, this.path, this.thumbnail);
 }

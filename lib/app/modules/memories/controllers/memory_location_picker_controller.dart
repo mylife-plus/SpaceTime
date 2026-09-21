@@ -54,8 +54,18 @@ class MemoryLocationPickerController extends GetxController {
   mapbox.PointAnnotation? selectedLocationMarker;
   bool _mapBootstrapped = false;
   int _labelGeocodeGeneration = 0;
+  /// Bumped on dispose so late map/marker work no-ops after leave.
+  int _mapSessionGeneration = 0;
   Timer? _searchDebounce;
   int _searchRequestId = 0;
+  Uint8List? _cachedMarkerImage;
+
+  /// Process-lifetime cache of localized style JSON (same idea as main map).
+  static final Map<String, String> _localizedStyleCache = {};
+
+  int get mapSessionGeneration => _mapSessionGeneration;
+
+  bool isMapSessionActive(int session) => session == _mapSessionGeneration;
 
   void _invalidatePendingLabelGeocode() {
     _labelGeocodeGeneration++;
@@ -87,38 +97,55 @@ class MemoryLocationPickerController extends GetxController {
 
   @override
   void onClose() {
+    _mapSessionGeneration++;
     _searchDebounce?.cancel();
     searchController.dispose();
     searchFocusNode.dispose();
     super.onClose();
   }
 
-  /// Initialize location picker
+  /// Initialize location picker — show map as soon as the tile URL is known.
+  /// GPS and search-index warm-up run in the background (do not gate first paint).
   Future<void> initializeLocationPicker() async {
     try {
       state.value = MemoryLocationPickerState.loading;
 
-      final warmSearch = _warmLocationSearchIndex();
-
-      // Initialize local tile server first
       await initializeLocalTileServer();
 
-      // Check location permission
-      await checkLocationPermission();
-
-      // Get current location if permission is available
-      if (hasLocationPermission.value) {
-        await getCurrentLocation();
+      final url = serverUrl.value;
+      if (url == null || url.isEmpty) {
+        errorMessage.value = serverErrorMessage.value ??
+            'Failed to initialize local tile server';
+        state.value = MemoryLocationPickerState.error;
+        return;
       }
 
-      await warmSearch;
-
       state.value = MemoryLocationPickerState.ready;
+
+      unawaited(_warmLocationSearchIndex());
+      unawaited(_resolveLocationInBackground());
     } catch (e) {
       debugPrint('Error initializing location picker: $e');
       errorMessage.value = 'Failed to initialize location picker: $e';
       state.value = MemoryLocationPickerState.error;
     }
+  }
+
+  /// Permission + last-known (fast) + current GPS — never blocks map ready.
+  Future<void> _resolveLocationInBackground() async {
+    await checkLocationPermission();
+    if (!hasLocationPermission.value) return;
+
+    try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) {
+        currentPosition.value = last;
+      }
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker] getLastKnownPosition: $e');
+    }
+
+    await getCurrentLocation();
   }
 
   /// Initialize local tile server before map creation
@@ -185,12 +212,12 @@ class MemoryLocationPickerController extends GetxController {
     }
   }
 
-  /// Get current location
+  /// Get current location (medium accuracy — not on the map-ready critical path).
   Future<void> getCurrentLocation() async {
     try {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium,
           timeLimit: Duration(seconds: 10),
         ),
       );
@@ -202,6 +229,13 @@ class MemoryLocationPickerController extends GetxController {
 
   /// Load style.json from local storage or assets and replace placeholders with actual server URLs
   Future<String> loadStyleJsonFromAssets(String tileUrl, String serverUrlValue) async {
+    final cacheKey = '$serverUrlValue|$tileUrl';
+    final cached = _localizedStyleCache[cacheKey];
+    if (cached != null) {
+      debugPrint('[MemoryLocationPicker] Style JSON cache HIT');
+      return cached;
+    }
+
     try {
       debugPrint('[MemoryLocationPicker] 📂 Loading style.json from local storage...');
 
@@ -227,6 +261,7 @@ class MemoryLocationPickerController extends GetxController {
       debugPrint('[MemoryLocationPicker] 📡 Replaced {LOCAL_TILE_URL} with: $tileUrl');
       debugPrint('[MemoryLocationPicker] ✅ Style JSON configured with local MBTiles server');
 
+      _localizedStyleCache[cacheKey] = modifiedStyleJson;
       return modifiedStyleJson;
     } catch (e) {
       debugPrint('[MemoryLocationPicker] ❌ Error loading style.json: $e');
@@ -425,6 +460,7 @@ class MemoryLocationPickerController extends GetxController {
 
   /// Call when leaving the picker route so the next open does not retain native map state.
   Future<void> disposePickerMapSession() async {
+    _mapSessionGeneration++;
     _invalidatePendingLabelGeocode();
     try {
       await clearExistingMarkers();
@@ -479,34 +515,52 @@ class MemoryLocationPickerController extends GetxController {
     await selectLocation(lat, lng);
   }
 
-  /// Handle map creation
-  Future<void> onMapCreated(mapbox.MapboxMap controller) async {
+  /// Handle map creation after custom style has settled.
+  /// Returns true when annotation manager + initial pin succeeded.
+  Future<bool> onMapCreated(mapbox.MapboxMap controller, {required int session}) async {
+    if (!isMapSessionActive(session)) {
+      debugPrint('[MemoryLocationPicker] onMapCreated: stale session, skip');
+      return false;
+    }
     if (_mapBootstrapped && mapController == controller && annotationManager != null) {
-      return;
+      return true;
     }
 
     controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-               controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-               controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
-               controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+    controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+    controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
+    controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
 
     try {
       mapController = controller;
 
-      // ENABLE online mode to allow localhost tile server access
       await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
       debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
 
-      // Create annotation manager only once per live map instance
-      annotationManager ??= await controller.annotations.createPointAnnotationManager();
-      _mapBootstrapped = true;
+      if (!isMapSessionActive(session)) return false;
 
-      // Check if there's already a selected location
+      annotationManager =
+          await controller.annotations.createPointAnnotationManager();
+
+      if (!isMapSessionActive(session)) {
+        annotationManager = null;
+        return false;
+      }
+
+      // Prefer last-known if GPS background resolve is still in flight.
+      if (currentPosition.value == null && hasLocationPermission.value) {
+        try {
+          final last = await Geolocator.getLastKnownPosition();
+          if (last != null) currentPosition.value = last;
+        } catch (_) {}
+      }
+
+      if (!isMapSessionActive(session)) return false;
+
       final hasSelectedLocation = memoryController.locationLatitude.value != null &&
-                                   memoryController.locationLongitude.value != null;
+          memoryController.locationLongitude.value != null;
 
       if (hasSelectedLocation) {
-        // If location is already selected, show that location
         final lat = memoryController.locationLatitude.value!;
         final lng = memoryController.locationLongitude.value!;
 
@@ -514,12 +568,10 @@ class MemoryLocationPickerController extends GetxController {
         await _createOrMoveMarker(lat, lng);
         debugPrint('📍 Showing previously selected location on map load: $lat, $lng');
       } else if (hasLocationPermission.value && currentPosition.value != null) {
-        // Otherwise, show current location if available
         await moveToLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,
         );
-        // Automatically select current location with red marker
         await selectLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,
@@ -531,9 +583,16 @@ class MemoryLocationPickerController extends GetxController {
         await selectLocation(_fallbackLat, _fallbackLng, userAction: false);
         debugPrint('📍 Using Germany fallback on map load');
       }
-      // await _printAllLayersAndSources();
+
+      if (!isMapSessionActive(session)) return false;
+
+      final ok = annotationManager != null && selectedLocationMarker != null;
+      _mapBootstrapped = ok;
+      return ok;
     } catch (e) {
       debugPrint('Error in onMapCreated: $e');
+      _mapBootstrapped = false;
+      return false;
     }
   }
 
@@ -592,6 +651,7 @@ class MemoryLocationPickerController extends GetxController {
   }
 
   Future<void> _createOrMoveMarker(double latitude, double longitude) async {
+    if (annotationManager == null) return;
     try {
       await clearExistingMarkers();
       final Uint8List imageData = await _createCircularMarker();
@@ -602,15 +662,35 @@ class MemoryLocationPickerController extends GetxController {
         image: imageData,
         iconSize: 1.0,
       );
-       selectedLocationMarker = await annotationManager!.create(pointAnnotationOptions);
+      selectedLocationMarker =
+          await annotationManager!.create(pointAnnotationOptions);
       debugPrint('Selected Address $latitude $longitude');
     } catch (e) {
       debugPrint('Error selecting location: $e');
+      // One retry after style settle races
+      try {
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        if (annotationManager == null) return;
+        final Uint8List imageData = await _createCircularMarker();
+        selectedLocationMarker = await annotationManager!.create(
+          mapbox.PointAnnotationOptions(
+            geometry: mapbox.Point(
+              coordinates: mapbox.Position(longitude, latitude),
+            ),
+            image: imageData,
+            iconSize: 1.0,
+          ),
+        );
+      } catch (e2) {
+        debugPrint('Error selecting location (retry): $e2');
+      }
     }
   }
 
-  /// Create a circular marker image with app primary color
+  /// Create a circular marker image with app primary color (cached per session).
   Future<Uint8List> _createCircularMarker() async {
+    if (_cachedMarkerImage != null) return _cachedMarkerImage!;
+
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final size = 100.0;
@@ -640,7 +720,8 @@ class MemoryLocationPickerController extends GetxController {
     final image = await picture.toImage(size.toInt(), size.toInt());
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
-    return byteData!.buffer.asUint8List();
+    _cachedMarkerImage = byteData!.buffer.asUint8List();
+    return _cachedMarkerImage!;
   }
 
   /// Clear existing markers (all annotations on this manager).

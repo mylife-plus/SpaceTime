@@ -378,7 +378,12 @@ class MemoryCard extends StatefulWidget {
 }
 
 class _MemoryCardState extends State<MemoryCard> {
-  final PageController _pageController = PageController();
+  // Lazy: most cards have exactly one media item (or none) and never swipe
+  // a gallery, so eagerly constructing a PageController for every one of
+  // ~50 cards mounting almost simultaneously on first load was pure waste.
+  PageController? _pageControllerOrNull;
+  PageController get _pageController =>
+      _pageControllerOrNull ??= PageController();
   final controller = Get.find<UiController>();
   int _currentIndex = 0;
   final Map<int, VideoPlayerController> _inlineVideoControllers = {};
@@ -435,7 +440,7 @@ class _MemoryCardState extends State<MemoryCard> {
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _pageControllerOrNull?.dispose();
     for (final vc in _inlineVideoControllers.values) {
       vc.dispose();
     }

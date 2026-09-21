@@ -199,9 +199,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
     unawaited(refreshIosBackgroundRefreshBanner());
 
-    if (Platform.isAndroid) {
-      unawaited(MbtilesDownloadService.instance.resumeDownloadUpdatesFromBackground());
-    }
+    // Re-attach to native download updates after pause (Android + iOS).
+    unawaited(
+      MbtilesDownloadService.instance.resumeDownloadUpdatesFromBackground(),
+    );
   }
 
   /// Called from [main] after core services register (native splash already removed).
@@ -451,6 +452,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
 
         _startWelcomeSequence();
         unawaited(refreshIosBackgroundRefreshBanner());
+        // Continue an interrupted multi-GB download after pause/relaunch.
+        unawaited(_maybeAutoContinueMbtilesDownload());
       } else {
         debugPrint('[GetStartedController] ⚠️ Files exist but preferences not set - hiding start button');
 
@@ -1003,6 +1006,65 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     return granted;
   }
 
+  /// After pause/relaunch: if a partial mbtiles download exists, continue it
+  /// automatically and wire UI listeners — do not force the user to tap Start
+  /// again (and never wipe progress).
+  Future<void> _maybeAutoContinueMbtilesDownload() async {
+    try {
+      _mbtilesDownloadService ??= MbtilesDownloadService.instance;
+      final service = _mbtilesDownloadService!;
+      final shouldContinue = await service.hasResumablePartialOrActiveTask();
+      if (!shouldContinue) {
+        debugPrint(
+          '[GetStartedController] No resumable partial — waiting for Start tap',
+        );
+        return;
+      }
+
+      debugPrint(
+        '[GetStartedController] ♻️ Auto-continuing mbtiles download from partial',
+      );
+      _setupMbtilesDownloadListeners();
+
+      // Reflect service progress immediately.
+      final existing = service.downloadProgress.value;
+      if (existing > 0 && existing <= 1) {
+        downloadProgress.value = existing;
+      }
+      isDownloading.value = true;
+      hasError.value = false;
+      isCompleted.value = false;
+      _setStatusText('get_started_status_preparing_zoom', [
+        selectedZoomLevel.value,
+      ]);
+
+      // Skip battery/BAR prompts on auto-resume — user already consented when
+      // they started the original download. downloadMbtiles will resume/enqueue.
+      if (!service.isDownloading.value) {
+        unawaited(
+          service.downloadMbtiles(
+            zoomLevel: selectedZoomLevel.value,
+            enableBackgroundDownload: true,
+          ),
+        );
+      } else {
+        unawaited(service.resumeDownloadUpdatesFromBackground());
+      }
+
+      if (_styleJsonDownloadService != null) {
+        final styleOk =
+            await _styleJsonDownloadService!.isStyleJsonDownloaded();
+        if (!styleOk) {
+          _styleDownloadFuture = _styleJsonDownloadService!.downloadStyleJson(
+            enableBackgroundDownload: true,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[GetStartedController] Auto-continue failed: $e');
+    }
+  }
+
   Future<void> startDownload() async {
     if (isDownloading.value) {
       debugPrint('[GetStartedController] Download already in progress, ignoring tap');
@@ -1074,8 +1136,17 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         final result = await Permission.notification.request();
         debugPrint('[GetStartedController] 🔔 Notification permission result: $result');
 
-        if (!result.isGranted) {
-          debugPrint('[GetStartedController] ⚠️ Notification permission denied');
+        if (!result.isGranted && Platform.isAndroid) {
+          // Android FGS / UIDT cannot keep a multi-GB download alive without a
+          // notification. Block start so the user can grant it from Settings.
+          debugPrint(
+            '[GetStartedController] ❌ Notification permission required for Android background download',
+          );
+          hasError.value = true;
+          errorMessage.value =
+              'Notifications are required so map tiles can download in the background.';
+          _setStatusText('get_started_status_checking_permissions');
+          return;
         }
       }
 

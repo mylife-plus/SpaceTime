@@ -66,9 +66,16 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
   mapbox.PointAnnotation? selectedLocationMarker;
 
   bool _radiusPickerAnnotationsInitialized = false;
+  int _mapSessionGeneration = 0;
   Timer? _searchDebounce;
   int _searchRequestId = 0;
   StreamSubscription<double>? _radiusSliderSubscription;
+
+  static final Map<String, String> _localizedStyleCache = {};
+
+  int get mapSessionGeneration => _mapSessionGeneration;
+
+  bool isMapSessionActive(int session) => session == _mapSessionGeneration;
 
   // Server state for local tiles
   final Rxn<String> serverUrl = Rxn<String>();
@@ -168,6 +175,7 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
 
   @override
   void onClose() {
+    _mapSessionGeneration++;
     _searchDebounce?.cancel();
     _radiusSliderSubscription?.cancel();
     searchFocusNode.removeListener(onSearchFocusChanged);
@@ -177,7 +185,7 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     super.onClose();
   }
 
-  /// Initialize location picker
+  /// Initialize location picker — ready as soon as tile URL is known.
   Future<void> initializeLocationPicker() async {
     try {
       debugPrint('[MemoryLocationPicker] 🎯 initializeLocationPicker() started');
@@ -185,21 +193,47 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       state.value = MemoryLocationPickerState.loading;
       debugPrint('[MemoryLocationPicker] 📊 State set to: loading');
 
+      _mapSessionGeneration++;
       _radiusPickerAnnotationsInitialized = false;
       mapController = null;
       annotationManager = null;
       selectedLocationMarker = null;
 
-      final warmSearch = _warmLocationSearchIndex();
       await initializeLocalTileServer();
-      await warmSearch;
+
+      final url = serverUrl.value;
+      if (url == null || url.isEmpty) {
+        errorMessage.value = serverErrorMessage.value ??
+            'Failed to initialize local tile server';
+        state.value = MemoryLocationPickerState.error;
+        return;
+      }
 
       state.value = MemoryLocationPickerState.ready;
+
+      unawaited(_warmLocationSearchIndex());
+      unawaited(_resolveLocationInBackground());
     } catch (e) {
       debugPrint('🟢🟢🟢🟢🟢 Error initializing location picker: $e');
       errorMessage.value = ' 🟢🟢🟢🟢🟢Failed to initialize location picker: $e';
-      // state.value = MemoryLocationPickerState.error;
+      state.value = MemoryLocationPickerState.error;
     }
+  }
+
+  Future<void> _resolveLocationInBackground() async {
+    await checkLocationPermission();
+    if (!hasLocationPermission.value) return;
+
+    try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) {
+        currentPosition.value = last;
+      }
+    } catch (e) {
+      debugPrint('[MemoryLocationPicker][radius] getLastKnownPosition: $e');
+    }
+
+    await getCurrentLocation();
   }
 
   /// Initialize local tile server before map creation
@@ -268,18 +302,16 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     }
   }
 
-  /// Get current location
+  /// Get current location (not on map-ready critical path).
   Future<void> getCurrentLocation() async {
     try {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium,
           timeLimit: Duration(seconds: 10),
         ),
       );
       currentPosition.value = position;
-
-
     } catch (e) {
       debugPrint('Error getting current location: $e');
     }
@@ -290,7 +322,14 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     String tileUrl,
     String serverUrlValue,
   ) async {
-       try {
+    final cacheKey = '$serverUrlValue|$tileUrl';
+    final cached = _localizedStyleCache[cacheKey];
+    if (cached != null) {
+      debugPrint('[loadStyleJsonFromAssets] Style JSON cache HIT');
+      return cached;
+    }
+
+    try {
       debugPrint('[loadStyleJsonFromAssets] 📂 Loading style.json from local storage...');
 
       // Try to load from local storage first if service is available
@@ -298,11 +337,9 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       if (Get.isRegistered<StyleJsonDownloadService>()) {
         final styleJsonService = Get.find<StyleJsonDownloadService>();
         styleJsonString = await styleJsonService.readStyleJsonContent();
-      // debugPrint('[loadStyleJsonFromAssets] Style Json $styleJsonString');
       }
 
       // Fallback to assets if local file not found or service not available
-
       if (styleJsonString == null) {
         debugPrint('[loadStyleJsonFromAssets] ⚠️ Local style.json not found, loading from assets...');
         styleJsonString = await rootBundle.loadString('assets/custom-style.json');
@@ -314,8 +351,9 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
       var modifiedStyleJson = styleJsonString
           .replaceAll('{LOCAL_SERVER_URL}', serverUrlValue)
           .replaceAll('{LOCAL_TILE_URL}', tileUrl);
-        debugPrint('[loadStyleJsonFromAssets] Returning Tiles Json...');
+      debugPrint('[loadStyleJsonFromAssets] Returning Tiles Json...');
 
+      _localizedStyleCache[cacheKey] = modifiedStyleJson;
       return modifiedStyleJson;
     } catch (e) {
       // Fallback to a simplified style if assets/style.json is not found
@@ -362,7 +400,6 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
 }
 ''';
     }
-  
   }
 
   /// Get camera options
@@ -514,85 +551,94 @@ class MemoryLocationPickerControllerWithRadius extends GetxController {
     await selectLocation(lat, lng);
   }
 
-  /// Call after [loadStyleJson] + delay — not from first [onStyleLoaded] (wrong style / EGL teardown).
-  Future<void> onMapStyleReady(mapbox.MapboxMap controller) async {
-    if (_radiusPickerAnnotationsInitialized) return;
-    if (mapController != controller) {
+  /// Call after custom style has settled — not from first [onStyleLoaded] (wrong style / EGL teardown).
+  /// Returns true when annotations + initial location selection succeeded.
+  Future<bool> onMapStyleReady(
+    mapbox.MapboxMap controller, {
+    required int session,
+  }) async {
+    if (!isMapSessionActive(session)) {
+      debugPrint('[MemoryLocationPicker] onMapStyleReady (radius): stale session, skip');
+      return false;
+    }
+    if (_radiusPickerAnnotationsInitialized) return true;
+    if (mapController != null && mapController != controller) {
       debugPrint('[MemoryLocationPicker] onMapStyleReady (radius): stale map, skip');
-      return;
+      return false;
     }
 
     try {
+      controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
+      controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
+      controller.attribution
+          .updateSettings(mapbox.AttributionSettings(enabled: false));
+      controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
 
-controller.compass.updateSettings(mapbox.CompassSettings(enabled: false));
-               controller.scaleBar.updateSettings(mapbox.ScaleBarSettings(enabled: false));
-               controller.attribution.updateSettings(mapbox.AttributionSettings(enabled: false));
-               controller.logo.updateSettings(mapbox.LogoSettings(enabled: false));
+      await checkLocationPermission();
 
-        await checkLocationPermission();
-      // await Future.delayed(Duration(seconds: 2));
-      // Get current location if permission is available
-      // if (hasLocationPermission.value) {
-        await getCurrentLocation();
-      // }
+      if (currentPosition.value == null && hasLocationPermission.value) {
+        try {
+          final last = await Geolocator.getLastKnownPosition();
+          if (last != null) currentPosition.value = last;
+        } catch (_) {}
+      }
 
-      // await controller.setBounds(
-      //   CameraBoundsOptions(
-      //     // optional geographic bounds:
-      //     // bounds: LatLngBounds(...),
-      //     minZoom: 0,
-      //     maxZoom: 20,
-      //   ),
-      // );
+      if (!isMapSessionActive(session)) return false;
 
-      lat = currentPosition.value!.latitude.toDouble();
-      lng = currentPosition.value!.longitude.toDouble();
+      if (currentPosition.value != null) {
+        lat = currentPosition.value!.latitude.toDouble();
+        lng = currentPosition.value!.longitude.toDouble();
+      }
 
-      // await getCurrentLocation();
       mapController = controller;
 
-      // ENABLE online mode to allow localhost tile server access
       await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
       debugPrint(
         '[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed',
       );
 
-      // Create annotation manager
       annotationManager =
           await controller.annotations.createPointAnnotationManager();
 
-      // Check if there's already a selected location
+      if (!isMapSessionActive(session)) {
+        annotationManager = null;
+        return false;
+      }
+
       final hasSelectedLocation = lat != 0.0 && lng != 0.0;
 
       if (hasSelectedLocation) {
-        // If location is already selected, show that location
-        final lat = this.lat;
-        final lng = this.lng;
+        final selectedLat = lat;
+        final selectedLng = lng;
 
         updateRadius(0.8);
 
-        await moveToLocation(lat, lng);
-        await selectLocation(lat, lng);
+        await moveToLocation(selectedLat, selectedLng);
+        await selectLocation(selectedLat, selectedLng);
         debugPrint(
-          '📍 Showing previously selected location on map load: $lat, $lng',
+          '📍 Showing previously selected location on map load: $selectedLat, $selectedLng',
         );
       } else if (hasLocationPermission.value && currentPosition.value != null) {
         updateRadius(0.8);
-        // Otherwise, show current location if available
         await moveToLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,
         );
-        // Automatically select current location with polygon
         await selectLocation(
           currentPosition.value!.latitude,
           currentPosition.value!.longitude,
         );
         debugPrint('📍 Auto-selected current location on map load');
       }
+
+      if (!isMapSessionActive(session)) return false;
+
       _radiusPickerAnnotationsInitialized = true;
+      return true;
     } catch (e) {
       debugPrint('Error in onMapStyleReady: $e');
+      _radiusPickerAnnotationsInitialized = false;
+      return false;
     }
   }
 

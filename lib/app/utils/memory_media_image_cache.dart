@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -151,6 +152,36 @@ class MemoryMediaImageProviderCache {
     try {
       clearMemoryImageCache();
     } catch (_) {}
+  }
+
+  /// Like [precache], but resolves + decodes without needing a
+  /// [BuildContext] — for warming the cache before any widget referencing
+  /// the image has mounted (e.g. the first page's cards, ahead of the
+  /// staggered reveal in AddMemoriesController). [cacheWidth] must match
+  /// what the eventual widget will actually request, or this warms a
+  /// differently-keyed [ResizeImage] and the real render pays full cost
+  /// anyway.
+  Future<void> warmDecode(String imageData, {int? cacheWidth}) async {
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+    if (!_isDisplayableImage(imageData, useCache: isAndroid)) return;
+    final provider = resolve(imageData, cacheWidth: cacheWidth);
+    final image =
+        cacheWidth != null ? ResizeImage(provider, width: cacheWidth) : provider;
+    final completer = Completer<void>();
+    final stream = image.resolve(const ImageConfiguration());
+    late ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, sync) {
+        if (!completer.isCompleted) completer.complete();
+        stream.removeListener(listener);
+      },
+      onError: (error, stack) {
+        if (!completer.isCompleted) completer.complete();
+        stream.removeListener(listener);
+      },
+    );
+    stream.addListener(listener);
+    return completer.future;
   }
 
   Future<void> precache(

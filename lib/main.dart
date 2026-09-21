@@ -11,6 +11,7 @@ import 'package:spacetime/app/config/app_input_theme.dart';
 import 'package:spacetime/app/config/app_locale.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/widgets/shader_warmup.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/theme/app_system_ui.dart';
 import 'package:spacetime/services/app_lock_controller.dart';
@@ -101,15 +102,21 @@ Future<void> _bootstrapAfterFirstPaint() async {
     debugPrint('[main] dotenv / Mapbox token: $e');
   }
 
-  await FileDownloader().start();
   if (Platform.isAndroid) {
+    // Configure BEFORE start() — FGS policy must be set before any enqueue
+    // / reschedule. Never use priority 0 (UIDT): Xiaomi/HyperOS stops the
+    // UIDT JobService the moment the app hits AppLifecycleState.paused.
     await FileDownloader().configure(
       globalConfig: [
-        (Config.runInForeground, true),
-        (Config.runInForegroundIfFileLargerThan, 50),
+        (Config.runInForeground, Config.always),
+        (Config.useCacheDir, Config.never),
       ],
     );
   }
+  // doRescheduleKilledTasks: false — MbtilesDownloadService migrates any
+  // legacy priority-0 (UIDT) records to WorkManager before it starts, then
+  // handles resume itself. Blind reschedule would re-enqueue UIDT jobs.
+  await FileDownloader().start(doRescheduleKilledTasks: false);
   FileDownloader().configureNotification(
     running: const TaskNotification('Downloading', 'Download in progress'),
     complete: const TaskNotification('Download complete', 'File downloaded successfully'),
@@ -302,8 +309,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           final ui = Get.find<UiController>();
           return AnnotatedRegion<SystemUiOverlayStyle>(
             value: AppSystemUi.overlayStyle(dark: ui.darkMode.value),
-            child: MemoryImportBlockingOverlay(
-              child: AppLockGate(child: child),
+            child: Stack(
+              children: [
+                MemoryImportBlockingOverlay(
+                  child: AppLockGate(child: child),
+                ),
+                const ShaderWarmup(),
+              ],
             ),
           );
         },

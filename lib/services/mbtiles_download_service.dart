@@ -204,20 +204,22 @@ class MbtilesDownloadService extends GetxController {
     }
   }
 
-  /// Best live downloader temp: most recently modified wins (stale large
-  /// leftovers must not beat an actively growing smaller file).
+  /// Best live downloader temp: **largest** wins.
+  ///
+  /// Preferring "newest" previously deleted multi-hundred-MB partials when a
+  /// brand-new empty temp appeared during re-enqueue — catastrophic for
+  /// resume. Size is the only reliable signal for a multi-GB Range download.
   ///
   /// [minBytes] defaults to 1MB for progress seeding. Cleanup must pass
-  /// `minBytes: 0` — otherwise a brand-new temp under 1MB is invisible and
-  /// orphan cleanup deletes the live download (open FD → ghost progress,
-  /// nothing on disk).
+  /// `minBytes: 0` so a brand-new temp is visible as a keep candidate only
+  /// when no larger partial exists.
   Future<({String path, int length})?> _bestLiveDownloaderTemp(
     String appDirPath, {
     int minBytes = 1024 * 1024,
   }) async {
     ({String path, int length, DateTime modified})? best;
     final cutoff =
-        DateTime.now().subtract(const Duration(hours: 6)).millisecondsSinceEpoch;
+        DateTime.now().subtract(const Duration(hours: 24)).millisecondsSinceEpoch;
     try {
       await for (final entity in Directory(appDirPath).list()) {
         if (entity is! File) continue;
@@ -230,14 +232,49 @@ class MbtilesDownloadService extends GetxController {
         final len = stat.size;
         if (len < minBytes) continue;
         if (best == null ||
-            stat.modified.isAfter(best.modified) ||
-            (stat.modified == best.modified && len > best.length)) {
+            len > best.length ||
+            (len == best.length && stat.modified.isAfter(best.modified))) {
           best = (path: entity.path, length: len, modified: stat.modified);
         }
       }
     } catch (_) {}
     if (best == null) return null;
     return (path: best.path, length: best.length);
+  }
+
+  /// Force WorkManager path (priority ≥ 1). Optionally mint a new taskId so
+  /// Android JobScheduler cannot revive a prior UIDT job for the same id.
+  DownloadTask _asWorkManagerTask(DownloadTask task, {bool newTaskId = false}) {
+    final id = newTaskId
+        ? 'mbtiles_${DateTime.now().millisecondsSinceEpoch}'
+        : task.taskId;
+    if (task.priority >= 1 && !newTaskId) return task;
+    return task.copyWith(taskId: id, priority: 1);
+  }
+
+  /// Cancel + forget every legacy UIDT (priority 0) tiles.mbtiles record.
+  /// Keeps on-disk temps and resume JSON so Range can continue via WorkManager.
+  Future<void> _purgeUidtMbtilesTaskRecords() async {
+    try {
+      final records = await FileDownloader().database.allRecords();
+      for (final record in records) {
+        if (record.task.filename != LOCAL_MBTILES_FILENAME) continue;
+        final task = record.task;
+        if (task.priority != 0) continue;
+        debugPrint(
+          '[MbtilesDownload] 🧹 Purging UIDT record ${task.taskId} '
+          '(priority 0) before WorkManager start',
+        );
+        try {
+          await FileDownloader().cancelTaskWithId(task.taskId);
+        } catch (_) {}
+        try {
+          await FileDownloader().database.deleteRecordWithId(task.taskId);
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ UIDT purge failed: $e');
+    }
   }
 
   /// Bytes already on disk for the *active* download.
@@ -348,10 +385,21 @@ class MbtilesDownloadService extends GetxController {
   }
 
   /// Keep at most one active temp (resume target). Delete every other leftover.
+  /// Never runs a delete-all while downloading without a keep target, and
+  /// never prefers a brand-new tiny temp over a large Range partial.
   Future<void> _cleanupOrphanDownloaderTemps() async {
     try {
       final appDir = await getApplicationSupportDirectory();
       String? keep;
+      var keepLen = 0;
+
+      void consider(String path, int len) {
+        if (len >= keepLen) {
+          keep = path;
+          keepLen = len;
+        }
+      }
+
       final resumeDir =
           Directory('${appDir.path}/backgroundDownloaderResumeData');
       if (await resumeDir.exists()) {
@@ -365,16 +413,7 @@ class MbtilesDownloadService extends GetxController {
             if (path == null || path.isEmpty) continue;
             if (!await File(path).exists()) continue;
             final len = await File(path).length();
-            if (keep == null) {
-              keep = path;
-            } else {
-              // Prefer the resume entry that points at the newer live temp.
-              final live = await _bestLiveDownloaderTemp(
-                appDir.path,
-                minBytes: 0,
-              );
-              if (live != null) keep = live.path;
-            }
+            consider(path, len);
             debugPrint(
               '[MbtilesDownload] 🧹 Resume keep candidate: '
               '${path.split('/').last} ($len bytes)',
@@ -382,9 +421,9 @@ class MbtilesDownloadService extends GetxController {
           } catch (_) {}
         }
       }
-      // Newest temp of any size wins — includes brand-new <1MB files.
+
       final live = await _bestLiveDownloaderTemp(appDir.path, minBytes: 0);
-      if (live != null) keep = live.path;
+      if (live != null) consider(live.path, live.length);
 
       // Never delete-all while a download is active: that unlinks the live
       // write target and leaves "ghost" progress with nothing on disk.
@@ -396,6 +435,15 @@ class MbtilesDownloadService extends GetxController {
           );
           return;
         }
+      }
+
+      // While downloading, only delete temps that are clearly leftover
+      // (<10% of keep size) — never touch a near-peer partial.
+      if (isDownloading.value && keep != null && keepLen > 1024 * 1024) {
+        debugPrint(
+          '[MbtilesDownload] 🧹 Active download — keeping largest partial '
+          '(${keep!.split('/').last}, $keepLen bytes)',
+        );
       }
 
       final freed = await _deleteDownloaderTempsExcept(keep);
@@ -413,7 +461,18 @@ class MbtilesDownloadService extends GetxController {
   /// Hard reset before starting a brand-new download task: cancel old tasks,
   /// wipe resume/task records for tiles.mbtiles, and delete ALL previous
   /// downloader temp files so they cannot fight the new download.
-  Future<void> _wipePreviousMbtilesDownloadArtifacts() async {
+  ///
+  /// When [preservePartials] is true (default), keep the largest temp / resume
+  /// metadata / progress so a pause+relaunch continues instead of restarting
+  /// a multi-GB download from 0%.
+  Future<void> _wipePreviousMbtilesDownloadArtifacts({
+    bool preservePartials = true,
+  }) async {
+    if (preservePartials) {
+      await _softPrepareForResumeEnqueue();
+      return;
+    }
+
     debugPrint(
       '[MbtilesDownload] 🧹 Wiping previous download artifacts before restart',
     );
@@ -481,6 +540,249 @@ class MbtilesDownloadService extends GetxController {
       '[MbtilesDownload] 🧹 Restart wipe complete '
       '(freed ${(freed / (1024 * 1024)).toStringAsFixed(1)} MB)',
     );
+  }
+
+  /// Cancel stale task DB rows only — never delete temps, resume JSON, or
+  /// progress checkpoints. Used before re-enqueue so Range resume can continue.
+  Future<void> _softPrepareForResumeEnqueue() async {
+    debugPrint(
+      '[MbtilesDownload] ♻️ Soft prepare — preserving partials for resume',
+    );
+    await _loadMaxBytesCheckpoint();
+    await _seedProgressFromPartialFileIfNeeded();
+
+    try {
+      final records = await FileDownloader().database.allRecords();
+      final mbtiles = records
+          .where((r) => r.task.filename == LOCAL_MBTILES_FILENAME)
+          .toList();
+      // Keep at most one preferred record for resume; drop the rest.
+      final preferred = await _ensureSingleActiveMbtilesTask(mbtiles);
+      if (preferred != null) {
+        _backgroundTask = preferred.task as DownloadTask;
+        if (preferred.progress >= 0 && preferred.progress <= 1) {
+          _applyProgress(preferred.progress);
+        }
+      }
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Soft prepare task scan: $e');
+    }
+
+    // Drop orphan temps that are not the live write target — keep the best one.
+    await _cleanupOrphanDownloaderTemps();
+    await _protectResumeDataFromTruncation();
+  }
+
+  /// Plant [ResumeData] for [task] from the largest on-disk partial temp, then
+  /// call [FileDownloader.resume] so the native worker continues with Range.
+  Future<bool> _resumeFromOnDiskPartial(DownloadTask task) async {
+    try {
+      final appDir = await getApplicationSupportDirectory();
+      final live = await _bestLiveDownloaderTemp(
+        appDir.path,
+        minBytes: 64 * 1024,
+      );
+
+      String? tempPath = live?.path;
+      var startByte = live?.length ?? 0;
+      String? eTag;
+
+      if (tempPath == null || startByte < 64 * 1024) {
+        // Fall back to any stored resume entry for tiles.mbtiles.
+        final existing = await _readStoredMbtilesResumeEntries(appDir.path);
+        for (final entry in existing) {
+          final f = File(entry.tempPath);
+          if (!await f.exists()) continue;
+          final len = await f.length();
+          if (len < 64 * 1024) continue;
+          tempPath = entry.tempPath;
+          startByte = len;
+          eTag = entry.eTag;
+          break;
+        }
+      }
+
+      if (tempPath == null || startByte < 64 * 1024) {
+        return false;
+      }
+
+      await _writeResumeDataFile(
+        task,
+        tempPath: tempPath,
+        startByte: startByte,
+        // Preserve ETag when possible. Cloudflare weak ETags (W/…) cannot
+        // resume in the plugin — then WorkManager FGS must keep the transfer
+        // alive so we never need to resume.
+        eTag: eTag,
+      );
+      await _protectResumeDataFromTruncation();
+      final ok = await FileDownloader().resume(task);
+      debugPrint(
+        '[MbtilesDownload] ▶️ resume from partial '
+        '($startByte bytes) => $ok',
+      );
+      return ok;
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ _resumeFromOnDiskPartial: $e');
+      return false;
+    }
+  }
+
+  static final RegExp _illegalPathCharacters = RegExp(r'[\\/:*?"<>|]');
+
+  Future<void> _writeResumeDataFile(
+    DownloadTask task, {
+    required String tempPath,
+    required int startByte,
+    String? eTag,
+  }) async {
+    final appDir = await getApplicationSupportDirectory();
+    final resumeDir =
+        Directory('${appDir.path}/backgroundDownloaderResumeData');
+    if (!await resumeDir.exists()) {
+      await resumeDir.create(recursive: true);
+    }
+    final safeId = task.taskId.replaceAll(_illegalPathCharacters, '_');
+    final payload = ResumeData(task, tempPath, startByte, eTag).toJson();
+    final file = File('${resumeDir.path}/$safeId');
+    await file.writeAsString(jsonEncode(payload));
+    debugPrint(
+      '[MbtilesDownload] 💾 Wrote resume data for ${task.taskId} '
+      'at byte $startByte',
+    );
+  }
+
+  Future<List<({String tempPath, int startByte, String? eTag})>>
+      _readStoredMbtilesResumeEntries(String appDirPath) async {
+    final out = <({String tempPath, int startByte, String? eTag})>[];
+    final resumeDir =
+        Directory('$appDirPath/backgroundDownloaderResumeData');
+    if (!await resumeDir.exists()) return out;
+    await for (final entity in resumeDir.list()) {
+      if (entity is! File) continue;
+      try {
+        final raw = await entity.readAsString();
+        if (raw.isEmpty) continue;
+        final map = jsonDecode(raw) as Map<String, dynamic>;
+        final taskMap = map['task'];
+        if (taskMap is Map &&
+            taskMap['filename'] != LOCAL_MBTILES_FILENAME) {
+          continue;
+        }
+        final path = map['data'] as String?;
+        if (path == null || path.isEmpty) continue;
+        final start = switch (map['requiredStartByte']) {
+          final int v => v,
+          final num v => v.toInt(),
+          _ => 0,
+        };
+        out.add((
+          tempPath: path,
+          startByte: start,
+          eTag: map['eTag'] as String?,
+        ));
+      } catch (_) {}
+    }
+    // Prefer largest partial first.
+    out.sort((a, b) => b.startByte.compareTo(a.startByte));
+    return out;
+  }
+
+  /// Enqueue [task], preferring Range resume from an existing partial.
+  /// Always uses WorkManager (priority ≥ 1). Migrates old UIDT (priority 0)
+  /// tasks so Xiaomi does not kill the download when the app is backgrounded.
+  Future<bool> _enqueueOrResumeMbtilesTask(DownloadTask task) async {
+    // Force WorkManager. If the source was UIDT, mint a new taskId so the
+    // old JobScheduler job cannot be revived for the same id hash.
+    final fromUidt = task.priority == 0;
+    final workTask = _asWorkManagerTask(task, newTaskId: fromUidt);
+    _backgroundTask = workTask;
+    debugPrint(
+      '[MbtilesDownload] 📋 Enqueue/resume WorkManager task '
+      '${workTask.taskId} (priority=${workTask.priority}'
+      '${fromUidt ? ', migrated from UIDT' : ''})',
+    );
+
+    FileDownloader().configureNotificationForTask(
+      workTask,
+      running: TaskNotification(
+        'mbtiles_notif_running_title'.tr,
+        'mbtiles_notif_running_body'.tr,
+      ),
+      complete: TaskNotification(
+        'mbtiles_notif_complete_title'.tr,
+        'mbtiles_notif_complete_body'.tr,
+      ),
+      error: TaskNotification(
+        'mbtiles_notif_running_title'.tr,
+        'mbtiles_status_resuming'.tr,
+      ),
+      paused: TaskNotification(
+        'mbtiles_notif_paused_title'.tr,
+        'mbtiles_notif_paused_body'.tr,
+      ),
+      progressBar: true,
+    );
+
+    try {
+      final records = await FileDownloader().database.allRecords();
+      final preferred = await _ensureSingleActiveMbtilesTask(
+        records
+            .where((r) => r.task.filename == LOCAL_MBTILES_FILENAME)
+            .toList(),
+      );
+      if (preferred != null) {
+        final existing = preferred.task as DownloadTask;
+        // Already on WorkManager and running — leave it alone.
+        if (existing.priority != 0 &&
+            (preferred.status == TaskStatus.running ||
+                preferred.status == TaskStatus.enqueued ||
+                preferred.status == TaskStatus.waitingToRetry)) {
+          _backgroundTask = existing;
+          debugPrint(
+            '[MbtilesDownload] ▶️ Keeping active WorkManager task '
+            '${existing.taskId}',
+          );
+          return true;
+        }
+
+        if (existing.priority != 0) {
+          final canResume = await FileDownloader().taskCanResume(existing);
+          if (canResume) {
+            await _protectResumeDataFromTruncation();
+            final ok = await FileDownloader().resume(existing);
+            if (ok) {
+              _backgroundTask = existing;
+              debugPrint(
+                '[MbtilesDownload] ▶️ Resumed WorkManager task ${existing.taskId}',
+              );
+              return true;
+            }
+          }
+        }
+
+        // Cancel stuck UIDT (priority 0) / failed tasks — keep temps.
+        try {
+          await FileDownloader().cancelTaskWithId(existing.taskId);
+        } catch (_) {}
+        try {
+          await FileDownloader().database.deleteRecordWithId(existing.taskId);
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ existing-task resume check: $e');
+    }
+
+    if (await _resumeFromOnDiskPartial(workTask)) {
+      return true;
+    }
+
+    final enqueued = await FileDownloader().enqueue(workTask);
+    debugPrint(
+      '[MbtilesDownload] 📋 Fresh WorkManager enqueue '
+      '(priority=${workTask.priority}) => $enqueued',
+    );
+    return enqueued;
   }
 
   void _setStatusText(String key, [List<Object?> args = const []]) {
@@ -594,8 +896,7 @@ class MbtilesDownloadService extends GetxController {
     return '${appDir.path}/offline_tiles/$LOCAL_MBTILES_FILENAME';
   }
 
-  void _startAndroidProgressPolling() {
-    if (!Platform.isAndroid) return;
+  void _startProgressPolling() {
     // Fresh watchdog window for this attempt — avoid a stale timestamp from
     // a previous stalled/retried download immediately tripping the watchdog.
     _lastProgressAt = DateTime.now();
@@ -607,6 +908,9 @@ class MbtilesDownloadService extends GetxController {
     );
     unawaited(_syncProgressFromDatabaseAndFile());
   }
+
+  /// Back-compat alias used throughout this file.
+  void _startAndroidProgressPolling() => _startProgressPolling();
 
   void _stopAndroidProgressPolling() {
     _androidProgressPollTimer?.cancel();
@@ -669,6 +973,10 @@ class MbtilesDownloadService extends GetxController {
             record.progress > 0.0 && record.progress > _emptyDiskBaselineProgress;
         if (onDisk < 64 * 1024 &&
             !pluginReportsProgress &&
+            // Never wipe a download that already confirmed multi-MB progress
+            // on disk earlier this session / via prefs — that was resetting
+            // pause+relaunch to 0% when the live temp was briefly invisible.
+            _maxBytesSeen < 1024 * 1024 &&
             enqueueAge > const Duration(seconds: 30) &&
             (record.status == TaskStatus.running ||
                 record.status == TaskStatus.enqueued)) {
@@ -680,12 +988,13 @@ class MbtilesDownloadService extends GetxController {
             // ~16s of empty disk while "running"
             debugPrint(
               '[MbtilesDownload] 🚨 Running task with empty disk '
-              '(${_emptyDiskWhileRunningPolls} polls) — wipe + re-enqueue',
+              '(${_emptyDiskWhileRunningPolls} polls) — soft re-enqueue',
             );
             _emptyDiskWhileRunningPolls = 0;
             _emptyDiskBaselineProgress = 0.0;
             _stopAndroidProgressPolling();
-            await _wipePreviousMbtilesDownloadArtifacts();
+            // Preserve any partials that appear; do not hard-wipe.
+            await _wipePreviousMbtilesDownloadArtifacts(preservePartials: true);
             isDownloading.value = false;
             unawaited(downloadMbtiles(zoomLevel: await getSelectedZoomLevel()));
             return;
@@ -889,45 +1198,57 @@ class MbtilesDownloadService extends GetxController {
             .toList(),
       );
       if (preferred != null) {
-        // If something is already running, do not poke resume again.
-        if (preferred.status == TaskStatus.running ||
-            preferred.status == TaskStatus.enqueued ||
-            preferred.status == TaskStatus.waitingToRetry) {
-          _backgroundTask = preferred.task as DownloadTask;
+        final existing = preferred.task as DownloadTask;
+        // Active WorkManager task — leave it.
+        if (existing.priority != 0 &&
+            (preferred.status == TaskStatus.running ||
+                preferred.status == TaskStatus.enqueued ||
+                preferred.status == TaskStatus.waitingToRetry)) {
+          _backgroundTask = existing;
           isDownloading.value = true;
           if (preferred.progress >= 0 && preferred.progress <= 1) {
             _applyProgress(preferred.progress);
           }
           return true;
         }
-        task = preferred.task as DownloadTask;
+        task = existing;
       }
     } catch (_) {}
 
-    if (task == null) return false;
+    // Build a WorkManager task (priority 1) — never re-enqueue UIDT (0).
+    final template = task ??
+        DownloadTask(
+          url: getDownloadUrl(await getSelectedZoomLevel()),
+          filename: LOCAL_MBTILES_FILENAME,
+          directory: 'offline_tiles',
+          baseDirectory: BaseDirectory.applicationSupport,
+          group: _downloadGroup,
+          updates: Updates.statusAndProgress,
+          requiresWiFi: false,
+          retries: _downloadRetries,
+          allowPause: true,
+          priority: 1,
+          displayName: 'SpaceTime map tiles',
+        );
+    final workTask = _asWorkManagerTask(
+      template,
+      newTaskId: template.priority == 0,
+    );
 
     try {
-      final canResume = await FileDownloader().taskCanResume(task);
-      debugPrint(
-        '[MbtilesDownload] 🔁 Auto-resume after $reason: '
-        'canResume=$canResume task=${task.taskId}',
-      );
-      if (!canResume) return false;
-
-      await _protectResumeDataFromTruncation();
       await _seedProgressFromPartialFileIfNeeded();
-      await _cleanupOrphanDownloaderTemps();
-
       _lastResumeAttemptAt = DateTime.now();
       _autoResumeAttempts++;
       isDownloading.value = true;
       hasError.value = false;
       _setStatusText('mbtiles_status_resuming');
-      final ok = await FileDownloader().resume(task);
+
+      final ok = await _enqueueOrResumeMbtilesTask(workTask);
       if (ok) {
-        _backgroundTask = task;
         _startAndroidProgressPolling();
-        debugPrint('[MbtilesDownload] ✅ Auto-resume started after $reason');
+        debugPrint(
+          '[MbtilesDownload] ✅ Auto-resume (WorkManager) after $reason',
+        );
         return true;
       }
     } catch (e) {
@@ -983,11 +1304,41 @@ class MbtilesDownloadService extends GetxController {
     }
   }
 
-  /// Pull updates stored while the app/engine was disconnected (Android).
+  /// Pull updates stored while the app/engine was disconnected.
   Future<void> resumeDownloadUpdatesFromBackground() async {
-    if (!Platform.isAndroid) return;
     await FileDownloader().resumeFromBackground();
     await _syncProgressFromDatabaseAndFile();
+    // If paused/failed after background, kick resume.
+    if (!isCompleted.value &&
+        (isDownloading.value ||
+            _maxBytesSeen > 1024 * 1024 ||
+            downloadProgress.value > 0)) {
+      unawaited(_tryAutoResume(reason: 'app_resumed'));
+    }
+  }
+
+  /// Whether an incomplete download should continue (for Get Started UI).
+  Future<bool> hasResumablePartialOrActiveTask() async {
+    if (isDownloading.value && !isCompleted.value) return true;
+    if (await isMbtilesDownloaded()) return false;
+    await _loadMaxBytesCheckpoint();
+    if (_maxBytesSeen >= 1024 * 1024) return true;
+    final onDisk = await _activePartialBytesOnDisk(minLiveTempBytes: 64 * 1024);
+    if (onDisk >= 1024 * 1024) return true;
+    try {
+      final records = await FileDownloader().database.allRecords();
+      return records.any(
+        (r) =>
+            r.task.filename == LOCAL_MBTILES_FILENAME &&
+            (r.status == TaskStatus.running ||
+                r.status == TaskStatus.enqueued ||
+                r.status == TaskStatus.paused ||
+                r.status == TaskStatus.waitingToRetry ||
+                r.status == TaskStatus.failed),
+      );
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -1001,14 +1352,75 @@ class MbtilesDownloadService extends GetxController {
     super.onInit();
     _setStatusText('mbtiles_status_ready_to_download');
     unawaited(_loadMaxBytesCheckpoint());
-    _initializeBackgroundDownloader();
-    _checkForResumedDownloads();
+    // start() must complete before we inspect the task DB / resume.
+    unawaited(() async {
+      await _initializeBackgroundDownloader();
+      await _checkForResumedDownloads();
+    }());
+  }
+
+  /// Configure running/paused/complete notifications for the mbtiles group.
+  /// Required for Android foreground service + UIDT while the app is backgrounded.
+  void _configureMbtilesNotifications() {
+    final running = TaskNotification(
+      'mbtiles_notif_running_title'.tr,
+      'mbtiles_notif_running_body'.tr,
+    );
+    final complete = TaskNotification(
+      'mbtiles_notif_complete_title'.tr,
+      'mbtiles_notif_complete_body'.tr,
+    );
+    final error = TaskNotification(
+      'mbtiles_notif_running_title'.tr,
+      'mbtiles_status_resuming'.tr,
+    );
+    final paused = TaskNotification(
+      'mbtiles_notif_paused_title'.tr,
+      'mbtiles_notif_paused_body'.tr,
+    );
+
+    // Default + group — UIDT/FGS looks up the running notification by task.
+    FileDownloader().configureNotification(
+      running: running,
+      complete: complete,
+      error: error,
+      paused: paused,
+      progressBar: true,
+    );
+    FileDownloader().configureNotificationForGroup(
+      _downloadGroup,
+      running: running,
+      complete: complete,
+      error: error,
+      paused: paused,
+      progressBar: true,
+    );
+  }
+
+  /// Android 13+ needs POST_NOTIFICATIONS; without it the FGS/UIDT worker
+  /// cannot stay alive in the background for multi-GB downloads.
+  Future<bool> _ensureNotificationPermissionForBackground() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final status = await Permission.notification.status;
+      if (status.isGranted) return true;
+      final result = await Permission.notification.request();
+      debugPrint(
+        '[MbtilesDownload] 🔔 Notification permission => $result',
+      );
+      return result.isGranted;
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Notification permission check: $e');
+      return false;
+    }
   }
 
   /// Check for any downloads that were in progress when app was closed
   Future<void> _checkForResumedDownloads() async {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
+      await _loadMaxBytesCheckpoint();
+      await _seedProgressFromPartialFileIfNeeded();
 
       final tasks = await FileDownloader().database.allRecords();
       debugPrint(
@@ -1019,42 +1431,109 @@ class MbtilesDownloadService extends GetxController {
           .where((r) => r.task.filename == LOCAL_MBTILES_FILENAME)
           .toList();
       final preferred = await _ensureSingleActiveMbtilesTask(mbtiles);
-      if (preferred == null) return;
 
-      debugPrint(
-        '[MbtilesDownload] 🔄 Preferred task: ${preferred.task.taskId} '
-        '(${preferred.status}) progress=${preferred.progress}',
-      );
-
-      _backgroundTask = preferred.task as DownloadTask;
-
-      if (preferred.status == TaskStatus.running ||
-          preferred.status == TaskStatus.enqueued) {
-        isDownloading.value = true;
-        _applyProgress(preferred.progress);
-        await _seedProgressFromPartialFileIfNeeded();
-        _setStatusText('mbtiles_status_resuming');
-        _startAndroidProgressPolling();
+      if (preferred != null) {
         debugPrint(
-          '[MbtilesDownload] ▶️ Resuming download from ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
+          '[MbtilesDownload] 🔄 Preferred task: ${preferred.task.taskId} '
+          '(${preferred.status}) progress=${preferred.progress}',
         );
-      } else if (preferred.status == TaskStatus.paused) {
-        _applyProgress(preferred.progress);
-        await _seedProgressFromPartialFileIfNeeded();
-        _setStatusText(
-          'mbtiles_status_paused_at_pct',
-          [(downloadProgress.value * 100).toStringAsFixed(1)],
+
+        _backgroundTask = preferred.task as DownloadTask;
+
+        if (preferred.status == TaskStatus.running ||
+            preferred.status == TaskStatus.enqueued) {
+          final existing = preferred.task as DownloadTask;
+          // Migrate legacy UIDT (priority 0) → WorkManager FGS (priority 1).
+          if (existing.priority == 0) {
+            debugPrint(
+              '[MbtilesDownload] ♻️ Migrating UIDT task ${existing.taskId} '
+              '→ WorkManager (Xiaomi kills UIDT in background)',
+            );
+            try {
+              await FileDownloader().cancelTaskWithId(existing.taskId);
+            } catch (_) {}
+            try {
+              await FileDownloader()
+                  .database
+                  .deleteRecordWithId(existing.taskId);
+            } catch (_) {}
+            isDownloading.value = false;
+            unawaited(downloadMbtiles(zoomLevel: await getSelectedZoomLevel()));
+            return;
+          }
+          isDownloading.value = true;
+          _applyProgress(preferred.progress);
+          await _seedProgressFromPartialFileIfNeeded();
+          _setStatusText('mbtiles_status_resuming');
+          _startAndroidProgressPolling();
+          debugPrint(
+            '[MbtilesDownload] ▶️ Resuming download from ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
+          );
+          return;
+        }
+
+        if (preferred.status == TaskStatus.paused) {
+          final existing = preferred.task as DownloadTask;
+          if (existing.priority == 0) {
+            debugPrint(
+              '[MbtilesDownload] ♻️ Migrating paused UIDT → WorkManager',
+            );
+            try {
+              await FileDownloader().cancelTaskWithId(existing.taskId);
+            } catch (_) {}
+            try {
+              await FileDownloader()
+                  .database
+                  .deleteRecordWithId(existing.taskId);
+            } catch (_) {}
+            isDownloading.value = false;
+            unawaited(downloadMbtiles(zoomLevel: await getSelectedZoomLevel()));
+            return;
+          }
+          isDownloading.value = true;
+          _applyProgress(preferred.progress);
+          await _seedProgressFromPartialFileIfNeeded();
+          _setStatusText('mbtiles_status_resuming');
+          final canResume =
+              await FileDownloader().taskCanResume(preferred.task);
+          if (canResume) {
+            await _protectResumeDataFromTruncation();
+            final ok =
+                await FileDownloader().resume(preferred.task as DownloadTask);
+            debugPrint('[MbtilesDownload] ▶️ startup resume(paused) => $ok');
+          } else {
+            unawaited(_tryAutoResume(reason: 'startup_paused'));
+          }
+          _startAndroidProgressPolling();
+          return;
+        }
+
+        if (preferred.status == TaskStatus.waitingToRetry) {
+          isDownloading.value = true;
+          _applyProgress(preferred.progress);
+          await _seedProgressFromPartialFileIfNeeded();
+          _setStatusText('mbtiles_status_resuming');
+          _startAndroidProgressPolling();
+          return;
+        }
+
+        if (preferred.status == TaskStatus.failed) {
+          isDownloading.value = true;
+          await _seedProgressFromPartialFileIfNeeded();
+          unawaited(_tryAutoResume(reason: 'startup_failed'));
+          return;
+        }
+      }
+
+      // No active task record, but bytes on disk → continue automatically.
+      final onDisk = await _activePartialBytesOnDisk(minLiveTempBytes: 64 * 1024);
+      if (onDisk >= 1024 * 1024 || _maxBytesSeen >= 1024 * 1024) {
+        debugPrint(
+          '[MbtilesDownload] ♻️ Orphan partial on disk ($onDisk bytes, '
+          'maxSeen=$_maxBytesSeen) — auto-continuing download',
         );
-      } else if (preferred.status == TaskStatus.waitingToRetry) {
-        isDownloading.value = true;
-        _applyProgress(preferred.progress);
-        await _seedProgressFromPartialFileIfNeeded();
-        _setStatusText('mbtiles_status_resuming');
-        _startAndroidProgressPolling();
-      } else if (preferred.status == TaskStatus.failed) {
-        isDownloading.value = true;
-        await _seedProgressFromPartialFileIfNeeded();
-        unawaited(_tryAutoResume(reason: 'startup_failed'));
+        isDownloading.value = false; // allow downloadMbtiles past guard
+        unawaited(downloadMbtiles(zoomLevel: await getSelectedZoomLevel()));
       }
     } catch (e) {
       debugPrint('[MbtilesDownload] ⚠️ Error checking for resumed downloads: $e');
@@ -1066,18 +1545,24 @@ class MbtilesDownloadService extends GetxController {
       if (Platform.isAndroid) {
         await FileDownloader().configure(
           globalConfig: [
-            (Config.runInForeground, true),
-            // Keep FGS for multi-GB tile file (value is MB threshold).
-            (Config.runInForegroundIfFileLargerThan, 50),
+            // WorkManager + SystemForegroundService (survives app pause).
+            // Never use priority 0 / UIDT on Xiaomi — JobService is stopped
+            // the moment the app hits AppLifecycleState.paused.
+            (Config.runInForeground, Config.always),
+            // Never use cache dir for ~4.5GB mbtiles — cache eviction kills resume.
+            (Config.useCacheDir, Config.never),
           ],
         );
       }
       _downloaderConfigured = true;
     }
 
-    await FileDownloader().resumeFromBackground();
+    // Notifications must exist before enqueue so Android can promote the
+    // worker to a foreground service / UIDT job while the app is backgrounded.
+    _configureMbtilesNotifications();
 
-    // Listen to ALL updates and filter by metadata or filename
+    // Listener MUST be registered before start() so undelivered background
+    // updates (and killed-task reschedule) are not missed.
     FileDownloader().updates.listen((update) async {
       debugPrint('[MbtilesDownload] 🔔 Received update for task: ${update.task.taskId}');
       debugPrint('[MbtilesDownload] 🔔 Task filename: ${update.task.filename}');
@@ -1099,18 +1584,31 @@ class MbtilesDownloadService extends GetxController {
         }
 
         // Adopt this task only when we have none yet, or it is the active one.
+        // Never store a priority-0 UIDT task as "active" — that would re-enqueue
+        // UIDT on the next resume().
+        final incoming = update.task as DownloadTask;
+        if (incoming.priority == 0) {
+          debugPrint(
+            '[MbtilesDownload] ⚠️ Ignoring UIDT update for ${incoming.taskId} '
+            '(priority 0) — WorkManager migration owns this download',
+          );
+          // Cancel the UIDT worker if it somehow got scheduled.
+          unawaited(FileDownloader().cancelTaskWithId(incoming.taskId));
+          return;
+        }
+
         if (_backgroundTask == null ||
-            _backgroundTask!.taskId == update.task.taskId) {
-          _backgroundTask = update.task as DownloadTask;
+            _backgroundTask!.taskId == incoming.taskId) {
+          _backgroundTask = incoming;
         } else if (update is TaskStatusUpdate &&
             (update.status == TaskStatus.running ||
                 update.status == TaskStatus.enqueued)) {
           // A newer live task appeared — switch to it and cancel the old one.
           final oldId = _backgroundTask!.taskId;
-          _backgroundTask = update.task as DownloadTask;
+          _backgroundTask = incoming;
           unawaited(FileDownloader().cancelTaskWithId(oldId));
           debugPrint(
-            '[MbtilesDownload] 🔄 Switched active task $oldId → ${update.task.taskId}',
+            '[MbtilesDownload] 🔄 Switched active task $oldId → ${incoming.taskId}',
           );
         }
 
@@ -1215,10 +1713,29 @@ class MbtilesDownloadService extends GetxController {
             unawaited(_scheduleSilentRetry(reason: 'task_failed'));
           } else if (update.status == TaskStatus.paused) {
             _setStatusText('mbtiles_status_download_paused');
+            // OS/background pause — keep downloading flag so UI stays in progress
+            // and cold start / resume will continue automatically.
+            isDownloading.value = true;
           }
         }
       }
     });
+
+    // Purge legacy UIDT records BEFORE start/reschedule so the plugin cannot
+    // re-enqueue priority-0 JobScheduler jobs that Xiaomi kills on pause.
+    await _purgeUidtMbtilesTaskRecords();
+
+    // trackTasks + resumeFromBackground — required for multi-GB downloads that
+    // survive app pause / process death. We intentionally disable the plugin's
+    // blind rescheduleKilledTasks (it would re-enqueue purged UIDT tasks);
+    // _checkForResumedDownloads owns WorkManager re-enqueue instead.
+    await FileDownloader().start(
+      doTrackTasks: true,
+      markDownloadedComplete: true,
+      doRescheduleKilledTasks: false,
+      autoCleanDatabase: false,
+    );
+    debugPrint('[MbtilesDownload] ✅ FileDownloader.start() complete');
   }
 
   Future<void> _finalizeSuccessfulDownload(
@@ -1556,48 +2073,68 @@ class MbtilesDownloadService extends GetxController {
         final failedButMaybeResumable = record.status == TaskStatus.failed;
 
         if (active || failedButMaybeResumable) {
-          _backgroundTask = task;
-          isDownloading.value = true;
-          hasError.value = false;
-          isCompleted.value = false;
-          _applyProgress(record.progress);
-          await _seedProgressFromPartialFileIfNeeded();
-          debugPrint(
-            '[MbtilesDownload] ▶️ Reusing existing task ${task.taskId} '
-            '(${record.status}) at ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
-          );
+          // Never keep a priority-0 UIDT task — Xiaomi kills it on pause.
+          if (task.priority == 0) {
+            debugPrint(
+              '[MbtilesDownload] ♻️ Dropping UIDT task ${task.taskId} '
+              '— will re-enqueue via WorkManager',
+            );
+            try {
+              await FileDownloader().cancelTaskWithId(task.taskId);
+            } catch (_) {}
+            try {
+              await FileDownloader().database.deleteRecordWithId(task.taskId);
+            } catch (_) {}
+            // Fall through to soft prepare + WorkManager enqueue.
+          } else {
+            _backgroundTask = task;
+            isDownloading.value = true;
+            hasError.value = false;
+            isCompleted.value = false;
+            _applyProgress(record.progress);
+            await _seedProgressFromPartialFileIfNeeded();
+            debugPrint(
+              '[MbtilesDownload] ▶️ Reusing existing WorkManager task '
+              '${task.taskId} (${record.status}) at '
+              '${(downloadProgress.value * 100).toStringAsFixed(1)}%',
+            );
 
-          if (record.status == TaskStatus.paused || failedButMaybeResumable) {
-            final canResume = await FileDownloader().taskCanResume(task);
-            if (canResume) {
-              await _protectResumeDataFromTruncation();
-              await _cleanupOrphanDownloaderTemps();
-              _lastResumeAttemptAt = DateTime.now();
-              final resumed = await FileDownloader().resume(task);
-              debugPrint('[MbtilesDownload] ▶️ resume() => $resumed');
-              if (resumed) {
+            if (record.status == TaskStatus.paused || failedButMaybeResumable) {
+              final canResume = await FileDownloader().taskCanResume(task);
+              if (canResume) {
+                await _protectResumeDataFromTruncation();
+                _lastResumeAttemptAt = DateTime.now();
+                final resumed = await FileDownloader().resume(task);
+                debugPrint('[MbtilesDownload] ▶️ resume() => $resumed');
+                if (resumed) {
+                  _setStatusText('mbtiles_status_resuming');
+                  _startAndroidProgressPolling();
+                  return null;
+                }
+              }
+              // Resume metadata missing — plant from on-disk partial before wipe.
+              if (await _resumeFromOnDiskPartial(task)) {
                 _setStatusText('mbtiles_status_resuming');
                 _startAndroidProgressPolling();
                 return null;
               }
-            }
-            if (failedButMaybeResumable) {
-              debugPrint(
-                '[MbtilesDownload] ⚠️ Failed task not resumable — '
-                'will wipe leftovers and re-enqueue cleanly',
-              );
-              // Fall through to wipe + enqueue below.
+              if (failedButMaybeResumable) {
+                debugPrint(
+                  '[MbtilesDownload] ⚠️ Failed task not resumable via plugin — '
+                  'soft re-enqueue preserving partials',
+                );
+                // Fall through to soft prepare + enqueue below.
+              } else {
+                _setStatusText('mbtiles_status_resuming');
+                _startAndroidProgressPolling();
+                return null;
+              }
             } else {
-              _setStatusText('mbtiles_status_resuming');
-              await _cleanupOrphanDownloaderTemps();
+              // Already running on WorkManager — do NOT touch temps.
+              _setStatusText('mbtiles_status_downloading');
               _startAndroidProgressPolling();
               return null;
             }
-          } else {
-            _setStatusText('mbtiles_status_downloading');
-            await _cleanupOrphanDownloaderTemps();
-            _startAndroidProgressPolling();
-            return null;
           }
         }
       }
@@ -1605,9 +2142,8 @@ class MbtilesDownloadService extends GetxController {
       debugPrint('[MbtilesDownload] ⚠️ Could not check existing tasks: $e');
     }
 
-    // Fresh enqueue path — remove every previous temp / resume / task record
-    // so leftovers cannot compete with the new download.
-    await _wipePreviousMbtilesDownloadArtifacts();
+    // Soft prepare — keep temps/resume so Range continues from same byte.
+    await _wipePreviousMbtilesDownloadArtifacts(preservePartials: true);
 
     try { 
        final appDir = await getApplicationSupportDirectory();
@@ -1756,9 +2292,17 @@ class MbtilesDownloadService extends GetxController {
       debugPrint('[MbtilesDownload] 📁 Directory: ${tilesDir.path}');
       _setStatusText('mbtiles_status_starting_download');
 
-      // Check and request notification permission first
-      debugPrint('[MbtilesDownload] 🔔 Checking notification permission...');
-     
+      // FGS / UIDT require a granted notification permission + configured
+      // running notification, otherwise Android kills the download in background.
+      final notifOk = await _ensureNotificationPermissionForBackground();
+      if (!notifOk) {
+        debugPrint(
+          '[MbtilesDownload] ⚠️ Notification permission denied — '
+          'background download will be unreliable on Android',
+        );
+      }
+      _configureMbtilesNotifications();
+
       _backgroundTask = DownloadTask(
         url: downloadUrl,
         filename: LOCAL_MBTILES_FILENAME,
@@ -1769,21 +2313,17 @@ class MbtilesDownloadService extends GetxController {
         requiresWiFi: false,
         retries: _downloadRetries,
         allowPause: true,
-        priority: 0, // highest
+        // priority 1 (not 0): WorkManager + FGS. priority 0 = UIDT JobService,
+        // which Xiaomi/HyperOS cancels when the app goes to background.
+        priority: 1,
+        displayName: 'SpaceTime map tiles',
         metaData: 'mbtiles_download_zoom_$selectedZoom',
         headers: headers.isNotEmpty ? headers : null,
       );
 
-      debugPrint('[MbtilesDownload] 🎯 Created download task: ${_backgroundTask!.taskId}');
-      debugPrint('[MbtilesDownload] 🎯 Task URL: ${_backgroundTask!.url}');
-      debugPrint('[MbtilesDownload] 🎯 Task filename: ${_backgroundTask!.filename}');
-      debugPrint('[MbtilesDownload] 🎯 Task directory: ${_backgroundTask!.directory}');
-
-      // waitingToRetry is mapped to the "error" notification type by the
-      // plugin — use the same copy as running/resuming so users never see a
-      // numbered "retry 1 of N" / "Download Failed" flash during auto-retries.
-      FileDownloader().configureNotificationForGroup(
-        _downloadGroup,
+      // Bind notification config to this task so FGS always has a running notif.
+      FileDownloader().configureNotificationForTask(
+        _backgroundTask!,
         running: TaskNotification(
           'mbtiles_notif_running_title'.tr,
           'mbtiles_notif_running_body'.tr,
@@ -1802,64 +2342,31 @@ class MbtilesDownloadService extends GetxController {
         ),
         progressBar: true,
       );
-      final downloader = FileDownloader();
-      debugPrint('[MbtilesDownload] 🔔 Notifications configured');
 
-      debugPrint('[MbtilesDownload] 🚀 Starting download...');
+      debugPrint('[MbtilesDownload] 🎯 Created download task: ${_backgroundTask!.taskId}');
+      debugPrint('[MbtilesDownload] 🎯 Task URL: ${_backgroundTask!.url}');
+      debugPrint('[MbtilesDownload] 🎯 Task filename: ${_backgroundTask!.filename}');
+      debugPrint('[MbtilesDownload] 🎯 Task directory: ${_backgroundTask!.directory}');
 
-      if (Platform.isAndroid) {
-        final enqueued = await downloader.enqueue(_backgroundTask!);
-        if (!enqueued) {
-          throw Exception('Failed to enqueue mbtiles download task');
-        }
-        debugPrint('[MbtilesDownload] 📋 Enqueued on Android (background worker)');
-        _lastEnqueueAt = DateTime.now();
-        _emptyDiskWhileRunningPolls = 0;
-        _emptyDiskBaselineProgress = 0.0;
-        _startAndroidProgressPolling();
-        didEnqueueOnAndroid = true;
-        return null;
+      debugPrint('[MbtilesDownload] 🚀 Starting download (enqueue + resume)...');
+
+      // Both platforms use enqueue so the native worker continues in the
+      // background and survives Flutter engine restarts. Prefer Range resume
+      // from the largest on-disk partial when available.
+      final started = await _enqueueOrResumeMbtilesTask(_backgroundTask!);
+      if (!started) {
+        throw Exception('Failed to enqueue/resume mbtiles download task');
       }
-
-      final result = await downloader.download(
-        _backgroundTask!,
-        onProgress: (progress) {
-          _applyProgress(progress);
-          debugPrint(
-            '[MbtilesDownload] 📊 Progress: ${(downloadProgress.value * 100).toStringAsFixed(1)}% (raw=$progress)',
-          );
-        },
-        onStatus: (status) {
-          debugPrint('[MbtilesDownload] 📡 Status: $status');
-
-          if (status == TaskStatus.complete) {
-            debugPrint('[MbtilesDownload] ✅ Download completed successfully');
-            _setStatusText('text_download_completed');
-          } else if (status == TaskStatus.failed) {
-            debugPrint('[MbtilesDownload] ❌ Download failed — silent auto-retry');
-            unawaited(_scheduleSilentRetry(reason: 'ios_download_failed'));
-          } else if (status == TaskStatus.waitingToRetry) {
-            debugPrint('[MbtilesDownload] ⏳ Waiting to retry (keeping last progress)');
-            _setStatusText('mbtiles_status_resuming');
-          } else if (status == TaskStatus.running) {
-            debugPrint('[MbtilesDownload] 🏃 Download running');
-            _setStatusText('mbtiles_status_downloading');
-          } else if (status == TaskStatus.enqueued) {
-            debugPrint('[MbtilesDownload] 📋 Download enqueued');
-            _setStatusText('mbtiles_status_preparing');
-          }
-        },
+      debugPrint(
+        '[MbtilesDownload] 📋 Background task active '
+        '(${Platform.isIOS ? 'iOS URLSession' : 'Android FGS/UIDT'})',
       );
-
-      debugPrint('[MbtilesDownload] 🏁 Download result status: ${result.status}');
-
-      if (result.status != TaskStatus.complete) {
-        throw Exception('Download failed with status: ${result.status}');
-      }
-
-      debugPrint('[MbtilesDownload] ✅ Download completed: $localFilePath');
-      await _finalizeSuccessfulDownload(localFilePath, selectedZoom);
-      return localFilePath;
+      _lastEnqueueAt = DateTime.now();
+      _emptyDiskWhileRunningPolls = 0;
+      _emptyDiskBaselineProgress = 0.0;
+      _startProgressPolling();
+      didEnqueueOnAndroid = true; // keep polling in finally for both platforms
+      return null;
     } catch (e) {
       debugPrint('[MbtilesDownload] ❌ Error downloading mbtiles: $e');
       hasError.value = true;
@@ -1870,10 +2377,7 @@ class MbtilesDownloadService extends GetxController {
       if (!didEnqueueOnAndroid) {
         _stopAndroidProgressPolling();
       }
-      if (!Platform.isAndroid) {
-        isDownloading.value = false;
-        _backgroundTask = null;
-      }
+      // Do not clear isDownloading after enqueue — background worker owns it.
     }
   }
 

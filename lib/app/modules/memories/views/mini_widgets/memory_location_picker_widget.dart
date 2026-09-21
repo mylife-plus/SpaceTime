@@ -26,6 +26,9 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
     Get.find<MemoryLocationPickerController>();
   late final Future<String> _styleFuture;
   bool _mapBootstrapDone = false;
+  bool _mapBootstrapping = false;
+  /// Completer set only while awaiting custom-style [onStyleLoaded] after loadStyleJson.
+  Completer<void>? _customStyleLoaded;
 
   @override
   void initState() {
@@ -338,37 +341,77 @@ class _MemoryLocationPickerWidgetState extends State<MemoryLocationPickerWidget>
           cameraOptions: controller.getCameraOptions(),
           textureView: true,
           onMapCreated: (mapboxMap) async {
-            if (_mapBootstrapDone) return;
-            _mapBootstrapDone = true;
+            if (_mapBootstrapDone || _mapBootstrapping) return;
+            _mapBootstrapping = true;
+            final session = controller.mapSessionGeneration;
 
             debugPrint('[MemoryLocationPicker] 🗺️ onMapCreated callback triggered');
 
-            // CRITICAL: Enable online mode to allow localhost tile server access
-            await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
-            debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
+            try {
+              // CRITICAL: Enable online mode to allow localhost tile server access
+              await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+              debugPrint('[MemoryLocationPicker] 🌐 Online mode ENABLED - localhost tile server can now be accessed');
 
-            // Load the custom style JSON with local tile server URLs
-            debugPrint('[MemoryLocationPicker] 📥 Loading custom style JSON into Mapbox...');
-            debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
+              debugPrint('[MemoryLocationPicker] 📥 Loading custom style JSON into Mapbox...');
+              debugPrint('[MemoryLocationPicker] 📊 Style JSON length: ${styleJson.length} characters');
 
-            // Verify the JSON contains our localhost URLs before loading
-            if (styleJson.contains('localhost:8080')) {
-              debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
-            } else {
-              debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+              if (styleJson.contains('localhost:8080')) {
+                debugPrint('[MemoryLocationPicker] ✅ Verified: Style JSON contains localhost URLs');
+              } else {
+                debugPrint('[MemoryLocationPicker] ⚠️ WARNING: Style JSON does NOT contain localhost URLs!');
+              }
+
+              // Wait for custom-style onStyleLoaded (not the default style before loadStyleJson).
+              final styleSettled = Completer<void>();
+              _customStyleLoaded = styleSettled;
+              await mapboxMap.loadStyleJson(styleJson);
+              debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
+
+              if (!styleSettled.isCompleted) {
+                await styleSettled.future.timeout(
+                  const Duration(seconds: 5),
+                  onTimeout: () {
+                    debugPrint(
+                      '[MemoryLocationPicker] ⚠️ Custom style onStyleLoaded timeout — proceeding',
+                    );
+                  },
+                );
+              }
+              _customStyleLoaded = null;
+
+              if (!controller.isMapSessionActive(session) || !mounted) return;
+
+              var ok = await controller.onMapCreated(
+                mapboxMap,
+                session: session,
+              );
+              if (!ok &&
+                  mounted &&
+                  controller.isMapSessionActive(session)) {
+                await Future<void>.delayed(const Duration(milliseconds: 200));
+                if (mounted && controller.isMapSessionActive(session)) {
+                  ok = await controller.onMapCreated(
+                    mapboxMap,
+                    session: session,
+                  );
+                }
+              }
+              // Only lock out retries after a successful pin bootstrap.
+              _mapBootstrapDone = ok;
+            } catch (e) {
+              debugPrint('[MemoryLocationPicker] ❌ Map bootstrap failed: $e');
+              _mapBootstrapDone = false;
+            } finally {
+              _customStyleLoaded = null;
+              _mapBootstrapping = false;
             }
-
-            // mapboxMap.stylelo
-
-            await mapboxMap.loadStyleJson(styleJson);
-            debugPrint('[MemoryLocationPicker] ✅ Custom style JSON loaded into Mapbox successfully');
-            // Do NOT init annotations in onStyleLoaded: it fires for the default style *before*
-            // loadStyleJson; swapping styles destroys EGL/surface and invalidates annotation managers.
-            await Future<void>.delayed(const Duration(milliseconds: 280));
-            await controller.onMapCreated(mapboxMap);
           },
           onStyleLoadedListener: (styleLoadedEventData) {
-            debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded (log only, annotations after loadStyleJson)');
+            debugPrint('[MemoryLocationPicker] 🎨 onStyleLoaded');
+            final gate = _customStyleLoaded;
+            if (gate != null && !gate.isCompleted) {
+              gate.complete();
+            }
           },
           onTapListener: controller.onMapTap,
         );
