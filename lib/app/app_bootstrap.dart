@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
@@ -23,8 +25,9 @@ void ensureHeavyAppControllersRegistered() {
   if (!Get.isRegistered<GeocodingIsolateService>()) {
     Get.put(GeocodingIsolateService(), permanent: true);
   }
-  // Geocoding CSV/KD-tree warm-up is NOT started here — it runs from
-  // Add Memories / Map when the library is empty, or on first reverseGeocode.
+  // Prefetch city CSV + region data while map/memories UI mounts so the first
+  // reverse-geocode on Add Memories is not a multi-second cold start.
+  unawaited(GeocodingIsolateService.instance.warmUp());
 
   Get.put(FilterController(), permanent: true);
   Get.put(MemoryController(), permanent: true);

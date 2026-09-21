@@ -20,6 +20,7 @@ import '../../../services/memory_db.dart';
 import '../../../services/path_migration_helper.dart';
 import '../../../helpers/mapbox_zoom_helper.dart';
 import '../../../../services/memory_geojson_service.dart';
+import '../../../../services/geocoding_isolate_service.dart';
 import '../../ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/app_bootstrap.dart';
@@ -1283,6 +1284,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     downloadProgress.value = 1.0;
     unawaited(refreshIosBackgroundRefreshBanner());
 
+    // Warm reverse-geocode datasets during the 2s pause so Add Memories'
+    // first location name is ready when the user lands on the map.
+    if (!Get.isRegistered<GeocodingIsolateService>()) {
+      Get.put(GeocodingIsolateService(), permanent: true);
+    }
+    unawaited(GeocodingIsolateService.instance.warmUp());
+
     // Save download completed flag to SharedPreferences
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1565,9 +1573,12 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         }
       }
 
-      // Register map/memories stack before route swap (geocoding warms later
-      // from Add Memories / Map when the library is empty or on first lookup).
+      // Register map/memories stack + start reverse-geocode warm-up before the
+      // route swap so Add Memories' first pin is not waiting on a cold CSV parse.
       ensureHeavyAppControllersRegistered();
+      if (Get.isRegistered<GeocodingIsolateService>()) {
+        unawaited(GeocodingIsolateService.instance.warmUp());
+      }
 
       // Instant route swap (Transition.noTransition on MAP_NEW) — no extra frame wait.
       Get.offAllNamed(Routes.MAP_NEW);

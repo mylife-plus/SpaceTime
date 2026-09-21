@@ -16,20 +16,14 @@ class GeocodingIsolateService extends GetxService {
   @override
   Future<void> onInit() async {
     super.onInit();
-    // Do not warm OfflineGeocoder / NearestRegion here — that multi-second
-    // CSV parse belongs on Add Memories / Map (empty library) or the first
-    // reverseGeocode call, not app registration / Get Started.
+    // Kick warm-up without blocking GetX registration — callers await via
+    // [ensureInitialized] / [warmUp] / [reverseGeocode].
+    unawaited(warmUp());
   }
 
-  /// Prefetch OfflineGeocoder + NearestRegion once when the user is on an
-  /// empty library (first Add Memories / Map session after install). Safe to
-  /// call repeatedly — [warmUp] dedupes in-flight work.
-  static void warmGeocodingForEmptyLibraryIfNeeded() {
-    if (!Get.isRegistered<GeocodingIsolateService>()) {
-      Get.put(GeocodingIsolateService(), permanent: true);
-    }
-    unawaited(GeocodingIsolateService.instance.warmUp());
-  }
+  /// Prefetch OfflineGeocoder + NearestRegion CSVs so the first Add Memories
+  /// location pin is not stuck waiting on a multi-second cold parse.
+  Future<void> warmUp() async {
     if (_warmFuture != null) return _warmFuture!;
     _warmFuture = _warmUpImpl();
     try {
