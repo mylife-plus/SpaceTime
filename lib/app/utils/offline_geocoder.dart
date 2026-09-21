@@ -1,13 +1,11 @@
+import 'dart:async';
 import 'dart:math';
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 import 'package:geocoder_offline_json/geocoder_offline.dart';
-import 'package:get/get.dart';
 import 'package:spacetime/app/helpers/nearest_region_service.dart';
-import 'package:spacetime/app/helpers/offline_water_service.dart';
 import 'package:spacetime/app/utils/place_categories_utils.dart';
-import 'package:spacetime/services/mbtiles_geocoder_service.dart';
 
 /// Plain, isolate-transferable result of parsing the 151k-row/13MB
 /// cities_names_1.csv — see [_parseGeocodingDataInBackground].
@@ -105,13 +103,30 @@ class OfflineGeocoder {
 
   late GeocodeData geocoder;
   bool _isInitialized = false;
+  Future<void>? _initFuture;
   final Map<String, _CityRecord> _cityLookup = {};
+
+  bool get isInitialized => _isInitialized;
 
   String _coordKey(double lat, double lng) =>
       '${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}';
 
   Future<void> init() async {
     if (_isInitialized) return;
+    // Deduplicate concurrent callers (Add Memories + location picker +
+    // GeocodingIsolateService.onInit used to race and each parse the 13MB CSV).
+    if (_initFuture != null) return _initFuture!;
+    _initFuture = _initImpl();
+    try {
+      await _initFuture;
+    } finally {
+      _initFuture = null;
+    }
+  }
+
+  Future<void> _initImpl() async {
+    if (_isInitialized) return;
+    final sw = Stopwatch()..start();
     final dataString = await rootBundle.loadString('assets/cities_names_1.csv');
 
     // CSV parsing (151,166 rows / 13MB, done twice — once here, once more
@@ -135,10 +150,10 @@ class OfflineGeocoder {
 
     geocoder = GeocodeData.fromJson(parsed.kdTreeJson, numMarkers: 48);
     _isInitialized = true;
-
-    try {
-      // await MbtilesGeocoderService.instance.init();
-    } catch (_) {}
+    debugPrint(
+      '[OfflineGeocoder] Ready in ${sw.elapsedMilliseconds}ms '
+      '(${_cityLookup.length} cities)',
+    );
   }
 
   _CityRecord? _lookupRecord(LocationData loc) {
@@ -188,6 +203,13 @@ class OfflineGeocoder {
   }
 
   Future<Map<String, dynamic>?> reverseGeocode(double lat, double lng, {String? tileSubRegion}) async {
+    await init();
+    // Region suffix (e.g. "Islamabad, FCT") needs NearestRegionService. Its
+    // findNearest() used to fire-and-forget load and return null on first
+    // call — so the first memory after Get Started often had an empty /
+    // incomplete name until a later lookup.
+    await NearestRegionService().loadFromAssets();
+
     final results = geocoder.search(lat, lng);
 
     if (results.isNotEmpty) {

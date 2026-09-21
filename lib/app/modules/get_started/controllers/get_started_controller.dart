@@ -22,6 +22,7 @@ import '../../../helpers/mapbox_zoom_helper.dart';
 import '../../../../services/memory_geojson_service.dart';
 import '../../ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/app_bootstrap.dart';
 
 const String PREFS_KEY_MBTILES_DOWNLOADED = 'mbtiles_downloaded';
 const String PREFS_KEY_MBTILES_PATH = 'mbtiles_path';
@@ -1563,6 +1564,10 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
           await _startTileServer(tilesPath);
         }
       }
+
+      // Register map/memories stack before route swap (geocoding warms later
+      // from Add Memories / Map when the library is empty or on first lookup).
+      ensureHeavyAppControllersRegistered();
 
       // Instant route swap (Transition.noTransition on MAP_NEW) — no extra frame wait.
       Get.offAllNamed(Routes.MAP_NEW);

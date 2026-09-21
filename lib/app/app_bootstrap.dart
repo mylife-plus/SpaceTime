@@ -23,6 +23,8 @@ void ensureHeavyAppControllersRegistered() {
   if (!Get.isRegistered<GeocodingIsolateService>()) {
     Get.put(GeocodingIsolateService(), permanent: true);
   }
+  // Geocoding CSV/KD-tree warm-up is NOT started here — it runs from
+  // Add Memories / Map when the library is empty, or on first reverseGeocode.
 
   Get.put(FilterController(), permanent: true);
   Get.put(MemoryController(), permanent: true);
