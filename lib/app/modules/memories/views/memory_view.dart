@@ -22,7 +22,6 @@ import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/app/shared/widgets/tick_cross_action_button.dart';
 
 import '../controllers/memory_controller.dart';
-import '../../add_memories/controllers/add_memories_controller.dart';
 import '../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
@@ -741,6 +740,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         try {
           String path;
           if (imageData.startsWith('memory_images/') ||
+              imageData.startsWith('imported_media/') ||
               imageData.startsWith('/')) {
             path = await memoryController.getAbsolutePath(imageData);
           } else {

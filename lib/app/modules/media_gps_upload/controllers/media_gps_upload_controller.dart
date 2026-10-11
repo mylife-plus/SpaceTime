@@ -157,8 +157,8 @@ class MediaGpsUploadController extends GetxController {
       _existingCoordinateRows = rows;
       _importedGalleryAssetIds =
           await DatabaseHelper.instance.queryImportedGalleryAssetIds();
-      _importedGalleryMediaCreatedAtKeys =
-          await DatabaseHelper.instance.queryImportedGalleryMediaCreatedAtKeys();
+      _importedGalleryMediaCreatedAtKeys = await DatabaseHelper.instance
+          .queryImportedGalleryMediaCreatedAtKeysForAssetlessRows();
     } catch (e, st) {
       debugPrint('[MediaGpsUpload] dedupe preload: $e\n$st');
     }
@@ -1185,9 +1185,12 @@ class MediaGpsUploadController extends GetxController {
             if (id != null && id.isNotEmpty) {
               _importedGalleryAssetIds.add(id);
             }
-            _importedGalleryMediaCreatedAtKeys.add(
-              DatabaseHelper.mediaCreatedAtDedupeKey(record.mediaCreatedAt),
-            );
+            final assetId = record.assetId;
+            if (assetId == null || assetId.isEmpty) {
+              _importedGalleryMediaCreatedAtKeys.add(
+                DatabaseHelper.mediaCreatedAtDedupeKey(record.mediaCreatedAt),
+              );
+            }
           }
           inserted++;
           insertedMemoryIds.add(memoryId);

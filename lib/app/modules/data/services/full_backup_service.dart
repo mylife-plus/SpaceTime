@@ -343,7 +343,7 @@ class FullBackupService {
         final rel = _normalizeZipInternalPath(e.value.toString());
         final abs = relToAbs[rel];
         if (abs != null) {
-          oldToNewPath[e.key.toString()] = abs;
+          oldToNewPath[e.key.toString()] = _relativeImportedMediaPath(rel);
         } else {
           debugPrint('[FullBackupService] manifest zip path missing in archive: $rel');
         }
@@ -542,6 +542,12 @@ class FullBackupService {
       out = p.join(out, part);
     }
     return out;
+  }
+
+  /// App-relative path under Documents for restored backup media.
+  static String _relativeImportedMediaPath(String zipRelativePath) {
+    final normalized = _normalizeZipInternalPath(zipRelativePath);
+    return p.posix.join('imported_media', normalized);
   }
 
   static bool _looksLikeAbsolutePath(String value) {

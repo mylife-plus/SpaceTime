@@ -925,13 +925,21 @@ class DatabaseHelper {
   }
 
   Future<Set<int>> queryImportedGalleryMediaCreatedAtKeys() async {
+    return queryImportedGalleryMediaCreatedAtKeysForAssetlessRows();
+  }
+
+  /// Create-time dedupe applies only when no stable gallery asset id was stored
+  /// (avoids bulk false positives for burst photos sharing the same second).
+  Future<Set<int>> queryImportedGalleryMediaCreatedAtKeysForAssetlessRows() async {
     final db = await database;
     final rows = await db.query(
       tableImportedGalleryAssets,
-      columns: [columnGalleryAssetMediaCreatedAt],
+      columns: [columnGalleryAssetMediaCreatedAt, columnGalleryAssetId],
     );
     final out = <int>{};
     for (final r in rows) {
+      final assetId = r[columnGalleryAssetId] as String?;
+      if (assetId != null && assetId.isNotEmpty) continue;
       final raw = r[columnGalleryAssetMediaCreatedAt] as String?;
       if (raw == null ||
           raw.isEmpty ||
@@ -2113,7 +2121,7 @@ class DatabaseHelper {
   }
 
   // Category operations
-  Future<void> _insertPredefinedCategories(Database db) async {
+  Future<void> _insertPredefinedCategories(DatabaseExecutor db) async {
     final predefinedCategories = [
       'Restaurant',
       'Cafe',
@@ -2203,7 +2211,7 @@ class DatabaseHelper {
   }
 
   // Place Categories operations
-  Future<void> _insertPredefinedPlaceCategories(Database db) async {
+  Future<void> _insertPredefinedPlaceCategories(DatabaseExecutor db) async {
     debugPrint(
       '[DatabaseHelper][_insertPredefinedPlaceCategories] Starting to insert predefined place categories',
     );
@@ -2669,6 +2677,14 @@ class DatabaseHelper {
         await txn.delete(tableImages);
         await txn.delete(tableMemories);
         await txn.delete(tableTrackImportLog);
+        // User metadata — not cleared by memory-only wipe before; caused #/@/places
+        // and filter suggestions to survive Erase All Data.
+        await txn.delete(tableTags);
+        await txn.delete(tableMentions);
+        await txn.delete(tableHashtagGroups);
+        await txn.delete(tableContactGroups);
+        await txn.delete(tablePlaceCategories);
+        await _insertPredefinedPlaceCategories(txn);
       });
 
       // Reclaim disk: DELETE alone does not shrink the SQLite file.

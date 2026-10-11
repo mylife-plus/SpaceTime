@@ -8,6 +8,48 @@ import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart'
 import 'package:spacetime/app/modules/gpx_kmz_upload/controllers/gpx_kmz_upload_controller.dart';
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/media_gps_upload/controllers/media_gps_upload_controller.dart';
+import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
+import 'package:spacetime/app/services/erase_filter_prefs.dart';
+
+/// Full consumer refresh after Erase All Data — clears filter recents, reloads
+/// metadata from DB, and destroys upload controllers so dedupe caches cannot
+/// survive the wipe.
+Future<void> refreshConsumersAfterEraseAll({
+  String logTag = 'EraseAll',
+}) async {
+  await clearUserFilterPreferencesAfterErase();
+
+  if (Get.isRegistered<MemoryController>()) {
+    await Get.find<MemoryController>().reloadTagsMentionsAndCategoriesFromDatabase();
+  }
+
+  if (Get.isRegistered<FilterController>()) {
+    final filter = Get.find<FilterController>();
+    filter.resetFiltersExceptSearch(applyFilters: false);
+    await filter.loadAndApplyFilters();
+  }
+
+  if (Get.isRegistered<AddMemoriesController>()) {
+    final addMemories = Get.find<AddMemoriesController>();
+    await addMemories.loadMemoriesFromDatabase();
+    await addMemories.loadFilterData();
+  }
+
+  if (Get.isRegistered<MapControllerNew>()) {
+    try {
+      await Get.find<MapControllerNew>().reloadDisplayedMemoriesWithRetry();
+    } catch (e, st) {
+      debugPrint('[$logTag] map reload after erase: $e\n$st');
+    }
+  }
+
+  if (Get.isRegistered<MediaGpsUploadController>()) {
+    Get.delete<MediaGpsUploadController>(force: true);
+  }
+  if (Get.isRegistered<GpxKmzUploadController>()) {
+    Get.delete<GpxKmzUploadController>(force: true);
+  }
+}
 
 Future<void> refreshTrackUploadScreensPastCounts() async {
   if (Get.isRegistered<GpxKmzUploadController>()) {

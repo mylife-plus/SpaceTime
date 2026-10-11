@@ -99,7 +99,8 @@ class MemoryMediaImageProviderCache {
     if (root != null &&
         (normalized.startsWith('memory_images/') ||
             normalized.startsWith('memory_videos/') ||
-            normalized.startsWith('memory_audios/'))) {
+            normalized.startsWith('memory_audios/') ||
+            normalized.startsWith('imported_media/'))) {
       return '$root/$normalized';
     }
     return normalized;

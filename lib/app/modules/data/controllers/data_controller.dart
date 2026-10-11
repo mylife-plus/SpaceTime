@@ -7,16 +7,13 @@ import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 import 'package:spacetime/app/config/app_fonts.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
-import 'package:spacetime/app/modules/add_memories/controllers/add_memories_controller.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/modules/data/services/full_backup_service.dart';
-import 'package:spacetime/app/modules/filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/bindings/gpx_kmz_upload_binding.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/views/gpx_kmz_upload_view.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_import_deletion_refresh.dart';
 import 'package:spacetime/app/modules/media_gps_upload/bindings/media_gps_upload_binding.dart';
 import 'package:spacetime/app/modules/media_gps_upload/views/media_gps_upload_view.dart';
-import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/memories/views/mini_widgets/video_thumbnail_widget.dart';
 import 'package:spacetime/app/services/memory_db.dart';
 import 'package:spacetime/app/utils/memory_media_image_cache.dart';
@@ -373,23 +370,7 @@ class DataController extends GetxController {
       imageCache.clearLiveImages();
 
       await DatabaseHelper.instance.clearAllMemories();
-
-      if (Get.isRegistered<FilterController>()) {
-        Get.find<FilterController>().resetFilters();
-      }
-      if (Get.isRegistered<AddMemoriesController>()) {
-        await Get.find<AddMemoriesController>().loadMemoriesFromDatabase();
-      }
-      if (Get.isRegistered<MapControllerNew>() && Get.isRegistered<FilterController>()) {
-        final map = Get.find<MapControllerNew>();
-        final fc = Get.find<FilterController>();
-        await map.loadMemoriesFromDB(fc.filteredMemories.toList());
-        map.showLoadedDataOnMap();
-      }
-
-      // Refresh upload dedupe caches on open upload screens.
-      await refreshUploadDedupeCachesAfterMemoryDeletion();
-      await refreshTrackUploadScreensPastCounts();
+      await refreshConsumersAfterEraseAll();
 
       showTrSnackbar(
         'backup_snackbar_erase_success',

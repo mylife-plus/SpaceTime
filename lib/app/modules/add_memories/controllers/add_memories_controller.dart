@@ -327,8 +327,9 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
   int _displayListRebuildToken = 0;
 
-  Future<void> rebuildDisplayListAsync() async {
+  Future<void> rebuildDisplayListAsync({bool preservePagination = false}) async {
     final token = ++_displayListRebuildToken;
+    final priorLoaded = preservePagination ? loadedDisplayCount.value : 0;
     final source =
         _listUsesFilteredSource
             ? filteredMemories.toList()
@@ -338,7 +339,6 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
     displayMemories.value = sorted;
     final total = displayMemories.length;
-    loadedDisplayCount.value = 0;
     isLoadingMoreDisplay.value = false;
     _loadMoreScheduled = false;
     if (total > 0) {
@@ -346,7 +346,14 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
       // the staggered reveal below instead of paying that cost serially as
       // each card mounts — see _warmupFirstPageMedia's doc comment.
       _warmupFirstPageMedia(sorted);
-      unawaited(_growLoadedDisplayCount(memoryListPageSize, stopToken: token));
+      if (preservePagination && priorLoaded > 0) {
+        loadedDisplayCount.value = priorLoaded.clamp(0, total);
+      } else {
+        loadedDisplayCount.value = 0;
+        unawaited(_growLoadedDisplayCount(memoryListPageSize, stopToken: token));
+      }
+    } else {
+      loadedDisplayCount.value = 0;
     }
   }
 
@@ -510,7 +517,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// Fast path after edit — replace one row; re-sort in background if date may have moved.
+  /// Fast path after edit — replace one row; re-sort only when date/time changed.
   void replaceInDisplayList(Map<String, dynamic> memory) {
     final memoryId = memory['id'];
     bool matchesId(Map<String, dynamic> m) {
@@ -521,14 +528,20 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     }
 
     final index = displayMemories.indexWhere(matchesId);
+    final priorSortKey =
+        index >= 0 ? MemorySort.memorySortKey(displayMemories[index]) : null;
     if (index >= 0) {
       displayMemories[index] = memory;
       displayMemories.refresh();
     } else {
       prependToDisplayList(memory);
+      return;
     }
-    // Date/time may have changed — re-order off the UI isolate.
-    unawaited(rebuildDisplayListAsync());
+
+    final newSortKey = MemorySort.memorySortKey(memory);
+    if (priorSortKey == newSortKey) return;
+
+    unawaited(rebuildDisplayListAsync(preservePagination: true));
   }
 
   bool get hasMoreDisplayItems =>
@@ -781,7 +794,8 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
     if (str.startsWith('memory_images/') ||
         str.startsWith('memory_videos/') ||
         str.startsWith('memory_audios/') ||
-        str.startsWith('audio_files/')) {
+        str.startsWith('audio_files/') ||
+        str.startsWith('imported_media/')) {
       return true;
     }
 

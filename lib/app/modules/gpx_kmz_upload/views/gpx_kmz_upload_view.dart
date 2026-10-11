@@ -277,6 +277,8 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
       final raw = controller.rawEntryCount.value;
       final ign = controller.ignoredEntryCount.value;
       final dup = controller.duplicateEntryCount.value;
+      final dateFiltered = controller.dateFilteredEntryCount.value;
+      final clustered = controller.clusteredEntryCount.value;
       final tot = controller.totalEntryCount.value;
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -293,12 +295,28 @@ class GpxKmzUploadView extends GetView<GpxKmzUploadController> {
               style: AppFonts.regular(16, color: red),
               textAlign: TextAlign.center,
             ),
+            if (dateFiltered > 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                trKey('gpx_date_filtered_entries_line', [dateFiltered]),
+                style: AppFonts.regular(16, color: red),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               trKey('gpx_duplicate_entries_line', [dup]),
               style: AppFonts.regular(16, color: red),
               textAlign: TextAlign.center,
             ),
+            if (clustered > 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                trKey('gpx_clustered_entries_line', [clustered]),
+                style: AppFonts.regular(16, color: red),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 6),
             Text(
               trKey('gpx_total_entries_line', [tot]),

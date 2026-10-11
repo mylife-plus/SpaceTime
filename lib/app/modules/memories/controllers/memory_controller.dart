@@ -135,6 +135,14 @@ class MemoryController extends GetxController {
     existingMentions.value = await _databaseHelper.getPopularMentions();
   }
 
+  /// Reload tag/mention/category lists from DB (e.g. after Erase All Data).
+  Future<void> reloadTagsMentionsAndCategoriesFromDatabase() async {
+    await Future.wait([
+      _loadSavedTagsAndMentions(),
+      _loadSavedCategories(),
+    ]);
+  }
+
   Future<void> fetchCurrentLocation() async {
     final token = ++_locationFetchToken;
     isFetchingLocation.value = true;
@@ -469,9 +477,14 @@ class MemoryController extends GetxController {
   ) async {
     final normalized = normalizeLocalFilePath(path);
     if (normalized.startsWith('memory_images/')) return normalized;
-    final prefix = '$appDocumentsPath/memory_images/';
-    if (normalized.startsWith(prefix)) {
-      return 'memory_images/${normalized.substring(prefix.length)}';
+    if (normalized.startsWith('imported_media/')) return normalized;
+    final imagesPrefix = '$appDocumentsPath/memory_images/';
+    if (normalized.startsWith(imagesPrefix)) {
+      return 'memory_images/${normalized.substring(imagesPrefix.length)}';
+    }
+    final importedPrefix = '$appDocumentsPath/imported_media/';
+    if (normalized.startsWith(importedPrefix)) {
+      return 'imported_media/${normalized.substring(importedPrefix.length)}';
     }
     return null;
   }

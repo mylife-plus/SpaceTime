@@ -1206,7 +1206,8 @@ class FilterController extends GetxController {
     if (str.startsWith('memory_images/') ||
         str.startsWith('memory_videos/') ||
         str.startsWith('memory_audios/') ||
-        str.startsWith('audio_files/')) {
+        str.startsWith('audio_files/') ||
+        str.startsWith('imported_media/')) {
       return true;
     }
 

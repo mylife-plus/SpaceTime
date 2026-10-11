@@ -54,6 +54,8 @@ class GpxKmzUploadController extends GetxController {
   final RxInt rawEntryCount = 0.obs;
   final RxInt ignoredEntryCount = 0.obs;
   final RxInt duplicateEntryCount = 0.obs;
+  final RxInt dateFilteredEntryCount = 0.obs;
+  final RxInt clusteredEntryCount = 0.obs;
   final RxInt totalEntryCount = 0.obs;
   final RxInt newMemoriesCount = 0.obs;
 
@@ -384,11 +386,21 @@ class GpxKmzUploadController extends GetxController {
       existingCoordinateRows: _cachedDedupeRows,
     );
 
+    final clusters = KmzImportPipeline.clusterTrackPoints(
+      filteredByDate,
+      minT,
+      minM,
+    );
+
     rawEntryCount.value = _cachedRawPointCount;
     // Ignored = ignore rules only. Date range affects new memories.
     // Duplicate entries = per-point DB matches (stable when clustering changes).
     ignoredEntryCount.value = _cachedIgnoredByRules;
     duplicateEntryCount.value = _lastStats!.duplicateEntries;
+    dateFilteredEntryCount.value =
+        (_cachedFilteredPoints.length - filteredByDate.length).clamp(0, 1 << 30);
+    clusteredEntryCount.value =
+        (filteredByDate.length - clusters.length).clamp(0, 1 << 30);
     totalEntryCount.value = (rawEntryCount.value -
             ignoredEntryCount.value -
             duplicateEntryCount.value)
@@ -411,6 +423,8 @@ class GpxKmzUploadController extends GetxController {
     rawEntryCount.value = 0;
     ignoredEntryCount.value = 0;
     duplicateEntryCount.value = 0;
+    dateFilteredEntryCount.value = 0;
+    clusteredEntryCount.value = 0;
     totalEntryCount.value = 0;
     newMemoriesCount.value = 0;
   }
@@ -764,6 +778,15 @@ class GpxKmzUploadController extends GetxController {
         () => KmzIgnoreRuleEditorView(inspect: kmzInspect.value!),
       );
       if (rule != null) {
+        final duplicate = ignoreRules.any(rule.isSemanticallySameAs);
+        if (duplicate) {
+          showTrSnackbar(
+            'gpx_ignore_snackbar_duplicate_rule',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          return;
+        }
         ignoreRules.add(rule);
         await runPreview();
       }

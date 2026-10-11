@@ -42,6 +42,19 @@ class KmzIgnoreRule {
         .toList();
   }
 
+  /// Same tag, condition, tag key, and normalized value set as [other].
+  bool isSemanticallySameAs(KmzIgnoreRule other) {
+    if (tag != other.tag || condition != other.condition) return false;
+    final aKey = (tagKey ?? '').trim().toLowerCase();
+    final bKey = (other.tagKey ?? '').trim().toLowerCase();
+    if (aKey != bKey) return false;
+    final aVals =
+        parsedValues().map((v) => v.toLowerCase()).toSet();
+    final bVals =
+        other.parsedValues().map((v) => v.toLowerCase()).toSet();
+    return aVals.length == bVals.length && aVals.containsAll(bVals);
+  }
+
   static List<KmzIgnoreCondition> conditionsForTag(KmzIgnoreTagKey tag) {
     switch (tag) {
       case KmzIgnoreTagKey.styleUrl:
