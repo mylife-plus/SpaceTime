@@ -715,6 +715,8 @@
   "text_activate_background_refresh_in_settings_general_bac": "Activez l'actualisation en arrière-plan dans Paramètres → Général → Actualisation de l'application en arrière-plan\n\nSinon, le téléchargement des tuiles peut s'annuler après ~3 minutes en arrière-plan.",
   "text_allow": "Autoriser",
   "text_allow_battery_unrestricted_for_tile_download": "Autorisez une utilisation illimitée de la batterie pour que le téléchargement des tuiles de carte se fasse de manière fiable.\n\nÀ l'écran suivant, choisissez Autoriser ou définissez Batterie sur Sans restriction pour SpaceTime.",
+  "text_allow_notifications_for_tile_download": "Autorisez les notifications pour que les tuiles de carte puissent continuer à se télécharger en arrière-plan et pour voir la progression.\n\nÀ l'écran suivant, appuyez sur Autoriser pour SpaceTime.",
+  "text_notifications_required_title": "Notifications requises",
   "text_activefiltercount_filter_activefiltercount_1": "$1 filtre$2 appliqués",
   "text_add": "ajouter",
   "text_add_new": "Ajouter un nouveau",

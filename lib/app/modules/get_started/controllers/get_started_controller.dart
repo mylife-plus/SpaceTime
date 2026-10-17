@@ -84,6 +84,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   // Android battery optimization gating (unrestricted battery for tile download)
   Completer<bool>? _waitingForBatteryOptimizationCompleter;
   bool _batteryOptimizationPopupShowing = false;
+  bool _notificationPopupShowing = false;
 
   /// Shown below Start after the one-time B.A.R. dialog was seen and refresh is still off.
   final RxBool iosBackgroundRefreshBannerVisible = false.obs;
@@ -1008,6 +1009,113 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     return granted;
   }
 
+  /// Explains why notifications are needed, then the caller requests the OS prompt.
+  Future<bool> _showNotificationPermissionPopup() async {
+    if (_notificationPopupShowing) return false;
+
+    _notificationPopupShowing = true;
+    final uiController = Get.find<UiController>();
+    final isDark = uiController.darkMode.value;
+    final bgColor = isDark
+        ? uiController.darkSurfaceColor
+        : uiController.getLightModeBackgroundColor(uiController.mainColor.value);
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final contentColor = isDark ? Colors.white70 : Colors.black54;
+    final ignoreColor = isDark ? Colors.white70 : Colors.grey.shade600;
+    final accentColor = uiController.currentMainColor;
+
+    try {
+      final completer = Completer<bool>();
+      Get.dialog(
+        AlertDialog(
+          actionsAlignment: MainAxisAlignment.center,
+          backgroundColor: bgColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
+              width: 1,
+            ),
+          ),
+          title: SizedBox(
+            width: double.infinity,
+            child: Text(
+              'text_notifications_required_title'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: titleColor,
+              ),
+            ),
+          ),
+          content: SizedBox(
+            width: double.infinity,
+            child: Text(
+              'text_allow_notifications_for_tile_download'.tr,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'KumbhSans',
+                fontSize: 14,
+                height: 1.35,
+                color: contentColor,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (Get.isDialogOpen != true) return;
+                Get.back();
+                if (!completer.isCompleted) completer.complete(false);
+              },
+              child: Text(
+                'text_not_now'.tr,
+                style: TextStyle(
+                  fontFamily: 'KumbhSans',
+                  color: ignoreColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Get.back();
+                if (!completer.isCompleted) completer.complete(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accentColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: Text(
+                'text_allow'.tr,
+                style: TextStyle(
+                  fontFamily: 'KumbhSans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+      );
+
+      return await completer.future;
+    } finally {
+      _notificationPopupShowing = false;
+    }
+  }
+
   /// After pause/relaunch: if a partial mbtiles download exists, continue it
   /// automatically and wire UI listeners — do not force the user to tap Start
   /// again (and never wipe progress).
@@ -1134,21 +1242,36 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       debugPrint('[GetStartedController] 🔔 Notification status: $notificationStatus');
 
       if (!notificationStatus.isGranted) {
-        debugPrint('[GetStartedController] 🔔 Requesting notification permission...');
-        final result = await Permission.notification.request();
-        debugPrint('[GetStartedController] 🔔 Notification permission result: $result');
-
-        if (!result.isGranted && Platform.isAndroid) {
-          // Android FGS / UIDT cannot keep a multi-GB download alive without a
-          // notification. Block start so the user can grant it from Settings.
+        debugPrint('[GetStartedController] 🔔 Showing notification info popup...');
+        final userAccepted = await _showNotificationPermissionPopup();
+        if (!userAccepted) {
+          debugPrint('[GetStartedController] User declined notification info prompt');
+          if (Platform.isAndroid) {
+            // Android FGS / UIDT cannot keep a multi-GB download alive without a
+            // notification. Block start so the user can grant it from Settings.
+            hasError.value = true;
+            errorMessage.value =
+                'Notifications are required so map tiles can download in the background.';
+            _setStatusText('get_started_status_checking_permissions');
+            return;
+          }
+        } else {
+          debugPrint('[GetStartedController] 🔔 Requesting notification permission...');
+          final result = await Permission.notification.request();
           debugPrint(
-            '[GetStartedController] ❌ Notification permission required for Android background download',
+            '[GetStartedController] 🔔 Notification permission result: $result',
           );
-          hasError.value = true;
-          errorMessage.value =
-              'Notifications are required so map tiles can download in the background.';
-          _setStatusText('get_started_status_checking_permissions');
-          return;
+
+          if (!result.isGranted && Platform.isAndroid) {
+            debugPrint(
+              '[GetStartedController] ❌ Notification permission required for Android background download',
+            );
+            hasError.value = true;
+            errorMessage.value =
+                'Notifications are required so map tiles can download in the background.';
+            _setStatusText('get_started_status_checking_permissions');
+            return;
+          }
         }
       }
 

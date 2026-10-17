@@ -716,6 +716,8 @@
   "text_activate_background_refresh_in_settings_general_bac": "Activate background refresh in Settings → General → Background App Refresh\n\nOtherwise the tile download may cancel after ~3 minutes in background.",
   "text_allow": "Allow",
   "text_allow_battery_unrestricted_for_tile_download": "Allow unrestricted battery usage so map tiles can download reliably.\n\nOn the next screen, choose Allow or set Battery to Unrestricted for SpaceTime.",
+  "text_allow_notifications_for_tile_download": "Allow notifications so map tiles can keep downloading in the background and you can see download progress.\n\nOn the next screen, tap Allow for SpaceTime.",
+  "text_notifications_required_title": "Notifications required",
   "text_activefiltercount_filter_activefiltercount_1": "$1 filter$2 applied",
   "text_add": "add",
   "text_add_new": "Add new",

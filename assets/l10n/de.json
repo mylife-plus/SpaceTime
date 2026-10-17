@@ -693,6 +693,8 @@
   "text_activate_background_refresh_in_settings_general_bac": "Aktivieren Sie die Hintergrundaktualisierung unter Einstellungen → Allgemein → Hintergrund-App-Aktualisierung\n\nAndernfalls kann der Kachel-Download nach ~3 Minuten im Hintergrund abgebrochen werden.",
   "text_allow": "Zulassen",
   "text_allow_battery_unrestricted_for_tile_download": "Erlauben Sie uneingeschränkte Akkunutzung, damit Kartenkacheln zuverlässig heruntergeladen werden können.\n\nWählen Sie auf dem nächsten Bildschirm Zulassen oder stellen Sie Akku auf Uneingeschränkt für SpaceTime ein.",
+  "text_allow_notifications_for_tile_download": "Erlauben Sie Benachrichtigungen, damit Kartenkacheln im Hintergrund weiter heruntergeladen werden und Sie den Fortschritt sehen können.\n\nTippen Sie auf dem nächsten Bildschirm auf Zulassen für SpaceTime.",
+  "text_notifications_required_title": "Benachrichtigungen erforderlich",
   "text_activefiltercount_filter_activefiltercount_1": "$1 Filter$2 angewendet",
   "text_add": "hinzufügen",
   "text_add_new": "Neu hinzufügen",
