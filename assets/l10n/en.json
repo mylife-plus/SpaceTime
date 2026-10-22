@@ -1206,6 +1206,7 @@
   "mbtiles_status_ready_to_download": "Ready to download",
   "mbtiles_status_requesting_storage_permission": "Requesting storage permission...",
   "mbtiles_status_resuming": "Resuming download...",
+  "mbtiles_status_reconnecting": "Reconnecting… download continues in background",
   "mbtiles_status_starting_download": "Starting download...",
   "offline_map_error_clear_failed": "Failed to clear data: $1",
   "offline_map_error_download_failed": "Download failed: $1",

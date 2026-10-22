@@ -1448,13 +1448,18 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         return;
       }
 
-      // Trust the service value. It is already monotonic during a run, and
-      // intentionally resets after a wipe/restart — Get Started must follow
-      // that reset or the bar stays stuck (e.g. 34% while disk is at 0).
+      // Service is monotonic, but never let UI % drop while bytes are still
+      // growing (reconnect used to flash 3% → 0.1% with GB still at 0.02).
       final progress = _mbtilesDownloadService!.downloadProgress.value;
-      final next = (progress >= 0.0 && progress <= 1.0)
+      final serviceBytes =
+          _mbtilesDownloadService!.downloadedBytes.value;
+      var next = (progress >= 0.0 && progress <= 1.0)
           ? progress
           : downloadProgress.value;
+      if (next < downloadProgress.value &&
+          (serviceBytes > 64 * 1024 || downloadProgress.value > 0.001)) {
+        next = downloadProgress.value;
+      }
       if (downloadProgress.value != next) {
         downloadProgress.value = next;
         debugPrint('[GetStartedController] 📊 Download progress: ${(next * 100).toStringAsFixed(1)}%');

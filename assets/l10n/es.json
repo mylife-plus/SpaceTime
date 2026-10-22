@@ -1186,6 +1186,7 @@
   "mbtiles_status_ready_to_download": "Listo para descargar",
   "mbtiles_status_requesting_storage_permission": "Solicitando permiso de almacenamiento...",
   "mbtiles_status_resuming": "Reanudando descarga...",
+  "mbtiles_status_reconnecting": "Reconectando… la descarga continúa en segundo plano",
   "mbtiles_status_starting_download": "Iniciando descarga...",
   "offline_map_error_clear_failed": "No se pudieron borrar los datos: $1",
   "offline_map_error_download_failed": "Error en la descarga: $1",

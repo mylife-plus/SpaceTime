@@ -1202,6 +1202,7 @@
   "mbtiles_status_ready_to_download": "Prêt à télécharger",
   "mbtiles_status_requesting_storage_permission": "Demande d’autorisation de stockage…",
   "mbtiles_status_resuming": "Reprise du téléchargement…",
+  "mbtiles_status_reconnecting": "Reconnexion… le téléchargement continue en arrière-plan",
   "mbtiles_status_starting_download": "Démarrage du téléchargement…",
   "offline_map_error_clear_failed": "Échec de l’effacement des données : $1",
   "offline_map_error_download_failed": "Échec du téléchargement : $1",

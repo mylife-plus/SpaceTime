@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 import 'dart:math';
@@ -104,7 +105,46 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     if (state == AppLifecycleState.resumed && controller != null) {
       // App resumed from background (possibly from settings)
       controller!.checkPermissionsAfterResume();
+      // Gray map until pan: local tile server may have died, and Mapbox GL
+      // needs a camera nudge to repaint the platform view.
+      unawaited(_ensureTileServerAndRefreshMapAfterResume());
     }
+  }
+
+  Future<void> _ensureTileServerAndRefreshMapAfterResume() async {
+    try {
+      final server = MbtilesServerService.instance;
+      final previousUrl = _serverUrl ?? server.serverUrl;
+
+      // Prefer in-memory path; avoid prefs/file IO on every resume.
+      var path = MbtilesDownloadService.instance.getLocalMbtilesPath();
+      if (path == null || path.isEmpty) {
+        await MbtilesDownloadService.instance.isMbtilesDownloaded();
+        path = MbtilesDownloadService.instance.getLocalMbtilesPath();
+      }
+
+      if (path != null && path.isNotEmpty) {
+        final url = await server.ensureServerRunning(path);
+        // Only update URL if the server actually moved ports. Changing
+        // `_serverUrl` rebuilds MapWidget and feels like a full reload +
+        // can drop location centering mid-flight.
+        if (url != null &&
+            mounted &&
+            previousUrl != null &&
+            url != previousUrl) {
+          setState(() => _serverUrl = url);
+        } else if (url != null && _serverUrl == null && mounted) {
+          setState(() => _serverUrl = url);
+        }
+      }
+    } catch (e) {
+      debugPrint('[MapViewWidgetNew] Resume tile-server ensure failed: $e');
+    }
+
+    final map = controller;
+    if (map == null || !map.isMapReady.value) return;
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await map.refreshMapSurfaceAfterResume();
   }
 
   /// Initialize local tile server before map creation

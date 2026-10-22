@@ -205,6 +205,8 @@ class MapControllerNew extends GetxController {
       if (hasPermission) {
         hasLocationPermission.value = true;
 
+          debugPrint('[MapControllerNew] 🟢 to Current Location');
+
         await _getCurrentLocation();
 
         return;
@@ -213,18 +215,29 @@ class MapControllerNew extends GetxController {
           // currentLocation.value = mapbox.Position(10.4515, 51.1657);
           // Update current zoom level from MapboxZoomHelper
           // currentZoom.value = MapboxZoomHelper().currentZoomAfterLocation.value;
-
-          await mapboxMap!.flyTo(
-            mapbox.CameraOptions(
-              center: mapbox.Point(
+          debugPrint('[MapControllerNew] 🟦 to Europe Location');
+     await mapboxMap!.setCamera(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
                 coordinates: mapbox.Position(10.4515, 51.1657),
               ),
-              zoom: 2,
-              bearing: 0,
-              pitch: 0,
-            ),
-            mapbox.MapAnimationOptions(duration: 1500),
-          );
+          zoom: 2,
+          bearing: 0,
+          pitch: 0,
+        ),
+      );
+
+          // await mapboxMap!.flyTo(
+          //   mapbox.CameraOptions(
+          //     center: mapbox.Point(
+          //       coordinates: mapbox.Position(10.4515, 51.1657),
+          //     ),
+          //     zoom: 2,
+          //     bearing: 0,
+          //     pitch: 0,
+          //   ),
+          //   mapbox.MapAnimationOptions(duration: 1500),
+          // );
         } catch (e) {
           debugPrint('[MapControllerNew] ❌ Error moving camera: $e');
         }
@@ -540,7 +553,16 @@ class MapControllerNew extends GetxController {
   /// Refresh current location
   Future<void> refreshLocation({bool? callSetCamera = null}) async {
     try {
-      //  ..
+      await mapboxMap!.setCamera(
+        mapbox.CameraOptions(
+          center: mapbox.Point(
+                coordinates: mapbox.Position(currentLocation.value!.longitude, currentLocation.value!.latitude),
+              ),
+          zoom: 2,
+          bearing: 0,
+          pitch: 0,
+        ),
+      );
     } catch (e) {
       debugPrint('[MapControllerNew] Error refreshing location: $e');
     }
@@ -576,6 +598,35 @@ class MapControllerNew extends GetxController {
       debugPrint(
         '[MapControllerNew] Error checking permissions after resume: $e',
       );
+    }
+  }
+
+  /// Nudge Mapbox to repaint after background → foreground (avoids gray map
+  /// until the user taps/drags). Tiny zoom delta forced a frame; then restore.
+  Future<void> refreshMapSurfaceAfterResume() async {
+    if (mapboxMap == null || !isMapReady.value) return;
+    try {
+      final cam = await mapboxMap!.getCameraState();
+      final zoom = cam.zoom;
+      await mapboxMap!.setCamera(
+        mapbox.CameraOptions(
+          center: cam.center,
+          zoom: zoom + 0.0001,
+          bearing: cam.bearing,
+          pitch: cam.pitch,
+        ),
+      );
+      await mapboxMap!.setCamera(
+        mapbox.CameraOptions(
+          center: cam.center,
+          zoom: zoom,
+          bearing: cam.bearing,
+          pitch: cam.pitch,
+        ),
+      );
+      debugPrint('[MapControllerNew] 🎨 Map surface refreshed after resume');
+    } catch (e) {
+      debugPrint('[MapControllerNew] ⚠️ Map surface refresh failed: $e');
     }
   }
 
@@ -1837,30 +1888,48 @@ class MapControllerNew extends GetxController {
       return;
     }
 
-    // 2) Fallback to current location if available
-    if (hasLocationPermission.value && currentLocation.value != null) {
-      final pos = currentLocation.value!;
-      final zoom = _minZoom.toDouble();
-      currentZoom.value = zoom;
+    // 2) No memories: globe at the same zoomed-out level (zoom 2), centered on
+    //    the user's current location when location is enabled.
+    double? userLat;
+    double? userLng;
+    if (hasLocationPermission.value) {
+      final pos = currentLocation.value;
+      if (pos != null) {
+        userLat = pos.latitude;
+        userLng = pos.longitude;
+      } else {
+        // Location may not have resolved yet on a cold start — use the
+        // last known fix (instant, no GPS wait).
+        try {
+          final last = await Geolocator.getLastKnownPosition();
+          if (last != null) {
+            userLat = last.latitude;
+            userLng = last.longitude;
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (userLat != null && userLng != null) {
+      const double globeZoom = 2.0;
+      currentZoom.value = globeZoom;
 
       await mapboxMap!.setCamera(
         mapbox.CameraOptions(
-          center: mapbox.Point(
-            coordinates: mapbox.Position(pos.longitude!, pos.latitude!),
-          ),
-          zoom: 6,
+          center: mapbox.Point(coordinates: mapbox.Position(userLng, userLat)),
+          zoom: globeZoom,
         ),
       );
 
       debugPrint(
-        '[MapControllerNew] ✅ Default camera: current location at (${pos.latitude}, ${pos.longitude}) with zoom $zoom',
+        '[MapControllerNew] ✅ Default camera: current location at ($userLat, $userLng) with globe zoom $globeZoom',
       );
       return;
     }
 
-    // 3) Germany fallback
-    const double fallbackLat = 51.1657;
-    const double fallbackLng = 10.4515;
+    // 3) Location unavailable: Europe at the same zoomed-out level.
+    const double fallbackLat = 50.0;
+    const double fallbackLng = 15.0;
 
     await mapboxMap!.setCamera(
       mapbox.CameraOptions(
@@ -1872,7 +1941,7 @@ class MapControllerNew extends GetxController {
     );
 
     debugPrint(
-      '[MapControllerNew] ✅ Default camera: Germany fallback at ($fallbackLat, $fallbackLng) with zoom 5',
+      '[MapControllerNew] ✅ Default camera: Europe fallback at ($fallbackLat, $fallbackLng) with zoom 2',
     );
   }
 

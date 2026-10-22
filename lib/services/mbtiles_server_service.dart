@@ -28,6 +28,43 @@ class MbtilesServerService {
   /// Get the server URL
   String? get serverUrl => _isRunning ? 'http://localhost:$_port' : null;
 
+  /// Ensure the local tile server is alive (restart only if truly dead).
+  ///
+  /// Uses a cheap `/health` ping — never hit `/` (metadata SQLite) here; that
+  /// was causing multi-second lag and false restarts on a ~4.5GB MBTiles DB.
+  Future<String?> ensureServerRunning(String mbtilesPath) async {
+    if (_isRunning && _server != null && _database != null) {
+      if (await _isServerResponding()) {
+        return serverUrl;
+      }
+      debugPrint('[MbtilesServer] ⚠️ Health check failed — restarting');
+      try {
+        await stopServer();
+      } catch (_) {}
+    }
+    return startServer(mbtilesPath);
+  }
+
+  Future<bool> _isServerResponding() async {
+    HttpClient? client;
+    try {
+      client = HttpClient()..connectionTimeout = const Duration(milliseconds: 250);
+      final req = await client
+          .getUrl(Uri.parse('http://127.0.0.1:$_port/health'))
+          .timeout(const Duration(milliseconds: 250));
+      req.followRedirects = false;
+      final resp =
+          await req.close().timeout(const Duration(milliseconds: 250));
+      final ok = resp.statusCode == HttpStatus.ok;
+      await resp.drain<void>().timeout(const Duration(milliseconds: 250));
+      return ok;
+    } catch (_) {
+      return false;
+    } finally {
+      client?.close(force: true);
+    }
+  }
+
   /// Start the local tile server
   Future<String?> startServer(String mbtilesPath) async {
     if (_isRunning) {
@@ -111,6 +148,14 @@ class MbtilesServerService {
           await _serveTile(request, z, x, y);
           return;
         }
+      }
+
+      // Lightweight liveness probe (no SQLite) — used on app resume.
+      if (uri.path == '/health') {
+        request.response.statusCode = HttpStatus.ok;
+        request.response.write('ok');
+        await request.response.close();
+        return;
       }
 
       // Serve metadata for root path

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
@@ -63,6 +64,34 @@ class MbtilesDownloadService extends GetxController {
   /// or reset the bar to 0 on every retry.
   double _lastGoodProgress = 0.0;
 
+  /// Bypass [isDownloading] guard for a single re-enqueue without clearing the
+  /// flag (clearing it let status checks reset % to 0 while GB stayed).
+  bool _allowReenqueueWhileDownloading = false;
+
+  /// Stable expected size for % and GB labels. Ignores tiny/wrong Content-Length
+  /// values that briefly inflate % (e.g. 21MB / 700MB ≈ 3%).
+  int _expectedTotalBytes() {
+    final reported = totalBytes.value;
+    if (reported >= _approxExpectedBytes ~/ 2) return reported;
+    return _approxExpectedBytes;
+  }
+
+  /// Accept plugin Content-Length only when it looks like the real multi-GB file.
+  void _maybeAcceptExpectedFileSize(int size) {
+    if (size <= 0) return;
+    if (size < _approxExpectedBytes ~/ 2) {
+      debugPrint(
+        '[MbtilesDownload] ⚠️ Ignoring small expectedFileSize=$size '
+        '(using ${_expectedTotalBytes()})',
+      );
+      if (totalBytes.value <= 0) {
+        totalBytes.value = _approxExpectedBytes;
+      }
+      return;
+    }
+    totalBytes.value = math.max(totalBytes.value, size);
+  }
+
   /// Maps [background_downloader] progress (including sentinels) to a stable
   /// 0–1 value for the UI. Progress is **monotonic** — a new/restarted task
   /// reporting 0% must not wipe a higher % already confirmed from disk or
@@ -86,8 +115,49 @@ class MbtilesDownloadService extends GetxController {
     return _lastGoodProgress;
   }
 
+  /// Lift % to match on-disk / downloaded bytes so the bar cannot sit at 0.1%
+  /// while the GB label already shows 0.02 GB.
+  void _liftProgressFromBytes() {
+    final bytes = math.max(downloadedBytes.value, _maxBytesSeen);
+    if (bytes < 64 * 1024) return;
+    final approx =
+        (bytes / _expectedTotalBytes()).clamp(0.0, 0.99);
+    if (approx > _lastGoodProgress) {
+      _lastGoodProgress = approx;
+      downloadProgress.value = approx;
+    } else if (downloadProgress.value < _lastGoodProgress) {
+      downloadProgress.value = _lastGoodProgress;
+    }
+  }
+
+  /// iOS only: URLSession's partial file is not visible to us, so there are no
+  /// on-disk bytes to read — derive downloaded bytes from the plugin's
+  /// progress fraction so the GB label matches the % (never 0.00 GB while the
+  /// bar moves). Monotonic. Android keeps its real on-disk byte counting.
+  void _deriveBytesFromProgressNonAndroid() {
+    if (Platform.isAndroid) return;
+    final p = _lastGoodProgress;
+    if (p <= 0) return;
+    final expected = _expectedTotalBytes();
+    final derived = (p.clamp(0.0, 1.0) * expected).round();
+    if (derived > downloadedBytes.value) {
+      downloadedBytes.value = derived;
+    }
+    if (totalBytes.value < expected) totalBytes.value = expected;
+  }
+
   void _applyProgress(double raw) {
+    final before = _lastGoodProgress;
     downloadProgress.value = _displayProgressFrom(raw);
+    _deriveBytesFromProgressNonAndroid();
+    _liftProgressFromBytes();
+    // Once real progress resumes after a network blip, drop the reconnecting label.
+    if (downloadProgress.value > before &&
+        (_statusL10nKey == 'mbtiles_status_reconnecting' ||
+            _statusL10nKey == 'mbtiles_status_resuming')) {
+      _setStatusText('mbtiles_status_downloading');
+      _ensureNormalProgressPolling();
+    }
   }
 
   /// Highest temp-file byte count observed this session (and persisted).
@@ -97,11 +167,12 @@ class MbtilesDownloadService extends GetxController {
   static const String _prefsKeyMaxPartialBytes = 'mbtiles_max_partial_bytes';
 
   void _updateGbStatusFromBytes(int bytes) {
-    final expected =
-        totalBytes.value > 0 ? totalBytes.value : _approxExpectedBytes;
+    final expected = _expectedTotalBytes();
     // Never let the GB label bounce downward mid-download.
     downloadedBytes.value = math.max(downloadedBytes.value, bytes);
-    if (totalBytes.value <= 0) totalBytes.value = expected;
+    _deriveBytesFromProgressNonAndroid();
+    if (totalBytes.value < expected) totalBytes.value = expected;
+    _liftProgressFromBytes();
     final receivedGB =
         (downloadedBytes.value / (1024 * 1024 * 1024)).toStringAsFixed(2);
     final totalGB = (expected / (1024 * 1024 * 1024)).toStringAsFixed(2);
@@ -112,10 +183,8 @@ class MbtilesDownloadService extends GetxController {
   }
 
   void _updateGbStatusFromProgress() {
-    final expected =
-        totalBytes.value > 0 ? totalBytes.value : _approxExpectedBytes;
-    final received = (downloadProgress.value * expected).round();
-    _updateGbStatusFromBytes(math.max(downloadedBytes.value, received));
+    // Prefer real bytes — deriving GB from a wrong high % inflated the label.
+    _updateGbStatusFromBytes(downloadedBytes.value);
   }
 
   Future<void> _loadMaxBytesCheckpoint() async {
@@ -144,12 +213,13 @@ class MbtilesDownloadService extends GetxController {
   }
 
   /// Native Android code truncates the temp file DOWN to [requiredStartByte]
-  /// when the file is larger. Keep resume JSON aligned with the **actively
-  /// growing** temp (most recently modified), not a stale larger leftover.
+  /// when the file is larger. Align resume JSON to the **largest** live temp
+  /// and never point requiredStartByte at a smaller file (that wiped 50MB+).
   Future<void> _protectResumeDataFromTruncation() async {
     try {
       final appDir = await getApplicationSupportDirectory();
-      final liveTemp = await _bestLiveDownloaderTemp(appDir.path);
+      final largestTemp =
+          await _bestLiveDownloaderTemp(appDir.path, minBytes: 0);
       final resumeDir =
           Directory('${appDir.path}/backgroundDownloaderResumeData');
       if (!await resumeDir.exists()) return;
@@ -164,15 +234,20 @@ class MbtilesDownloadService extends GetxController {
           var path = map['data'] as String?;
           if (path == null || path.isEmpty) continue;
 
-          // Prefer the most recently written live temp over a stale larger one.
-          if (liveTemp != null && liveTemp.path != path) {
-            debugPrint(
-              '[MbtilesDownload] 🛡️ Retargeting resume temp '
-              '${path.split('/').last} → '
-              '${liveTemp.path.split('/').last} (${liveTemp.length} bytes)',
-            );
-            path = liveTemp.path;
-            map['data'] = path;
+          // Only retarget to a LARGER temp — never shrink the resume target.
+          if (largestTemp != null && largestTemp.path != path) {
+            final currentFile = File(path);
+            final currentLen =
+                await currentFile.exists() ? await currentFile.length() : 0;
+            if (largestTemp.length > currentLen) {
+              debugPrint(
+                '[MbtilesDownload] 🛡️ Retargeting resume temp '
+                '${path.split('/').last} ($currentLen) → '
+                '${largestTemp.path.split('/').last} (${largestTemp.length})',
+              );
+              path = largestTemp.path;
+              map['data'] = path;
+            }
           }
 
           final temp = File(path);
@@ -186,14 +261,16 @@ class MbtilesDownloadService extends GetxController {
             final num v => v.toInt(),
             _ => 0,
           };
-          if (currentStart == fileLen && map['data'] == path) continue;
+          // Never lower requiredStartByte — native truncates the file to it.
+          final nextStart = math.max(currentStart, fileLen);
+          if (currentStart == nextStart && map['data'] == path) continue;
 
-          map['requiredStartByte'] = fileLen;
+          map['requiredStartByte'] = nextStart;
           map['data'] = path;
           await entity.writeAsString(jsonEncode(map));
           debugPrint(
             '[MbtilesDownload] 🛡️ Patched resume startByte '
-            '$currentStart → $fileLen',
+            '$currentStart → $nextStart',
           );
         } catch (e) {
           debugPrint('[MbtilesDownload] ⚠️ Resume protect skip: $e');
@@ -293,6 +370,11 @@ class MbtilesDownloadService extends GetxController {
     if (await finalFile.exists()) {
       best = math.max(best, await finalFile.length());
     }
+    final stablePartial =
+        File('${appDir.path}/offline_tiles/$_stablePartialName');
+    if (await stablePartial.exists()) {
+      best = math.max(best, await stablePartial.length());
+    }
 
     final resumeDir =
         Directory('${appDir.path}/backgroundDownloaderResumeData');
@@ -330,18 +412,22 @@ class MbtilesDownloadService extends GetxController {
   Future<void> _seedProgressFromPartialFileIfNeeded() async {
     try {
       final len = await _activePartialBytesOnDisk();
+      _lastLiveTempBytes = len;
       await _rememberMaxBytes(len);
       if (len <= 0) return;
 
-      final expected = totalBytes.value > 0
-          ? totalBytes.value
-          : _approxExpectedBytes;
-      final approx = (len / expected).clamp(0.0, 0.99);
+      final approx =
+          (len / _expectedTotalBytes()).clamp(0.0, 0.99);
 
       if (approx > _lastGoodProgress) {
         _lastGoodProgress = approx;
         downloadProgress.value = approx;
         _updateGbStatusFromBytes(len);
+        if (_statusL10nKey == 'mbtiles_status_reconnecting' ||
+            _statusL10nKey == 'mbtiles_status_resuming') {
+          _setStatusText('mbtiles_status_downloading');
+          _ensureNormalProgressPolling();
+        }
         debugPrint(
           '[MbtilesDownload] 📐 Seeded progress from on-disk partial: '
           '${(approx * 100).toStringAsFixed(1)}% ($len bytes)',
@@ -573,32 +659,73 @@ class MbtilesDownloadService extends GetxController {
     await _protectResumeDataFromTruncation();
   }
 
+  /// Copy the largest downloader temp to a stable path the plugin cannot
+  /// delete on task failure (failed Range resume was wiping the partial).
+  Future<({String path, int length})?> _snapshotLargestPartial() async {
+    try {
+      final appDir = await getApplicationSupportDirectory();
+      final live = await _bestLiveDownloaderTemp(appDir.path, minBytes: 64 * 1024);
+      final tilesDir = Directory('${appDir.path}/offline_tiles');
+      if (!await tilesDir.exists()) {
+        await tilesDir.create(recursive: true);
+      }
+      final stable = File('${tilesDir.path}/$_stablePartialName');
+      var bestPath = live?.path;
+      var bestLen = live?.length ?? 0;
+
+      if (await stable.exists()) {
+        final stableLen = await stable.length();
+        if (stableLen > bestLen) {
+          bestPath = stable.path;
+          bestLen = stableLen;
+        }
+      }
+
+      if (bestPath == null || bestLen < 64 * 1024) return null;
+
+      if (bestPath != stable.path) {
+        try {
+          await File(bestPath).copy(stable.path);
+          bestPath = stable.path;
+          bestLen = await stable.length();
+          debugPrint(
+            '[MbtilesDownload] 💾 Snapshotted partial → $_stablePartialName '
+            '($bestLen bytes)',
+          );
+        } catch (e) {
+          debugPrint('[MbtilesDownload] ⚠️ Snapshot copy failed: $e');
+        }
+      }
+      await _rememberMaxBytes(bestLen);
+      return (path: bestPath!, length: bestLen);
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Snapshot failed: $e');
+      return null;
+    }
+  }
+
   /// Plant [ResumeData] for [task] from the largest on-disk partial temp, then
   /// call [FileDownloader.resume] so the native worker continues with Range.
   Future<bool> _resumeFromOnDiskPartial(DownloadTask task) async {
     try {
       final appDir = await getApplicationSupportDirectory();
-      final live = await _bestLiveDownloaderTemp(
-        appDir.path,
-        minBytes: 64 * 1024,
-      );
-
-      String? tempPath = live?.path;
-      var startByte = live?.length ?? 0;
+      // Prefer our stable snapshot (survives plugin deleting its temp on fail).
+      final snap = await _snapshotLargestPartial();
+      String? tempPath = snap?.path;
+      var startByte = snap?.length ?? 0;
       String? eTag;
 
-      if (tempPath == null || startByte < 64 * 1024) {
-        // Fall back to any stored resume entry for tiles.mbtiles.
-        final existing = await _readStoredMbtilesResumeEntries(appDir.path);
-        for (final entry in existing) {
-          final f = File(entry.tempPath);
-          if (!await f.exists()) continue;
-          final len = await f.length();
-          if (len < 64 * 1024) continue;
+      // Also consider resume-dir temps; keep the largest overall.
+      final existing = await _readStoredMbtilesResumeEntries(appDir.path);
+      for (final entry in existing) {
+        final f = File(entry.tempPath);
+        if (!await f.exists()) continue;
+        final len = await f.length();
+        if (len < 64 * 1024) continue;
+        if (len > startByte) {
           tempPath = entry.tempPath;
           startByte = len;
           eTag = entry.eTag;
-          break;
         }
       }
 
@@ -606,20 +733,21 @@ class MbtilesDownloadService extends GetxController {
         return false;
       }
 
+      // Native check: eTagHeader != storedETag → fail. Null stored ETag ALWAYS
+      // fails because R2 returns an ETag on every Range response. Plant the
+      // live server ETag (HEAD) so they match.
+      final serverEtag = await _fetchServerEtag(task.url);
       await _writeResumeDataFile(
         task,
         tempPath: tempPath,
         startByte: startByte,
-        // Preserve ETag when possible. Cloudflare weak ETags (W/…) cannot
-        // resume in the plugin — then WorkManager FGS must keep the transfer
-        // alive so we never need to resume.
-        eTag: eTag,
+        eTag: serverEtag,
       );
       await _protectResumeDataFromTruncation();
       final ok = await FileDownloader().resume(task);
       debugPrint(
         '[MbtilesDownload] ▶️ resume from partial '
-        '($startByte bytes) => $ok',
+        '($startByte bytes, etag=$serverEtag) => $ok',
       );
       return ok;
     } catch (e) {
@@ -629,6 +757,31 @@ class MbtilesDownloadService extends GetxController {
   }
 
   static final RegExp _illegalPathCharacters = RegExp(r'[\\/:*?"<>|]');
+
+  /// Live ETag from the object store. Required for background_downloader resume:
+  /// Android fails with "ETag is not identical, or is weak" when stored eTag
+  /// is null/mismatched (R2 always sends ETag on Range responses).
+  Future<String?> _fetchServerEtag(String url) async {
+    final client = HttpClient();
+    try {
+      client.connectionTimeout = const Duration(seconds: 15);
+      final request = await client.headUrl(Uri.parse(url));
+      final response = await request.close();
+      await response.drain<void>();
+      final etag = response.headers.value(HttpHeaders.etagHeader);
+      debugPrint('[MbtilesDownload] 🏷️ Server ETag => $etag');
+      // Plugin rejects weak validators (W/…).
+      if (etag != null && etag.toUpperCase().startsWith('W/')) {
+        return null;
+      }
+      return etag;
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ HEAD ETag failed: $e');
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
 
   Future<void> _writeResumeDataFile(
     DownloadTask task, {
@@ -691,16 +844,23 @@ class MbtilesDownloadService extends GetxController {
   /// Enqueue [task], preferring Range resume from an existing partial.
   /// Always uses WorkManager (priority ≥ 1). Migrates old UIDT (priority 0)
   /// tasks so Xiaomi does not kill the download when the app is backgrounded.
-  Future<bool> _enqueueOrResumeMbtilesTask(DownloadTask task) async {
+  Future<bool> _enqueueOrResumeMbtilesTask(
+    DownloadTask task, {
+    bool forceRestart = false,
+  }) async {
     // Force WorkManager. If the source was UIDT, mint a new taskId so the
     // old JobScheduler job cannot be revived for the same id hash.
     final fromUidt = task.priority == 0;
-    final workTask = _asWorkManagerTask(task, newTaskId: fromUidt);
+    final workTask = _asWorkManagerTask(
+      task,
+      newTaskId: fromUidt || forceRestart,
+    );
     _backgroundTask = workTask;
     debugPrint(
       '[MbtilesDownload] 📋 Enqueue/resume WorkManager task '
       '${workTask.taskId} (priority=${workTask.priority}'
-      '${fromUidt ? ', migrated from UIDT' : ''})',
+      '${fromUidt ? ', migrated from UIDT' : ''}'
+      '${forceRestart ? ', forceRestart' : ''})',
     );
 
     FileDownloader().configureNotificationForTask(
@@ -733,8 +893,10 @@ class MbtilesDownloadService extends GetxController {
       );
       if (preferred != null) {
         final existing = preferred.task as DownloadTask;
-        // Already on WorkManager and running — leave it alone.
-        if (existing.priority != 0 &&
+        // Already on WorkManager and running — leave it alone, unless this
+        // is a forced restart of a byte-frozen zombie.
+        if (!forceRestart &&
+            existing.priority != 0 &&
             (preferred.status == TaskStatus.running ||
                 preferred.status == TaskStatus.enqueued ||
                 preferred.status == TaskStatus.waitingToRetry)) {
@@ -746,7 +908,7 @@ class MbtilesDownloadService extends GetxController {
           return true;
         }
 
-        if (existing.priority != 0) {
+        if (!forceRestart && existing.priority != 0) {
           final canResume = await FileDownloader().taskCanResume(existing);
           if (canResume) {
             await _protectResumeDataFromTruncation();
@@ -761,7 +923,7 @@ class MbtilesDownloadService extends GetxController {
           }
         }
 
-        // Cancel stuck UIDT (priority 0) / failed tasks — keep temps.
+        // Cancel stuck / zombie / failed tasks — keep temps.
         try {
           await FileDownloader().cancelTaskWithId(existing.taskId);
         } catch (_) {}
@@ -777,7 +939,31 @@ class MbtilesDownloadService extends GetxController {
       return true;
     }
 
+    // Never start a brand-new temp from byte 0 when a real partial exists —
+    // that was deleting multi-MB progress and looping Resuming↔Reconnecting.
+    try {
+      final appDir = await getApplicationSupportDirectory();
+      final partial = await _bestLiveDownloaderTemp(
+        appDir.path,
+        minBytes: 64 * 1024,
+      );
+      if (partial != null && partial.length >= 1024 * 1024) {
+        debugPrint(
+          '[MbtilesDownload] ⚠️ Resume failed but partial exists '
+          '(${partial.length} bytes) — retry plant+resume, no fresh 0% enqueue',
+        );
+        await Future<void>.delayed(const Duration(seconds: 1));
+        if (await _resumeFromOnDiskPartial(workTask)) {
+          return true;
+        }
+        return false;
+      }
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ partial guard: $e');
+    }
+
     final enqueued = await FileDownloader().enqueue(workTask);
+    _lastEnqueueAt = DateTime.now();
     debugPrint(
       '[MbtilesDownload] 📋 Fresh WorkManager enqueue '
       '(priority=${workTask.priority}) => $enqueued',
@@ -853,6 +1039,11 @@ class MbtilesDownloadService extends GetxController {
   DownloadTask? _backgroundTask;
   Timer? _androidProgressPollTimer;
   bool _downloaderConfigured = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _wasOffline = false;
+  bool _fastProgressPolling = false;
+  // Was 8s — flipped UI to "Reconnecting" constantly and looked stuck.
+  static const Duration _quietProgressHint = Duration(seconds: 45);
 
   /// Stall watchdog: if progress hasn't moved for [_stallTimeout] while
   /// `isDownloading` is true, try an auto-resume first, then surface a
@@ -861,8 +1052,44 @@ class MbtilesDownloadService extends GetxController {
   /// 15 minutes: a ~4.5GB R2 download routinely goes quiet for several minutes
   /// (radio sleep, CDN pause, MIUI throttling) without being truly dead.
   static const Duration _stallTimeout = Duration(minutes: 15);
+  /// After a network blip the native task often stays `running` but transfers
+  /// nothing. Force cancel+Range-resume well before the 15min stall timeout.
+  static const Duration _zombieRunningTimeout = Duration(seconds: 60);
+
+  /// True when DB says running but the live temp looks dead (startup / reuse).
+  bool _looksLikeZombieRunning({
+    required TaskStatus status,
+    required double pluginProgress,
+  }) {
+    // iOS URLSession keeps its partial in a system temp we cannot see, so the
+    // on-disk heuristic below would always report "frozen". Android only.
+    if (!Platform.isAndroid) return false;
+    if (status != TaskStatus.running && status != TaskStatus.enqueued) {
+      return false;
+    }
+    // Near-zero plugin progress with a small/frozen temp = hung Range worker.
+    final live = _lastLiveTempBytes;
+    if (live <= 0) return true;
+    if (pluginProgress >= 0 && pluginProgress < 0.001 && live < 5 * 1024 * 1024) {
+      return true;
+    }
+    return false;
+  }
   DateTime? _lastProgressAt;
   double _lastWatchedProgress = -1;
+  /// Stall watchdog keys off on-disk bytes — plugin "progress" can tick
+  /// without the temp file growing (ghost / hung Range), which used to
+  /// keep resetting [_lastProgressAt] forever.
+  int _lastWatchedBytes = -1;
+  /// Latest temp size from a real filesystem scan (not the prefs checkpoint).
+  /// Stall must use this — [_maxBytesSeen] can stay high after a truncate and
+  /// hide a healthy smaller temp that is actively growing.
+  int _lastLiveTempBytes = 0;
+  /// Back off repeated cancel+resume so we don't loop Resuming↔Reconnecting.
+  int _stallForceAttempts = 0;
+  DateTime? _lastStallForceAt;
+  static const Duration _minStallForceGap = Duration(minutes: 3);
+  static const String _stablePartialName = 'tiles.mbtiles.partial';
 
   /// Backoff counter for silent auto-retries (no user-facing attempt count).
   int _autoResumeAttempts = 0;
@@ -883,7 +1110,9 @@ class MbtilesDownloadService extends GetxController {
   // Native auto-retries can truncate a large temp when resume metadata lags
   // (see DownloadTaskRunner.determineIfResume). We disable them and resume
   // ourselves after patching requiredStartByte to match the real file size.
-  static const int _downloadRetries = 0;
+  // Native retries help after transient Range failures; we still own
+  // long-gap recovery ourselves so the UI does not thrash.
+  static const int _downloadRetries = 3;
 
   /// Expected mbtiles size (~4.5 GB for zoom 11) used when Content-Length is unknown.
   static const int _approxExpectedBytes = 4831838208; // 4.5 * 1024^3
@@ -896,17 +1125,35 @@ class MbtilesDownloadService extends GetxController {
     return '${appDir.path}/offline_tiles/$LOCAL_MBTILES_FILENAME';
   }
 
-  void _startProgressPolling() {
-    // Fresh watchdog window for this attempt — avoid a stale timestamp from
-    // a previous stalled/retried download immediately tripping the watchdog.
-    _lastProgressAt = DateTime.now();
-    _lastWatchedProgress = downloadProgress.value;
+  void _startProgressPolling({bool fast = false, bool resetWatchdog = true}) {
+    // Only reset the stall clock on a genuine new attempt — switching to
+    // "fast" polling on quiet UI used to zero [_lastProgressAt] every 8s
+    // and permanently hide zombies (file frozen, % never recovers).
+    if (resetWatchdog || _lastProgressAt == null) {
+      _lastProgressAt = DateTime.now();
+      _lastWatchedProgress = downloadProgress.value;
+      _lastWatchedBytes =
+          math.max(downloadedBytes.value, _maxBytesSeen);
+    }
+    _fastProgressPolling = fast;
     _androidProgressPollTimer?.cancel();
     _androidProgressPollTimer = Timer.periodic(
-      const Duration(seconds: 2),
+      Duration(seconds: fast ? 1 : 2),
       (_) => unawaited(_syncProgressFromDatabaseAndFile()),
     );
     unawaited(_syncProgressFromDatabaseAndFile());
+  }
+
+  /// Poll every 1s while reconnecting so % can catch up from on-disk bytes.
+  void _ensureFastProgressPolling() {
+    if (_fastProgressPolling && _androidProgressPollTimer != null) return;
+    _startProgressPolling(fast: true, resetWatchdog: false);
+  }
+
+  void _ensureNormalProgressPolling() {
+    if (!_fastProgressPolling && _androidProgressPollTimer != null) return;
+    if (!isDownloading.value || isCompleted.value) return;
+    _startProgressPolling(fast: false, resetWatchdog: false);
   }
 
   /// Back-compat alias used throughout this file.
@@ -915,6 +1162,7 @@ class MbtilesDownloadService extends GetxController {
   void _stopAndroidProgressPolling() {
     _androidProgressPollTimer?.cancel();
     _androidProgressPollTimer = null;
+    _fastProgressPolling = false;
   }
 
   /// When the native worker cannot post to the Flutter background channel
@@ -971,7 +1219,10 @@ class MbtilesDownloadService extends GetxController {
         // watching, the download is alive even if our file scan missed it.
         final pluginReportsProgress =
             record.progress > 0.0 && record.progress > _emptyDiskBaselineProgress;
-        if (onDisk < 64 * 1024 &&
+        // Android only: on iOS the URLSession temp is not in our sandbox dir,
+        // so "empty disk" is always true and this wiped healthy downloads.
+        if (Platform.isAndroid &&
+            onDisk < 64 * 1024 &&
             !pluginReportsProgress &&
             // Never wipe a download that already confirmed multi-MB progress
             // on disk earlier this session / via prefs — that was resetting
@@ -1011,8 +1262,16 @@ class MbtilesDownloadService extends GetxController {
         await _seedProgressFromPartialFileIfNeeded();
       }
 
+      // iOS: keep the GB label in step with the % on every poll tick.
+      if (!Platform.isAndroid &&
+          downloadProgress.value > 0 &&
+          _statusL10nKey != 'mbtiles_status_reconnecting' &&
+          _statusL10nKey != 'mbtiles_status_resuming') {
+        _updateGbStatusFromBytes(downloadedBytes.value);
+      }
+
       if (record.expectedFileSize > 0) {
-        totalBytes.value = record.expectedFileSize;
+        _maybeAcceptExpectedFileSize(record.expectedFileSize);
         _updateGbStatusFromProgress();
       }
 
@@ -1026,13 +1285,13 @@ class MbtilesDownloadService extends GetxController {
       }
 
       if (record.status == TaskStatus.failed && !hasError.value) {
-        debugPrint(
-          '[MbtilesDownload] 📦 Preferred task failed — silent auto-retry',
-        );
-        if (await _tryAutoResume(reason: 'db_poll_failed')) {
-          return;
+        // _scheduleSilentRetry no-ops if already scheduled — avoid log spam.
+        if (!_silentRetryScheduled) {
+          debugPrint(
+            '[MbtilesDownload] 📦 Preferred task failed — silent auto-retry',
+          );
+          unawaited(_scheduleSilentRetry(reason: 'db_poll_failed'));
         }
-        unawaited(_scheduleSilentRetry(reason: 'db_poll_failed'));
         return;
       }
 
@@ -1138,55 +1397,187 @@ class MbtilesDownloadService extends GetxController {
     return preferred;
   }
 
-  /// Called on every poll tick. If progress hasn't moved for [_stallTimeout]
-  /// while still marked as downloading, try resume / silent retry — never
-  /// show a numbered "retry N of M" message to the user.
+  /// Called on every poll tick. Stall = live temp file not growing.
+  /// Uses [_lastLiveTempBytes] (filesystem), not [_maxBytesSeen] — a stale
+  /// high checkpoint previously hid a healthy smaller temp and force-resumed
+  /// mid-download (truncating tens of MB).
   void _checkForStall() {
     if (!isDownloading.value || hasError.value || isCompleted.value) return;
 
-    if (downloadProgress.value != _lastWatchedProgress) {
+    // iOS has no visible temp file — watch plugin progress events instead.
+    if (!Platform.isAndroid) {
+      _checkForStallIos();
+      return;
+    }
+
+    final bytesNow = _lastLiveTempBytes;
+    if (bytesNow > _lastWatchedBytes) {
+      _lastWatchedBytes = bytesNow;
       _lastWatchedProgress = downloadProgress.value;
       _lastProgressAt = DateTime.now();
+      _stallForceAttempts = 0;
+      // Bytes moving — leave Resuming/Reconnecting immediately.
+      if (_statusL10nKey == 'mbtiles_status_reconnecting' ||
+          _statusL10nKey == 'mbtiles_status_resuming') {
+        _updateGbStatusFromBytes(bytesNow);
+      }
+      _ensureNormalProgressPolling();
       return;
     }
 
     final lastProgressAt = _lastProgressAt;
     if (lastProgressAt == null) {
       _lastProgressAt = DateTime.now();
+      _lastWatchedBytes = bytesNow;
       return;
     }
 
-    if (DateTime.now().difference(lastProgressAt) < _stallTimeout) return;
+    final quietFor = DateTime.now().difference(lastProgressAt);
+    // Poll faster while quiet, but keep the GB status — flipping to
+    // "Reconnecting"/"Resuming" every few seconds is what users see as stuck.
+    if (quietFor >= _quietProgressHint) {
+      _ensureFastProgressPolling();
+      if (_lastLiveTempBytes > 0) {
+        _updateGbStatusFromBytes(_lastLiveTempBytes);
+      }
+    }
+
+    // Back off: 25s, then 45s, 90s… so we never thrash Resuming↔Reconnecting.
+    final zombieTimeout = Duration(
+      seconds: _zombieRunningTimeout.inSeconds *
+          (1 << math.min(_stallForceAttempts, 3)),
+    );
+    final lastForce = _lastStallForceAt;
+    final sinceForce = lastForce == null
+        ? const Duration(days: 1)
+        : DateTime.now().difference(lastForce);
+    if (quietFor >= zombieTimeout && sinceForce >= _minStallForceGap) {
+      debugPrint(
+        '[MbtilesDownload] 🧟 No live-temp growth for ${quietFor.inSeconds}s '
+        '(live=$bytesNow, maxSeen=$_maxBytesSeen, attempt=$_stallForceAttempts) '
+        '— forcing resume',
+      );
+      unawaited(_recoverFromStallOrFail(force: true));
+      return;
+    }
+
+    if (quietFor < _stallTimeout) return;
+
+    if (sinceForce < _minStallForceGap) return;
 
     debugPrint(
-      '[MbtilesDownload] ⏱️ Stall detected — no progress for '
-      '${_stallTimeout.inMinutes}min',
+      '[MbtilesDownload] ⏱️ Stall detected — no live-temp growth for '
+      '${_stallTimeout.inMinutes}min (live=$bytesNow)',
     );
-    unawaited(_recoverFromStallOrFail());
+    unawaited(_recoverFromStallOrFail(force: true));
   }
 
-  Future<void> _recoverFromStallOrFail() async {
-    if (!isDownloading.value || hasError.value || isCompleted.value) return;
-
-    if (await _tryAutoResume(reason: 'stall')) {
+  /// iOS stall watchdog. URLSession keeps its partial in a system temp, so we
+  /// cannot see bytes on disk; the only reliable liveness signal is the
+  /// plugin's progress events (see the progress handler, which bumps
+  /// [_lastProgressAt] on iOS). Recovery uses pause+resume (URLSession
+  /// resumeData) and only runs while the device is online.
+  void _checkForStallIos() {
+    final lastProgressAt = _lastProgressAt;
+    if (lastProgressAt == null) {
       _lastProgressAt = DateTime.now();
       return;
     }
 
-    debugPrint('[MbtilesDownload] ⏱️ Stall recovery — scheduling silent retry');
+    if (downloadProgress.value > _lastWatchedProgress) {
+      _lastWatchedProgress = downloadProgress.value;
+      _lastProgressAt = DateTime.now();
+      _stallForceAttempts = 0;
+      _ensureNormalProgressPolling();
+      return;
+    }
+
+    final quietFor = DateTime.now().difference(lastProgressAt);
+    if (quietFor >= const Duration(seconds: 15)) {
+      _ensureFastProgressPolling();
+      if (_statusL10nKey != 'mbtiles_status_reconnecting' &&
+          _statusL10nKey != 'mbtiles_status_resuming') {
+        _setStatusText('mbtiles_status_reconnecting');
+      }
+    }
+
+    // Nothing to recover while offline — URLSession resumes by itself once the
+    // network is back, and our connectivity listener nudges it.
+    if (_wasOffline) return;
+
+    final zombieTimeout = Duration(
+      seconds: 60 * (1 << math.min(_stallForceAttempts, 3)),
+    );
+    final lastForce = _lastStallForceAt;
+    final sinceForce = lastForce == null
+        ? const Duration(days: 1)
+        : DateTime.now().difference(lastForce);
+    if (quietFor >= zombieTimeout && sinceForce >= const Duration(seconds: 60)) {
+      debugPrint(
+        '[MbtilesDownload] 🍎 iOS: no progress for ${quietFor.inSeconds}s '
+        '(attempt=$_stallForceAttempts) — pause+resume',
+      );
+      unawaited(_recoverFromStallOrFail(force: true));
+    }
+  }
+
+  Future<void> _recoverFromStallOrFail({bool force = false}) async {
+    if (!isDownloading.value || hasError.value || isCompleted.value) return;
+
+    if (!Platform.isAndroid) {
+      _lastStallForceAt = DateTime.now();
+      _stallForceAttempts++;
+      _lastProgressAt = DateTime.now();
+      if (await _tryAutoResume(reason: 'stall', force: force)) return;
+      unawaited(_scheduleSilentRetry(reason: 'stall'));
+      return;
+    }
+
+    // Re-scan once — if bytes grew during the quiet window, abort force.
+    await _seedProgressFromPartialFileIfNeeded();
+    if (_lastLiveTempBytes > _lastWatchedBytes) {
+      debugPrint(
+        '[MbtilesDownload] ✅ Live temp grew before force '
+        '(${_lastWatchedBytes} → $_lastLiveTempBytes) — skip',
+      );
+      _lastWatchedBytes = _lastLiveTempBytes;
+      _lastProgressAt = DateTime.now();
+      _stallForceAttempts = 0;
+      _updateGbStatusFromBytes(_lastLiveTempBytes);
+      return;
+    }
+
+    _lastStallForceAt = DateTime.now();
+    _stallForceAttempts++;
+    // Reset quiet clock so we don't immediately re-enter while resume runs.
     _lastProgressAt = DateTime.now();
+
+    if (await _tryAutoResume(reason: 'stall', force: force)) {
+      return;
+    }
+
+    debugPrint('[MbtilesDownload] ⏱️ Stall recovery — scheduling silent retry');
     unawaited(_scheduleSilentRetry(reason: 'stall'));
   }
 
   /// Resume a paused/failed task when the native downloader still has Range data.
   /// Always retries — no user-facing "retry 1 of N" limit or message.
-  Future<bool> _tryAutoResume({required String reason}) async {
+  ///
+  /// [force]: after connectivity restore / zombie quiet period, do not trust a
+  /// stale `running` status — cancel and Range-resume from the on-disk partial.
+  Future<bool> _tryAutoResume({
+    required String reason,
+    bool force = false,
+  }) async {
     final last = _lastResumeAttemptAt;
     if (last != null && DateTime.now().difference(last) < _resumeCooldown) {
       debugPrint(
         '[MbtilesDownload] ⏸️ Resume cooldown active — skip ($reason)',
       );
-      return true; // already recently resumed; do not enqueue another task
+      // false → callers schedule a delayed silent retry. Returning true here
+      // previously left % frozen after reconnect (force-resume failed, then
+      // task_failed / silent retry thought "already handled").
+      return false;
     }
 
     DownloadTask? task = _backgroundTask;
@@ -1199,17 +1590,68 @@ class MbtilesDownloadService extends GetxController {
       );
       if (preferred != null) {
         final existing = preferred.task as DownloadTask;
-        // Active WorkManager task — leave it.
-        if (existing.priority != 0 &&
+        final quietFor = _lastProgressAt == null
+            ? Duration.zero
+            : DateTime.now().difference(_lastProgressAt!);
+        final looksAlive = existing.priority != 0 &&
             (preferred.status == TaskStatus.running ||
                 preferred.status == TaskStatus.enqueued ||
-                preferred.status == TaskStatus.waitingToRetry)) {
+                preferred.status == TaskStatus.waitingToRetry);
+        // Post-offline zombie: DB still says running but bytes stopped.
+        // iOS: a reconnect alone must not restart a task that is still
+        // making progress (URLSession resumes by itself) — only an explicit
+        // force or a real >60s silence does.
+        final forceReenqueue = Platform.isAndroid
+            ? (force ||
+                reason.contains('connectivity') ||
+                quietFor >= _zombieRunningTimeout)
+            : (force || quietFor >= const Duration(seconds: 60));
+        if (looksAlive && !forceReenqueue) {
           _backgroundTask = existing;
           isDownloading.value = true;
           if (preferred.progress >= 0 && preferred.progress <= 1) {
             _applyProgress(preferred.progress);
           }
           return true;
+        }
+        if (looksAlive && forceReenqueue && !Platform.isAndroid) {
+          // iOS: cancel throws away URLSession resumeData and restarts from 0.
+          // pause() keeps resumeData, resume() continues with Range.
+          try {
+            debugPrint(
+              '[MbtilesDownload] 🍎 iOS pause+resume for stale '
+              '${preferred.status} task ${existing.taskId} ($reason)',
+            );
+            await FileDownloader().pause(existing);
+            await Future<void>.delayed(const Duration(seconds: 1));
+            final resumed = await FileDownloader().resume(existing);
+            if (resumed) {
+              _backgroundTask = existing;
+              _lastResumeAttemptAt = DateTime.now();
+              _lastProgressAt = DateTime.now();
+              _startProgressPolling(fast: true, resetWatchdog: true);
+              debugPrint('[MbtilesDownload] 🍎 iOS resume ok');
+              return true;
+            }
+          } catch (e) {
+            debugPrint('[MbtilesDownload] 🍎 iOS pause+resume failed: $e');
+          }
+          // Could not resume: leave the task alone and let silent retry decide.
+          return false;
+        }
+        if (looksAlive && forceReenqueue) {
+          // Snapshot BEFORE cancel — plugin often deletes its temp on cancel/fail.
+          await _snapshotLargestPartial();
+          debugPrint(
+            '[MbtilesDownload] 🧟 Cancelling stale ${preferred.status} '
+            'task ${existing.taskId} (quiet=${quietFor.inSeconds}s, $reason)',
+          );
+          try {
+            await FileDownloader().cancelTaskWithId(existing.taskId);
+          } catch (_) {}
+          try {
+            await FileDownloader().database.deleteRecordWithId(existing.taskId);
+          } catch (_) {}
         }
         task = existing;
       }
@@ -1230,9 +1672,13 @@ class MbtilesDownloadService extends GetxController {
           priority: 1,
           displayName: 'SpaceTime map tiles',
         );
+    // New task id after forced cancel — reusing a just-canceled id often
+    // fails immediately (seen in logcat as running → failed within 1s).
     final workTask = _asWorkManagerTask(
       template,
-      newTaskId: template.priority == 0,
+      newTaskId: force ||
+          reason.contains('connectivity') ||
+          template.priority == 0,
     );
 
     try {
@@ -1241,13 +1687,22 @@ class MbtilesDownloadService extends GetxController {
       _autoResumeAttempts++;
       isDownloading.value = true;
       hasError.value = false;
-      _setStatusText('mbtiles_status_resuming');
+      // Keep GB label — do not flash "Resuming" (looks like a stuck loop).
+      if (_lastLiveTempBytes > 0) {
+        _updateGbStatusFromBytes(_lastLiveTempBytes);
+      }
 
-      final ok = await _enqueueOrResumeMbtilesTask(workTask);
+      final ok = await _enqueueOrResumeMbtilesTask(
+        workTask,
+        // iOS: never mint a new task id / cancel — that drops resumeData.
+        forceRestart: Platform.isAndroid &&
+            (force || reason.contains('connectivity')),
+      );
       if (ok) {
-        _startAndroidProgressPolling();
+        _startProgressPolling(fast: true, resetWatchdog: true);
         debugPrint(
-          '[MbtilesDownload] ✅ Auto-resume (WorkManager) after $reason',
+          '[MbtilesDownload] ✅ Auto-resume (WorkManager) after $reason '
+          '(task=${workTask.taskId})',
         );
         return true;
       }
@@ -1264,30 +1719,70 @@ class MbtilesDownloadService extends GetxController {
     _silentRetryScheduled = true;
     isDownloading.value = true;
     hasError.value = false;
-    _setStatusText('mbtiles_status_resuming');
     await _seedProgressFromPartialFileIfNeeded();
+    if (_lastLiveTempBytes > 0) {
+      _updateGbStatusFromBytes(_lastLiveTempBytes);
+    }
 
-    final delaySeconds =
+    final backoffSeconds =
         math.min(60, 5 * (1 << math.min(_autoResumeAttempts, 3)));
+    // Wait out any remaining resume cooldown so the next attempt actually
+    // enqueues (cooldown used to return "success" and abort the chain).
+    final last = _lastResumeAttemptAt;
+    final cooldownLeft = last == null
+        ? 0
+        : math.max(
+            0,
+            _resumeCooldown.inSeconds -
+                DateTime.now().difference(last).inSeconds,
+          );
+    final delaySeconds = math.max(backoffSeconds, cooldownLeft + 1);
+    final forceRetry = reason.contains('failed') ||
+        reason.contains('connectivity') ||
+        reason.contains('stall');
     debugPrint(
-      '[MbtilesDownload] ⏳ Silent retry in ${delaySeconds}s after $reason',
+      '[MbtilesDownload] ⏳ Silent retry in ${delaySeconds}s after $reason '
+      '(force=$forceRetry)',
     );
     try {
       await Future<void>.delayed(Duration(seconds: delaySeconds));
       if (isCompleted.value) return;
 
-      if (await _tryAutoResume(reason: '${reason}_silent')) return;
+      // Another path (e.g. app_resumed) may have resumed during our wait —
+      // finish the remaining cooldown before trying again.
+      final lastAfterWait = _lastResumeAttemptAt;
+      if (lastAfterWait != null) {
+        final left = _resumeCooldown - DateTime.now().difference(lastAfterWait);
+        if (left > Duration.zero) {
+          debugPrint(
+            '[MbtilesDownload] ⏳ Extra ${left.inSeconds + 1}s for resume cooldown',
+          );
+          await Future<void>.delayed(left + const Duration(seconds: 1));
+        }
+      }
+      if (isCompleted.value) return;
+
+      if (await _tryAutoResume(
+            reason: '${reason}_silent',
+            force: forceRetry,
+          )) {
+        return;
+      }
 
       // Last resort: one carefully-deduped re-enqueue (downloadMbtiles will
       // cancel duplicates and keep monotonic progress).
       debugPrint(
         '[MbtilesDownload] ♻️ Resume unavailable — single re-enqueue after $reason',
       );
-      // Allow downloadMbtiles past the isDownloading guard.
-      final wasDownloading = isDownloading.value;
-      isDownloading.value = false;
-      await downloadMbtiles(zoomLevel: await getSelectedZoomLevel());
-      if (!isDownloading.value && wasDownloading) {
+      // Do NOT clear isDownloading — that let isMbtilesDownloaded() reset
+      // _lastGoodProgress to 0 while GB still showed on-disk bytes.
+      _allowReenqueueWhileDownloading = true;
+      try {
+        await downloadMbtiles(zoomLevel: await getSelectedZoomLevel());
+      } finally {
+        _allowReenqueueWhileDownloading = false;
+      }
+      if (!isDownloading.value) {
         isDownloading.value = true;
       }
     } catch (e) {
@@ -1343,6 +1838,8 @@ class MbtilesDownloadService extends GetxController {
 
   @override
   void onClose() {
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
     _stopAndroidProgressPolling();
     super.onClose();
   }
@@ -1352,11 +1849,69 @@ class MbtilesDownloadService extends GetxController {
     super.onInit();
     _setStatusText('mbtiles_status_ready_to_download');
     unawaited(_loadMaxBytesCheckpoint());
+    _listenForConnectivityChanges();
     // start() must complete before we inspect the task DB / resume.
     unawaited(() async {
       await _initializeBackgroundDownloader();
       await _checkForResumedDownloads();
     }());
+  }
+
+  /// After disconnect → reconnect, kick resume + faster disk-based progress
+  /// so the % bar does not sit frozen for several minutes.
+  void _listenForConnectivityChanges() {
+    _connectivitySub?.cancel();
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      final offline =
+          results.isEmpty || results.contains(ConnectivityResult.none);
+      if (offline) {
+        _wasOffline = true;
+        if (isDownloading.value && !isCompleted.value) {
+          _ensureFastProgressPolling();
+          if (_lastLiveTempBytes > 0) {
+            _updateGbStatusFromBytes(_lastLiveTempBytes);
+          }
+        }
+        return;
+      }
+      if (!_wasOffline) return;
+      _wasOffline = false;
+      if (!isDownloading.value || isCompleted.value) return;
+      debugPrint(
+        '[MbtilesDownload] 🌐 Connectivity restored — syncing progress',
+      );
+      _ensureFastProgressPolling();
+      // iOS: give URLSession a fresh quiet window after the network returns.
+      if (!Platform.isAndroid) _lastProgressAt = DateTime.now();
+      if (_lastLiveTempBytes > 0) {
+        _updateGbStatusFromBytes(_lastLiveTempBytes);
+      }
+      unawaited(() async {
+        // Let the radio / DNS settle; immediate enqueue often fails instantly.
+        await Future<void>.delayed(const Duration(seconds: 3));
+        if (!isDownloading.value || isCompleted.value) return;
+        await FileDownloader().resumeFromBackground();
+        await _seedProgressFromPartialFileIfNeeded();
+        await _syncProgressFromDatabaseAndFile();
+        // Soft only — force cancel+reenqueue on every reconnect was the
+        // Resuming↔Reconnecting loop (resume ok → fail in ~8s → fresh 0%).
+        debugPrint(
+          '[MbtilesDownload] 🌐 Connectivity restored — soft resume '
+          '(live=$_lastLiveTempBytes)',
+        );
+        final ok = await _tryAutoResume(
+          reason: 'connectivity_restored',
+          force: false,
+        );
+        if (!ok) {
+          unawaited(
+            _scheduleSilentRetry(reason: 'connectivity_restored_failed'),
+          );
+        } else {
+          _updateGbStatusFromBytes(_lastLiveTempBytes);
+        }
+      }());
+    });
   }
 
   /// Configure running/paused/complete notifications for the mbtiles group.
@@ -1464,10 +2019,25 @@ class MbtilesDownloadService extends GetxController {
           isDownloading.value = true;
           _applyProgress(preferred.progress);
           await _seedProgressFromPartialFileIfNeeded();
-          _setStatusText('mbtiles_status_resuming');
+          if (_looksLikeZombieRunning(
+            status: preferred.status,
+            pluginProgress: preferred.progress,
+          )) {
+            debugPrint(
+              '[MbtilesDownload] 🧟 Startup task looks frozen '
+              '(live=$_lastLiveTempBytes, plugin=${preferred.progress}) '
+              '— force resume',
+            );
+            _startAndroidProgressPolling();
+            unawaited(_tryAutoResume(reason: 'startup_zombie', force: true));
+            return;
+          }
+          _setStatusText('mbtiles_status_downloading');
+          _updateGbStatusFromBytes(_lastLiveTempBytes);
           _startAndroidProgressPolling();
           debugPrint(
-            '[MbtilesDownload] ▶️ Resuming download from ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
+            '[MbtilesDownload] ▶️ Tracking running download from '
+            '${(downloadProgress.value * 100).toStringAsFixed(1)}%',
           );
           return;
         }
@@ -1619,9 +2189,10 @@ class MbtilesDownloadService extends GetxController {
             hasError.value = false;
             _applyProgress(update.progress);
             await _seedProgressFromPartialFileIfNeeded();
-            _setStatusText('mbtiles_status_resuming');
-            // Built-in retries are working — reset stall clock.
-            _lastProgressAt = DateTime.now();
+            if (_lastLiveTempBytes > 0) {
+              _updateGbStatusFromBytes(_lastLiveTempBytes);
+            }
+            _ensureFastProgressPolling();
             debugPrint(
               '[MbtilesDownload] ⏳ Retrying — UI stays at ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
             );
@@ -1642,14 +2213,23 @@ class MbtilesDownloadService extends GetxController {
           }
 
           _applyProgress(update.progress);
-          _lastProgressAt = DateTime.now();
+          // Android: do NOT bump the stall clock here — plugin progress can
+          // advance while the temp file is frozen ([_checkForStall] owns it).
+          // iOS: progress events are the only liveness signal we have.
+          if (!Platform.isAndroid) {
+            _lastProgressAt = DateTime.now();
+            if (_statusL10nKey == 'mbtiles_status_reconnecting' ||
+                _statusL10nKey == 'mbtiles_status_resuming') {
+              _setStatusText('mbtiles_status_downloading');
+            }
+          }
 
           debugPrint(
             '[MbtilesDownload] 📊 Progress update: ${(downloadProgress.value * 100).toStringAsFixed(1)}% (raw=${update.progress})',
           );
 
           if (update.expectedFileSize > 0) {
-            totalBytes.value = update.expectedFileSize;
+            _maybeAcceptExpectedFileSize(update.expectedFileSize);
           }
           _updateGbStatusFromProgress();
         } else if (update is TaskStatusUpdate) {
@@ -1660,11 +2240,18 @@ class MbtilesDownloadService extends GetxController {
               update.status == TaskStatus.waitingToRetry) {
             isDownloading.value = true;
             hasError.value = false;
-            _lastProgressAt = DateTime.now();
-            if (update.status == TaskStatus.waitingToRetry) {
-              _setStatusText('mbtiles_status_resuming');
+            // Do NOT reset _lastProgressAt here — status flips to running after
+            // a network blip without byte growth, which was hiding zombies.
+            // Always keep GB label — never flip to Reconnecting/Resuming here.
+            if (_lastLiveTempBytes > 0 || downloadedBytes.value > 0) {
+              _updateGbStatusFromBytes(
+                math.max(_lastLiveTempBytes, downloadedBytes.value),
+              );
             } else {
               _setStatusText('mbtiles_status_downloading');
+            }
+            if (update.status == TaskStatus.waitingToRetry) {
+              _ensureFastProgressPolling();
             }
           } else if (update.status == TaskStatus.complete) {
             // isDownloading intentionally stays true until finalize actually
@@ -1702,14 +2289,15 @@ class MbtilesDownloadService extends GetxController {
               );
               return;
             }
+            final exc = update.exception;
             debugPrint(
-              '[MbtilesDownload] ❌ Task failed — silent auto-retry (no retry-count UI)',
+              '[MbtilesDownload] ❌ Task failed — silent auto-retry '
+              '(exception=$exc)',
             );
+            // Preserve bytes before the plugin deletes its temp on failure.
+            await _snapshotLargestPartial();
             await _protectResumeDataFromTruncation();
             await _seedProgressFromPartialFileIfNeeded();
-            if (await _tryAutoResume(reason: 'task_failed')) {
-              return;
-            }
             unawaited(_scheduleSilentRetry(reason: 'task_failed'));
           } else if (update.status == TaskStatus.paused) {
             _setStatusText('mbtiles_status_download_paused');
@@ -1871,7 +2459,10 @@ class MbtilesDownloadService extends GetxController {
 
           // Do not wipe live download UI state — a check during an in-flight
           // download was resetting progress to 0% (and briefly showing -400%).
-          if (!isDownloading.value) {
+          final hasPartial = _maxBytesSeen > 0 ||
+              downloadedBytes.value > 0 ||
+              _lastGoodProgress > 0;
+          if (!isDownloading.value && !hasPartial) {
             hasError.value = false;
             errorMessage.value = "";
             isCompleted.value = false;
@@ -1883,7 +2474,10 @@ class MbtilesDownloadService extends GetxController {
       } else {
         debugPrint('[MbtilesDownload] ❌ MBTiles not marked as downloaded in preferences');
 
-        if (!isDownloading.value) {
+        final hasPartial = _maxBytesSeen > 0 ||
+            downloadedBytes.value > 0 ||
+            _lastGoodProgress > 0;
+        if (!isDownloading.value && !hasPartial) {
           hasError.value = false;
           errorMessage.value = "";
           isCompleted.value = false;
@@ -2032,7 +2626,7 @@ class MbtilesDownloadService extends GetxController {
   /// [zoomLevel] - The zoom level to download (11 or 12)
   /// [enableBackgroundDownload] - If false, download will only work in foreground (iOS without background refresh)
   Future<String?> downloadMbtiles({int? zoomLevel, bool enableBackgroundDownload = true}) async {
-    if (isDownloading.value) {
+    if (isDownloading.value && !_allowReenqueueWhileDownloading) {
       debugPrint(
         '[MbtilesDownload] ⚠️ Download already in progress at ${(downloadProgress.value * 100).toStringAsFixed(1)}% — not restarting',
       );
@@ -2130,10 +2724,27 @@ class MbtilesDownloadService extends GetxController {
                 return null;
               }
             } else {
-              // Already running on WorkManager — do NOT touch temps.
-              _setStatusText('mbtiles_status_downloading');
-              _startAndroidProgressPolling();
-              return null;
+              // Already "running" — but may be a hung Range zombie.
+              if (_looksLikeZombieRunning(
+                status: record.status,
+                pluginProgress: record.progress,
+              )) {
+                debugPrint(
+                  '[MbtilesDownload] 🧟 Reused task looks frozen — force resume',
+                );
+                _startAndroidProgressPolling();
+                final ok = await _tryAutoResume(
+                  reason: 'reuse_zombie',
+                  force: true,
+                );
+                if (ok) return null;
+                // Fall through to soft re-enqueue.
+              } else {
+                _setStatusText('mbtiles_status_downloading');
+                _updateGbStatusFromBytes(_lastLiveTempBytes);
+                _startAndroidProgressPolling();
+                return null;
+              }
             }
           }
         }

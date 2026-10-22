@@ -1161,6 +1161,7 @@
   "mbtiles_status_ready_to_download": "Bereit zum Herunterladen",
   "mbtiles_status_requesting_storage_permission": "Speicherberechtigung wird angefordert…",
   "mbtiles_status_resuming": "Download wird fortgesetzt…",
+  "mbtiles_status_reconnecting": "Verbindung wird wiederhergestellt… Download läuft im Hintergrund weiter",
   "mbtiles_status_starting_download": "Download wird gestartet…",
   "offline_map_error_clear_failed": "Daten konnten nicht gelöscht werden: $1",
   "offline_map_error_download_failed": "Download fehlgeschlagen: $1",
