@@ -1,99 +1,116 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.transistorsoft.fetch</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Spacetime</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>de</string>
+		<string>es</string>
+		<string>fr</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>spacetime</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
-		<key>CFBundleDevelopmentRegion</key>
-		<string>$(DEVELOPMENT_LANGUAGE)</string>
-		<key>CFBundleDisplayName</key>
-		<string>Spacetime</string>
-		<key>CFBundleExecutable</key>
-		<string>$(EXECUTABLE_NAME)</string>
-		<key>CFBundleIdentifier</key>
-		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-		<key>CFBundleInfoDictionaryVersion</key>
-		<string>6.0</string>
-		<key>CFBundleName</key>
-		<string>spacetime</string>
-		<key>CFBundlePackageType</key>
-		<string>APPL</string>
-		<key>CFBundleShortVersionString</key>
-		<string>$(FLUTTER_BUILD_NAME)</string>
-		<key>CFBundleSignature</key>
-		<string>????</string>
-		<key>CFBundleVersion</key>
-		<string>$(FLUTTER_BUILD_NUMBER)</string>
-		<key>CFBundleLocalizations</key>
-		<array>
-			<string>en</string>
-			<string>de</string>
-			<string>es</string>
-			<string>fr</string>
-		</array>
-		<key>LSRequiresIPhoneOS</key>
-		<true/>
-		<key>ITSAppUsesNonExemptEncryption</key>
-		<false/>
-		<key>NSAppTransportSecurity</key>
-		<dict>
-			<key>NSAllowsArbitraryLoads</key>
-			<true/>
-		</dict>
-		<key>NSCameraUsageDescription</key>
-		<string>This app needs camera access to allow you to take photos and record videos.</string>
-		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-		<string>This app needs location access to show your current location on the map and provide location-based services.</string>
-		<key>NSLocationAlwaysUsageDescription</key>
-		<string>This app needs location access to show your current location on the map and provide location-based services.</string>
-		<key>NSLocationDefaultAccuracyReduced</key>
-		<false/>
-		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>This app needs location access to show your current location on the map and provide location-based services.</string>
-		<key>NSMicrophoneUsageDescription</key>
-		<string>This app needs microphone access for recording audio in videos.</string>
-		<key>NSFaceIDUsageDescription</key>
-		<string>Unlock SpaceTime with Face ID when app lock is enabled.</string>
-		<key>NSAppleMusicUsageDescription</key>
-		<string>SpaceTime does not use Apple Music. This key is required by Apple because an included SDK references media APIs. Photo and video picking uses the photo library descriptions above.</string>
-		<key>NSPhotoLibraryUsageDescription</key>
-		<string>This app needs access to your photo library to select and save photos and videos.</string>
-		<key>NSLocalNetworkUsageDescription</key>
-		<string>This app needs local network access for device discovery.</string>
-		<key>NSBonjourServices</key>
-		<array>
-			<string>_http._tcp</string>
-			<string>_https._tcp</string>
-		</array>
-		<key>UIApplicationSupportsIndirectInputEvents</key>
-		<true/>
-		<key>NSUserNotificationUsageDescription</key>
-		<string>This app needs notification permission to show download progress.</string>
-		<key>UIBackgroundModes</key>
-		<array>
-			<string>fetch</string>
-			<string>processing</string>
-			<string>location</string>
-			<string>remote-notification</string>
-		</array>
-		<key>BGTaskSchedulerPermittedIdentifiers</key>
-		<array>
-			<string>com.transistorsoft.fetch</string>
-		</array>
-		<key>UILaunchStoryboardName</key>
-		<string>LaunchScreen</string>
-		<key>UIMainStoryboardFile</key>
-		<string>Main</string>
-		<key>UISupportedInterfaceOrientations</key>
-		<array>
-			<string>UIInterfaceOrientationLandscapeLeft</string>
-			<string>UIInterfaceOrientationLandscapeRight</string>
-			<string>UIInterfaceOrientationPortrait</string>
-			<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		</array>
-		<key>UIStatusBarHidden</key>
-		<true/>
-		<key>UIViewControllerBasedStatusBarAppearance</key>
-		<false/>
 	</dict>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>SpaceTime does not use Apple Music. This key is required by Apple because an included SDK references media APIs. Photo and video picking uses the photo library descriptions above.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+		<string>_https._tcp</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to allow you to take photos and record videos.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock SpaceTime with Face ID when app lock is enabled.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app needs local network access for device discovery.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to show your current location on the map and provide location-based services.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs location access to show your current location on the map and provide location-based services.</string>
+	<key>NSLocationDefaultAccuracyReduced</key>
+	<false/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to show your current location on the map and provide location-based services.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access for recording audio in videos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to select and save photos and videos.</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>This app needs notification permission to show download progress.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>location</string>
+		<string>remote-notification</string>
+	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIStatusBarHidden</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+</dict>
 </plist>
