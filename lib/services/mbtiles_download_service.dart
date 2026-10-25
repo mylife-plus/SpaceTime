@@ -212,6 +212,60 @@ class MbtilesDownloadService extends GetxController {
     } catch (_) {}
   }
 
+  /// Zero every in-memory and persisted progress signal so the UI never shows
+  /// a percentage that has nothing behind it.
+  Future<void> _resetStaleProgress(String reason) async {
+    debugPrint('[MbtilesDownload] 🧼 Resetting stale progress ($reason)');
+    await _clearMaxBytesCheckpoint();
+    _lastGoodProgress = 0.0;
+    _lastLiveTempBytes = 0;
+    downloadProgress.value = 0.0;
+    downloadedBytes.value = 0;
+    _setStatusText('mbtiles_status_ready_to_download');
+  }
+
+  /// True when a relaunch can genuinely continue: a live task record, or real
+  /// bytes on disk (Android temp / stable snapshot). iOS keeps its partial
+  /// inside URLSession, so there the task record is the only evidence.
+  Future<bool> _hasRealResumableState() async {
+    try {
+      final records = await FileDownloader().database.allRecords();
+      for (final r in records) {
+        if (r.task.filename != LOCAL_MBTILES_FILENAME) continue;
+        if (r.status == TaskStatus.running ||
+            r.status == TaskStatus.enqueued ||
+            r.status == TaskStatus.waitingToRetry ||
+            r.status == TaskStatus.paused) {
+          return true;
+        }
+        if (r.status == TaskStatus.failed &&
+            await FileDownloader().taskCanResume(r.task)) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    if (Platform.isAndroid) {
+      final onDisk =
+          await _activePartialBytesOnDisk(minLiveTempBytes: 64 * 1024);
+      return onDisk >= 1024 * 1024;
+    }
+    return false;
+  }
+
+  /// The persisted max-bytes checkpoint outlives the download it described
+  /// (cancel, OS kill, temp purged). Drop it when nothing can resume, so the
+  /// screen shows 0% instead of a ghost percentage over a from-scratch start.
+  Future<void> _reconcileStaleCheckpoint() async {
+    if (isDownloading.value && !isCompleted.value) return;
+    await _loadMaxBytesCheckpoint();
+    final hasGhost = _maxBytesSeen > 0 ||
+        _lastGoodProgress > 0 ||
+        downloadedBytes.value > 0;
+    if (!hasGhost) return;
+    if (await _hasRealResumableState()) return;
+    await _resetStaleProgress('checkpoint without resumable state');
+  }
+
   /// Native Android code truncates the temp file DOWN to [requiredStartByte]
   /// when the file is larger. Align resume JSON to the **largest** live temp
   /// and never point requiredStartByte at a smaller file (that wiped 50MB+).
@@ -1814,9 +1868,13 @@ class MbtilesDownloadService extends GetxController {
 
   /// Whether an incomplete download should continue (for Get Started UI).
   Future<bool> hasResumablePartialOrActiveTask() async {
+    try {
+      await _startupReady;
+    } catch (_) {}
     if (isDownloading.value && !isCompleted.value) return true;
     if (await isMbtilesDownloaded()) return false;
     await _loadMaxBytesCheckpoint();
+    await _reconcileStaleCheckpoint();
     if (_maxBytesSeen >= 1024 * 1024) return true;
     final onDisk = await _activePartialBytesOnDisk(minLiveTempBytes: 64 * 1024);
     if (onDisk >= 1024 * 1024) return true;
@@ -1851,11 +1909,16 @@ class MbtilesDownloadService extends GetxController {
     unawaited(_loadMaxBytesCheckpoint());
     _listenForConnectivityChanges();
     // start() must complete before we inspect the task DB / resume.
-    unawaited(() async {
+    _startupReady = () async {
       await _initializeBackgroundDownloader();
       await _checkForResumedDownloads();
-    }());
+    }();
+    unawaited(_startupReady);
   }
+
+  /// Completes once the launch-time cleanup/recovery pass has finished, so
+  /// screens never act on partial data that pass is about to discard.
+  Future<void> _startupReady = Future<void>.value();
 
   /// After disconnect → reconnect, kick resume + faster disk-based progress
   /// so the % bar does not sit frozen for several minutes.
@@ -1974,9 +2037,6 @@ class MbtilesDownloadService extends GetxController {
   Future<void> _checkForResumedDownloads() async {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
-      await _loadMaxBytesCheckpoint();
-      await _seedProgressFromPartialFileIfNeeded();
-
       final tasks = await FileDownloader().database.allRecords();
       debugPrint(
         '[MbtilesDownload] 🔍 Checking for resumed downloads: ${tasks.length} tasks found',
@@ -1985,6 +2045,25 @@ class MbtilesDownloadService extends GetxController {
       final mbtiles = tasks
           .where((r) => r.task.filename == LOCAL_MBTILES_FILENAME)
           .toList();
+
+      // Fresh launch policy: only a download the OS is still actively running
+      // is kept. Anything else (paused, failed, retrying, orphan temp) is
+      // discarded so the user starts clean instead of a half-trusted resume.
+      final stillRunning = mbtiles.any((r) =>
+          r.status == TaskStatus.running || r.status == TaskStatus.enqueued);
+      if (!stillRunning && !await isMbtilesDownloaded()) {
+        debugPrint(
+          '[MbtilesDownload] 🧹 Relaunch with no active download — '
+          'clearing partial data',
+        );
+        await _wipePreviousMbtilesDownloadArtifacts(preservePartials: false);
+        await _resetStaleProgress('relaunch cleanup');
+        isDownloading.value = false;
+        return;
+      }
+
+      await _loadMaxBytesCheckpoint();
+      await _seedProgressFromPartialFileIfNeeded();
       final preferred = await _ensureSingleActiveMbtilesTask(mbtiles);
 
       if (preferred != null) {
@@ -3001,6 +3080,11 @@ class MbtilesDownloadService extends GetxController {
       _backgroundTask = null;
       _stopAndroidProgressPolling();
     }
+    // A cancel discards the download: drop temps, resume data and the
+    // persisted checkpoint so a relaunch starts clean at 0%, not at a ghost %.
+    await _wipePreviousMbtilesDownloadArtifacts(preservePartials: false);
+    await _resetStaleProgress('user cancel');
+    _setStatusText('mbtiles_status_download_cancelled');
   }
 
   /// Clear downloaded mbtiles file
