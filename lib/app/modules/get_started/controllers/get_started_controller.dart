@@ -1116,9 +1116,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// After pause/relaunch: if a partial mbtiles download exists, continue it
-  /// automatically and wire UI listeners — do not force the user to tap Start
-  /// again (and never wipe progress).
+  /// After pause/relaunch: attach UI to the soft-continued download.
+  /// Hard wipe+restart is owned by the service (~70s quiet after reopen).
   Future<void> _maybeAutoContinueMbtilesDownload() async {
     try {
       _mbtilesDownloadService ??= MbtilesDownloadService.instance;
@@ -1126,13 +1125,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       final shouldContinue = await service.hasResumablePartialOrActiveTask();
       if (!shouldContinue) {
         debugPrint(
-          '[GetStartedController] No resumable partial — waiting for Start tap',
+          '[GetStartedController] No resumable download — waiting for Start tap',
         );
         return;
       }
 
       debugPrint(
-        '[GetStartedController] ♻️ Auto-continuing mbtiles download from partial',
+        '[GetStartedController] ♻️ Auto-continuing mbtiles download',
       );
       _setupMbtilesDownloadListeners();
 
@@ -1235,36 +1234,45 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         }
       }
 
-      debugPrint('[GetStartedController] 🔔 Checking notification permission...');
-      _setStatusText('get_started_status_checking_permissions');
+      // Notifications: Android FGS needs them. iOS URLSession does not —
+      // skip the popup on iOS (client: works without notifications).
+      if (Platform.isAndroid) {
+        debugPrint(
+          '[GetStartedController] 🔔 Checking notification permission...',
+        );
+        _setStatusText('get_started_status_checking_permissions');
 
-      final notificationStatus = await Permission.notification.status;
-      debugPrint('[GetStartedController] 🔔 Notification status: $notificationStatus');
+        final notificationStatus = await Permission.notification.status;
+        debugPrint(
+          '[GetStartedController] 🔔 Notification status: $notificationStatus',
+        );
 
-      if (!notificationStatus.isGranted) {
-        debugPrint('[GetStartedController] 🔔 Showing notification info popup...');
-        final userAccepted = await _showNotificationPermissionPopup();
-        if (!userAccepted) {
-          debugPrint('[GetStartedController] User declined notification info prompt');
-          if (Platform.isAndroid) {
-            // Android FGS / UIDT cannot keep a multi-GB download alive without a
-            // notification. Block start so the user can grant it from Settings.
+        if (!notificationStatus.isGranted) {
+          debugPrint(
+            '[GetStartedController] 🔔 Showing notification info popup...',
+          );
+          final userAccepted = await _showNotificationPermissionPopup();
+          if (!userAccepted) {
+            debugPrint(
+              '[GetStartedController] User declined notification info prompt',
+            );
             hasError.value = true;
             errorMessage.value =
                 'Notifications are required so map tiles can download in the background.';
             _setStatusText('get_started_status_checking_permissions');
             return;
           }
-        } else {
-          debugPrint('[GetStartedController] 🔔 Requesting notification permission...');
+          debugPrint(
+            '[GetStartedController] 🔔 Requesting notification permission...',
+          );
           final result = await Permission.notification.request();
           debugPrint(
             '[GetStartedController] 🔔 Notification permission result: $result',
           );
-
-          if (!result.isGranted && Platform.isAndroid) {
+          if (!result.isGranted) {
             debugPrint(
-              '[GetStartedController] ❌ Notification permission required for Android background download',
+              '[GetStartedController] ❌ Notification permission required '
+              'for Android background download',
             );
             hasError.value = true;
             errorMessage.value =
@@ -1448,21 +1456,30 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         return;
       }
 
-      // Service is monotonic, but never let UI % drop while bytes are still
-      // growing (reconnect used to flash 3% → 0.1% with GB still at 0.02).
+      // Follow the service. Allow a drop when the service genuinely restarted
+      // from ~0 (airplane→online fresh enqueue with no partial) so the bar
+      // shows real progress instead of a stuck ghost %.
       final progress = _mbtilesDownloadService!.downloadProgress.value;
       final serviceBytes =
           _mbtilesDownloadService!.downloadedBytes.value;
       var next = (progress >= 0.0 && progress <= 1.0)
           ? progress
           : downloadProgress.value;
+      final serviceRestartedFromZero = next + 0.02 < downloadProgress.value &&
+          serviceBytes < 64 * 1024 &&
+          next < 0.05;
       if (next < downloadProgress.value &&
+          !serviceRestartedFromZero &&
           (serviceBytes > 64 * 1024 || downloadProgress.value > 0.001)) {
         next = downloadProgress.value;
       }
       if (downloadProgress.value != next) {
         downloadProgress.value = next;
-        debugPrint('[GetStartedController] 📊 Download progress: ${(next * 100).toStringAsFixed(1)}%');
+        debugPrint(
+          '[GetStartedController] 📊 Download progress: '
+          '${(next * 100).toStringAsFixed(1)}%'
+          '${serviceRestartedFromZero ? ' (real restart)' : ''}',
+        );
       }
 
       // Update status text (service owns l10n; mirror here for binding)

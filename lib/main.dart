@@ -117,13 +117,9 @@ Future<void> _bootstrapAfterFirstPaint() async {
   // legacy priority-0 (UIDT) records to WorkManager before it starts, then
   // handles resume itself. Blind reschedule would re-enqueue UIDT jobs.
   await FileDownloader().start(doRescheduleKilledTasks: false);
-  FileDownloader().configureNotification(
-    running: const TaskNotification('Downloading', 'Download in progress'),
-    complete: const TaskNotification('Download complete', 'File downloaded successfully'),
-    error: const TaskNotification('Download failed', 'An error occurred'),
-    paused: const TaskNotification('Download paused', 'Tap to resume'),
-    progressBar: true,
-  );
+  // Do NOT configure a global running notification here — mbtiles uses
+  // configureNotificationForGroup only. A global + group + duplicate workers
+  // produced two simultaneous "Downloading Map Tiles" FGS notifications.
   FileDownloader().registerCallbacks(
     taskNotificationTapCallback: (task, notificationType) {
       debugPrint('[BackgroundDownloader] Notification tapped: $notificationType');
