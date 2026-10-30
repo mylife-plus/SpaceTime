@@ -1457,8 +1457,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       }
 
       // Follow the service. Allow a drop when the service genuinely restarted
-      // from ~0 (airplane→online fresh enqueue with no partial) so the bar
-      // shows real progress instead of a stuck ghost %.
+      // from ~0 (fresh enqueue / failed reconnect) so the bar is not stuck.
       final progress = _mbtilesDownloadService!.downloadProgress.value;
       final serviceBytes =
           _mbtilesDownloadService!.downloadedBytes.value;
@@ -1468,8 +1467,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       final serviceRestartedFromZero = next + 0.02 < downloadProgress.value &&
           serviceBytes < 64 * 1024 &&
           next < 0.05;
+      // Service already at ~0 while UI is high → always follow (new task).
+      final serviceAtZero = progress < 0.01 &&
+          serviceBytes < 64 * 1024 &&
+          downloadProgress.value >= 0.05;
       if (next < downloadProgress.value &&
           !serviceRestartedFromZero &&
+          !serviceAtZero &&
           (serviceBytes > 64 * 1024 || downloadProgress.value > 0.001)) {
         next = downloadProgress.value;
       }

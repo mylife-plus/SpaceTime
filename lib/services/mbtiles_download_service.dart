@@ -69,6 +69,10 @@ class MbtilesDownloadService extends GetxController
   /// flag (clearing it let status checks reset % to 0 while GB stayed).
   bool _allowReenqueueWhileDownloading = false;
 
+  /// After a brand-new task enqueue, ignore the monotonic progress floor until
+  /// this time so a stuck high % cannot survive the restart.
+  DateTime? _progressFloorUnlockedUntil;
+
   /// Stable expected size for % and GB labels. Always anchors on the known
   /// ~4.5 GB package size — Content-Length blips must not show as 5.0 GB.
   int _expectedTotalBytes() {
@@ -101,12 +105,20 @@ class MbtilesDownloadService extends GetxController
     totalBytes.value = size;
   }
 
+  bool get _progressFloorUnlocked {
+    final until = _progressFloorUnlockedUntil;
+    return until != null && DateTime.now().isBefore(until);
+  }
+
   /// Maps [background_downloader] progress (including sentinels) to a stable
-  /// 0–1 value for the UI. Progress is **monotonic** — a new/restarted task
-  /// reporting 0% must not wipe a higher % already confirmed from disk or
-  /// a previous update (that was causing the bar to bounce 0.5 → 0.2 → 0).
+  /// 0–1 value for the UI. Progress is **monotonic** unless a brand-new task
+  /// just enqueued ([_progressFloorUnlocked]) — then raw wins so % starts at 0.
   double _displayProgressFrom(double raw) {
     if (raw >= 0.0 && raw <= 1.0) {
+      if (_progressFloorUnlocked) {
+        _lastGoodProgress = raw;
+        return raw;
+      }
       if (raw >= _lastGoodProgress) {
         _lastGoodProgress = raw;
       }
@@ -127,6 +139,9 @@ class MbtilesDownloadService extends GetxController
   /// Lift % to match on-disk / downloaded bytes so the bar cannot sit at 0.1%
   /// while the GB label already shows 0.02 GB.
   void _liftProgressFromBytes() {
+    // Fresh enqueue window: do not re-inflate a wiped download from a stale
+    // checkpoint / leftover byte counter.
+    if (_progressFloorUnlocked && _maxBytesSeen < 1024 * 1024) return;
     final bytes = math.max(downloadedBytes.value, _maxBytesSeen);
     if (bytes < 64 * 1024) return;
     final approx =
@@ -249,12 +264,30 @@ class MbtilesDownloadService extends GetxController
   /// a percentage that has nothing behind it.
   Future<void> _resetStaleProgress(String reason) async {
     debugPrint('[MbtilesDownload] 🧼 Resetting stale progress ($reason)');
+    await _forceProgressStartFromZero(reason);
+    _setStatusText('mbtiles_status_ready_to_download');
+  }
+
+  /// Brand-new download task: force % / GB / floors to 0 and unlock the
+  /// monotonic floor briefly so a stuck previous % cannot come back.
+  Future<void> _forceProgressStartFromZero(String reason) async {
+    debugPrint(
+      '[MbtilesDownload] ⬇️ Progress forced to 0% ($reason)',
+    );
     await _clearMaxBytesCheckpoint();
     _lastGoodProgress = 0.0;
     _lastLiveTempBytes = 0;
+    _lastWatchedProgress = 0.0;
+    _lastWatchedBytes = 0;
+    _emptyDiskBaselineProgress = 0.0;
     downloadProgress.value = 0.0;
     downloadedBytes.value = 0;
-    _setStatusText('mbtiles_status_ready_to_download');
+    _progressFloorUnlockedUntil =
+        DateTime.now().add(const Duration(seconds: 45));
+    final expected = _expectedTotalBytes();
+    if (totalBytes.value < expected) totalBytes.value = expected;
+    final totalGB = (expected / (1024 * 1024 * 1024)).toStringAsFixed(1);
+    _setStatusText('mbtiles_status_downloading_gb_pair', ['0.00', totalGB]);
   }
 
   /// After airplane→online / force re-enqueue, iOS often starts a new task at
@@ -270,6 +303,7 @@ class MbtilesDownloadService extends GetxController
         '[MbtilesDownload] 📊 Align UI to on-disk partial '
         '($onDisk bytes) after $reason',
       );
+      _progressFloorUnlockedUntil = null;
       await _seedProgressFromPartialFileIfNeeded();
       _updateGbStatusFromBytes(
         math.max(_lastLiveTempBytes, onDisk),
@@ -281,17 +315,7 @@ class MbtilesDownloadService extends GetxController
       '[MbtilesDownload] 📉 Align UI to real progress ($reason) — '
       'no partial; was ${(downloadProgress.value * 100).toStringAsFixed(1)}%',
     );
-    await _clearMaxBytesCheckpoint();
-    _lastGoodProgress = 0.0;
-    _lastLiveTempBytes = 0;
-    _lastWatchedProgress = 0.0;
-    _lastWatchedBytes = 0;
-    downloadProgress.value = 0.0;
-    downloadedBytes.value = 0;
-    final expected = _expectedTotalBytes();
-    if (totalBytes.value < expected) totalBytes.value = expected;
-    final totalGB = (expected / (1024 * 1024 * 1024)).toStringAsFixed(1);
-    _setStatusText('mbtiles_status_downloading_gb_pair', ['0.00', totalGB]);
+    await _forceProgressStartFromZero(reason);
   }
 
   /// Delete leftover failed/orphan downloader temps + incomplete destination
@@ -1138,10 +1162,10 @@ class MbtilesDownloadService extends GetxController
       '[MbtilesDownload] 📋 Fresh WorkManager enqueue '
       '(priority=${workTask.priority}) => $enqueued',
     );
-    // Fresh enqueue after forceRestart / lost resume data → show real %
-    // (not the previous monotonic floor). Airplane→online hits this path.
+    // Brand-new task (forceRestart or wipe already cleared partials) → %
+    // must start at 0 so the UI cannot stay stuck on a previous floor.
     if (enqueued && forceRestart) {
-      await _alignUiToRealDownloadProgress('fresh enqueue forceRestart');
+      await _forceProgressStartFromZero('fresh enqueue forceRestart');
     }
     return enqueued;
   }
@@ -3400,16 +3424,23 @@ class MbtilesDownloadService extends GetxController
       await _markDownloadInProgress();
       hasError.value = false;
       isCompleted.value = false;
-      // Keep last good % when retrying with a partial file already on disk.
-      // Never force UI back to 0% — that caused the bouncing progress bar.
-      await _seedProgressFromPartialFileIfNeeded();
+      if (mustHardWipe) {
+        // New connection after failed resume — stay at 0%, do not re-seed
+        // from any leftover partial that races the wipe.
+        await _forceProgressStartFromZero('downloadMbtiles hard wipe');
+      } else {
+        // Soft resume: keep last good % from on-disk partial.
+        await _seedProgressFromPartialFileIfNeeded();
+      }
       // Seed total to the known 4.5 GB package size for the status label.
       if (totalBytes.value <= 0 ||
           totalBytes.value < (_approxExpectedBytes * 0.85).round() ||
           totalBytes.value > (_approxExpectedBytes * 1.15).round()) {
         totalBytes.value = _approxExpectedBytes;
       }
-      _setStatusText('mbtiles_status_preparing_download');
+      if (!mustHardWipe) {
+        _setStatusText('mbtiles_status_preparing_download');
+      }
 
       // Save selected zoom level to preferences
       final prefs = await SharedPreferences.getInstance();
@@ -3544,8 +3575,12 @@ class MbtilesDownloadService extends GetxController
 
       // Both platforms use enqueue so the native worker continues in the
       // background and survives Flutter engine restarts. Prefer Range resume
-      // from the largest on-disk partial when available.
-      final started = await _enqueueOrResumeMbtilesTask(_backgroundTask!);
+      // from the largest on-disk partial when available — unless this is a
+      // hard wipe / new connection, which must start a fresh task at 0%.
+      final started = await _enqueueOrResumeMbtilesTask(
+        _backgroundTask!,
+        forceRestart: mustHardWipe,
+      );
       if (!started) {
         throw Exception('Failed to enqueue/resume mbtiles download task');
       }
@@ -3556,6 +3591,9 @@ class MbtilesDownloadService extends GetxController
       _lastEnqueueAt = DateTime.now();
       _emptyDiskWhileRunningPolls = 0;
       _emptyDiskBaselineProgress = 0.0;
+      if (mustHardWipe) {
+        await _forceProgressStartFromZero('new task enqueued');
+      }
       _startProgressPolling();
       didEnqueueOnAndroid = true; // keep polling in finally for both platforms
       return null;
