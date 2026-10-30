@@ -87,6 +87,11 @@
             android:exported="true"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+        <!-- Swipe-away from Recents: cancel mbtiles FGS + notification (Dart is dead). -->
+        <service
+            android:name=".MbtilesSwipeCancelService"
+            android:exported="false"
+            android:stopWithTask="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

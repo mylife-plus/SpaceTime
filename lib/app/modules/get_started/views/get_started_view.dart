@@ -658,7 +658,7 @@ const SizedBox(height: 8),
           Obx(() {
             uiController.selectedLanguage.value;
             return Text(
-            controller.statusText.value.replaceAll('4.50', '5.0'),
+            controller.statusText.value,
             style: TextStyle(
               fontFamily: 'KumbhSans',
               fontSize: _responsiveFontSize(Get.context!, 12),

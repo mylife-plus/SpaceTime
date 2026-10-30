@@ -1,10 +1,12 @@
 package plus.mylife.spacetime
 
 import android.content.ContentValues
+import android.content.Intent
 import android.location.Address
 import android.location.Geocoder
 import android.media.MediaScannerConnection
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -29,6 +31,12 @@ class MainActivity : FlutterFragmentActivity() {
     private lateinit var geocoder: Geocoder
     private var tileDownloader: MapboxTileDownloader? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Service.onTaskRemoved cancels mbtiles FGS when user swipes from Recents.
+        MbtilesSwipeCancelService.start(this)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -330,4 +338,5 @@ class MainActivity : FlutterFragmentActivity() {
             else -> "city"
         }
     }
+
 }
