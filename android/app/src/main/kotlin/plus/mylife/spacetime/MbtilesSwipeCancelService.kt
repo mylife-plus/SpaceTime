@@ -8,11 +8,13 @@ import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import androidx.work.WorkManager
+import java.io.File
 
 /**
  * Watches for Recents swipe-away. [Service.onTaskRemoved] runs while the
  * process is still alive so we can cancel the mbtiles WorkManager/FGS
- * worker and its notification from native code (Dart is already dead).
+ * worker, delete incomplete tile temps, and clear the notification
+ * (Dart is already dead).
  *
  * Manifest must set android:stopWithTask="false" or this callback is skipped.
  */
@@ -25,7 +27,7 @@ class MbtilesSwipeCancelService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        Log.i(TAG, "onTaskRemoved — canceling mbtiles FGS + notification")
+        Log.i(TAG, "onTaskRemoved — cancel FGS + delete incomplete tile files")
         cancelMbtilesDownloadOnSwipeAway(applicationContext)
         stopSelf()
         super.onTaskRemoved(rootIntent)
@@ -69,6 +71,11 @@ class MbtilesSwipeCancelService : Service() {
                 Log.e(TAG, "Notification cancel failed", e)
             }
 
+            // Delete incomplete download bytes immediately — Dart cannot run
+            // after swipe-away, so cold-start wipe alone left multi-hundred-MB
+            // temps on disk until the next launch (and sometimes missed them).
+            deleteIncompleteTileFiles(context)
+
             try {
                 // Flutter shared_preferences keys are stored with a "flutter." prefix.
                 val flutterPrefs = context.getSharedPreferences(
@@ -96,6 +103,60 @@ class MbtilesSwipeCancelService : Service() {
                 Log.i(TAG, "Cleared mbtiles in-progress + downloader task maps")
             } catch (e: Exception) {
                 Log.e(TAG, "Prefs cleanup failed", e)
+            }
+        }
+
+        private fun deleteIncompleteTileFiles(context: Context) {
+            var freed = 0L
+
+            fun deleteMatchingTemps(dir: File?) {
+                if (dir == null || !dir.isDirectory) return
+                dir.listFiles()?.forEach { file ->
+                    if (!file.isFile) return@forEach
+                    if (!file.name.startsWith("com.bbflight.background_downloader")) return@forEach
+                    val len = file.length()
+                    if (file.delete()) {
+                        freed += len
+                        Log.i(TAG, "Deleted temp ${file.name} ($len bytes)")
+                    }
+                }
+            }
+
+            try {
+                // useCacheDir=never → temps in filesDir; also clear cacheDir
+                // in case an older build wrote there.
+                deleteMatchingTemps(context.filesDir)
+                deleteMatchingTemps(context.cacheDir)
+                deleteMatchingTemps(context.getExternalFilesDir(null))
+                context.externalCacheDir?.let { deleteMatchingTemps(it) }
+
+                val tilesDir = File(context.filesDir, "offline_tiles")
+                for (name in listOf("tiles.mbtiles", "tiles.mbtiles.partial")) {
+                    val f = File(tilesDir, name)
+                    if (!f.exists()) continue
+                    val len = f.length()
+                    if (f.delete()) {
+                        freed += len
+                        Log.i(TAG, "Deleted incomplete $name ($len bytes)")
+                    }
+                }
+
+                val resumeDir = File(context.filesDir, "backgroundDownloaderResumeData")
+                if (resumeDir.isDirectory) {
+                    resumeDir.listFiles()?.forEach { file ->
+                        if (file.isFile) {
+                            val len = file.length()
+                            if (file.delete()) freed += len
+                        }
+                    }
+                }
+
+                Log.i(
+                    TAG,
+                    "Incomplete tile cleanup freed ${freed / (1024 * 1024)} MB",
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Incomplete tile file cleanup failed", e)
             }
         }
     }

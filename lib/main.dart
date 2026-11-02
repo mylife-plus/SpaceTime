@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:spacetime/app/config/app_input_theme.dart';
@@ -52,31 +51,21 @@ class AppProcessLaunch {
 Future<void> main() async {
   AppProcessLaunch.isFreshLaunch = true;
 
-  final binding = WidgetsFlutterBinding.ensureInitialized();
-  FlutterNativeSplash.preserve(widgetsBinding: binding);
+  WidgetsFlutterBinding.ensureInitialized();
   await L10nLoader.init();
 
-  // Only what MyApp needs for the first frame — everything else runs after paint
-  // so the engine reaches runApp quickly and the native splash can dismiss.
+  // Only what MyApp needs for the first frame — everything else runs after paint.
   Get.put(UiController(), permanent: true);
   Get.put(AppLockController(), permanent: true);
   Get.put(MemoryImportBlockingController(), permanent: true);
 
   runApp(RestartWidget(child: MyApp()));
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    _bootstrapAfterFirstPaint();
+    unawaited(_bootstrapAfterFirstPaint());
   });
 }
 
 Future<void> _bootstrapAfterFirstPaint() async {
-  // Wait one extra frame so background images decode before splash lifts.
-  final splashCompleter = Completer<void>();
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    FlutterNativeSplash.remove();
-    splashCompleter.complete();
-  });
-  await splashCompleter.future;
-
   try {
     await AppSystemUi.enableEdgeToEdge();
     if (Get.isRegistered<UiController>()) {

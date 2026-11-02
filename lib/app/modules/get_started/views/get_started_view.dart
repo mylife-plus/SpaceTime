@@ -656,6 +656,7 @@ const SizedBox(height: 8),
         children: [
           // Status text — depend on locale so download label updates on language switch
           Obx(() {
+            // Rebuild + re-format GB/%% decimals when language changes.
             uiController.selectedLanguage.value;
             return Text(
             controller.statusText.value,
@@ -716,6 +717,8 @@ const SizedBox(height: 8),
   /// Build progress state
   Widget _buildProgressState(UiController uiController) {
     return Obx(() {
+      // Rebuild when language changes so %% uses locale decimals (, vs .).
+      uiController.selectedLanguage.value;
       // background_downloader sentinels (e.g. -4 waitingToRetry) must not show as -400%
       final progress =
           controller.downloadProgress.value.clamp(0.0, 1.0).toDouble();
@@ -733,7 +736,8 @@ const SizedBox(height: 8),
         Text(
           trKey(
             'text_controller_downloadprogress_value_100_tostringasfix',
-            [(progress * 100).toStringAsFixed(1)],
+            // de/es/fr use comma decimals (12,3% not 12.3%).
+            [formatLocaleOneDecimal(progress * 100)],
           ),
           style: TextStyle(
             fontFamily: 'KumbhSans',

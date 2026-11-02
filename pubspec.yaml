@@ -73,7 +73,6 @@ dependencies:
   # Lat/Lng model + geodesic distance helpers
   latlong2: ^0.9.1
   background_downloader: ^9.5.2
-  flutter_native_splash: ^2.4.4
   image_picker: ^1.2.1
   photo_manager: ^3.6.4
   exif: ^3.3.0
@@ -95,15 +94,6 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/app_icon.png"
-
-flutter_native_splash:
-  color: "#000000"
-  # Put your full-screen launch image at:
-  # assets/images/launch_fullscreen.jpeg
-  fullscreen: true
-  background_image: assets/images/launch_fullscreen.jpeg
-  android: true
-  ios: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

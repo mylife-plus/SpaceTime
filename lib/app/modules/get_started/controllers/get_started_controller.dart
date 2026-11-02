@@ -77,6 +77,9 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   /// Prevents overlapping [Get.offAllNamed] to MAP_NEW (causes half map / half get-started glitches).
   bool _navigateToMapRequested = false;
 
+  Timer? _mbtilesProgressTimer;
+  int _mbtilesIdlePollTicks = 0;
+
   // iOS Background App Refresh gating
   Completer<bool>? _waitingForBackgroundRefreshCompleter;
   bool _backgroundRefreshPopupShowing = false;
@@ -164,6 +167,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   @override
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
+    _mbtilesProgressTimer?.cancel();
+    _mbtilesProgressTimer = null;
     super.onClose();
   }
 
@@ -203,12 +208,23 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
     unawaited(refreshIosBackgroundRefreshBanner());
 
     // Re-attach to native download updates after pause (Android + iOS).
-    unawaited(
-      MbtilesDownloadService.instance.resumeDownloadUpdatesFromBackground(),
-    );
+    // Soft resume first; service may wipe+restart after 15s with no progress —
+    // keep UI on downloading and re-bind listeners either way.
+    unawaited(() async {
+      await MbtilesDownloadService.instance
+          .resumeDownloadUpdatesFromBackground();
+      final svc = MbtilesDownloadService.instance;
+      _mbtilesDownloadService ??= svc;
+      final intended = await svc.hasResumablePartialOrActiveTask();
+      if ((svc.isDownloading.value || intended) && !isCompleted.value) {
+        isDownloading.value = true;
+        hasError.value = false;
+        _setupMbtilesDownloadListeners();
+      }
+    }());
   }
 
-  /// Called from [main] after core services register (native splash already removed).
+  /// Called from [main] after core services register.
   void runStartupInitialization() {
     if (_startupInitializationStarted) return;
     _startupInitializationStarted = true;
@@ -1117,7 +1133,8 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
   }
 
   /// After pause/relaunch: attach UI to the soft-continued download.
-  /// Hard wipe+restart is owned by the service (~70s quiet after reopen).
+  /// Soft reconnect then wipe+restart after 15s with no progress is owned by
+  /// the service; process-death wipe stays idle until Start.
   Future<void> _maybeAutoContinueMbtilesDownload() async {
     try {
       _mbtilesDownloadService ??= MbtilesDownloadService.instance;
@@ -1126,6 +1143,13 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       if (!shouldContinue) {
         debugPrint(
           '[GetStartedController] No resumable download — waiting for Start tap',
+        );
+        // hasResumablePartialOrActiveTask already clears leftovers; belt-and-
+        // suspenders in case startup raced before that wipe ran.
+        unawaited(
+          service.clearOrphanPartialsWhenIdle(
+            reason: 'get started idle — wait for Start',
+          ),
         );
         return;
       }
@@ -1446,43 +1470,36 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       return;
     }
 
+    // Avoid stacking timers when reconnect re-enters start/resume paths.
+    _mbtilesProgressTimer?.cancel();
+    _mbtilesIdlePollTicks = 0;
+
     debugPrint('[GetStartedController] 📡 Setting up download progress listeners...');
 
     // Use interval to poll progress instead of ever() to avoid listener issues
     // This ensures we always get the latest values
-    Timer.periodic(const Duration(milliseconds: 500), (timer) {
+    _mbtilesProgressTimer =
+        Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (_mbtilesDownloadService == null) {
         timer.cancel();
+        _mbtilesProgressTimer = null;
         return;
       }
 
-      // Follow the service. Allow a drop when the service genuinely restarted
-      // from ~0 (fresh enqueue / failed reconnect) so the bar is not stuck.
+      // Always mirror the service. A second monotonic floor here kept the
+      // blue % stuck after airplane→online / failed-reconnect restarts.
       final progress = _mbtilesDownloadService!.downloadProgress.value;
-      final serviceBytes =
-          _mbtilesDownloadService!.downloadedBytes.value;
+      final epoch = _mbtilesDownloadService!.progressEpoch.value;
       var next = (progress >= 0.0 && progress <= 1.0)
           ? progress
           : downloadProgress.value;
-      final serviceRestartedFromZero = next + 0.02 < downloadProgress.value &&
-          serviceBytes < 64 * 1024 &&
-          next < 0.05;
-      // Service already at ~0 while UI is high → always follow (new task).
-      final serviceAtZero = progress < 0.01 &&
-          serviceBytes < 64 * 1024 &&
-          downloadProgress.value >= 0.05;
-      if (next < downloadProgress.value &&
-          !serviceRestartedFromZero &&
-          !serviceAtZero &&
-          (serviceBytes > 64 * 1024 || downloadProgress.value > 0.001)) {
-        next = downloadProgress.value;
-      }
       if (downloadProgress.value != next) {
+        final dropped = next + 0.02 < downloadProgress.value;
         downloadProgress.value = next;
         debugPrint(
           '[GetStartedController] 📊 Download progress: '
           '${(next * 100).toStringAsFixed(1)}%'
-          '${serviceRestartedFromZero ? ' (real restart)' : ''}',
+          '${dropped ? ' (reset epoch=$epoch)' : ''}',
         );
       }
 
@@ -1507,7 +1524,9 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
         errorMessage.value = _mbtilesDownloadService!.errorMessage.value;
         debugPrint('[GetStartedController] ❌ Error detected: ${errorMessage.value}');
         timer.cancel();
+        _mbtilesProgressTimer = null;
         unawaited(refreshIosBackgroundRefreshBanner());
+        return;
       }
 
       // Check for completion
@@ -1515,22 +1534,29 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       if (completed && !isCompleted.value) {
         debugPrint('[GetStartedController] ✅ Download completed!');
         timer.cancel();
+        _mbtilesProgressTimer = null;
 
         final downloadedPath = _mbtilesDownloadService!.getLocalMbtilesPath();
         if (downloadedPath != null) {
           _onMbtilesDownloadCompleted(downloadedPath);
         }
+        return;
       }
 
-      // Cancel timer only when download is truly idle (not just missing live updates).
+      // Do not cancel on a single idle tick — wipe→reenqueue briefly reports
+      // !downloading and was leaving Start visible while the worker ran.
       if (!downloading && !completed && !hasErr) {
-        final progressVal = _mbtilesDownloadService!.downloadProgress.value;
-        final stillActive = _mbtilesDownloadService!.isDownloading.value ||
-            (progressVal > 0.0 && progressVal < 1.0);
-        if (!stillActive) {
-          debugPrint('[GetStartedController] ⏹️ Download stopped, canceling listener timer');
+        _mbtilesIdlePollTicks++;
+        if (_mbtilesIdlePollTicks >= 6) {
+          // ~3s of true idle
+          debugPrint(
+            '[GetStartedController] ⏹️ Download idle — canceling listener timer',
+          );
           timer.cancel();
+          _mbtilesProgressTimer = null;
         }
+      } else {
+        _mbtilesIdlePollTicks = 0;
       }
     });
 
@@ -1547,7 +1573,7 @@ class GetStartedController extends GetxController with WidgetsBindingObserver {
       if (progress > 0 && !isDownloadingZoom10.value) {
         _setStatusText(
           'get_started_status_downloading_maps_pct',
-          [(progress * 100).toStringAsFixed(1)],
+          [formatLocaleOneDecimal(progress * 100)],
         );
       }
     });

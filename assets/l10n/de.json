@@ -1137,6 +1137,8 @@
   "mbtiles_error_stalled": "Download ins Stocken geraten – seit einiger Zeit kein Fortschritt. Bitte erneut versuchen.",
   "mbtiles_error_file_missing_after_complete": "Der Download ist abgeschlossen, aber die Datei wurde nicht gefunden. Bitte erneut versuchen.",
   "mbtiles_error_verify_file_failed": "Heruntergeladene Datei konnte nicht überprüft werden",
+  "mbtiles_error_no_internet": "Keine Internetverbindung. Bitte verbinden Sie sich mit WLAN oder Mobilfunk und versuchen Sie es erneut.",
+  "mbtiles_error_enqueue_failed": "Der Karten-Download konnte nicht gestartet werden. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   "mbtiles_notif_complete_body": "Kartenkacheln sind einsatzbereit",
   "mbtiles_notif_complete_title": "Download abgeschlossen!",
   "mbtiles_notif_error_body": "Bitte erneut versuchen",

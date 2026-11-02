@@ -87,22 +87,32 @@ String trForLang(String key, [String? languageCode]) {
   return L10nLoader.maps['en']?[key] ?? key;
 }
 
-/// One fractional digit, locale-aware (e.g. `4.5` → `4,5` in `de`).
-String formatLocaleOneDecimal(double value, [String? languageCode]) {
+/// Locale-aware decimal (e.g. `4.5` → `4,5` in `de` / `es` / `fr`).
+String formatLocaleDecimal(
+  num value, {
+  int decimalDigits = 1,
+  String? languageCode,
+}) {
   final code = effectiveLanguageCode(languageCode);
   return NumberFormat.decimalPatternDigits(
     locale: code,
-    decimalDigits: 1,
+    decimalDigits: decimalDigits,
   ).format(value);
+}
+
+/// One fractional digit, locale-aware (e.g. `4.5` → `4,5` in `de`).
+String formatLocaleOneDecimal(double value, [String? languageCode]) {
+  return formatLocaleDecimal(value, decimalDigits: 1, languageCode: languageCode);
+}
+
+/// Two fractional digits, locale-aware (e.g. `0.08` → `0,08` in `de`).
+String formatLocaleTwoDecimal(double value, [String? languageCode]) {
+  return formatLocaleDecimal(value, decimalDigits: 2, languageCode: languageCode);
 }
 
 /// Integer formatting with grouping rules for [languageCode].
 String formatLocaleInteger(num value, [String? languageCode]) {
-  final code = effectiveLanguageCode(languageCode);
-  return NumberFormat.decimalPatternDigits(
-    locale: code,
-    decimalDigits: 0,
-  ).format(value);
+  return formatLocaleDecimal(value, decimalDigits: 0, languageCode: languageCode);
 }
 
 OverlayState? _appRootOverlay() {
