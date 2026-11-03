@@ -2024,7 +2024,14 @@ class MbtilesDownloadService extends GetxController
             _applyProgress(preferred.progress);
           }
           final status = preferred.status;
-          if (status == TaskStatus.running || status == TaskStatus.enqueued) {
+          // After offline/connectivity, a DB "running" task is often a zombie
+          // (no bytes). Always pause+resume to kick the native worker instead
+          // of waiting on the 4‑minute stall watchdog.
+          final kickRunning = reason.contains('connectivity') ||
+              reason.contains('grace_expired') ||
+              reason.contains('app_resumed');
+          if ((status == TaskStatus.running || status == TaskStatus.enqueued) &&
+              !kickRunning) {
             _backgroundTask = existing;
             await _markDownloadInProgress();
             _startProgressPolling(fast: true, resetWatchdog: true);
@@ -2036,10 +2043,20 @@ class MbtilesDownloadService extends GetxController
           }
 
           final canResume = await FileDownloader().taskCanResume(existing);
-          if (canResume ||
+          final shouldResume = canResume ||
               status == TaskStatus.paused ||
-              status == TaskStatus.waitingToRetry) {
+              status == TaskStatus.waitingToRetry ||
+              (kickRunning &&
+                  (status == TaskStatus.running ||
+                      status == TaskStatus.enqueued));
+          if (shouldResume) {
             await _protectResumeDataFromTruncation();
+            if (status == TaskStatus.running || status == TaskStatus.enqueued) {
+              try {
+                await FileDownloader().pause(existing);
+                await Future<void>.delayed(const Duration(milliseconds: 300));
+              } catch (_) {}
+            }
             final resumed = await FileDownloader().resume(existing);
             debugPrint(
               '[MbtilesDownload] ▶️ Soft resume $status '
@@ -2473,11 +2490,14 @@ class MbtilesDownloadService extends GetxController
         _clearReconnectWindow(reason: 'went_offline_preserve');
         if ((isDownloading.value || downloadProgress.value > 0) &&
             !isCompleted.value) {
-          _setStatusText('mbtiles_status_reconnecting');
+          // Keep last GB/% — do not show "Reconnecting" for the whole offline
+          // period (that made users think reconnect itself took minutes).
           if (_lastLiveTempBytes > 0 || downloadedBytes.value > 0) {
             _updateGbStatusFromBytes(
               math.max(_lastLiveTempBytes, downloadedBytes.value),
             );
+          } else {
+            _setStatusText('mbtiles_status_download_paused');
           }
           unawaited(() async {
             try {
