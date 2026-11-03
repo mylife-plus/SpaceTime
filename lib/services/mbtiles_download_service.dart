@@ -1976,10 +1976,8 @@ class MbtilesDownloadService extends GetxController
     final baseline = math.max(_lastLiveTempBytes, downloadedBytes.value);
     final ok = await _tryAutoResume(reason: 'stall', force: false);
     if (ok) {
-      _armOnlineReconnectGrace(
-        reason: 'stall_soft_ok',
-        baselineBytes: baseline,
-      );
+      // Soft reconnect succeeded — do not arm wipe grace.
+      _clearReconnectWindow(reason: 'stall_soft_ok');
       return;
     }
     _armOnlineReconnectGrace(
@@ -2100,8 +2098,8 @@ class MbtilesDownloadService extends GetxController
     return false;
   }
 
-  /// Soft reconnect after a transient failure, then arm the 15s online grace.
-  /// Never wipes immediately — wipe only if grace expires while online.
+  /// Soft reconnect after a transient failure. Arm 15s wipe grace only if soft
+  /// resume fails while online.
   Future<void> _scheduleSilentRetry({required String reason}) async {
     if (_silentRetryScheduled || isCompleted.value) return;
     if (_wasOffline) return;
@@ -2112,9 +2110,13 @@ class MbtilesDownloadService extends GetxController
       await Future<void>.delayed(const Duration(seconds: 2));
       if (isCompleted.value || _wasOffline) return;
       final baseline = math.max(_lastLiveTempBytes, downloadedBytes.value);
-      await _tryAutoResume(reason: '${reason}_silent', force: false);
+      final ok = await _tryAutoResume(reason: '${reason}_silent', force: false);
+      if (ok) {
+        _clearReconnectWindow(reason: '${reason}_silent_ok');
+        return;
+      }
       _armOnlineReconnectGrace(
-        reason: '${reason}_silent',
+        reason: '${reason}_silent_failed',
         baselineBytes: baseline,
       );
     } finally {
@@ -2122,7 +2124,7 @@ class MbtilesDownloadService extends GetxController
     }
   }
 
-  /// Rule 2: pause→resume — soft reconnect to existing partial, then 15s.
+  /// Rule 2: pause→resume — soft reconnect; 15s wipe only if reconnect fails.
   Future<void> resumeDownloadUpdatesFromBackground() async {
     _appInForeground = true;
     _lastProgressAt = DateTime.now();
@@ -2159,19 +2161,25 @@ class MbtilesDownloadService extends GetxController
       math.max(_lastLiveTempBytes, downloadedBytes.value),
       _maxBytesSeen,
     );
-    await _tryAutoResume(reason: 'app_resumed', force: false);
+    final ok = await _tryAutoResume(reason: 'app_resumed', force: false);
     await _restoreKnownProgressUi('app_resume_after_soft');
     _startAndroidProgressPolling();
-    _armOnlineReconnectGrace(reason: 'app_resumed', baselineBytes: baseline);
+    if (ok) {
+      _clearReconnectWindow(reason: 'app_resumed_ok');
+      return;
+    }
+    _armOnlineReconnectGrace(
+      reason: 'app_resumed_soft_failed',
+      baselineBytes: baseline,
+    );
   }
 
-  /// Soft resume (keep partials). Immediate wipe only if there is no task and
-  /// no intended download — otherwise the 15s online grace owns wipe+restart.
+  /// Soft resume (keep partials). 15s wipe grace only when soft resume fails.
   Future<void> _resumeExistingOrReenqueue({required String reason}) async {
     final baseline = math.max(_lastLiveTempBytes, downloadedBytes.value);
     final ok = await _tryAutoResume(reason: reason, force: false);
     if (ok) {
-      _armOnlineReconnectGrace(reason: reason, baselineBytes: baseline);
+      _clearReconnectWindow(reason: '${reason}_ok');
       return;
     }
     if (_wasOffline) return;
@@ -2363,6 +2371,7 @@ class MbtilesDownloadService extends GetxController
   }
 
   /// 15s online reconnect failed → wipe partials and restart from 0%.
+  /// Does not wipe merely because bytes are quiet after a successful resume.
   Future<void> _onReconnectGraceExpired() async {
     if (isCompleted.value) return;
     if (_wasOffline) {
@@ -2384,13 +2393,38 @@ class MbtilesDownloadService extends GetxController
     final grew = bytesNow > _resumeWatchBaselineBytes + (64 * 1024);
     final progressing = _lastProgressAt != null &&
         DateTime.now().difference(_lastProgressAt!) <
-            const Duration(seconds: 5);
-    if (grew || progressing) {
+            const Duration(seconds: 8);
+
+    // Live task = reconnect already succeeded — never wipe for slow byte growth.
+    var liveTask = false;
+    try {
+      final records = await FileDownloader().database.allRecords();
+      liveTask = records.any(
+        (r) =>
+            r.task.filename == LOCAL_MBTILES_FILENAME &&
+            (r.status == TaskStatus.running ||
+                r.status == TaskStatus.enqueued ||
+                r.status == TaskStatus.waitingToRetry),
+      );
+    } catch (_) {}
+
+    if (grew || progressing || liveTask) {
       debugPrint(
         '[MbtilesDownload] ✅ Reconnect OK within 15s '
-        '(bytesNow=$bytesNow, baseline=$_resumeWatchBaselineBytes)',
+        '(bytesNow=$bytesNow, baseline=$_resumeWatchBaselineBytes, '
+        'liveTask=$liveTask)',
       );
       _clearReconnectWindow(reason: 'grace_progressing');
+      return;
+    }
+
+    // One last soft attempt before wipe.
+    final ok = await _tryAutoResume(
+      reason: 'grace_expired_last_try',
+      force: false,
+    );
+    if (ok) {
+      _clearReconnectWindow(reason: 'grace_last_try_ok');
       return;
     }
 
@@ -2502,12 +2536,31 @@ class MbtilesDownloadService extends GetxController
     await _syncProgressFromDatabaseAndFile();
     await _softPrepareForResumeEnqueue();
 
-    final before = math.max(_lastLiveTempBytes, downloadedBytes.value);
-    // First reconnect attempt, THEN start 15s (rule 3).
-    await _tryAutoResume(reason: 'connectivity_restored', force: false);
+    final before = math.max(
+      math.max(_lastLiveTempBytes, downloadedBytes.value),
+      _maxBytesSeen,
+    );
+    // First reconnect attempt. 15s wipe grace only if that attempt fails.
+    final ok = await _tryAutoResume(
+      reason: 'connectivity_restored',
+      force: false,
+    );
     if (isCompleted.value || _wasOffline) return;
+    await _restoreKnownProgressUi('connectivity_restored');
+    if (ok) {
+      debugPrint(
+        '[MbtilesDownload] ✅ Soft resume after reconnect — keeping partials '
+        '(no wipe timer)',
+      );
+      _clearReconnectWindow(reason: 'connectivity_soft_ok');
+      return;
+    }
+    debugPrint(
+      '[MbtilesDownload] ⚠️ Soft resume failed after online — '
+      'arming 15s grace (baseline=$before)',
+    );
     _armOnlineReconnectGrace(
-      reason: 'connectivity_restored_after_attempt',
+      reason: 'connectivity_restored_soft_failed',
       baselineBytes: before,
     );
   }
