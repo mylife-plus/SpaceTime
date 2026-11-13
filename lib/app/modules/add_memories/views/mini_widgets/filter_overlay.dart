@@ -160,6 +160,7 @@ class _MemoriesFilterOverlayState extends State<MemoriesFilterOverlay> {
         final to = DateTime.parse(toDateStr!);
         final fromDateOnly = DateTime(from.year, from.month, from.day);
         final toDateOnly = DateTime(to.year, to.month, to.day);
+        // Same-day range is valid; only reject when to is before from.
         if (toDateOnly.isBefore(fromDateOnly)) {
           showTrSnackbar(
             'snackbar_invalid_date_range_2',

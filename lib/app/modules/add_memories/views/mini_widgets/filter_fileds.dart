@@ -9,6 +9,7 @@ import 'package:spacetime/app/l10n/l10n_loader.dart';
 import '../../../ui/controllers/ui_controller.dart';
 import '../../controllers/add_memories_controller.dart';
 import '../../../map/controllers/map_controller_new.dart';
+import '../../../filter/controllers/filter_controller.dart';
 
 class MemoriesFilterTextFieldRow extends StatefulWidget {
   final String imagePath;
@@ -90,28 +91,184 @@ class _MemoriesFilterTextFieldRowState
     }
   }
 
-  DateTime _initialDateForPicker(dynamic controller) {
+  /// Earliest / latest memory dates from the loaded diary corpus.
+  /// Picker range is clamped to these so from/to never offer dates outside
+  /// the first→last memory entry.
+  ({DateTime first, DateTime last}) _memoryDateBounds(dynamic controller) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final first = DateTime(1900);
+    DateTime? minD;
+    DateTime? maxD;
+    try {
+      final memories = _memoriesForDateBounds(controller);
+      for (final m in memories) {
+        if (m is! Map) continue;
+        final parsed = _memoryEntryDate(Map<String, dynamic>.from(m));
+        if (parsed == null) continue;
+        final d = DateTime(parsed.year, parsed.month, parsed.day);
+        if (minD == null || d.isBefore(minD)) minD = d;
+        if (maxD == null || d.isAfter(maxD)) maxD = d;
+      }
+    } catch (e) {
+      debugPrint('[FilterFields] memory date bounds: $e');
+    }
+    final first = minD ?? today;
+    final last = maxD ?? today;
+    if (last.isBefore(first)) return (first: first, last: first);
+    return (first: first, last: last);
+  }
+
+  List _memoriesForDateBounds(dynamic controller) {
+    // Prefer the shared FilterController corpus (same dates the filter uses).
+    try {
+      if (Get.isRegistered<FilterController>()) {
+        final all = Get.find<FilterController>().allMemories;
+        if (all.isNotEmpty) return all;
+      }
+    } catch (_) {}
+    try {
+      final list = controller.allMemories as List?;
+      if (list != null && list.isNotEmpty) return list;
+    } catch (_) {}
+    try {
+      final list = controller.allMemoriesWithoutFilter as List?;
+      if (list != null && list.isNotEmpty) return list;
+    } catch (_) {}
+    return const [];
+  }
+
+  /// Same date the diary filter matches on (`date` + `year`), not created_at.
+  DateTime? _memoryEntryDate(Map<String, dynamic> memory) {
+    final date = memory['date']?.toString() ?? '';
+    final year = memory['year']?.toString() ?? '';
+    if (date.isNotEmpty && year.isNotEmpty) {
+      final combined = '$date $year';
+      // UI dates are always English month names (_formatDate).
+      try {
+        return DateFormat('d. MMMM yyyy', 'en_US').parse(combined);
+      } catch (_) {}
+      try {
+        return DateFormat('d. MMMM yyyy').parse(combined);
+      } catch (_) {}
+    }
+    final raw = memory['date']?.toString();
+    if (raw != null && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(raw)) {
+      return DateTime.tryParse(raw);
+    }
+    final created = memory['created_at']?.toString();
+    if (created != null && created.isNotEmpty) {
+      return DateTime.tryParse(created);
+    }
+    return null;
+  }
+
+  DateTime _initialDateForPicker(
+    dynamic controller, {
+    required DateTime first,
+    required DateTime last,
+  }) {
     final parsed = _parsedStoredDate(controller);
-    if (parsed == null) return today;
+    if (parsed == null) {
+      if (_storageKey == 'to date') {
+        final from = _parsedFromDate(controller);
+        if (from != null) {
+          // Same-day range is valid (e.g. single memory day).
+          final minTo = DateTime(from.year, from.month, from.day);
+          if (!minTo.isAfter(last)) {
+            return minTo.isBefore(first) ? first : minTo;
+          }
+        }
+      }
+      return last.isBefore(first) ? first : last;
+    }
     var d = DateTime(parsed.year, parsed.month, parsed.day);
     if (d.isBefore(first)) return first;
-    if (d.isAfter(today)) return today;
+    if (d.isAfter(last)) return last;
     return d;
   }
 
+  DateTime? _parsedFromDate(dynamic controller) {
+    final raw = controller.filterValues['from date'];
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty) return null;
+    try {
+      return DateTime.parse(s);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _pickDate(BuildContext context, dynamic controller) async {
+    final bounds = _memoryDateBounds(controller);
+    var firstDate = bounds.first;
+    var lastDate = bounds.last;
+
+    if (_storageKey == 'to date') {
+      // To can equal from (same calendar day); only block days before from.
+      final from = _parsedFromDate(controller);
+      if (from != null) {
+        final minTo = DateTime(from.year, from.month, from.day);
+        if (minTo.isAfter(firstDate)) firstDate = minTo;
+      }
+      if (firstDate.isAfter(lastDate)) {
+        showTrSnackbar(
+          'snackbar_invalid_date_range_2',
+          backgroundColor: Colors.red.shade400,
+          colorText: Colors.white,
+          margin: const EdgeInsets.all(12),
+          snackPosition: SnackPosition.TOP,
+          duration: const Duration(seconds: 2),
+        );
+        return;
+      }
+    }
+    // From uses full first→last memory bounds (same-day to is allowed).
+
     final picked = await showAppDatePicker(
       context: context,
-      initialDate: _initialDateForPicker(controller),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
+      initialDate: _initialDateForPicker(
+        controller,
+        first: firstDate,
+        last: lastDate,
+      ),
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (picked != null) {
       final formatted = DateFormat('yyyy-MM-dd').format(picked);
       controller.setFilterDate(widget.filterStorageKey, formatted);
+      // If to is before from, bump to to from (same day OK).
+      if (_storageKey == 'from date') {
+        final to = _parsedStoredDateForKey(controller, 'to date');
+        final fromDay = DateTime(picked.year, picked.month, picked.day);
+        final corpusLast = bounds.last;
+        if (to != null) {
+          final toDay = DateTime(to.year, to.month, to.day);
+          if (toDay.isBefore(fromDay)) {
+            if (!fromDay.isAfter(corpusLast)) {
+              controller.setFilterDate(
+                'to date',
+                DateFormat('yyyy-MM-dd').format(fromDay),
+              );
+            } else {
+              controller.setFilterDate('to date', '');
+            }
+          }
+        }
+      }
+    }
+  }
+
+  DateTime? _parsedStoredDateForKey(dynamic controller, String key) {
+    final raw = controller.filterValues[key];
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty) return null;
+    try {
+      return DateTime.parse(s);
+    } catch (_) {
+      return null;
     }
   }
 

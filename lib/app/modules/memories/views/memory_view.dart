@@ -25,6 +25,7 @@ import '../controllers/memory_controller.dart';
 import '../../filter/controllers/filter_controller.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/l10n/place_category_l10n.dart';
+import 'package:spacetime/app/modules/media_gps_upload/services/capture_time_dedupe_log.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/gallery_asset_resolver.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/track_import_deletion_refresh.dart';
 import 'package:spacetime/app/routes/memory_view_navigation.dart';
@@ -53,6 +54,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   bool _keyboardVisible = false;
   bool _deferredCreateInitStarted = false;
   bool _mediaStagingDialogOpen = false;
+  /// True from show-request until hide — prevents post-frame show after cancel.
+  bool _mediaStagingLoaderRequested = false;
   bool _isImportingPickedMedia = false;
 
   /// Blocks UI during save/delete while list/map refresh settles.
@@ -81,10 +84,11 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   List<ImportedGalleryAssetRecord> get _galleryAssetRecordsForSave {
     final out = <ImportedGalleryAssetRecord>[];
     final seenIds = <String>{};
-    final seenTimes = <int>{};
+    final seenTimeKinds = <String>{};
     for (final m in _orderedMedia) {
       final type = m['type'] as String?;
       if (type != 'image' && type != 'video') continue;
+      final mediaKind = type!;
       final id = m['galleryAssetId'] as String?;
       final rawTime = m['galleryMediaCreatedAt'] as String?;
       DateTime? createdAt;
@@ -92,14 +96,14 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         createdAt = DateTime.tryParse(rawTime)?.toUtc();
       }
       if ((id == null || id.isEmpty) && createdAt == null) continue;
-      final timeKey =
+      final timeKindKey =
           createdAt != null
-              ? DatabaseHelper.mediaCreatedAtDedupeKey(createdAt)
+              ? DatabaseHelper.mediaTimeKindDedupeKey(createdAt, mediaKind)
               : null;
       if (id != null && id.isNotEmpty && seenIds.contains(id)) continue;
-      if (timeKey != null && seenTimes.contains(timeKey)) continue;
+      if (timeKindKey != null && seenTimeKinds.contains(timeKindKey)) continue;
       if (id != null && id.isNotEmpty) seenIds.add(id);
-      if (timeKey != null) seenTimes.add(timeKey);
+      if (timeKindKey != null) seenTimeKinds.add(timeKindKey);
       out.add(
         ImportedGalleryAssetRecord(
           assetId: (id != null && id.isNotEmpty) ? id : null,
@@ -108,6 +112,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
               DateTime.parse(
                 DatabaseHelper.importedGalleryMediaCreatedAtUnknownSentinel,
               ),
+          mediaKind: mediaKind,
         ),
       );
     }
@@ -123,7 +128,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     if (aid != null && aid.isNotEmpty) item['galleryAssetId'] = aid;
     final t = meta.mediaCreatedAt;
     if (t != null) {
-      item['galleryMediaCreatedAt'] = t.toUtc().toIso8601String();
+      // Persist as real UTC instant of local wall-clock (same as dedupe key).
+      item['galleryMediaCreatedAt'] = t.toLocal().toUtc().toIso8601String();
     }
   }
 
@@ -212,9 +218,14 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   }
 
   void _showMediaStagingLoader() {
-    if (!mounted || _mediaStagingDialogOpen) return;
+    if (!mounted || _mediaStagingLoaderRequested) return;
+    _mediaStagingLoaderRequested = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _mediaStagingDialogOpen) return;
+      if (!mounted ||
+          !_mediaStagingLoaderRequested ||
+          _mediaStagingDialogOpen) {
+        return;
+      }
       _mediaStagingDialogOpen = true;
       showDialog<void>(
         context: context,
@@ -250,14 +261,18 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
             ),
       ).whenComplete(() {
         _mediaStagingDialogOpen = false;
+        _mediaStagingLoaderRequested = false;
       });
     });
   }
 
   void _hideMediaStagingLoader() {
-    if (!_mediaStagingDialogOpen || !mounted) return;
-    final nav = Navigator.of(context, rootNavigator: true);
-    if (nav.canPop()) nav.pop();
+    _mediaStagingLoaderRequested = false;
+    if (!_mediaStagingDialogOpen) return;
+    if (mounted) {
+      final nav = Navigator.of(context, rootNavigator: true);
+      if (nav.canPop()) nav.pop();
+    }
     _mediaStagingDialogOpen = false;
   }
 
@@ -326,11 +341,38 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
         return;
       }
 
-      // Resolve while picker cache files still exist (needed for GPS-upload dedupe).
-      final metadataByPath = await GalleryAssetResolver.resolveMetadataForPaths(
-        [...images, ...videos],
-        maxAlbumScan: 2000,
-      );
+      // Fast EXIF/mtime only — full PhotoManager album walk hung iOS on
+      // "Processing memories". Asset-id linking is deferred below.
+      final metadataByPath =
+          await GalleryAssetResolver.probeMetadataForPaths([
+        ...images,
+        ...videos,
+      ]);
+
+      for (final path in images) {
+        final meta = metadataByPath[path];
+        unawaited(
+          CaptureTimeDedupeLog.logPickedFile(
+            source: 'AddMemory.gallery',
+            path: path,
+            mediaKind: 'image',
+            resolvedCaptureTime: meta?.mediaCreatedAt,
+            galleryAssetId: meta?.assetId,
+          ),
+        );
+      }
+      for (final path in videos) {
+        final meta = metadataByPath[path];
+        unawaited(
+          CaptureTimeDedupeLog.logPickedFile(
+            source: 'AddMemory.gallery',
+            path: path,
+            mediaKind: 'video',
+            resolvedCaptureTime: meta?.mediaCreatedAt,
+            galleryAssetId: meta?.assetId,
+          ),
+        );
+      }
 
       final memoryController = Get.find<MemoryController>();
       final staged = await memoryController.stagePickedMediaForUi(
@@ -371,23 +413,12 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       }
       await _sortMediaByCreationDate(newItems);
 
-      final missingPaths = <String>[];
-      for (var i = 0; i < images.length; i++) {
-        if (i >= staged.images.length) break;
-        final meta = metadataByPath[images[i]];
-        if (meta?.assetId == null || meta!.assetId!.isEmpty) {
-          missingPaths.add(staged.images[i]);
-        }
-      }
-      for (var i = 0; i < videos.length; i++) {
-        if (i >= staged.videos.length) break;
-        final meta = metadataByPath[videos[i]];
-        if (meta?.assetId == null || meta!.assetId!.isEmpty) {
-          missingPaths.add(staged.videos[i]);
-        }
-      }
-      if (missingPaths.isNotEmpty) {
-        unawaited(_backfillGalleryAssetIdsFromStagedPaths(missingPaths));
+      final stagedPaths = <String>[
+        ...staged.images,
+        ...staged.videos,
+      ];
+      if (stagedPaths.isNotEmpty) {
+        unawaited(_backfillGalleryAssetIdsFromStagedPaths(stagedPaths));
       }
     } finally {
       _isImportingPickedMedia = false;
@@ -400,7 +431,8 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
   ) async {
     final metadataByPath = await GalleryAssetResolver.resolveMetadataForPaths(
       stagedPaths,
-      maxAlbumScan: 2000,
+      maxAlbumScan: 800,
+      timeout: GalleryAssetResolver.albumLinkTimeout,
     );
     if (!mounted || metadataByPath.isEmpty) return;
 
@@ -430,14 +462,33 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
     }
     if (pathsNeedingMeta.isEmpty) return;
 
-    final metadataByPath = await GalleryAssetResolver.resolveMetadataForPaths(
-      pathsNeedingMeta,
-      maxAlbumScan: 2000,
+    // Prefer fast probe so save never hangs on PhotoManager; try a short
+    // album link only when asset ids are still missing.
+    final probed =
+        await GalleryAssetResolver.probeMetadataForPaths(pathsNeedingMeta);
+    for (final item in _orderedMedia) {
+      final path = item['path'] as String?;
+      if (path == null) continue;
+      _applyGalleryMetadataToItem(item, probed[path]);
+    }
+
+    final stillNeedId = <String>[];
+    for (final item in _orderedMedia) {
+      if ((item['galleryAssetId'] as String?)?.isNotEmpty == true) continue;
+      final path = item['path'] as String?;
+      if (path != null && path.isNotEmpty) stillNeedId.add(path);
+    }
+    if (stillNeedId.isEmpty) return;
+
+    final linked = await GalleryAssetResolver.resolveMetadataForPaths(
+      stillNeedId,
+      maxAlbumScan: 800,
+      timeout: GalleryAssetResolver.albumLinkTimeout,
     );
     for (final item in _orderedMedia) {
       final path = item['path'] as String?;
       if (path == null) continue;
-      _applyGalleryMetadataToItem(item, metadataByPath[path]);
+      _applyGalleryMetadataToItem(item, linked[path]);
     }
   }
 
@@ -2170,6 +2221,9 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
                         child: SingleChildScrollView(
                           controller: _scrollController,
                           physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.viewInsetsOf(context).bottom,
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [

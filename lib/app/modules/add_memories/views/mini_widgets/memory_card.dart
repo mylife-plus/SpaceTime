@@ -389,11 +389,10 @@ class _MemoryCardState extends State<MemoryCard> {
   final Map<int, VideoPlayerController> _inlineVideoControllers = {};
 
   /// List-thumbnail decode cap for this screen only (not the full-screen
-  /// viewer). Android-only 50% cut from 700 — Android is where the
-  /// decode/memory-driven lag and ANRs were confirmed on a real device;
-  /// other platforms keep the higher-quality default.
+  /// viewer). Android stays a bit under iOS for scroll cost, but high
+  /// enough that diary cards are not obviously soft.
   static int get _listImageMaxDecode =>
-      !kIsWeb && Platform.isAndroid ? 350 : 700;
+      !kIsWeb && Platform.isAndroid ? 720 : 900;
 
   @override
   void initState() {

@@ -4,6 +4,7 @@ import 'package:exif/exif.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_picked_asset.dart';
+import 'package:spacetime/app/modules/media_gps_upload/services/media_capture_time.dart';
 import 'package:video_player/video_player.dart';
 
 /// Reads GPS coordinates and capture time from image EXIF and container metadata.
@@ -39,9 +40,33 @@ class MediaGpsFileMetadataService {
 
   static MediaGpsFileKind kindForPath(String path) {
     final ext = p.extension(path).replaceFirst('.', '').toLowerCase();
-    if (_imageExt.contains(ext)) return MediaGpsFileKind.image;
-    if (_videoExt.contains(ext)) return MediaGpsFileKind.video;
-    if (_audioExt.contains(ext)) return MediaGpsFileKind.audio;
+    return _kindForExtension(ext);
+  }
+
+  static MediaGpsFileKind _kindForExtension(String ext) {
+    final e = ext.startsWith('.') ? ext.substring(1).toLowerCase() : ext.toLowerCase();
+    if (_imageExt.contains(e)) return MediaGpsFileKind.image;
+    if (_videoExt.contains(e)) return MediaGpsFileKind.video;
+    if (_audioExt.contains(e)) return MediaGpsFileKind.audio;
+    return MediaGpsFileKind.unknown;
+  }
+
+  /// Resolves kind from path, picker extension, and display name (content URIs).
+  static MediaGpsFileKind kindForPickerFile({
+    String? extension,
+    required String path,
+    String? displayName,
+  }) {
+    var kind = kindForPath(path);
+    if (kind != MediaGpsFileKind.unknown) return kind;
+    if (extension != null && extension.isNotEmpty) {
+      kind = _kindForExtension(extension);
+      if (kind != MediaGpsFileKind.unknown) return kind;
+    }
+    if (displayName != null && displayName.isNotEmpty) {
+      kind = kindForPath(displayName);
+      if (kind != MediaGpsFileKind.unknown) return kind;
+    }
     return MediaGpsFileKind.unknown;
   }
 
@@ -72,6 +97,21 @@ class MediaGpsFileMetadataService {
     'webm',
   ];
 
+  /// Android `file_picker` maps extensions → MIME via MimeTypeMap. If **any**
+  /// extension is unknown it falls back to `*/*` (so .xml becomes selectable).
+  /// Only pass extensions that MimeTypeMap reliably knows.
+  static const List<String> androidPickerExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'mp4',
+    '3gp',
+    'webm',
+    'mkv',
+    'mov',
+  ];
+
   static bool isAllowedPickerExtension(String? extension, String path) {
     var ext = extension?.toLowerCase() ?? '';
     if (ext.startsWith('.')) ext = ext.substring(1);
@@ -86,8 +126,12 @@ class MediaGpsFileMetadataService {
     double? longitude,
     DateTime? createTime,
     Duration videoDuration,
-  })> readMetadata(String path) async {
-    final kind = kindForPath(path);
+  })> readMetadata(
+    String path, {
+    MediaGpsFileKind? kindHint,
+    bool includeDuration = true,
+  }) async {
+    final kind = kindHint ?? kindForPath(path);
     final file = File(path);
     if (!await file.exists()) {
       return (latitude: null, longitude: null, createTime: null, videoDuration: Duration.zero);
@@ -113,12 +157,9 @@ class MediaGpsFileMetadataService {
       lat = loc.latitude;
       lng = loc.longitude;
       createTime = loc.createTime ?? createTime;
-      videoDuration = await _readVideoDuration(path);
-      if (lat == null || lng == null) {
-        final exif = await _readImageExif(path);
-        lat ??= exif.latitude;
-        lng ??= exif.longitude;
-        createTime = exif.createTime ?? createTime;
+      if (includeDuration) {
+        videoDuration = await _readVideoDuration(path)
+            .timeout(const Duration(seconds: 5), onTimeout: () => Duration.zero);
       }
     } else if (kind == MediaGpsFileKind.audio) {
       final loc = await _scanContainerForGps(path);
@@ -147,7 +188,16 @@ class MediaGpsFileMetadataService {
     DateTime? createTime,
   })> _readImageExif(String path) async {
     try {
-      final bytes = await File(path).readAsBytes();
+      // EXIF lives near the start — avoid loading entire HEIC/JPEG into RAM.
+      const maxExifBytes = 512 * 1024;
+      final raf = await File(path).open();
+      final Uint8List bytes;
+      try {
+        final len = await raf.length();
+        bytes = await raf.read(len < maxExifBytes ? len : maxExifBytes);
+      } finally {
+        await raf.close();
+      }
       if (bytes.isEmpty) {
         return (latitude: null, longitude: null, createTime: null);
       }
@@ -189,12 +239,14 @@ class MediaGpsFileMetadataService {
     VideoPlayerController? vc;
     try {
       vc = VideoPlayerController.file(File(path));
-      await vc.initialize();
+      await vc.initialize().timeout(const Duration(seconds: 4));
       return vc.value.duration;
     } catch (_) {
       return Duration.zero;
     } finally {
-      await vc?.dispose();
+      try {
+        await vc?.dispose().timeout(const Duration(seconds: 2));
+      } catch (_) {}
     }
   }
 
@@ -209,8 +261,10 @@ class MediaGpsFileMetadataService {
       if (len == 0) {
         return (latitude: null, longitude: null, createTime: null);
       }
-      const headMax = 48 * 1024 * 1024;
-      const tailMax = 8 * 1024 * 1024;
+      // ISO6709 for iPhone MOV/MP4 is usually in the moov atom near the
+      // start or end — keep windows small to avoid freezing the UI isolate.
+      const headMax = 2 * 1024 * 1024;
+      const tailMax = 1 * 1024 * 1024;
       final headLen = len < headMax ? len : headMax;
       final raf = await file.open();
       try {
@@ -247,34 +301,60 @@ class MediaGpsFileMetadataService {
 
   /// ISO6709 e.g. +37.3318-122.0302/ or +37.3318+122.0302/
   /// Requires at least 4 decimal places to avoid false-positive matches in
-  /// binary data (version strings, matrix values, etc.). Prefers the strict
-  /// ISO 6709 form that ends with `/` over the relaxed form without it.
+  /// binary data. Scans printable runs only (no full-buffer String alloc).
   static (double, double)? _parseIso6709FromBytes(Uint8List bytes) {
-    final text = String.fromCharCodes(bytes.where((b) => b >= 32 && b < 127));
-
-    // Strict: trailing `/` + 4+ decimals — standard iPhone/MOV GPS atom format.
     final reStrict = RegExp(
       r'([+-])(\d{1,2}\.\d{4,})([+-])(\d{1,3}\.\d{4,})/',
     );
-    // Relaxed: no slash but still 4+ decimals — handles edge-case containers.
     final reLax = RegExp(
       r'([+-])(\d{1,2}\.\d{4,})([+-])(\d{1,3}\.\d{4,})',
     );
 
-    for (final re in [reStrict, reLax]) {
-      for (final m in re.allMatches(text)) {
-        final latSign = m.group(1) == '-' ? -1.0 : 1.0;
-        final lat = double.tryParse(m.group(2) ?? '');
-        final lngSign = m.group(3) == '-' ? -1.0 : 1.0;
-        final lng = double.tryParse(m.group(4) ?? '');
-        if (lat == null || lng == null) continue;
-        final la = lat * latSign;
-        final lo = lng * lngSign;
-        if (la.abs() <= 90 && lo.abs() <= 180 &&
-            (la.abs() > 1e-4 || lo.abs() > 1e-4)) {
-          return (la, lo);
+    // Chunk into printable runs so we never allocate a multi-MB String.
+    const chunk = 4096;
+    final buf = StringBuffer();
+
+    (double, double)? tryMatch(String text) {
+      for (final re in [reStrict, reLax]) {
+        for (final m in re.allMatches(text)) {
+          final latSign = m.group(1) == '-' ? -1.0 : 1.0;
+          final lat = double.tryParse(m.group(2) ?? '');
+          final lngSign = m.group(3) == '-' ? -1.0 : 1.0;
+          final lng = double.tryParse(m.group(4) ?? '');
+          if (lat == null || lng == null) continue;
+          final la = lat * latSign;
+          final lo = lng * lngSign;
+          if (la.abs() <= 90 &&
+              lo.abs() <= 180 &&
+              (la.abs() > 1e-4 || lo.abs() > 1e-4)) {
+            return (la, lo);
+          }
         }
       }
+      return null;
+    }
+
+    for (var i = 0; i < bytes.length; i++) {
+      final b = bytes[i];
+      if (b >= 32 && b < 127) {
+        buf.writeCharCode(b);
+        if (buf.length >= chunk) {
+          final hit = tryMatch(buf.toString());
+          if (hit != null) return hit;
+          // Keep overlap so a match spanning the boundary is not lost.
+          final s = buf.toString();
+          buf
+            ..clear()
+            ..write(s.length <= 64 ? s : s.substring(s.length - 64));
+        }
+      } else if (buf.isNotEmpty) {
+        final hit = tryMatch(buf.toString());
+        if (hit != null) return hit;
+        buf.clear();
+      }
+    }
+    if (buf.isNotEmpty) {
+      return tryMatch(buf.toString());
     }
     return null;
   }
@@ -304,13 +384,6 @@ class MediaGpsFileMetadataService {
     }
   }
 
-  static DateTime? _parseExifDate(String? raw) {
-    if (raw == null || raw.length < 10) return null;
-    try {
-      final normalized = raw.replaceFirst(':', '-').replaceFirst(':', '-');
-      return DateTime.tryParse(normalized.replaceAll(' ', 'T'));
-    } catch (_) {
-      return null;
-    }
-  }
+  static DateTime? _parseExifDate(String? raw) =>
+      MediaCaptureTime.parseExif(raw);
 }

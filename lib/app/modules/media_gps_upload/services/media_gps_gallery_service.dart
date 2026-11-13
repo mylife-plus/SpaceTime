@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_picked_asset.dart';
+import 'package:spacetime/app/modules/media_gps_upload/services/media_capture_time.dart';
 import 'package:spacetime/app/utils/concurrency.dart';
 
 /// Shared option for gallery reads (photos/videos) used by permission checks and requests.
@@ -54,7 +56,15 @@ class MediaGpsGalleryService {
 
   static Future<MediaGpsPickedAsset?> _gpsAssetOrNull(AssetEntity e) async {
     try {
-      final t = e.createDateTime;
+      // Upload Files page: on-device only — hide confirmed iCloud-only items.
+      // Timeouts must not drop on-phone assets (that capped the grid at ~12).
+      if (!await isOnDevice(e, optimisticOnTimeout: true)) {
+        return null;
+      }
+
+      // Wall-clock local components — matches EXIF DateTimeOriginal on Android
+      // where DATE_TAKEN is a UTC instant and naive EXIF .toUtc() used to drift.
+      final t = MediaCaptureTime.wallClock(e.createDateTime);
       // Prefer sync fields when present; fall back to EXIF via latlngAsync.
       double? lat = e.latitude;
       double? lng = e.longitude;
@@ -67,9 +77,14 @@ class MediaGpsGalleryService {
         lat = latlng?.latitude;
         lng = latlng?.longitude;
       }
+      // Do NOT probe video file containers here — readMetadata can scan up to
+      // 48MB + VideoPlayer init per asset and blocked galleryLoading forever.
+      // GPS for gallery items comes from MediaStore / latlngAsync only; file
+      // picker (+) still uses MediaGpsFileMetadataService for filesystem GPS.
       final dur = (e.type == AssetType.video || e.type == AssetType.audio)
           ? e.videoDuration
           : Duration.zero;
+
       final picked = MediaGpsPickedAsset.fromGallery(
         entity: e,
         createTime: t,
@@ -140,7 +155,9 @@ class MediaGpsGalleryService {
         onFirstBatchDone?.call();
       }
 
-      if (out.isEmpty && scanned >= _earlyAbortAfterNoGps) {
+      // iCloud-heavy libraries skip many positions before a GPS hit — scan
+      // further before aborting (was stopping after ~400 and showing ~12).
+      if (out.isEmpty && scanned >= _earlyAbortAfterNoGps * 3) {
         debugPrint(
           '[MediaGpsGalleryService] aborting GPS scan after $scanned '
           'assets with 0 GPS hits (check ACCESS_MEDIA_LOCATION)',
@@ -169,9 +186,14 @@ class MediaGpsGalleryService {
     }
 
     final merged = <String, MediaGpsPickedAsset>{};
+    var firstBatchNotified = false;
+    void notifyFirstBatch() {
+      if (firstBatchNotified) return;
+      firstBatchNotified = true;
+      onFirstBatchDone?.call();
+    }
 
-    // Photos + videos only (RequestType.common excludes audio); audio is not
-    // importable in this flow.
+    // Photos + videos (RequestType.common excludes audio).
     final commonPaths =
         await PhotoManager.getAssetPathList(type: RequestType.common);
     if (commonPaths.isNotEmpty) {
@@ -181,11 +203,28 @@ class MediaGpsGalleryService {
         targetUniqueCount: maxCount,
         maxPositionsToScan: _maxAlbumPositionsScan,
         onProgress: onProgress,
-        onFirstBatchDone: onFirstBatchDone,
+        onFirstBatchDone: notifyFirstBatch,
       );
-    } else {
-      onFirstBatchDone?.call();
     }
+
+    // Some Android OEMs put videos only under the video album; scan that too
+    // so GPS-bearing videos are not invisible in the media GPS picker.
+    if (merged.length < maxCount && Platform.isAndroid) {
+      final videoPaths =
+          await PhotoManager.getAssetPathList(type: RequestType.video);
+      if (videoPaths.isNotEmpty) {
+        await _collectGpsAssetsFromAlbum(
+          album: videoPaths.first,
+          out: merged,
+          targetUniqueCount: maxCount,
+          maxPositionsToScan: _maxAlbumPositionsScan,
+          onProgress: onProgress,
+          onFirstBatchDone: notifyFirstBatch,
+        );
+      }
+    }
+
+    if (!firstBatchNotified) notifyFirstBatch();
 
     if (merged.isEmpty) return [];
 
@@ -197,10 +236,44 @@ class MediaGpsGalleryService {
     return list;
   }
 
-  /// Copies asset to a temp file (image, video, or audio) for import pipeline.
+  /// True when the asset is already on-device (Android always; iOS skips iCloud-only).
+  ///
+  /// [optimisticOnTimeout]: for gallery listing, a slow Photos reply should not
+  /// hide on-phone items. Export still uses `false` so iCloud is never fetched.
+  static Future<bool> isOnDevice(
+    AssetEntity entity, {
+    bool optimisticOnTimeout = false,
+  }) async {
+    if (Platform.isAndroid) return true;
+    try {
+      return await entity.isLocallyAvailable(isOrigin: false).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => optimisticOnTimeout,
+          );
+    } catch (_) {
+      return optimisticOnTimeout;
+    }
+  }
+
+  /// Local file only — never triggers an iCloud download.
   static Future<String?> exportToTempFile(AssetEntity entity) async {
     try {
-      final file = await entity.file;
+      if (!await isOnDevice(entity, optimisticOnTimeout: false)) {
+        debugPrint(
+          '[MediaGpsGalleryService] skip iCloud-only asset id=${entity.id}',
+        );
+        return null;
+      }
+      // Prefer compressed local file; never call originFile (iCloud fetch).
+      final file = await entity.file.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint(
+            '[MediaGpsGalleryService] exportToTempFile timeout id=${entity.id}',
+          );
+          return null;
+        },
+      );
       return file?.path;
     } catch (e, st) {
       debugPrint('[MediaGpsGalleryService] exportToTempFile: $e\n$st');
@@ -209,6 +282,7 @@ class MediaGpsGalleryService {
   }
 
   /// Resolves an on-disk path for gallery or file-picked items.
+  /// Gallery items must already be on the phone — no iCloud export.
   static Future<String?> resolveExportPath(MediaGpsPickedAsset asset) async {
     if (asset.isFromFile) {
       final path = asset.localPath;

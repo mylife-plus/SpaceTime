@@ -187,7 +187,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   }
 
   void _preloadImages() {
-    for (int i = 0; i < _totalCount; i++) {
+    // Only warm the current page and immediate neighbors — precaching every
+    // image at full decode width spikes memory on Android diaries.
+    for (final i in {_currentIndex - 1, _currentIndex, _currentIndex + 1}) {
       _preloadImageAt(i);
     }
   }
@@ -195,33 +197,33 @@ class _ImageViewerScreenState extends State<ImageViewerScreen>
   void _preloadImageAt(int index) {
     if (index < 0 || index >= _totalCount || _isVideoAtIndex(index)) return;
     final imageData = _getImageData(index);
-    final decodeW = MediaQuery.sizeOf(context).shortestSide > 0
-        ? MemoryMediaImageProviderCache.decodeWidthForLayout(
+    // Neighbors: screen-sized decode. Current page: warm full file (no
+    // cacheWidth) so tap/fullscreen is sharp, not the diary thumbnail.
+    final cacheWidth = index == _currentIndex
+        ? null
+        : MemoryMediaImageProviderCache.decodeWidthForLayout(
             context,
             layoutHeight: MediaQuery.sizeOf(context).height,
-            maxDecode: 2048,
-          )
-        : 2048;
+            layoutWidth: MediaQuery.sizeOf(context).width,
+            maxDecode: 1600,
+          );
     unawaited(
       MemoryMediaImageProviderCache.instance.precache(
         context,
         imageData,
-        cacheWidth: decodeW,
+        cacheWidth: cacheWidth,
       ),
     );
   }
 
   Widget _buildImageWidget(String imageData, int index) {
-    final decodeW = MemoryMediaImageProviderCache.decodeWidthForLayout(
-      context,
-      layoutHeight: MediaQuery.sizeOf(context).height,
-      maxDecode: 2048,
-    );
+    // Full-resolution decode on tap — no ResizeImage cap — so Android is
+    // not stuck on the diary list thumbnail (~720px).
     return MemoryMediaImageProviderCache.instance.buildImage(
       context: context,
       imageData: imageData,
       fit: BoxFit.contain,
-      cacheWidth: decodeW,
+      allowFullResolution: true,
       placeholderColor: Colors.black,
       errorChild: const Center(
         child: Icon(Icons.broken_image, color: Colors.white54, size: 64),

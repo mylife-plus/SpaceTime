@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_picked_asset.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/media_gps_file_metadata_service.dart';
 import 'package:spacetime/app/modules/memories/controllers/memory_controller.dart';
-import 'package:spacetime/app/utils/concurrency.dart';
 
 class MediaGpsFileImportResult {
   MediaGpsFileImportResult({
@@ -21,6 +21,20 @@ class MediaGpsFileImportResult {
   final List<MediaGpsPickedAsset> withGps;
   final int withoutGps;
   final int unsupported;
+}
+
+class _RawPick {
+  const _RawPick({
+    required this.displayName,
+    this.path,
+    this.extension,
+    this.bytes,
+  });
+
+  final String? path;
+  final String displayName;
+  final String? extension;
+  final List<int>? bytes;
 }
 
 /// Per-file result of parsing a picked file (one of: a GPS-bearing asset, a
@@ -47,62 +61,58 @@ class _PickedFileOutcome {
   final bool unsupported;
 }
 
-/// Picks images, videos, and audio from the system file browser.
+/// Picks images and videos from the system picker and parses GPS metadata.
 class MediaGpsFileImportService {
-  /// Concurrency for parsing picked files. Kept modest because video parsing
-  /// reads up to ~48 MB of the container and spins up a VideoPlayerController,
-  /// so too many in flight at once would spike memory.
-  static const int _parseConcurrency = 4;
-
   static Future<MediaGpsFileImportResult?> pickAndParse() async {
-    // Android: FileType.custom + extensions often fails or returns null paths on
-    // OEM file UIs. Prefer media types; filter by extension afterwards.
-    // iOS: custom extensions work well in Files.
-    final FilePickerResult? result = Platform.isAndroid
-        ? await FilePicker.platform.pickFiles(
-            type: FileType.media,
-            allowMultiple: true,
-            withReadStream: false,
-            withData: false,
-          )
-        : await FilePicker.platform.pickFiles(
-            type: FileType.custom,
-            allowedExtensions: MediaGpsFileMetadataService.pickableFileExtensions,
-            allowMultiple: true,
-            withReadStream: false,
-            withData: false,
-          );
-    if (result == null || result.files.isEmpty) return null;
+    final picks = Platform.isIOS
+        ? await _pickViaImagePicker()
+        : await _pickViaFilePicker();
+    if (picks == null || picks.isEmpty) return null;
 
+    // End native picker work first; parse one-by-one so the UI can breathe.
     final stagingDir = await _ensureStagingDir();
-
-    // Parse files in parallel (bounded). Each file is independent and the
-    // metadata readers are stateless, so this safely cuts the post-pick wait
-    // for multi-file selections (the slowest part for videos).
     final parseSw = Stopwatch()..start();
-    final outcomes = await mapWithConcurrency<PlatformFile, _PickedFileOutcome>(
-      result.files,
-      _parseConcurrency,
-      (f, _) => _processPickedFile(f, stagingDir),
-    );
-    parseSw.stop();
-
     final withGps = <MediaGpsPickedAsset>[];
+    final seenAssetIds = <String>{};
     var withoutGps = 0;
     var unsupported = 0;
-    for (final o in outcomes) {
-      if (o.asset != null) {
-        withGps.add(o.asset!);
-      } else if (o.withoutGps) {
+    var skippedDupInBatch = 0;
+
+    for (var i = 0; i < picks.length; i++) {
+      // Yield between files so the spinner can paint and the app stays responsive.
+      await Future<void>.delayed(Duration.zero);
+      final outcome = await _processRawPick(picks[i], stagingDir).timeout(
+        const Duration(seconds: 12),
+        onTimeout: () {
+          debugPrint(
+            '[MediaGpsFileImport] ⏱️ timeout parsing ${picks[i].displayName}',
+          );
+          return const _PickedFileOutcome.unsupported();
+        },
+      );
+      if (outcome.asset != null) {
+        if (!seenAssetIds.add(outcome.asset!.id)) {
+          skippedDupInBatch++;
+        } else {
+          withGps.add(outcome.asset!);
+        }
+      } else if (outcome.withoutGps) {
         withoutGps++;
-      } else if (o.unsupported) {
+      } else if (outcome.unsupported) {
         unsupported++;
       }
     }
+    parseSw.stop();
+
+    if (skippedDupInBatch > 0) {
+      debugPrint(
+        '[MediaGpsFileImport] skipped $skippedDupInBatch duplicate(s) in batch',
+      );
+    }
 
     debugPrint(
-      '[MediaGpsFileImport] ⏱️ parsed ${result.files.length} files in '
-      '${parseSw.elapsedMilliseconds}ms (concurrency=$_parseConcurrency) → '
+      '[MediaGpsFileImport] ⏱️ parsed ${picks.length} files in '
+      '${parseSw.elapsedMilliseconds}ms → '
       'gps=${withGps.length}, noGps=$withoutGps, unsupported=$unsupported',
     );
 
@@ -113,63 +123,126 @@ class MediaGpsFileImportService {
     );
   }
 
-  static Future<_PickedFileOutcome> _processPickedFile(
-    PlatformFile f,
+  /// iOS: PHPicker shows photos + videos reliably.
+  static Future<List<_RawPick>?> _pickViaImagePicker() async {
+    final selected = await ImagePicker().pickMultipleMedia(
+      requestFullMetadata: false,
+    );
+    if (selected.isEmpty) return null;
+
+    final picks = <_RawPick>[];
+    final seen = <String>{};
+    for (final x in selected) {
+      final path = x.path;
+      if (path.isEmpty || !seen.add(path)) continue;
+      final name = x.name.isNotEmpty ? x.name : p.basename(path);
+      final mime = x.mimeType?.toLowerCase() ?? '';
+      var ext = p.extension(name).replaceFirst('.', '');
+      if (ext.isEmpty && mime.startsWith('video/')) {
+        ext = mime.contains('quicktime') ? 'mov' : 'mp4';
+      } else if (ext.isEmpty && mime.startsWith('image/')) {
+        ext = mime.contains('png') ? 'png' : 'jpg';
+      }
+      picks.add(_RawPick(path: path, displayName: name, extension: ext));
+    }
+    return picks;
+  }
+
+  /// Android: FileType.custom with MIME-safe image+video extensions only.
+  /// (Unknown MIME extensions made file_picker fall back to */* → .xml selectable.)
+  static Future<List<_RawPick>?> _pickViaFilePicker() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: MediaGpsFileMetadataService.androidPickerExtensions,
+      allowMultiple: true,
+      withReadStream: false,
+      withData: false,
+    );
+    if (result == null || result.files.isEmpty) return null;
+
+    final picks = <_RawPick>[];
+    final seen = <String>{};
+    var blocked = 0;
+    for (final f in result.files) {
+      final key = '${f.path ?? ''}|${f.name}|${f.size}';
+      if (!seen.add(key)) continue;
+      final pathHint = f.path ?? f.name;
+      final kind = MediaGpsFileMetadataService.kindForPickerFile(
+        extension: f.extension,
+        path: pathHint,
+        displayName: f.name,
+      );
+      if (kind != MediaGpsFileKind.image && kind != MediaGpsFileKind.video) {
+        blocked++;
+        debugPrint(
+          '[MediaGpsFileImport] blocked non-media: ${f.name} (.${f.extension})',
+        );
+        continue;
+      }
+      picks.add(
+        _RawPick(
+          path: f.path,
+          displayName: f.name,
+          extension: f.extension,
+          bytes: f.bytes,
+        ),
+      );
+    }
+    if (blocked > 0) {
+      debugPrint('[MediaGpsFileImport] blocked $blocked non-media file(s)');
+    }
+    return picks.isEmpty ? null : picks;
+  }
+
+  static Future<_PickedFileOutcome> _processRawPick(
+    _RawPick f,
     Directory stagingDir,
   ) async {
-    final sourcePath = await _resolveReadablePath(f, stagingDir);
+    final sourcePath = await _resolveReadablePathFromRaw(f, stagingDir);
     if (sourcePath == null || sourcePath.isEmpty) {
-      debugPrint('[MediaGpsFileImport] skip (no path): ${f.name}');
+      debugPrint('[MediaGpsFileImport] skip (no path): ${f.displayName}');
       return const _PickedFileOutcome.skip();
     }
 
-    if (!MediaGpsFileMetadataService.isAllowedPickerExtension(
-      f.extension,
-      sourcePath,
-    )) {
-      return const _PickedFileOutcome.unsupported();
-    }
-    if (!MediaGpsFileMetadataService.isPickableMediaPath(sourcePath)) {
+    final kind = MediaGpsFileMetadataService.kindForPickerFile(
+      extension: f.extension,
+      path: sourcePath,
+      displayName: f.displayName,
+    );
+    if (kind != MediaGpsFileKind.image && kind != MediaGpsFileKind.video) {
       return const _PickedFileOutcome.unsupported();
     }
 
     try {
-      // Read metadata from the picker's already-downloaded copy first; only
-      // copy into staging if the file actually has GPS, so files that get
-      // discarded (no GPS / unsupported) don't pay the copy cost.
-      final meta = await MediaGpsFileMetadataService.readMetadata(sourcePath);
-      final kind = MediaGpsFileMetadataService.kindForPath(sourcePath);
-      // Audio is not importable in this flow — only photos and videos.
-      if (kind != MediaGpsFileKind.image &&
-          kind != MediaGpsFileKind.video) {
-        return const _PickedFileOutcome.unsupported();
-      }
+      final meta = await MediaGpsFileMetadataService.readMetadata(
+        sourcePath,
+        kindHint: kind,
+        includeDuration: false,
+      );
 
       if (meta.latitude == null ||
           meta.longitude == null ||
           (meta.latitude!.abs() < 1e-6 && meta.longitude!.abs() < 1e-6)) {
         debugPrint(
-          '[MediaGpsFileImport] ⚠️ no GPS: ${f.name}'
+          '[MediaGpsFileImport] ⚠️ no GPS: ${f.displayName}'
           '  lat=${meta.latitude}  lng=${meta.longitude}',
         );
         return const _PickedFileOutcome.withoutGps();
       }
 
-      final stagedPath = await _copyIntoStaging(
-        sourcePath: sourcePath,
-        stagingDir: stagingDir,
-        displayName: f.name,
-      );
-      final stat = await File(stagedPath).stat();
-      final createTime = meta.createTime ?? stat.modified;
-      final id = _stableFileId(
-        stagedPath,
-        stat.size,
-        stat.modified.millisecondsSinceEpoch,
+      final sourceStat = await File(sourcePath).stat();
+      final createTime = meta.createTime ?? sourceStat.modified;
+      final id = _stableContentId(
+        displayName: f.displayName,
+        size: sourceStat.size,
+        createTime: createTime,
+        kind: kind,
+        lat: meta.latitude,
+        lng: meta.longitude,
       );
 
       debugPrint(
-        '[MediaGpsFileImport] ✅ ${f.name}'
+        '[MediaGpsFileImport] ✅ ${f.displayName}'
         '  lat=${meta.latitude?.toStringAsFixed(6)}'
         '  lng=${meta.longitude?.toStringAsFixed(6)}'
         '  kind=$kind',
@@ -177,13 +250,13 @@ class MediaGpsFileImportService {
       return _PickedFileOutcome.withGps(
         MediaGpsPickedAsset.fromFile(
           id: id,
-          localPath: stagedPath,
+          localPath: sourcePath,
           fileKind: kind,
           createTime: createTime,
           latitude: meta.latitude,
           longitude: meta.longitude,
-          modifiedTime: stat.modified,
-          fileTitle: p.basenameWithoutExtension(f.name),
+          modifiedTime: sourceStat.modified,
+          fileTitle: p.basenameWithoutExtension(f.displayName),
           videoDuration: meta.videoDuration,
         ),
       );
@@ -193,9 +266,8 @@ class MediaGpsFileImportService {
     }
   }
 
-  /// Android SAF picks sometimes omit [PlatformFile.path]; fall back to bytes.
-  static Future<String?> _resolveReadablePath(
-    PlatformFile f,
+  static Future<String?> _resolveReadablePathFromRaw(
+    _RawPick f,
     Directory stagingDir,
   ) async {
     final rawPath = f.path;
@@ -207,7 +279,7 @@ class MediaGpsFileImportService {
     final bytes = f.bytes;
     if (bytes == null || bytes.isEmpty) return null;
     final safeName =
-        p.basename(f.name).replaceAll(RegExp(r'[^\w.\-]'), '_');
+        p.basename(f.displayName).replaceAll(RegExp(r'[^\w.\-]'), '_');
     final dest = File(
       p.join(
         stagingDir.path,
@@ -227,26 +299,23 @@ class MediaGpsFileImportService {
     return dir;
   }
 
-  static Future<String> _copyIntoStaging({
-    required String sourcePath,
-    required Directory stagingDir,
+  /// Identity that survives re-staging the same underlying file.
+  /// Deliberately omits filesystem mtime — Android re-copies often change it
+  /// and would otherwise mint a new id for the same photo.
+  static String _stableContentId({
     required String displayName,
-  }) async {
-    final src = File(sourcePath);
-    final safeName = p.basename(displayName).replaceAll(RegExp(r'[^\w.\-]'), '_');
-    final dest = File(
-      p.join(
-        stagingDir.path,
-        '${DateTime.now().microsecondsSinceEpoch}_$safeName',
-      ),
-    );
-    await src.copy(dest.path);
-    return dest.path;
-  }
-
-  static String _stableFileId(String path, int size, int modifiedMs) {
+    required int size,
+    required DateTime createTime,
+    required MediaGpsFileKind kind,
+    double? lat,
+    double? lng,
+  }) {
+    final name = p.basename(displayName).toLowerCase();
+    final tMs = createTime.toUtc().millisecondsSinceEpoch;
+    final latS = (lat ?? 0).toStringAsFixed(5);
+    final lngS = (lng ?? 0).toStringAsFixed(5);
     final digest = sha256.convert(
-      utf8.encode('$path|$size|$modifiedMs'),
+      utf8.encode('v2|$name|$size|$tMs|${kind.name}|$latS|$lngS'),
     );
     return 'file:${digest.toString()}';
   }

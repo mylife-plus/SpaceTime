@@ -7,10 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:spacetime/app/modules/data/services/android_backup_downloads.dart';
 import 'package:spacetime/app/modules/gpx_kmz_upload/services/spacetime_backup_zip.dart';
+import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/services/memory_db.dart';
+import 'package:spacetime/app/services/path_migration_helper.dart';
 
 class FullBackupResult {
   const FullBackupResult({
@@ -86,16 +89,17 @@ class FullBackupService {
           final dest = File(p.join(stagingRoot.path, rel));
           await dest.parent.create(recursive: true);
           await f.copy(dest.path);
-          // Keys must match DB column values (often relative paths); absolute paths break cross-platform remap.
-          mediaManifest[pair.storedPath] = rel;
+          // Exact DB value + portable aliases so iOS↔Android remap still hits.
+          _addManifestKeys(mediaManifest, pair.storedPath, rel);
           index++;
           if (index % 6 == 0) await Future<void>.delayed(Duration.zero);
         }
 
         final meta = <String, dynamic>{
-          'format_version': 1,
+          'format_version': 2,
           'created_at': now.toIso8601String(),
           'media_manifest': mediaManifest,
+          'shared_preferences': await _exportSharedPreferences(),
         };
         await File(p.join(stagingRoot.path, 'meta.json'))
             .writeAsString(jsonEncode(meta), flush: true);
@@ -339,19 +343,50 @@ class FullBackupService {
       await dbFile.writeAsBytes(dbEntry.content as List<int>, flush: true);
 
       final oldToNewPath = <String, String>{};
+      final basenameToNew = <String, String>{};
       for (final e in manifest.entries) {
+        final key = e.key.toString();
         final rel = _normalizeZipInternalPath(e.value.toString());
         final abs = relToAbs[rel];
         if (abs != null) {
-          oldToNewPath[e.key.toString()] = _relativeImportedMediaPath(rel);
+          final importedRel = _relativeImportedMediaPath(rel);
+          oldToNewPath[key] = importedRel;
+          if (key.startsWith('__basename__:')) {
+            basenameToNew[key.substring('__basename__:'.length)] = importedRel;
+          } else {
+            final base = p.basename(key.replaceAll(r'\', '/'));
+            if (base.isNotEmpty) basenameToNew.putIfAbsent(base, () => importedRel);
+          }
         } else {
           debugPrint('[FullBackupService] manifest zip path missing in archive: $rel');
         }
       }
+      // Also index extracted files by basename for orphan absolute paths.
+      for (final e in relToAbs.entries) {
+        final base = p.basename(e.key);
+        if (base.isNotEmpty) {
+          basenameToNew.putIfAbsent(base, () => _relativeImportedMediaPath(e.key));
+        }
+      }
 
       await _remapMediaPaths(dbPath, oldToNewPath);
+      await _healOrphanMediaPaths(dbPath, basenameToNew);
       await DatabaseHelper.instance.resetDatabaseConnection();
       dbClosedForReplace = false;
+
+      // Convert any leftover absolute Documents/… paths to relative.
+      try {
+        await PathMigrationHelper.instance.migrateAllPathsToRelative();
+      } catch (e) {
+        debugPrint('[FullBackupService] path migration after import: $e');
+      }
+
+      final prefsRaw = meta['shared_preferences'];
+      if (prefsRaw is Map) {
+        await _importSharedPreferences(
+          prefsRaw.map((k, v) => MapEntry(k.toString(), v)),
+        );
+      }
 
       return FullBackupResult(
         ok: true,
@@ -560,13 +595,207 @@ class FullBackupService {
   /// DB may store app-relative paths (e.g. `memory_images/...`); only include if file exists.
   static String? _resolveMediaFilePath(String documentsDir, String stored) {
     if (stored.isEmpty) return null;
+    if (stored.length > 600 && !_looksLikeAbsolutePath(stored)) return null;
+
     if (_looksLikeAbsolutePath(stored)) {
-      return File(stored).existsSync() ? stored : null;
+      if (File(stored).existsSync()) return stored;
+      // Absolute but missing on this device — try Documents-relative suffix.
+      final rel = _relativeKeyFromStored(stored);
+      if (rel != null) {
+        final candidate = _resolveUnderRoot(documentsDir, rel);
+        if (File(candidate).existsSync()) return candidate;
+      }
+      return null;
     }
-    if (stored.length > 600) return null;
+
     final normalized = stored.replaceAll(r'\', '/').trim();
     if (normalized.isEmpty) return null;
     final candidate = _resolveUnderRoot(documentsDir, normalized);
     return File(candidate).existsSync() ? candidate : null;
+  }
+
+  /// Register exact DB key + portable aliases (relative + basename).
+  static void _addManifestKeys(
+    Map<String, String> manifest,
+    String storedPath,
+    String zipRel,
+  ) {
+    if (storedPath.isEmpty) return;
+    manifest[storedPath] = zipRel;
+    final rel = _relativeKeyFromStored(storedPath);
+    if (rel != null && rel.isNotEmpty && rel != storedPath) {
+      manifest[rel] = zipRel;
+    }
+    final base = p.basename(storedPath.replaceAll(r'\', '/'));
+    if (base.isNotEmpty && base.contains('.')) {
+      manifest['__basename__:$base'] = zipRel;
+    }
+  }
+
+  /// `/…/Documents/memory_images/x.jpg` → `memory_images/x.jpg`
+  static String? _relativeKeyFromStored(String stored) {
+    final n = stored.replaceAll(r'\', '/');
+    const markers = <String>[
+      '/Documents/',
+      '/documents/',
+      '/app_flutter/',
+    ];
+    for (final m in markers) {
+      final i = n.indexOf(m);
+      if (i >= 0 && i + m.length < n.length) {
+        return n.substring(i + m.length);
+      }
+    }
+    if (!_looksLikeAbsolutePath(n) && n.isNotEmpty) return n;
+    return null;
+  }
+
+  /// Remap leftover absolute / stale paths by filename when exact key missed.
+  static Future<void> _healOrphanMediaPaths(
+    String dbPath,
+    Map<String, String> basenameToNew,
+  ) async {
+    if (basenameToNew.isEmpty) return;
+    final appDir = await getApplicationDocumentsDirectory();
+    final db = await openDatabase(dbPath);
+    try {
+      Future<void> healColumn(String table, String column) async {
+        final rows = await db.query(table, columns: ['rowid', column]);
+        for (final r in rows) {
+          final raw = (r[column] ?? '').toString();
+          if (raw.isEmpty || raw.length > 600) continue;
+          if (raw.startsWith('imported_media/')) continue;
+          if (raw.startsWith('data:') || raw.startsWith('http')) continue;
+
+          final exists = _looksLikeAbsolutePath(raw)
+              ? File(raw).existsSync()
+              : File(_resolveUnderRoot(appDir.path, raw)).existsSync();
+          if (exists) continue;
+
+          final base = p.basename(raw.replaceAll(r'\', '/'));
+          final neu = basenameToNew[base];
+          if (neu == null || neu == raw) continue;
+          await db.update(
+            table,
+            {column: neu},
+            where: 'rowid = ?',
+            whereArgs: [r['rowid']],
+          );
+        }
+      }
+
+      await healColumn(
+        DatabaseHelper.tableAudios,
+        DatabaseHelper.columnAudioFilePath,
+      );
+      await healColumn(
+        DatabaseHelper.tableVideos,
+        DatabaseHelper.columnVideoFilePath,
+      );
+      await healColumn(
+        DatabaseHelper.tableVideos,
+        DatabaseHelper.columnVideoThumbnailPath,
+      );
+      await healColumn(
+        DatabaseHelper.tableImages,
+        DatabaseHelper.columnImageData,
+      );
+    } finally {
+      await db.close();
+    }
+  }
+
+  static const _prefsSkipKeys = <String>{
+    'mbtiles_path',
+  };
+
+  static bool _skipPrefKey(String key) {
+    final k = key.toLowerCase();
+    if (_prefsSkipKeys.contains(k)) return true;
+    if (k.endsWith('_path') && k.contains('mbtiles')) return true;
+    if (k.contains('flutter.')) return true;
+    return false;
+  }
+
+  static Future<Map<String, dynamic>> _exportSharedPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final out = <String, dynamic>{};
+    for (final key in prefs.getKeys()) {
+      if (_skipPrefKey(key)) continue;
+      final v = prefs.get(key);
+      if (v is String) {
+        if (_looksLikeAbsolutePath(v)) continue;
+        out[key] = {'t': 'string', 'v': v};
+      } else if (v is bool) {
+        out[key] = {'t': 'bool', 'v': v};
+      } else if (v is int) {
+        out[key] = {'t': 'int', 'v': v};
+      } else if (v is double) {
+        out[key] = {'t': 'double', 'v': v};
+      } else if (v is List) {
+        out[key] = {
+          't': 'stringList',
+          'v': v.map((e) => e.toString()).toList(),
+        };
+      }
+    }
+    return out;
+  }
+
+  static Future<void> _importSharedPreferences(
+    Map<String, dynamic> raw,
+  ) async {
+    if (raw.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    for (final e in raw.entries) {
+      if (_skipPrefKey(e.key)) continue;
+      final entry = e.value;
+      if (entry is! Map) continue;
+      final t = entry['t']?.toString();
+      final v = entry['v'];
+      try {
+        switch (t) {
+          case 'bool':
+            if (v is bool) await prefs.setBool(e.key, v);
+            break;
+          case 'int':
+            if (v is int) {
+              await prefs.setInt(e.key, v);
+            } else if (v is num) {
+              await prefs.setInt(e.key, v.toInt());
+            }
+            break;
+          case 'double':
+            if (v is double) {
+              await prefs.setDouble(e.key, v);
+            } else if (v is num) {
+              await prefs.setDouble(e.key, v.toDouble());
+            }
+            break;
+          case 'string':
+            if (v is String && !_looksLikeAbsolutePath(v)) {
+              await prefs.setString(e.key, v);
+            }
+            break;
+          case 'stringList':
+            if (v is List) {
+              await prefs.setStringList(
+                e.key,
+                v.map((x) => x.toString()).toList(),
+              );
+            }
+            break;
+        }
+      } catch (err) {
+        debugPrint('[FullBackupService] prefs restore ${e.key}: $err');
+      }
+    }
+    if (Get.isRegistered<UiController>()) {
+      try {
+        await Get.find<UiController>().reloadPreferences();
+      } catch (e) {
+        debugPrint('[FullBackupService] reload UI prefs: $e');
+      }
+    }
   }
 }

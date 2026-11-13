@@ -129,6 +129,9 @@ class UiController extends GetxController {
     }
   }
 
+  /// Re-read UI prefs after backup import (language / theme / lock / color).
+  Future<void> reloadPreferences() => _loadPreferences();
+
   // Load preferences from SharedPreferences
   Future<void> _loadPreferences() async {
     try {

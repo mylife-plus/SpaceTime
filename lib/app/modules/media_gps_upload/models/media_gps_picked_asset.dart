@@ -135,16 +135,35 @@ class MediaGpsPickedAsset {
     if (width > 0 && height > 0) {
       parts.add('$width×$height');
     }
-    if ((isVideo || isAudio) && videoDuration > Duration.zero) {
-      final s = videoDuration.inSeconds;
-      parts.add(s >= 3600
-          ? '${videoDuration.inHours}h ${(s % 3600) ~/ 60}m'
-          : s >= 60
-              ? '${s ~/ 60}m ${s % 60}s'
-              : '${s}s');
+    final dur = formattedVideoDuration;
+    if (dur != null) parts.add(dur);
+    parts.add(_shortDate(createTime));
+    return parts.join(' · ');
+  }
+
+  /// Grid subtitle without duration (duration is shown as its own badge).
+  String get libraryGridSubtitle {
+    final parts = <String>[];
+    if (width > 0 && height > 0) {
+      parts.add('$width×$height');
     }
     parts.add(_shortDate(createTime));
     return parts.join(' · ');
+  }
+
+  /// Compact duration for grid badge, or null if not a timed video/audio.
+  String? get formattedVideoDuration {
+    if (!(isVideo || isAudio) || videoDuration <= Duration.zero) return null;
+    final s = videoDuration.inSeconds;
+    if (s >= 3600) {
+      final h = videoDuration.inHours;
+      final m = (s % 3600) ~/ 60;
+      final sec = s % 60;
+      return '$h:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+    }
+    final m = s ~/ 60;
+    final sec = s % 60;
+    return '$m:${sec.toString().padLeft(2, '0')}';
   }
 
   static String _shortDate(DateTime d) {

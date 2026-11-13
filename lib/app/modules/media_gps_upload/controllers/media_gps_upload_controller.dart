@@ -13,6 +13,7 @@ import 'package:spacetime/app/modules/gpx_kmz_upload/services/kmz_kml_parser.dar
 import 'package:spacetime/app/modules/map/controllers/map_controller_new.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_cluster_candidate.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_picked_asset.dart';
+import 'package:spacetime/app/modules/media_gps_upload/services/capture_time_dedupe_log.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/media_gps_file_import_service.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/media_gps_gallery_permission.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/media_gps_gallery_service.dart';
@@ -66,7 +67,7 @@ class MediaGpsUploadController extends GetxController {
   List<MediaGpsClusterCandidate> _lastCandidates = [];
   Set<String> _existingTrackFingerprints = <String>{};
   Set<String> _importedGalleryAssetIds = <String>{};
-  Set<int> _importedGalleryMediaCreatedAtKeys = <int>{};
+  Set<String> _importedGalleryMediaCreatedAtKeys = <String>{};
   List<Map<String, dynamic>> _existingCoordinateRows = const [];
 
   /// Long-press + drag bulk selection (gallery picker).
@@ -112,10 +113,17 @@ class MediaGpsUploadController extends GetxController {
       _importedGalleryAssetIds.contains(assetId);
 
   bool _isPickedAssetAlreadyImported(MediaGpsPickedAsset asset) {
-    if (_importedGalleryAssetIds.contains(asset.id)) return true;
+    if (asset.id.isNotEmpty &&
+        _importedGalleryAssetIds.contains(asset.id)) {
+      return true;
+    }
     if (!asset.isImage && !asset.isVideo) return false;
+    // Always match on media capture time + kind (not memory save time).
+    // Asset ids often differ between Add Memories (file/EXIF) and GPS gallery
+    // (PhotoManager), so time is the cross-flow signal.
+    final kind = asset.isVideo ? 'video' : 'image';
     return _importedGalleryMediaCreatedAtKeys.contains(
-      DatabaseHelper.mediaCreatedAtDedupeKey(asset.createTime),
+      DatabaseHelper.mediaTimeKindDedupeKey(asset.createTime, kind),
     );
   }
 
@@ -123,18 +131,25 @@ class MediaGpsUploadController extends GetxController {
     Iterable<MediaGpsPickedAsset> items,
   ) {
     final seenIds = <String>{};
-    final seenTimes = <int>{};
+    final seenTimeKinds = <String>{};
     final out = <ImportedGalleryAssetRecord>[];
     for (final it in items) {
       if (!it.isImage && !it.isVideo) continue;
-      final timeKey = DatabaseHelper.mediaCreatedAtDedupeKey(it.createTime);
-      if (seenIds.contains(it.id) || seenTimes.contains(timeKey)) continue;
-      seenIds.add(it.id);
-      seenTimes.add(timeKey);
+      final hasId = it.id.isNotEmpty;
+      final kind = it.isVideo ? 'video' : 'image';
+      final timeKindKey =
+          DatabaseHelper.mediaTimeKindDedupeKey(it.createTime, kind);
+      if (hasId) {
+        if (!seenIds.add(it.id)) continue;
+      } else {
+        // Asset-less: keep one row per capture time + file type.
+        if (!seenTimeKinds.add(timeKindKey)) continue;
+      }
       out.add(
         ImportedGalleryAssetRecord(
-          assetId: it.id,
+          assetId: hasId ? it.id : null,
           mediaCreatedAt: it.createTime.toUtc(),
+          mediaKind: kind,
         ),
       );
     }
@@ -438,6 +453,25 @@ class MediaGpsUploadController extends GetxController {
       }
 
       _mergeFilePickedAssets(result.withGps);
+      for (final a in result.withGps) {
+        CaptureTimeDedupeLog.logGalleryAsset(
+          source: 'MediaGps.files',
+          asset: a,
+          alreadyImported: _isPickedAssetAlreadyImported(a),
+        );
+        final path = a.localPath;
+        if (path != null && path.isNotEmpty) {
+          unawaited(
+            CaptureTimeDedupeLog.logPickedFile(
+              source: 'MediaGps.files',
+              path: path,
+              mediaKind: a.isVideo ? 'video' : 'image',
+              resolvedCaptureTime: a.createTime,
+              galleryAssetId: a.id,
+            ),
+          );
+        }
+      }
       _markSelectionChanged();
       recomputeStats();
 
@@ -476,14 +510,29 @@ class MediaGpsUploadController extends GetxController {
   void _mergeFilePickedAssets(List<MediaGpsPickedAsset> incoming) {
     if (incoming.isEmpty) return;
     final byId = {for (final a in galleryAssets) a.id: a};
+    // Also index existing selection by time+GPS so re-picking the same photo
+    // via a new staging path still counts as a duplicate.
+    final existingMetaKeys = <String>{
+      for (final a in galleryAssets)
+        if (a.hasGps) _fileContentMetaKey(a),
+    };
+    var skippedDup = 0;
     for (final a in incoming) {
+      if (byId.containsKey(a.id) ||
+          (a.hasGps && existingMetaKeys.contains(_fileContentMetaKey(a)))) {
+        skippedDup++;
+        continue;
+      }
       byId[a.id] = a;
+      if (a.hasGps) existingMetaKeys.add(_fileContentMetaKey(a));
     }
     final merged = byId.values.toList()
       ..sort((a, b) => b.createTime.compareTo(a.createTime));
     galleryAssets.assignAll(merged);
     var limitHit = false;
     for (final a in incoming) {
+      if (!byId.containsKey(a.id)) continue; // skipped as duplicate
+      if (selectedAssetIds.contains(a.id)) continue;
       if (selectedAssetIds.length >= maxSelection) {
         limitHit = true;
         break;
@@ -491,7 +540,26 @@ class MediaGpsUploadController extends GetxController {
       selectedAssetIds.add(a.id);
     }
     selectedAssetIds.refresh();
+    if (skippedDup > 0) {
+      showTrSnackbar(
+        'media_gps_snackbar_duplicate_files_skipped',
+        args: [skippedDup.toString()],
+        backgroundColor: Colors.orange.shade800,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    }
     if (limitHit) _showSelectionLimitSnackbar();
+  }
+
+  /// Stable key for detecting the same filesystem photo picked twice.
+  String _fileContentMetaKey(MediaGpsPickedAsset a) {
+    final t = a.createTime.toUtc().millisecondsSinceEpoch;
+    final lat = (a.latitude ?? 0).toStringAsFixed(5);
+    final lng = (a.longitude ?? 0).toStringAsFixed(5);
+    final title = (a.fileTitle ?? '').toLowerCase();
+    final kind = a.isVideo ? 'video' : (a.isImage ? 'image' : 'unknown');
+    return '$t|$lat|$lng|$title|$kind';
   }
 
   void _showFilesWithoutGpsSnackbar(int count) {
@@ -543,6 +611,26 @@ class MediaGpsUploadController extends GetxController {
         return;
       }
       selectedAssetIds.add(id);
+      final a = _assetById(id);
+      if (a != null) {
+        CaptureTimeDedupeLog.logGalleryAsset(
+          source: 'MediaGps.gallery',
+          asset: a,
+          alreadyImported: _isPickedAssetAlreadyImported(a),
+        );
+        final path = a.localPath;
+        if (path != null && path.isNotEmpty) {
+          unawaited(
+            CaptureTimeDedupeLog.logPickedFile(
+              source: 'MediaGps.gallery',
+              path: path,
+              mediaKind: a.isVideo ? 'video' : 'image',
+              resolvedCaptureTime: a.createTime,
+              galleryAssetId: a.id,
+            ),
+          );
+        }
+      }
     }
     _markSelectionChanged();
     recomputeStats();
@@ -790,7 +878,16 @@ class MediaGpsUploadController extends GetxController {
     final minT = KmzImportPipeline.durationForTimeKey(selectedMinTimeApartKey.value);
     final minM = KmzImportPipeline.metersForDistanceKey(selectedMinMeterApartKey.value);
     final points = tagged.map((e) => e.p).toList();
-    final clusters = KmzImportPipeline.clusterTrackPoints(points, minT, minM);
+    // Media: split when either time or distance threshold is met, and never
+    // drop whole clusters via distance thinning — otherwise space-distant
+    // photos taken close in time are merged or silently discarded.
+    final clusters = KmzImportPipeline.clusterTrackPoints(
+      points,
+      minT,
+      minM,
+      splitWhenEitherThresholdMet: true,
+      thinByMinDistance: false,
+    );
 
     final out = <MediaGpsClusterCandidate>[];
     for (final c in clusters) {
@@ -956,17 +1053,18 @@ class MediaGpsUploadController extends GetxController {
   /// asset — and any cluster whose every asset failed — from the upload.
   Future<String?> _resolveExportPathWithRetry(
     MediaGpsPickedAsset asset, {
-    int attempts = 4,
+    int attempts = 2,
   }) async {
     for (var attempt = 0; attempt < attempts; attempt++) {
       try {
-        final path = await MediaGpsGalleryService.resolveExportPath(asset);
+        final path = await MediaGpsGalleryService.resolveExportPath(asset)
+            .timeout(const Duration(seconds: 10));
         if (path != null && path.isNotEmpty) return path;
       } catch (e) {
         debugPrint('[MediaGpsUpload] export attempt ${attempt + 1} failed: $e');
       }
       if (attempt < attempts - 1) {
-        await Future<void>.delayed(Duration(milliseconds: 120 * (attempt + 1)));
+        await Future<void>.delayed(Duration(milliseconds: 150 * (attempt + 1)));
       }
     }
     return null;
@@ -1018,10 +1116,18 @@ class MediaGpsUploadController extends GetxController {
         return;
       }
 
-      importBlock.importing.value = true;
+      importBlock.beginImport(progress: '1 / ${pendingAssets.length}');
       await Future<void>.delayed(const Duration(milliseconds: 16));
 
       final mem = Get.find<MemoryController>();
+      // Warm offline geocoder once (hard timeout — never block upload forever).
+      var geocoderReady = false;
+      try {
+        geocoderReady = await GeocodingIsolateService.instance
+            .ensureInitialized(timeout: const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('[MediaGpsUpload] geocoder warm-up: $e');
+      }
 
       var galleryMergeRows =
           await DatabaseHelper.instance.queryMemoriesGalleryMergeCandidates();
@@ -1050,6 +1156,7 @@ class MediaGpsUploadController extends GetxController {
       // Phase 1: resolve every asset's export path in PARALLEL (bounded). This
       // is the heavy gallery-export I/O that previously ran one item at a time
       // and was the main reason a 100-item upload felt frozen.
+      importBlock.setProgress('Exporting…');
       final flatAssets = <MediaGpsPickedAsset>[];
       final flatClusterOf = <int>[];
       for (var ci = 0; ci < pendingClusters.length; ci++) {
@@ -1058,9 +1165,12 @@ class MediaGpsUploadController extends GetxController {
           flatClusterOf.add(ci);
         }
       }
+      // iOS Photos/iCloud hates many parallel entity.file calls — keep low.
+      final exportConcurrency =
+          (GetPlatform.isIOS ? 2 : _uploadConcurrency);
       final resolvedPaths = await mapWithConcurrency<MediaGpsPickedAsset, String?>(
         flatAssets,
-        _uploadConcurrency,
+        exportConcurrency,
         (asset, _) => _resolveExportPathWithRetry(asset),
       );
       final droppedAssets =
@@ -1096,34 +1206,70 @@ class MediaGpsUploadController extends GetxController {
       // BEFORE saving. reverseGeocodeCoordinates caches by rounded lat/lng, so
       // the per-cluster save below resolves location as an instant cache hit and
       // inserts it in one write — no deferred backfill / second UPDATE.
-      final coordKeys = <String>{};
-      final coordLats = <double>[];
-      final coordLngs = <double>[];
-      for (var ci = 0; ci < pendingClusters.length; ci++) {
-        if (imagePathsByCluster[ci].isEmpty &&
-            videoPathsByCluster[ci].isEmpty &&
-            audioPathsByCluster[ci].isEmpty) {
-          continue;
+      if (geocoderReady) {
+        importBlock.setProgress('Locations…');
+        final coordKeys = <String>{};
+        final coordLats = <double>[];
+        final coordLngs = <double>[];
+        for (var ci = 0; ci < pendingClusters.length; ci++) {
+          if (imagePathsByCluster[ci].isEmpty &&
+              videoPathsByCluster[ci].isEmpty &&
+              audioPathsByCluster[ci].isEmpty) {
+            continue;
+          }
+          final c = pendingClusters[ci];
+          final key =
+              '${c.latitude.toStringAsFixed(4)},${c.longitude.toStringAsFixed(4)}';
+          if (coordKeys.add(key)) {
+            coordLats.add(c.latitude);
+            coordLngs.add(c.longitude);
+          }
         }
-        final c = pendingClusters[ci];
-        final key =
-            '${c.latitude.toStringAsFixed(4)},${c.longitude.toStringAsFixed(4)}';
-        if (coordKeys.add(key)) {
-          coordLats.add(c.latitude);
-          coordLngs.add(c.longitude);
-        }
+        await mapWithConcurrency<int, Map<String, dynamic>?>(
+          List<int>.generate(coordLats.length, (i) => i),
+          GetPlatform.isIOS ? 2 : _uploadConcurrency,
+          (i, _) => mem.reverseGeocodeCoordinates(coordLats[i], coordLngs[i]),
+        );
+      } else {
+        debugPrint(
+          '[MediaGpsUpload] geocoder not ready — saving coords only',
+        );
       }
-      await mapWithConcurrency<int, Map<String, dynamic>?>(
-        List<int>.generate(coordLats.length, (i) => i),
-        _uploadConcurrency,
-        (i, _) => mem.reverseGeocodeCoordinates(coordLats[i], coordLngs[i]),
+
+      // Phase 2.5: copy ALL images once. On iOS avoid compute() — Photos temp
+      // paths + background isolates have caused indefinite hangs.
+      importBlock.setProgress('Copying photos…');
+      final flatImages = <String>[];
+      final imageIndexRanges = List.generate(
+        pendingClusters.length,
+        (_) => (start: 0, end: 0),
       );
+      for (var ci = 0; ci < pendingClusters.length; ci++) {
+        final start = flatImages.length;
+        flatImages.addAll(imagePathsByCluster[ci]);
+        imageIndexRanges[ci] = (start: start, end: flatImages.length);
+      }
+      final relativeByFlatIndex = flatImages.isEmpty
+          ? <String>[]
+          : await mem.saveImagesToAppDirectory(
+              flatImages,
+              forceBackgroundCopy: !GetPlatform.isIOS,
+              preserveSourceIndex: true,
+            ).timeout(
+              Duration(seconds: 12 + flatImages.length * 4),
+              onTimeout: () {
+                debugPrint(
+                  '[MediaGpsUpload] image copy timed out after '
+                  '${flatImages.length} files',
+                );
+                return List<String>.filled(flatImages.length, '');
+              },
+            );
 
       // Phase 3: persist clusters SEQUENTIALLY. The merge decision depends on
       // memories created earlier in THIS import (galleryMergeRows grows as we
-      // insert), so this stage must stay ordered. The expensive work (export +
-      // geocode above; image copy on a background isolate; video/audio copies
-      // in parallel) is already done or offloaded, so this loop is light.
+      // insert), so this stage must stay ordered. Images are already copied.
+      final saveTotal = pendingClusters.length;
       for (var ci = 0; ci < pendingClusters.length; ci++) {
         final c = pendingClusters[ci];
         final imagePaths = imagePathsByCluster[ci];
@@ -1132,6 +1278,7 @@ class MediaGpsUploadController extends GetxController {
         if (imagePaths.isEmpty && videoPaths.isEmpty && audioPaths.isEmpty) {
           continue;
         }
+        importBlock.setProgress('${ci + 1} / $saveTotal');
 
         try {
           final mergeId = _findMergeTargetGalleryMemoryId(
@@ -1142,31 +1289,41 @@ class MediaGpsUploadController extends GetxController {
           );
 
           final clusterAssetRecords = _galleryRecordsForItems(c.items);
+          final range = imageIndexRanges[ci];
+          final preSavedImages = relativeByFlatIndex
+              .sublist(range.start, range.end)
+              .where((p) => p.isNotEmpty)
+              .toList();
 
           late final int memoryId;
           if (mergeId != null) {
-            await mem.appendImportedGalleryMediaToMemory(
-              memoryId: mergeId,
-              imageAbsolutePaths: imagePaths,
-              videoAbsolutePaths: videoPaths,
-              audioAbsolutePaths: audioPaths,
-              galleryAssetRecords: clusterAssetRecords,
-              forceBackgroundImageCopy: true,
-            );
+            await mem
+                .appendImportedGalleryMediaToMemory(
+                  memoryId: mergeId,
+                  imageAbsolutePaths: const [],
+                  videoAbsolutePaths: videoPaths,
+                  audioAbsolutePaths: audioPaths,
+                  galleryAssetRecords: clusterAssetRecords,
+                  preSavedImageRelativePaths: preSavedImages,
+                )
+                .timeout(const Duration(seconds: 45));
             memoryId = mergeId;
           } else {
-            memoryId = await mem.saveImportedGalleryClusterMemory(
-              when: c.when,
-              latitude: c.latitude,
-              longitude: c.longitude,
-              imageAbsolutePaths: imagePaths,
-              videoAbsolutePaths: videoPaths,
-              audioAbsolutePaths: audioPaths,
-              trackImportFingerprint: c.fingerprint,
-              galleryAssetRecords: clusterAssetRecords,
-              skipReverseGeocode: false,
-              forceBackgroundImageCopy: true,
-            );
+            memoryId = await mem
+                .saveImportedGalleryClusterMemory(
+                  when: c.when,
+                  latitude: c.latitude,
+                  longitude: c.longitude,
+                  imageAbsolutePaths: const [],
+                  videoAbsolutePaths: videoPaths,
+                  audioAbsolutePaths: audioPaths,
+                  trackImportFingerprint: c.fingerprint,
+                  galleryAssetRecords: clusterAssetRecords,
+                  skipReverseGeocode: true,
+                  preSavedImageRelativePaths: preSavedImages,
+                  generateVideoThumbnails: false,
+                )
+                .timeout(const Duration(seconds: 45));
             galleryMergeRows = [
               ...galleryMergeRows,
               {
@@ -1185,10 +1342,13 @@ class MediaGpsUploadController extends GetxController {
             if (id != null && id.isNotEmpty) {
               _importedGalleryAssetIds.add(id);
             }
-            final assetId = record.assetId;
-            if (assetId == null || assetId.isEmpty) {
+            final kind = record.mediaKind.trim();
+            if (kind.isNotEmpty) {
               _importedGalleryMediaCreatedAtKeys.add(
-                DatabaseHelper.mediaCreatedAtDedupeKey(record.mediaCreatedAt),
+                DatabaseHelper.mediaTimeKindDedupeKey(
+                  record.mediaCreatedAt,
+                  kind,
+                ),
               );
             }
           }
@@ -1261,7 +1421,7 @@ class MediaGpsUploadController extends GetxController {
         colorText: Colors.white,
       );
     } finally {
-      importBlock.importing.value = false;
+      importBlock.endImport();
       isBusy.value = false;
     }
   }
@@ -1296,8 +1456,8 @@ class MediaGpsUploadController extends GetxController {
     // memories are inserted with location already filled — no deferred backfill.
   }
 
-  /// Same place (~5 m), or still within min time **or** min distance of an
-  /// existing gallery memory (matches GPX/KMZ AND-to-split clustering).
+  /// Same place (~5 m), or close in **both** time and distance of an existing
+  /// gallery memory (matches media AND-to-merge clustering).
   int? _findMergeTargetGalleryMemoryId({
     required MediaGpsClusterCandidate c,
     required List<Map<String, dynamic>> galleryRows,
@@ -1326,9 +1486,9 @@ class MediaGpsUploadController extends GetxController {
       if (memWhen == null) continue;
       final dt = c.when.toUtc().difference(memWhen.toUtc()).abs();
       final sameSpot = m <= sameSpotMeters;
-      // Dual of cluster AND-to-split: merge if still within min time OR
-      // within min distance (do not create a separate memory under those limits).
-      final inWindow = m < minM || dt < minT;
+      // Dual of media split-on-either: merge only when still within min time
+      // AND min distance (space-distant near-time photos stay separate).
+      final inWindow = m < minM && dt < minT;
       if (!sameSpot && !inWindow) continue;
       final score = m + dt.inMilliseconds / 1e6;
       if (score < bestScore) {

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -202,13 +203,15 @@ class _GalleryVideoPageState extends State<GalleryVideoPage>
 
   Future<void> _open() async {
     try {
-      // entity.file returns null for iCloud-only assets; originFile triggers download.
-      var file = await widget.entity.file;
+      // On-device only — never call originFile (that triggers iCloud download).
+      final local = await widget.entity.isLocallyAvailable(isOrigin: false);
       if (!mounted) return;
-      if (file == null) {
-        file = await widget.entity.originFile;
-        if (!mounted) return;
+      if (!local) {
+        setState(() => _failed = true);
+        return;
       }
+      final file = await widget.entity.file;
+      if (!mounted) return;
       if (file == null) {
         setState(() => _failed = true);
         return;
@@ -373,65 +376,202 @@ class MediaGpsThumbTile extends StatelessWidget {
   }
 }
 
-class _GalleryEntityThumbTile extends StatelessWidget {
+/// Grid-cell thumb cache — Obx rebuilds on every GPS-scan progress tick would
+/// otherwise re-hit [AssetEntity.thumbnailDataWithSize] for every visible cell.
+class _GridThumbCache {
+  _GridThumbCache._();
+  static final _GridThumbCache instance = _GridThumbCache._();
+
+  /// Grid cells are ~110pt; 256px is sharp enough and much faster on iOS.
+  static const ThumbnailSize size = ThumbnailSize(256, 256);
+
+  final Map<String, Future<Uint8List?>> _futures = {};
+  final Map<String, Uint8List?> _bytes = {};
+
+  Future<Uint8List?> futureFor(AssetEntity entity) {
+    final id = entity.id;
+    final cachedBytes = _bytes[id];
+    if (cachedBytes != null) return Future<Uint8List?>.value(cachedBytes);
+    return _futures.putIfAbsent(id, () async {
+      try {
+        final b = await entity.thumbnailDataWithSize(size);
+        _bytes[id] = b;
+        return b;
+      } catch (_) {
+        _bytes[id] = null;
+        return null;
+      }
+    });
+  }
+}
+
+class _GalleryEntityThumbTile extends StatefulWidget {
   const _GalleryEntityThumbTile({required this.entity});
 
   final AssetEntity entity;
 
   @override
+  State<_GalleryEntityThumbTile> createState() =>
+      _GalleryEntityThumbTileState();
+}
+
+class _GalleryEntityThumbTileState extends State<_GalleryEntityThumbTile> {
+  late Future<Uint8List?> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _GridThumbCache.instance.futureFor(widget.entity);
+  }
+
+  @override
+  void didUpdateWidget(covariant _GalleryEntityThumbTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entity.id != widget.entity.id) {
+      _future = _GridThumbCache.instance.futureFor(widget.entity);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      future: entity.thumbnailDataWithSize(const ThumbnailSize(512, 512)),
+      future: _future,
       builder: (context, snap) {
         if (snap.hasData && snap.data != null && snap.data!.isNotEmpty) {
           return Image.memory(
             snap.data!,
             fit: BoxFit.cover,
             gaplessPlayback: true,
+            filterQuality: FilterQuality.low,
           );
         }
-        return _mediaPlaceholder(entity.type);
+        return _mediaPlaceholder(widget.entity.type);
       },
     );
   }
 }
 
-class _FileThumbTile extends StatelessWidget {
+class _FileThumbTile extends StatefulWidget {
   const _FileThumbTile({required this.picked});
 
   final MediaGpsPickedAsset picked;
 
   @override
+  State<_FileThumbTile> createState() => _FileThumbTileState();
+}
+
+/// Decodes a small grid thumb once per file path (gallery uses photo_manager
+/// thumbs; file picks otherwise re-decode full HEIC/JPEG on every rebuild).
+class _FileImageThumbCache {
+  _FileImageThumbCache._();
+  static final _FileImageThumbCache instance = _FileImageThumbCache._();
+
+  final Map<String, Future<Uint8List?>> _futures = {};
+  final Map<String, Uint8List?> _bytes = {};
+
+  Future<Uint8List?> futureFor(String path) {
+    final cached = _bytes[path];
+    if (cached != null) return Future<Uint8List?>.value(cached);
+    return _futures.putIfAbsent(path, () async {
+      try {
+        final file = File(path);
+        if (!await file.exists()) {
+          _bytes[path] = null;
+          return null;
+        }
+        final raw = await file.readAsBytes();
+        final codec = await ui.instantiateImageCodec(raw, targetWidth: 256);
+        final frame = await codec.getNextFrame();
+        final bd =
+            await frame.image.toByteData(format: ui.ImageByteFormat.png);
+        frame.image.dispose();
+        final out = bd?.buffer.asUint8List();
+        _bytes[path] = out;
+        return out;
+      } catch (_) {
+        _bytes[path] = null;
+        return null;
+      }
+    });
+  }
+}
+
+class _FileThumbTileState extends State<_FileThumbTile> {
+  Future<String?>? _videoThumbFuture;
+  Future<Uint8List?>? _imageThumbFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureThumbFutures();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FileThumbTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.picked.id != widget.picked.id ||
+        oldWidget.picked.localPath != widget.picked.localPath) {
+      _videoThumbFuture = null;
+      _imageThumbFuture = null;
+      _ensureThumbFutures();
+    }
+  }
+
+  void _ensureThumbFutures() {
+    final path = widget.picked.localPath;
+    if (path == null || path.isEmpty) return;
+    if (widget.picked.isVideo) {
+      _videoThumbFuture ??= VideoThumbnail.thumbnailFile(
+        video: path,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 256,
+        maxHeight: 256,
+        quality: 60,
+      );
+    } else if (widget.picked.isImage) {
+      _imageThumbFuture ??= _FileImageThumbCache.instance.futureFor(path);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final path = picked.localPath;
+    final path = widget.picked.localPath;
     if (path == null || path.isEmpty) {
       return const ColoredBox(color: Colors.black26);
     }
-    if (picked.isVideo) {
+    if (widget.picked.isVideo) {
       return FutureBuilder<String?>(
-        future: VideoThumbnail.thumbnailFile(
-          video: path,
-          imageFormat: ImageFormat.JPEG,
-          maxWidth: 720,
-          maxHeight: 720,
-          quality: 80,
-        ),
+        future: _videoThumbFuture,
         builder: (context, snap) {
           final thumb = snap.data;
           if (thumb != null && thumb.isNotEmpty) {
-            return Image.file(File(thumb), fit: BoxFit.cover);
+            return Image.file(
+              File(thumb),
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.low,
+            );
           }
           return _mediaPlaceholder(AssetType.video);
         },
       );
     }
-    if (picked.isAudio) {
+    if (widget.picked.isAudio) {
       return _mediaPlaceholder(AssetType.audio);
     }
-    return Image.file(
-      File(path),
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _mediaPlaceholder(AssetType.image),
+    return FutureBuilder<Uint8List?>(
+      future: _imageThumbFuture,
+      builder: (context, snap) {
+        final bytes = snap.data;
+        if (bytes != null && bytes.isNotEmpty) {
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            filterQuality: FilterQuality.low,
+          );
+        }
+        return _mediaPlaceholder(AssetType.image);
+      },
     );
   }
 }
@@ -521,10 +661,15 @@ class FileStillPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cacheW = (size.longestSide * dpr).round().clamp(720, 2048);
     return Image.file(
       File(path),
       fit: fit,
       gaplessPlayback: true,
+      cacheWidth: cacheW,
+      filterQuality: FilterQuality.medium,
       errorBuilder: (_, __, ___) => ColoredBox(
         color: placeholderColor ?? Colors.grey.shade300,
         child: Icon(Icons.broken_image, color: Colors.grey.shade600),

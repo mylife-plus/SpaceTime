@@ -24,22 +24,22 @@ class GeocodingIsolateService extends GetxService {
   /// Prefetch OfflineGeocoder + NearestRegion CSVs so the first Add Memories
   /// location pin is not stuck waiting on a multi-second cold parse.
   Future<void> warmUp() async {
-    if (_warmFuture != null) return _warmFuture!;
-    _warmFuture = _warmUpImpl();
-    try {
-      await _warmFuture;
-    } finally {
-      _warmFuture = null;
+    if (isInitialized.value && OfflineGeocoder.instance.isInitialized) {
+      return;
     }
+    _warmFuture ??= _warmUpImpl();
+    await _warmFuture;
   }
 
   Future<void> _warmUpImpl() async {
     try {
       final geocoder = OfflineGeocoder.instance;
-      await geocoder.init();
+      await geocoder.init().timeout(const Duration(seconds: 12));
       // Region names (FCT, etc.) — load in parallel with nothing else once
       // cities CSV is ready; first findNearest() used to return null.
-      await NearestRegionService().loadFromAssets();
+      await NearestRegionService()
+          .loadFromAssets()
+          .timeout(const Duration(seconds: 8));
       isInitialized.value = true;
       debugPrint(
         '[GeocodingIsolateService] Warm-up complete (OfflineGeocoder + NearestRegion)',
@@ -49,6 +49,8 @@ class GeocodingIsolateService extends GetxService {
         '[GeocodingIsolateService] Failed to warm geocoding: $e',
       );
       isInitialized.value = false;
+      // Allow a later retry after a failed/timed-out warm-up.
+      _warmFuture = null;
     }
   }
 
@@ -108,8 +110,11 @@ class GeocodingIsolateService extends GetxService {
     }
   }
 
-  /// Ensure service is initialized and ready
-  Future<bool> ensureInitialized() async {
+  /// Ensure service is initialized and ready.
+  /// Hard-capped so Media GPS upload cannot hang forever on CSV load.
+  Future<bool> ensureInitialized({
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     if (isInitialized.value && OfflineGeocoder.instance.isInitialized) {
       return true;
     }
@@ -119,8 +124,8 @@ class GeocodingIsolateService extends GetxService {
     );
 
     try {
-      await warmUp();
-      return isInitialized.value;
+      await warmUp().timeout(timeout);
+      return isInitialized.value && OfflineGeocoder.instance.isInitialized;
     } catch (e) {
       debugPrint('[GeocodingIsolateService] Failed to initialize service: $e');
       isInitialized.value = false;

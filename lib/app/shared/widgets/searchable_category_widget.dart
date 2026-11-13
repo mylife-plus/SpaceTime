@@ -153,6 +153,24 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     if (!isFocused) {
       _showResults.value = false;
       debugPrint('[SearchableCategoryWidget] Collapsed due to focus loss');
+    } else {
+      // Scroll places + action buttons into the area above the keyboard.
+      void scrollAboveKeyboard() {
+        if (!mounted || !_focusNode.hasFocus) return;
+        Scrollable.ensureVisible(
+          context,
+          alignment: 0.0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => scrollAboveKeyboard());
+      // Second pass after IME animation (Android often settles late).
+      Future<void>.delayed(
+        const Duration(milliseconds: 350),
+        scrollAboveKeyboard,
+      );
     }
 
     widget.onFocusChanged?.call(isFocused);
@@ -701,9 +719,10 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
               ],
             ),
             
-            // Search results
+            // Search results — buttons sit under the field (always above IME).
             if (_showResults.value) ...[
               const SizedBox(height: 8),
+              if (widget.showActionButtons) _buildBottomButtons(uiController),
               _buildSearchResults(uiController),
             ],
           ],
@@ -782,23 +801,23 @@ class _SearchableCategoryWidgetState extends State<SearchableCategoryWidget> {
     );
   }
 
-  /// Build search results container
+  /// Build search results container (list only — buttons are above this).
   Widget _buildSearchResults(UiController uiController) {
-    return Container(
-      constraints: BoxConstraints(maxHeight: widget.isInFilterMode ? 225 : 300),
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
-      child: Column(
-        children: [
-          // Results list
-          Expanded(
-            child: _buildResultsList(uiController),
-          ),
-
-          // Bottom buttons
-          if (widget.showActionButtons) _buildBottomButtons(uiController),
-        ],
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final screenH = MediaQuery.sizeOf(context).height;
+    final baseMax = widget.isInFilterMode ? 225.0 : 300.0;
+    // When IME is open, shrink the list so See list / Add new stay visible.
+    final maxH = keyboardInset > 0
+        ? ((screenH - keyboardInset) * 0.28).clamp(80.0, 160.0)
+        : baseMax;
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardInset > 0 ? 8 : 0),
+      child: Container(
+        constraints: BoxConstraints(maxHeight: maxH),
+        decoration: const BoxDecoration(
+          color: Colors.transparent,
+        ),
+        child: _buildResultsList(uiController),
       ),
     );
   }

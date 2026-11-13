@@ -401,9 +401,13 @@ class GpxKmzUploadController extends GetxController {
         (_cachedFilteredPoints.length - filteredByDate.length).clamp(0, 1 << 30);
     clusteredEntryCount.value =
         (filteredByDate.length - clusters.length).clamp(0, 1 << 30);
+    // Remaining = every red deduction line subtracted from Entries
+    // (ignored, date-filtered, duplicates, clustered merges).
     totalEntryCount.value = (rawEntryCount.value -
             ignoredEntryCount.value -
-            duplicateEntryCount.value)
+            dateFilteredEntryCount.value -
+            duplicateEntryCount.value -
+            clusteredEntryCount.value)
         .clamp(0, 1 << 30);
     newMemoriesCount.value = _lastStats!.newMemories;
     _applyExclusionsToCounts();

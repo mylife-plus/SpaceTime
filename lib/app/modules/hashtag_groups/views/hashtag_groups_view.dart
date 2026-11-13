@@ -808,14 +808,56 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
     }
     _editNameControllers.clear();
 
-    // Clear expansion controllers (don't dispose as they're managed by ExpansionTile)
+    // Clear expansion controllers only — keep expanded/editing maps so refresh
+    // after edit does not collapse the open group or hide the edit row.
     _expansionControllers.clear();
 
-    // Clear all state maps
-    _expandedHashtagGroups.clear();
     _addingToHashtagGroup.clear();
     _pendingAddingMode.clear();
-    _editingHashtagGroup.clear();
+  }
+
+  /// Places pattern: drive open/close from our map + ExpansionTileController,
+  /// never re-apply [initiallyExpanded] on every Obx rebuild (that blocked collapse).
+  void _setHashtagGroupExpanded(int groupId, bool expanded) {
+    if ((_expandedHashtagGroups[groupId] ?? false) == expanded) {
+      _syncHashtagExpansionController(groupId, expanded);
+      return;
+    }
+    _expandedHashtagGroups[groupId] = expanded;
+    _expandedHashtagGroups.refresh();
+    _syncHashtagExpansionController(groupId, expanded);
+  }
+
+  void _toggleHashtagGroupExpansion(int groupId) {
+    _setHashtagGroupExpanded(
+      groupId,
+      !(_expandedHashtagGroups[groupId] ?? false),
+    );
+  }
+
+  void _syncHashtagExpansionController(int groupId, bool expanded) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = _expansionControllers[groupId];
+      if (c == null) return;
+      try {
+        if (expanded) {
+          if (!c.isExpanded) c.expand();
+        } else if (c.isExpanded) {
+          c.collapse();
+        }
+      } catch (e) {
+        debugPrint('[HashtagGroupsView] expansion sync $groupId: $e');
+      }
+    });
+  }
+
+  void _ensureHashtagExpansionController(int groupId) {
+    if (_expansionControllers[groupId] != null) return;
+    _expansionControllers[groupId] = ExpansionTileController();
+    if (_expandedHashtagGroups[groupId] ?? false) {
+      _syncHashtagExpansionController(groupId, true);
+    }
   }
 
   /// Select a hashtag group and return to parent
@@ -1429,14 +1471,18 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
   /// Build main hashtag group expansion tile
   Widget _buildMainHashtagGroupExpansionTile(HashtagGroup mainHashtagGroup) {
     final uiController = Get.find<UiController>();
-    final isExpanded = _expandedHashtagGroups[mainHashtagGroup.id] ?? false;
 
-    // Create a new expansion controller for this group to avoid state conflicts
+    // Reuse controller across rebuilds (places pattern) — recreating every build
+    // desyncs ExpansionTile and prevents collapse / hides the edit row.
     final groupId = mainHashtagGroup.id!;
-    _expansionControllers[groupId] = ExpansionTileController();
+    _ensureHashtagExpansionController(groupId);
     final controller = _expansionControllers[groupId]!;
 
     return Obx(() {
+      // Must read inside Obx (places pattern) — a snapshot outside stays stale
+      // after collapse/edit rebuilds and keeps the list open / hides edit rows.
+      final isExpanded = _expandedHashtagGroups[mainHashtagGroup.id] ?? false;
+
       // Check if all subgroups are selected (for filter mode)
       final allSubgroupsSelected =
           widget.allowMultipleSelection &&
@@ -1487,9 +1533,11 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
               child: ExpansionTile(
                 key: ValueKey('hashtag_group_${mainHashtagGroup.id}'),
                 controller: controller,
-                initiallyExpanded: isExpanded,
+                // Only the controller owns expand state after first create.
+                // Re-passing initiallyExpanded on Obx rebuilds blocked collapse.
+                initiallyExpanded: false,
                 onExpansionChanged: (expanded) {
-                  _expandedHashtagGroups[mainHashtagGroup.id!] = expanded;
+                  _setHashtagGroupExpanded(mainHashtagGroup.id!, expanded);
 
                   // Check if we need to enable adding mode after expansion
                   if (expanded &&
@@ -1697,22 +1745,30 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
                         tooltip: 'Add Subgroup',
                       ),
                     ],
-                    // Expansion/collapse icon
+                    // Expansion/collapse icon — explicit tap (places-style toggle)
                     Obx(
-                      () => ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.grey[600] ?? Colors.grey,
-                          BlendMode.srcIn,
-                        ),
-                        child: Image.asset(
-                          (_expandedHashtagGroups[mainHashtagGroup.id!] ??
-                                  false)
-                              ? 'assets/images/ic_expand_close.png'
-                              : 'assets/images/ic_expand_open.png',
-                          width: 25,
-                          height: 25,
+                      () => GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () =>
+                            _toggleHashtagGroupExpansion(mainHashtagGroup.id!),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              uiController.darkMode.value
+                                  ? Colors.white.withValues(alpha: 0.6)
+                                  : Colors.grey[600] ?? Colors.grey,
+                              BlendMode.srcIn,
+                            ),
+                            child: Image.asset(
+                              (_expandedHashtagGroups[mainHashtagGroup.id!] ??
+                                      false)
+                                  ? 'assets/images/ic_expand_close.png'
+                                  : 'assets/images/ic_expand_open.png',
+                              width: 25,
+                              height: 25,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1992,33 +2048,46 @@ class _HashtagGroupsViewState extends State<HashtagGroupsView> {
   void _startInlineEditing(HashtagGroup hashtagGroup) async {
     if (!mounted) return;
 
-    showDialog(
-      context: context,
+    // Keep parent group open across dialog/refresh so the edited row stays visible.
+    final parentId = hashtagGroup.parentId;
+    if (parentId != null) {
+      _setHashtagGroupExpanded(parentId, true);
+    }
+
+    await Get.dialog(
+      AddEditGroupPopupNew(
+        mode: 'hashtag',
+        editHashtagGroup: hashtagGroup,
+        fromMemoryView: true,
+        onHashtagGroupAdded: (updatedGroup) async {
+          // Update in recents if it exists (including parent information)
+          await SearchableHashtagWidget.updateHashtagGroupInRecents(
+            updatedGroup.id!,
+            updatedGroup.name,
+            newParentId: updatedGroup.parentId,
+          );
+
+          final keepOpen = updatedGroup.parentId ?? parentId;
+          if (keepOpen != null) {
+            _setHashtagGroupExpanded(keepOpen, true);
+          }
+
+          await _refreshHashtagGroupsFromDatabase();
+
+          if (keepOpen != null) {
+            _ensureHashtagExpansionController(keepOpen);
+            _setHashtagGroupExpanded(keepOpen, true);
+          }
+
+          showTrSnackbar(
+            'snackbar_success_17',
+            backgroundColor: Colors.green,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 2),
+          );
+        },
+      ),
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AddEditGroupPopupNew(
-          mode: 'hashtag',
-          editHashtagGroup: hashtagGroup,
-          fromMemoryView: true,
-          onHashtagGroupAdded: (updatedGroup) async {
-            // Update in recents if it exists (including parent information)
-            await SearchableHashtagWidget.updateHashtagGroupInRecents(
-              updatedGroup.id!,
-              updatedGroup.name,
-              newParentId: updatedGroup.parentId,
-            );
-
-            await _refreshHashtagGroupsFromDatabase();
-
-            showTrSnackbar(
-              'snackbar_success_17',
-              backgroundColor: Colors.green,
-              colorText: Colors.white,
-              duration: const Duration(seconds: 2),
-            );
-          },
-        );
-      },
     );
   }
 

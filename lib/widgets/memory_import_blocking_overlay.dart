@@ -64,6 +64,20 @@ class MemoryImportBlockingOverlay extends StatelessWidget {
                                   color: isDark ? Colors.white : Colors.black87,
                                 ),
                               ),
+                              if (block.progressLabel.value.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  block.progressLabel.value,
+                                  textAlign: TextAlign.center,
+                                  style: AppFonts.regular(
+                                    13,
+                                    color:
+                                        isDark
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

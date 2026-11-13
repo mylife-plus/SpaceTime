@@ -347,7 +347,7 @@ class _GalleryBulkDragGridState extends State<_GalleryBulkDragGrid> {
                           bottom: 28,
                           child: IgnorePointer(
                             child: Text(
-                              a.libraryMetadataSubtitle,
+                              a.libraryGridSubtitle,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: AppFonts.medium(9, color: Colors.white)
@@ -363,6 +363,61 @@ class _GalleryBulkDragGridState extends State<_GalleryBulkDragGrid> {
                             ),
                           ),
                         ),
+                        // Media type icon (image / video / audio).
+                        Positioned(
+                          left: 4,
+                          bottom: 4,
+                          child: IgnorePointer(
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.62),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Icon(
+                                a.isVideo
+                                    ? Icons.videocam
+                                    : a.isAudio
+                                        ? Icons.audiotrack
+                                        : Icons.image,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Duration — top-right, prominent.
+                        if (a.formattedVideoDuration != null)
+                          Positioned(
+                            top: 4,
+                            right: a.isFromFile ? 30 : 4,
+                            child: IgnorePointer(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.75),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  a.formattedVideoDuration!,
+                                  style: AppFonts.bold(12, color: Colors.white)
+                                      .copyWith(
+                                    letterSpacing: 0.2,
+                                    shadows: const [
+                                      Shadow(
+                                        offset: Offset(0, 1),
+                                        blurRadius: 2,
+                                        color: Colors.black87,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         if (a.isFromFile)
                           Positioned(
                             top: 4,

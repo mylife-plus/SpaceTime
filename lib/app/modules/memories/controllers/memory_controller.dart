@@ -505,9 +505,12 @@ class MemoryController extends GetxController {
   /// Copy gallery images into app storage; returns relative paths (`memory_images/...`).
   ///
   /// Large batches use [compute] so file I/O does not block the UI isolate.
+  /// When [preserveSourceIndex] is true, the result is 1:1 with [imagePaths]
+  /// (failed copies are `''`) so bulk GPS import can slice by cluster.
   Future<List<String>> saveImagesToAppDirectory(
     List<String> imagePaths, {
     bool forceBackgroundCopy = false,
+    bool preserveSourceIndex = false,
   }) async {
     if (imagePaths.isEmpty) return [];
 
@@ -518,18 +521,25 @@ class MemoryController extends GetxController {
           .map(normalizeLocalFilePath)
           .toList(growable: false);
 
-      if (!kIsWeb &&
-          (forceBackgroundCopy || normalizedSources.length >= 4)) {
+      // iOS: never use compute() for Photos/tmp paths — background isolates
+      // have hung indefinitely during Media GPS import. Android keeps isolate.
+      final useIsolate = !kIsWeb &&
+          forceBackgroundCopy &&
+          !Platform.isIOS &&
+          normalizedSources.isNotEmpty;
+      if (useIsolate) {
         try {
           final copied = await compute(memoryImagesCopyIsolateWork, {
             'dest': imagesDirPath,
             'sources': normalizedSources,
           });
           if (copied.isNotEmpty) {
+            final okCount = copied.where((p) => p.isNotEmpty).length;
             debugPrint(
-              '[MemoryController] Copied ${copied.length} images in background isolate',
+              '[MemoryController] Copied $okCount/${copied.length} images in background isolate',
             );
-            return copied;
+            if (preserveSourceIndex) return copied;
+            return copied.where((p) => p.isNotEmpty).toList();
           }
         } catch (e) {
           debugPrint(
@@ -538,6 +548,13 @@ class MemoryController extends GetxController {
         }
       }
 
+      if (preserveSourceIndex) {
+        return _saveImagesToAppDirectoryIndexed(
+          normalizedSources,
+          imagesDirPath,
+          appDir.path,
+        );
+      }
       return _saveImagesToAppDirectorySequential(
         normalizedSources,
         imagesDirPath,
@@ -547,7 +564,50 @@ class MemoryController extends GetxController {
       debugPrint('Error creating images directory: $e');
     }
 
-    return [];
+    return preserveSourceIndex
+        ? List<String>.filled(imagePaths.length, '')
+        : <String>[];
+  }
+
+  /// 1:1 with [imagePaths]; failed entries stay `''`.
+  Future<List<String>> _saveImagesToAppDirectoryIndexed(
+    List<String> imagePaths,
+    String imagesDirPath,
+    String appDocumentsPath,
+  ) async {
+    final out = List<String>.filled(imagePaths.length, '');
+    final imagesDir = Directory(imagesDirPath);
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    for (var idx = 0; idx < imagePaths.length; idx++) {
+      final imagePath = normalizeLocalFilePath(imagePaths[idx]);
+      try {
+        final existing =
+            await _relativeImagePathIfAlreadyStaged(imagePath, appDocumentsPath);
+        if (existing != null) {
+          out[idx] = existing;
+        } else {
+          final sourceFile = File(imagePath);
+          if (await sourceFile.exists()) {
+            final extension = imagePath.split('.').last.toLowerCase();
+            final ext = extension.isEmpty ? 'jpg' : extension;
+            final fileName = 'memory_${timestamp}_$idx.$ext';
+            final targetPath = '${imagesDir.path}/$fileName';
+            await sourceFile
+                .copy(targetPath)
+                .timeout(const Duration(seconds: 20));
+            out[idx] = 'memory_images/$fileName';
+          }
+        }
+      } catch (e) {
+        debugPrint('Error saving image[$idx]: $e');
+      }
+      // Yield so the import overlay can paint progress between files.
+      await Future<void>.delayed(Duration.zero);
+    }
+    return out;
   }
 
   Future<List<String>> _saveImagesToAppDirectorySequential(
@@ -578,7 +638,9 @@ class MemoryController extends GetxController {
               'memory_${timestamp}_${savedImagePaths.length}.$extension';
           final targetPath = '${imagesDir.path}/$fileName';
 
-          await sourceFile.copy(targetPath);
+          await sourceFile
+              .copy(targetPath)
+              .timeout(const Duration(seconds: 20));
           savedImagePaths.add('memory_images/$fileName');
           debugPrint('Image saved to app directory: $fileName (relative path)');
         }
@@ -1541,6 +1603,8 @@ class MemoryController extends GetxController {
   /// Caches by rounded lat/lng in [_importGeocodeCache] so bulk imports can
   /// prefetch coordinates in parallel and have the per-memory save resolve as
   /// an instant cache hit (avoids a deferred geocode backfill / second write).
+  /// Parallel workers share one in-flight Future per key so geocode does not
+  /// stampede; each lookup is also hard-capped so a hang cannot block upload.
   Future<Map<String, dynamic>?> reverseGeocodeCoordinates(
     double latitude,
     double longitude,
@@ -1548,9 +1612,22 @@ class MemoryController extends GetxController {
     final key = _geocodeCacheKey(latitude, longitude);
     final cached = _importGeocodeCache[key];
     if (cached != null) return cached;
-    final geo = await _getLocationDetailsFromCoordinates(latitude, longitude);
-    if (geo != null) _importGeocodeCache[key] = geo;
-    return geo;
+    final existing = _importGeocodeInflight[key];
+    if (existing != null) return existing;
+    final future = () async {
+      try {
+        final geo = await _getLocationDetailsFromCoordinates(
+          latitude,
+          longitude,
+        ).timeout(const Duration(seconds: 4), onTimeout: () => null);
+        if (geo != null) _importGeocodeCache[key] = geo;
+        return geo;
+      } finally {
+        _importGeocodeInflight.remove(key);
+      }
+    }();
+    _importGeocodeInflight[key] = future;
+    return future;
   }
 
   /// One memory from KMZ/GPX track import: [date]/[time] and [created_at] use [when];
@@ -1644,6 +1721,10 @@ class MemoryController extends GetxController {
     List<ImportedGalleryAssetRecord> galleryAssetRecords = const [],
     bool skipReverseGeocode = false,
     bool forceBackgroundImageCopy = false,
+    /// When set, skip per-memory image copy (bulk import already copied).
+    List<String>? preSavedImageRelativePaths,
+    /// Bulk imports defer thumbs — diary generates them on first view.
+    bool generateVideoThumbnails = true,
   }) async {
     final w = when.toLocal();
 
@@ -1664,13 +1745,17 @@ class MemoryController extends GetxController {
     var locationAddressSnap = '';
     var locationFlagSnap = '';
 
-    if (!skipReverseGeocode) {
-      final geo = await reverseGeocodeCoordinates(latitude, longitude);
-      locationCountrySnap = geo?['country'] as String? ?? '';
-      locationCitySnap = geo?['city'] as String? ?? '';
-      locationNameSnap = geo?['name'] as String? ?? '';
-      locationAddressSnap = geo?['address'] as String? ?? '';
-      locationFlagSnap = geo?['flag'] as String? ?? '';
+    // Bulk Media GPS passes skipReverseGeocode after a Phase-2 prefetch —
+    // only read the cache (never block on geocoder again).
+    final geo = skipReverseGeocode
+        ? _importGeocodeCache[_geocodeCacheKey(latitude, longitude)]
+        : await reverseGeocodeCoordinates(latitude, longitude);
+    if (geo != null) {
+      locationCountrySnap = geo['country'] as String? ?? '';
+      locationCitySnap = geo['city'] as String? ?? '';
+      locationNameSnap = geo['name'] as String? ?? '';
+      locationAddressSnap = geo['address'] as String? ?? '';
+      locationFlagSnap = geo['flag'] as String? ?? '';
 
       if (locationFlagSnap.trim() == '🌊') {
         final c = locationCountrySnap.trim().toLowerCase();
@@ -1720,7 +1805,11 @@ class MemoryController extends GetxController {
     }
 
     List<String>? imageDataList;
-    if (imageAbsolutePaths.isNotEmpty) {
+    if (preSavedImageRelativePaths != null) {
+      imageDataList =
+          preSavedImageRelativePaths.where((p) => p.isNotEmpty).toList();
+      if (imageDataList.isEmpty) imageDataList = null;
+    } else if (imageAbsolutePaths.isNotEmpty) {
       imageDataList = await convertImagesToBase64(
         imageAbsolutePaths,
         forceBackgroundCopy: forceBackgroundImageCopy,
@@ -1736,20 +1825,22 @@ class MemoryController extends GetxController {
         final file = File(absolutePath);
         if (await file.exists()) {
           String thumbRelative = '';
-          try {
-            final thumbAbs =
-                await VideoThumbnailCacheManager.generatePersistentThumbnail(
-              videoAbsolutePath: absolutePath,
-            );
-            if (thumbAbs != null && thumbAbs.isNotEmpty) {
-              final docs = await getApplicationDocumentsDirectory();
-              if (thumbAbs.startsWith(docs.path)) {
-                thumbRelative = thumbAbs.substring(docs.path.length + 1);
-              } else {
-                thumbRelative = thumbAbs;
+          if (generateVideoThumbnails) {
+            try {
+              final thumbAbs =
+                  await VideoThumbnailCacheManager.generatePersistentThumbnail(
+                videoAbsolutePath: absolutePath,
+              );
+              if (thumbAbs != null && thumbAbs.isNotEmpty) {
+                final docs = await getApplicationDocumentsDirectory();
+                if (thumbAbs.startsWith(docs.path)) {
+                  thumbRelative = thumbAbs.substring(docs.path.length + 1);
+                } else {
+                  thumbRelative = thumbAbs;
+                }
               }
-            }
-          } catch (_) {}
+            } catch (_) {}
+          }
           videoDataList.add({
             'path': videoPath,
             'duration': '',
@@ -1803,6 +1894,8 @@ class MemoryController extends GetxController {
   }
 
   static final Map<String, Map<String, dynamic>> _importGeocodeCache = {};
+  static final Map<String, Future<Map<String, dynamic>?>> _importGeocodeInflight =
+      {};
 
   static String _geocodeCacheKey(double lat, double lng) =>
       '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
@@ -1870,28 +1963,35 @@ class MemoryController extends GetxController {
     List<String> audioAbsolutePaths = const [],
     List<ImportedGalleryAssetRecord> galleryAssetRecords = const [],
     bool forceBackgroundImageCopy = false,
+    List<String>? preSavedImageRelativePaths,
   }) async {
     if (!await _databaseHelper.isDatabaseHealthy()) {
       await _databaseHelper.resetDatabaseConnection();
     }
 
     var nextImageOrder = (await _databaseHelper.maxImageOrderForMemory(memoryId)) + 1;
-    if (imageAbsolutePaths.isNotEmpty) {
-      final imageDataList = await convertImagesToBase64(
+    final List<String> imageDataList;
+    if (preSavedImageRelativePaths != null) {
+      imageDataList =
+          preSavedImageRelativePaths.where((p) => p.isNotEmpty).toList();
+    } else if (imageAbsolutePaths.isNotEmpty) {
+      imageDataList = await convertImagesToBase64(
         imageAbsolutePaths,
         forceBackgroundCopy: forceBackgroundImageCopy,
       );
-      for (var i = 0; i < imageDataList.length; i++) {
-        final data = imageDataList[i];
-        await _databaseHelper.insertMemoryImage(
-          memoryId,
-          data,
-          nextImageOrder,
-        );
-        nextImageOrder++;
-        if (i % 4 == 3) {
-          await Future<void>.delayed(Duration.zero);
-        }
+    } else {
+      imageDataList = const [];
+    }
+    for (var i = 0; i < imageDataList.length; i++) {
+      final data = imageDataList[i];
+      await _databaseHelper.insertMemoryImage(
+        memoryId,
+        data,
+        nextImageOrder,
+      );
+      nextImageOrder++;
+      if (i % 4 == 3) {
+        await Future<void>.delayed(Duration.zero);
       }
     }
 

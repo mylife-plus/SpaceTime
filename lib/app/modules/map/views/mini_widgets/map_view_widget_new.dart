@@ -241,15 +241,16 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
       });
     }
 
-    // Show loading while server is starting
+    // Show loading while server is starting — always black shell so cold start
+    // never flashes a plain white screen before the map paints.
     if (_isInitializing || _serverUrl == null) {
       return Obx(() {
-        final isDark = uiController.darkMode.value;
-        final fg = isDark ? Colors.white : Colors.black87;
+        // Touch darkMode so theme toggles still rebuild this loader.
+        final _ = uiController.darkMode.value;
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: AppSystemUi.overlayStyle(dark: isDark),
+          value: AppSystemUi.overlayStyle(dark: true),
           child: ColoredBox(
-            color: isDark ? uiController.darkBackgroundColor : Colors.white,
+            color: uiController.darkBackgroundColor,
             child: SafeArea(
               bottom: false,
               child: Scaffold(
@@ -258,13 +259,11 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(
-                        color: isDark ? Colors.white : null,
-                      ),
+                      const CircularProgressIndicator(color: Colors.white),
                       const SizedBox(height: 20),
                       Text(
                         'text_starting_local_tile_server'.tr,
-                        style: TextStyle(color: fg),
+                        style: const TextStyle(color: Colors.white),
                       ),
                     ],
                   ),
@@ -300,7 +299,10 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           return AnnotatedRegion<SystemUiOverlayStyle>(
             value: systemUi,
             child: ColoredBox(
-              color: isDark ? uiController.darkBackgroundColor : Colors.white,
+              // Black under the map avoids a white flash while tiles / chrome load.
+              color: isDark
+                  ? uiController.darkBackgroundColor
+                  : const Color(0xFF000000),
               child: Scaffold(
                 backgroundColor: Colors.transparent,
                 body: Stack(

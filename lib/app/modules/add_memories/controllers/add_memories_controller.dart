@@ -377,7 +377,7 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
         ? MemoryMediaImageProviderCache.decodeWidthForLayout(
             context,
             layoutHeight: 260,
-            maxDecode: 350,
+            maxDecode: 500,
           )
         : 350;
 
@@ -1531,6 +1531,29 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
   void removeHashtag(String hashtag) async {
     debugPrint("Attempting to remove hashtag: $hashtag");
+    // Chip may show a main-group display name while selectedHashtags holds
+    // the subgroups — remove the whole group in that case.
+    HashtagGroup? mainGroup;
+    for (final g in _cachedHashtagGroups) {
+      if (g.name == hashtag && g.hasSubgroups) {
+        mainGroup = g;
+        break;
+      }
+    }
+    if (mainGroup != null) {
+      selectedHashtags.remove(hashtag);
+      for (final subgroup in mainGroup.subgroups!) {
+        selectedHashtags.remove(subgroup.name);
+      }
+      _updateFilterStatus();
+      selectedHashtags.refresh();
+      debugPrint(
+        "Removed hashtag main group '$hashtag' and its subgroups, "
+        "remaining: ${selectedHashtags.length}",
+      );
+      return;
+    }
+
     final removed = selectedHashtags.remove(hashtag);
     debugPrint("Hashtag removed successfully: $removed");
 
@@ -1559,6 +1582,29 @@ class AddMemoriesController extends GetxController with WidgetsBindingObserver {
 
   void removeContact(String contact) async {
     debugPrint("Attempting to remove contact: $contact");
+    // Chip may show a main-group display name while selectedContacts holds
+    // the subgroups — remove the whole group in that case.
+    ContactGroup? mainGroup;
+    for (final g in _cachedContactGroups) {
+      if (g.name == contact && g.hasSubgroups) {
+        mainGroup = g;
+        break;
+      }
+    }
+    if (mainGroup != null) {
+      selectedContacts.remove(contact);
+      for (final subgroup in mainGroup.subgroups!) {
+        selectedContacts.remove(subgroup.name);
+      }
+      _updateFilterStatus();
+      selectedContacts.refresh();
+      debugPrint(
+        "Removed contact main group '$contact' and its subgroups, "
+        "remaining: ${selectedContacts.length}",
+      );
+      return;
+    }
+
     final removed = selectedContacts.remove(contact);
     debugPrint("Contact removed successfully: $removed");
 

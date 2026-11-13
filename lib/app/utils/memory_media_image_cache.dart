@@ -213,6 +213,9 @@ class MemoryMediaImageProviderCache {
     int? cacheHeight,
     Color? placeholderColor,
     Widget? errorChild,
+    /// When true (fullscreen viewer), skip the Android list-thumbnail clamp
+    /// so taps can show a higher-resolution decode.
+    bool allowFullResolution = false,
   }) {
     final isAndroid = !kIsWeb && Platform.isAndroid;
 
@@ -220,17 +223,26 @@ class MemoryMediaImageProviderCache {
       return errorChild ?? _defaultError(height: height, width: width);
     }
 
-    // On Android, reduce decode width slightly and apply lower quality for snappy list scrolling
-    final rawDecodeW = cacheWidth ??
-        (height != null
-            ? decodeWidthForLayout(
-                context,
-                layoutHeight: height,
-                layoutWidth: width,
-                maxDecode: isAndroid ? 350 : 2048,
-              )
-            : null);
-    final decodeW = isAndroid && rawDecodeW != null ? rawDecodeW.clamp(180, 400) : rawDecodeW;
+    // List tiles pass an explicit cacheWidth (or we derive one). Do not
+    // re-clamp Android to 500 here — that made diary cards soft and made
+    // fullscreen taps look identical to the thumbnail.
+    // Fullscreen passes [allowFullResolution] with no cacheWidth → full decode.
+    final int? decodeW;
+    if (allowFullResolution && cacheWidth == null && cacheHeight == null) {
+      decodeW = null;
+    } else {
+      decodeW = cacheWidth ??
+          (height != null
+              ? decodeWidthForLayout(
+                  context,
+                  layoutHeight: height,
+                  layoutWidth: width,
+                  maxDecode: allowFullResolution
+                      ? 4096
+                      : (isAndroid ? 720 : 2048),
+                )
+              : null);
+    }
 
     var provider = resolve(imageData, cacheWidth: decodeW);
     if (decodeW != null || cacheHeight != null) {
@@ -241,6 +253,9 @@ class MemoryMediaImageProviderCache {
       );
     }
 
+    final quality =
+        allowFullResolution ? FilterQuality.high : FilterQuality.low;
+
     if (isAndroid) {
       return ExtendedImage(
         image: provider,
@@ -248,7 +263,7 @@ class MemoryMediaImageProviderCache {
         width: width,
         height: height,
         gaplessPlayback: true,
-        filterQuality: FilterQuality.low,
+        filterQuality: quality,
         clearMemoryCacheWhenDispose: false,
         loadStateChanged: (ExtendedImageState state) {
           switch (state.extendedImageLoadState) {
@@ -281,7 +296,7 @@ class MemoryMediaImageProviderCache {
       width: width,
       height: height,
       gaplessPlayback: true,
-      filterQuality: FilterQuality.medium,
+      filterQuality: allowFullResolution ? FilterQuality.medium : FilterQuality.medium,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded || frame != null) return child;
         return ColoredBox(
@@ -351,6 +366,18 @@ class MemoryMediaImageProviderCache {
     if (imageData.isEmpty) return false;
     if (_isFilePath(imageData)) {
       final path = resolveStoragePath(imageData);
+      // Don't cache a false miss while documents root is still null —
+      // relative `memory_images/` / `imported_media/` paths would fail
+      // once and stay broken for the whole session.
+      final unresolvedRelative = _documentsRoot == null &&
+          !path.startsWith('/') &&
+          (path.startsWith('memory_images/') ||
+              path.startsWith('memory_videos/') ||
+              path.startsWith('imported_media/'));
+      if (unresolvedRelative) {
+        unawaited(ensureDocumentsRoot());
+        return true;
+      }
       if (!useCache) return File(path).existsSync();
       final cached = _androidExistsCache[path];
       if (cached != null) return cached;

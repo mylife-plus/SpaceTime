@@ -634,12 +634,32 @@ class KmzImportPipeline {
 
   /// Public entry for non-KMZ flows (e.g. gallery GPS) that reuse the same
   /// area grouping + time/distance clustering rules.
+  ///
+  /// [splitWhenEitherThresholdMet]:
+  /// - `false` (default, GPX/KMZ): new cluster only when **both** time and
+  ///   distance gaps are met (merge if still close in time *or* space).
+  /// - `true` (media GPS): new cluster when **either** gap is met (merge only
+  ///   when close in time *and* space) — avoids merging space-distant photos
+  ///   that happen to share a similar capture time.
+  ///
+  /// [thinByMinDistance]: when true (default for tracks), drop later clusters
+  /// whose anchor is still within [minMetersApart] of an earlier kept cluster.
+  /// Media GPS should pass `false` so spatially distinct events are not
+  /// silently discarded.
   static List<List<KmzTrackPoint>> clusterTrackPoints(
     List<KmzTrackPoint> points,
     Duration minTimeApart,
-    double minMetersApart,
-  ) {
-    final clusters = _clusterPoints(points, minTimeApart, minMetersApart);
+    double minMetersApart, {
+    bool splitWhenEitherThresholdMet = false,
+    bool thinByMinDistance = true,
+  }) {
+    final clusters = _clusterPoints(
+      points,
+      minTimeApart,
+      minMetersApart,
+      splitWhenEitherThresholdMet: splitWhenEitherThresholdMet,
+    );
+    if (!thinByMinDistance) return clusters;
     return _thinClustersByMinDistance(clusters, minMetersApart);
   }
 
@@ -664,18 +684,22 @@ class KmzImportPipeline {
     return kept;
   }
 
-  /// Cluster: walk points in chronological order. A new cluster starts only when
-  /// the gap to the cluster anchor meets **both** thresholds (AND gate):
-  /// at least [minDt] **and** at least [minM].
+  /// Cluster: walk points in chronological order.
   ///
-  /// So if still within min time *or* within min distance, the point merges into
-  /// the current memory (client: no individual memories under those limits).
-  /// Merged points do not move the anchor.
+  /// Default (tracks): a new cluster starts only when the gap meets **both**
+  /// thresholds — still within min time *or* min distance → stay merged.
+  ///
+  /// [splitWhenEitherThresholdMet] (media): a new cluster starts when **either**
+  /// threshold is met — merge only when still within min time *and* distance.
+  /// Distance is measured to the **nearest** point already in the cluster (not
+  /// only the anchor) so near-time / far-space photos cannot stay glued to an
+  /// early anchor while drifting geographically.
   static List<List<KmzTrackPoint>> _clusterPoints(
     List<KmzTrackPoint> points,
     Duration minDt,
-    double minM,
-  ) {
+    double minM, {
+    bool splitWhenEitherThresholdMet = false,
+  }) {
     if (points.isEmpty) return [];
     final byTime = List<KmzTrackPoint>.from(points)
       ..sort((a, b) => a.when!.toUtc().compareTo(b.when!.toUtc()));
@@ -689,16 +713,19 @@ class KmzImportPipeline {
       final t = p.when!.toUtc();
       final anchorTime = anchor.when!.toUtc();
       final dt = t.difference(anchorTime);
-      final m = _distance.as(
-        LengthUnit.Meter,
-        LatLng(anchor.latitude, anchor.longitude),
-        LatLng(p.latitude, p.longitude),
-      );
-      // AND: need both time *and* distance apart to start a new memory.
-      // Still within min time OR still within min distance → stay in cluster.
+      final m = splitWhenEitherThresholdMet
+          ? _minMetersToCluster(cur, p)
+          : _distance.as(
+              LengthUnit.Meter,
+              LatLng(anchor.latitude, anchor.longitude),
+              LatLng(p.latitude, p.longitude),
+            );
       final farEnoughInTime = dt >= minDt;
       final farEnoughInDistance = m >= minM;
-      if (farEnoughInTime && farEnoughInDistance) {
+      final startNew = splitWhenEitherThresholdMet
+          ? (farEnoughInTime || farEnoughInDistance)
+          : (farEnoughInTime && farEnoughInDistance);
+      if (startNew) {
         out.add(cur);
         cur = [p];
         anchor = p;
@@ -708,5 +735,21 @@ class KmzImportPipeline {
     }
     out.add(cur);
     return out;
+  }
+
+  static double _minMetersToCluster(
+    List<KmzTrackPoint> cluster,
+    KmzTrackPoint p,
+  ) {
+    var best = double.infinity;
+    for (final c in cluster) {
+      final m = _distance.as(
+        LengthUnit.Meter,
+        LatLng(c.latitude, c.longitude),
+        LatLng(p.latitude, p.longitude),
+      );
+      if (m < best) best = m;
+    }
+    return best;
   }
 }

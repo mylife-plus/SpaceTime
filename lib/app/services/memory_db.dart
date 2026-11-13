@@ -13,29 +13,51 @@ class ImportedGalleryAssetRecord {
   const ImportedGalleryAssetRecord({
     this.assetId,
     required this.mediaCreatedAt,
+    required this.mediaKind,
   });
 
   final String? assetId;
   final DateTime mediaCreatedAt;
+
+  /// `image` or `video` — included in time-based dedupe so same-second
+  /// photo/video pairs are not treated as duplicates.
+  final String mediaKind;
 }
 
 class DatabaseHelper {
   static const _databaseName = 'memories.db';
   static const _databaseVersion =
-      19; // indexes for memory/images/audios/videos to keep large libraries fast
+      20; // imported_gallery_assets.media_kind for type-aware dedupe
 
   static const tableImportedGalleryAssets = 'imported_gallery_assets';
   static const columnGalleryAssetRowId = 'row_id';
   static const columnGalleryAssetId = 'asset_id';
   static const columnGalleryAssetMediaCreatedAt = 'media_created_at';
+  static const columnGalleryAssetMediaKind = 'media_kind';
   static const columnGalleryAssetMemoryId = 'memory_id';
 
   /// Legacy migrated rows — datetime dedupe ignores this sentinel.
   static const importedGalleryMediaCreatedAtUnknownSentinel =
       '1970-01-01T00:00:00.000Z';
 
-  static int mediaCreatedAtDedupeKey(DateTime dt) =>
-      dt.toUtc().millisecondsSinceEpoch ~/ 1000;
+  /// Local wall-clock epoch seconds (y→h/m/s). Uses wall-clock — not
+  /// `.toUtc()` on naive EXIF — so Android EXIF and PhotoManager DATE_TAKEN match.
+  static int mediaCreatedAtDedupeKey(DateTime dt) {
+    final l = dt.toLocal();
+    return DateTime.utc(
+          l.year,
+          l.month,
+          l.day,
+          l.hour,
+          l.minute,
+          l.second,
+        ).millisecondsSinceEpoch ~/
+        1000;
+  }
+
+  /// Capture-time + file type composite for gallery dedupe.
+  static String mediaTimeKindDedupeKey(DateTime dt, String mediaKind) =>
+      '$mediaKind|${mediaCreatedAtDedupeKey(dt)}';
 
   /// Stored on [tableTrackImportLog] rows — filters past uploads by screen.
   static const String trackImportSourceGpxKmz = 'gpx_kmz';
@@ -349,6 +371,7 @@ class DatabaseHelper {
         $columnGalleryAssetRowId INTEGER PRIMARY KEY AUTOINCREMENT,
         $columnGalleryAssetId TEXT,
         $columnGalleryAssetMediaCreatedAt TEXT NOT NULL,
+        $columnGalleryAssetMediaKind TEXT,
         $columnGalleryAssetMemoryId INTEGER NOT NULL,
         FOREIGN KEY ($columnGalleryAssetMemoryId) REFERENCES $tableMemories ($columnId) ON DELETE CASCADE
       )
@@ -783,6 +806,14 @@ class DatabaseHelper {
       await _createMemoryScaleIndexes(db);
       debugPrint('✅ memory/images/audios/videos indexes for scale');
     }
+
+    if (oldVersion < 20) {
+      await db.execute('''
+        ALTER TABLE $tableImportedGalleryAssets
+        ADD COLUMN $columnGalleryAssetMediaKind TEXT
+      ''');
+      debugPrint('✅ imported_gallery_assets.media_kind');
+    }
   }
 
   /// Indexes backing [getAllMemoriesWithDetails]'s ORDER BY + the
@@ -924,22 +955,25 @@ class DatabaseHelper {
         .toSet();
   }
 
-  Future<Set<int>> queryImportedGalleryMediaCreatedAtKeys() async {
+  Future<Set<String>> queryImportedGalleryMediaCreatedAtKeys() async {
     return queryImportedGalleryMediaCreatedAtKeysForAssetlessRows();
   }
 
-  /// Create-time dedupe applies only when no stable gallery asset id was stored
-  /// (avoids bulk false positives for burst photos sharing the same second).
-  Future<Set<int>> queryImportedGalleryMediaCreatedAtKeysForAssetlessRows() async {
+  /// Capture-time + kind keys for every imported gallery row (including rows
+  /// that also have an asset id). Used so Add Memories media is detected by
+  /// creation time in Media GPS upload even when asset ids differ.
+  Future<Set<String>>
+  queryImportedGalleryMediaCreatedAtKeysForAssetlessRows() async {
     final db = await database;
     final rows = await db.query(
       tableImportedGalleryAssets,
-      columns: [columnGalleryAssetMediaCreatedAt, columnGalleryAssetId],
+      columns: [
+        columnGalleryAssetMediaCreatedAt,
+        columnGalleryAssetMediaKind,
+      ],
     );
-    final out = <int>{};
+    final out = <String>{};
     for (final r in rows) {
-      final assetId = r[columnGalleryAssetId] as String?;
-      if (assetId != null && assetId.isNotEmpty) continue;
       final raw = r[columnGalleryAssetMediaCreatedAt] as String?;
       if (raw == null ||
           raw.isEmpty ||
@@ -947,7 +981,15 @@ class DatabaseHelper {
         continue;
       }
       final dt = DateTime.tryParse(raw);
-      if (dt != null) out.add(mediaCreatedAtDedupeKey(dt));
+      if (dt == null) continue;
+      final kind = (r[columnGalleryAssetMediaKind] as String?)?.trim() ?? '';
+      if (kind.isEmpty) {
+        // Pre-v20 rows: match either type on capture second.
+        out.add(mediaTimeKindDedupeKey(dt, 'image'));
+        out.add(mediaTimeKindDedupeKey(dt, 'video'));
+      } else {
+        out.add(mediaTimeKindDedupeKey(dt, kind));
+      }
     }
     return out;
   }
@@ -982,6 +1024,7 @@ class DatabaseHelper {
     var count = 0;
     for (final record in records) {
       final id = record.assetId?.trim();
+      final kind = record.mediaKind.trim();
       batch.insert(
         tableImportedGalleryAssets,
         {
@@ -989,6 +1032,7 @@ class DatabaseHelper {
               (id != null && id.isNotEmpty) ? id : null,
           columnGalleryAssetMediaCreatedAt:
               record.mediaCreatedAt.toUtc().toIso8601String(),
+          columnGalleryAssetMediaKind: kind.isNotEmpty ? kind : null,
           columnGalleryAssetMemoryId: memoryId,
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,

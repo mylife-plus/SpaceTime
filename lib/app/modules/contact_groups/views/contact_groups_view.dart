@@ -802,14 +802,56 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     }
     _editNameControllers.clear();
 
-    // Clear expansion controllers (don't dispose as they're managed by ExpansionTile)
+    // Clear expansion controllers only — keep expanded/editing maps so refresh
+    // after edit does not collapse the open group or hide the edit row.
     _expansionControllers.clear();
 
-    // Clear all state maps
-    _expandedContactGroups.clear();
     _addingToContactGroup.clear();
     _pendingAddingMode.clear();
-    _editingContactGroup.clear();
+  }
+
+  /// Places pattern: drive open/close from our map + ExpansionTileController,
+  /// never re-apply [initiallyExpanded] on every Obx rebuild (that blocked collapse).
+  void _setContactGroupExpanded(int groupId, bool expanded) {
+    if ((_expandedContactGroups[groupId] ?? false) == expanded) {
+      _syncContactExpansionController(groupId, expanded);
+      return;
+    }
+    _expandedContactGroups[groupId] = expanded;
+    _expandedContactGroups.refresh();
+    _syncContactExpansionController(groupId, expanded);
+  }
+
+  void _toggleContactGroupExpansion(int groupId) {
+    _setContactGroupExpanded(
+      groupId,
+      !(_expandedContactGroups[groupId] ?? false),
+    );
+  }
+
+  void _syncContactExpansionController(int groupId, bool expanded) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = _expansionControllers[groupId];
+      if (c == null) return;
+      try {
+        if (expanded) {
+          if (!c.isExpanded) c.expand();
+        } else if (c.isExpanded) {
+          c.collapse();
+        }
+      } catch (e) {
+        debugPrint('[ContactGroupsView] expansion sync $groupId: $e');
+      }
+    });
+  }
+
+  void _ensureContactExpansionController(int groupId) {
+    if (_expansionControllers[groupId] != null) return;
+    _expansionControllers[groupId] = ExpansionTileController();
+    if (_expandedContactGroups[groupId] ?? false) {
+      _syncContactExpansionController(groupId, true);
+    }
   }
 
   /// Select a contact group and return to parent
@@ -954,12 +996,6 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
     Get.back(result: _selectedContactGroups.toList());
   }
 
-  /// Toggle expansion state of a main contact group
-  void _toggleContactGroupExpansion(int contactGroupId) {
-    _expandedContactGroups[contactGroupId] =
-        !(_expandedContactGroups[contactGroupId] ?? false);
-  }
-
   /// Show popup for adding subgroup to a contact group
   void _startInlineAdding(int contactGroupId, String contactGroupName) {
     showDialog(
@@ -1043,9 +1079,7 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
 
   /// Force expansion state and trigger UI rebuild
   void _forceExpansionState(int contactGroupId, bool expanded) {
-    setState(() {
-      _expandedContactGroups[contactGroupId] = expanded;
-    });
+    _setContactGroupExpanded(contactGroupId, expanded);
 
     if (expanded) {
       // Enable adding mode after state is set
@@ -1472,14 +1506,18 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   /// Build main contact group expansion tile
   Widget _buildMainContactGroupExpansionTile(ContactGroup mainContactGroup) {
     final uiController = Get.find<UiController>();
-    final isExpanded = _expandedContactGroups[mainContactGroup.id] ?? false;
 
-    // Create a new expansion controller for this group to avoid state conflicts
+    // Reuse controller across rebuilds (places pattern) — recreating every build
+    // desyncs ExpansionTile and prevents collapse / hides the edit row.
     final groupId = mainContactGroup.id!;
-    _expansionControllers[groupId] = ExpansionTileController();
+    _ensureContactExpansionController(groupId);
     final controller = _expansionControllers[groupId]!;
 
     return Obx(() {
+      // Must read inside Obx (places pattern) — a snapshot outside stays stale
+      // after collapse/edit rebuilds and keeps the list open / hides edit rows.
+      final isExpanded = _expandedContactGroups[mainContactGroup.id] ?? false;
+
       // Check if all subgroups are selected (for filter mode)
       final allSubgroupsSelected =
           widget.allowMultipleSelection &&
@@ -1530,9 +1568,11 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
               child: ExpansionTile(
                 key: ValueKey('contact_group_${mainContactGroup.id}'),
                 controller: controller,
-                initiallyExpanded: isExpanded,
+                // Only the controller owns expand state after first create.
+                // Re-passing initiallyExpanded on Obx rebuilds blocked collapse.
+                initiallyExpanded: false,
                 onExpansionChanged: (expanded) {
-                  _expandedContactGroups[mainContactGroup.id!] = expanded;
+                  _setContactGroupExpanded(mainContactGroup.id!, expanded);
 
                   // Check if we need to enable adding mode after expansion
                   if (expanded &&
@@ -1740,22 +1780,30 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
                         tooltip: 'Add Subgroup',
                       ),
                     ],
-                    // Expansion/collapse icon
+                    // Expansion/collapse icon — explicit tap (places-style toggle)
                     Obx(
-                      () => ColorFiltered(
-                        colorFilter: ColorFilter.mode(
-                          uiController.darkMode.value
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.grey[600] ?? Colors.grey,
-                          BlendMode.srcIn,
-                        ),
-                        child: Image.asset(
-                          (_expandedContactGroups[mainContactGroup.id!] ??
-                                  false)
-                              ? 'assets/images/ic_expand_close.png'
-                              : 'assets/images/ic_expand_open.png',
-                          width: 25,
-                          height: 25,
+                      () => GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () =>
+                            _toggleContactGroupExpansion(mainContactGroup.id!),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              uiController.darkMode.value
+                                  ? Colors.white.withValues(alpha: 0.6)
+                                  : Colors.grey[600] ?? Colors.grey,
+                              BlendMode.srcIn,
+                            ),
+                            child: Image.asset(
+                              (_expandedContactGroups[mainContactGroup.id!] ??
+                                      false)
+                                  ? 'assets/images/ic_expand_close.png'
+                                  : 'assets/images/ic_expand_open.png',
+                              width: 25,
+                              height: 25,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -2036,33 +2084,46 @@ class _ContactGroupsViewState extends State<ContactGroupsView> {
   void _startInlineEditing(ContactGroup contactGroup) async {
     if (!mounted) return;
 
-    showDialog(
-      context: context,
+    // Keep parent group open across dialog/refresh so the edited row stays visible.
+    final parentId = contactGroup.parentId;
+    if (parentId != null) {
+      _setContactGroupExpanded(parentId, true);
+    }
+
+    await Get.dialog(
+      AddEditGroupPopupNew(
+        mode: 'contact',
+        editContactGroup: contactGroup,
+        fromMemoryView: true,
+        onContactGroupAdded: (updatedGroup) async {
+          // Update in recents if it exists (including parent information)
+          await SearchableContactWidget.updateContactGroupInRecents(
+            updatedGroup.id!,
+            updatedGroup.name,
+            newParentId: updatedGroup.parentId,
+          );
+
+          final keepOpen = updatedGroup.parentId ?? parentId;
+          if (keepOpen != null) {
+            _setContactGroupExpanded(keepOpen, true);
+          }
+
+          await _refreshContactGroupsFromDatabase();
+
+          if (keepOpen != null) {
+            _ensureContactExpansionController(keepOpen);
+            _setContactGroupExpanded(keepOpen, true);
+          }
+
+          showTrSnackbar(
+            'snackbar_success_7',
+            backgroundColor: Colors.green,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 2),
+          );
+        },
+      ),
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AddEditGroupPopupNew(
-          mode: 'contact',
-          editContactGroup: contactGroup,
-          fromMemoryView: true,
-          onContactGroupAdded: (updatedGroup) async {
-            // Update in recents if it exists (including parent information)
-            await SearchableContactWidget.updateContactGroupInRecents(
-              updatedGroup.id!,
-              updatedGroup.name,
-              newParentId: updatedGroup.parentId,
-            );
-
-            await _refreshContactGroupsFromDatabase();
-
-            showTrSnackbar(
-              'snackbar_success_7',
-              backgroundColor: Colors.green,
-              colorText: Colors.white,
-              duration: const Duration(seconds: 2),
-            );
-          },
-        );
-      },
     );
   }
 

@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,6 +23,9 @@ class ColoredTextEditingController extends TextEditingController {
     String? text,
   }) : super(text: text);
 
+  /// Rebuild colored spans after [validTags]/[validMentions] change.
+  void refreshColoredSpans() => notifyListeners();
+
   @override
   TextSpan buildTextSpan({
     required BuildContext context,
@@ -38,53 +39,52 @@ class ColoredTextEditingController extends TextEditingController {
     }
 
     final defaultStyle = style ?? _getDefaultStyle();
-
-    // Split by spaces to process word by word
-    final words = text.split(' ');
+    // Match known @/# tokens greedily (supports multi-word contact names).
+    // Word-splitting left the first spaced mention uncolored.
     final spans = <TextSpan>[];
-
-    for (int i = 0; i < words.length; i++) {
-      final word = words[i];
-
-      if (word.startsWith('#')) {
-        final tag = word.substring(1);
-        final color = validTags.contains(tag) ? Colors.green : null;
-        spans.add(
-          TextSpan(
-            text: word,
-            style: color != null ? defaultStyle.copyWith(color: color) : defaultStyle,
-          ),
-        );
-      } else if (word.startsWith('@')) {
-        final mention = word.substring(1);
-        final color = validMentions.contains(mention) ? Colors.blue : null;
-        spans.add(
-          TextSpan(
-            text: word,
-            style: color != null ? defaultStyle.copyWith(color: color) : defaultStyle,
-          ),
-        );
-      } else {
-        spans.add(
-          TextSpan(
-            text: word,
-            style: defaultStyle,
-          ),
-        );
+    var i = 0;
+    while (i < text.length) {
+      final ch = text[i];
+      if (ch == '@' || ch == '#') {
+        final list = ch == '@' ? validMentions : validTags;
+        String? best;
+        final rest = text.substring(i + 1);
+        final restLower = rest.toLowerCase();
+        for (final name in list) {
+          if (name.isEmpty) continue;
+          final nameLower = name.toLowerCase();
+          if (!restLower.startsWith(nameLower)) continue;
+          final end = i + 1 + name.length;
+          final boundaryOk = end >= text.length ||
+              text[end] == ' ' ||
+              text[end] == '\n';
+          if (!boundaryOk) continue;
+          if (best == null || name.length > best.length) best = name;
+        }
+        if (best != null) {
+          final token = text.substring(i, i + 1 + best.length);
+          spans.add(
+            TextSpan(
+              text: token,
+              style: defaultStyle.copyWith(
+                color: ch == '@' ? Colors.blue : Colors.green,
+              ),
+            ),
+          );
+          i += token.length;
+          continue;
+        }
       }
-
-      // Add space after each word except the last one
-      if (i < words.length - 1) {
-        spans.add(
-          TextSpan(
-            text: ' ',
-            style: defaultStyle,
-          ),
-        );
+      // Plain run until next trigger.
+      var j = i + 1;
+      while (j < text.length && text[j] != '@' && text[j] != '#') {
+        j++;
       }
+      spans.add(TextSpan(text: text.substring(i, j), style: defaultStyle));
+      i = j;
     }
 
-    return TextSpan(children: spans, style: style);
+    return TextSpan(children: spans, style: defaultStyle);
   }
 
   TextStyle _getDefaultStyle() {
@@ -142,14 +142,16 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   void initializeTags(List<String> tags) {
     _tags.clear();
     _tags.addAll(tags);
-    setState(() {}); // Trigger rebuild to show colors
+    _coloredController.refreshColoredSpans();
+    if (mounted) setState(() {});
   }
 
   /// Initialize mentions from existing data (for edit mode)
   void initializeMentions(List<String> mentions) {
     _mentions.clear();
     _mentions.addAll(mentions);
-    setState(() {}); // Trigger rebuild to show colors
+    _coloredController.refreshColoredSpans();
+    if (mounted) setState(() {});
   }
 
   void _onTagAdded(String tag) {
@@ -162,15 +164,48 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     widget.onMentionAdded(mention);
   }
 
+  /// True when [text] still contains `#name` / `@name` as a whole token.
+  bool _textStillHasToken(String text, String triggerChar, String name) {
+    if (name.isEmpty) return false;
+    final needle = '$triggerChar${name.toLowerCase()}';
+    final lower = text.toLowerCase();
+    var from = 0;
+    while (true) {
+      final i = lower.indexOf(needle, from);
+      if (i < 0) return false;
+      final end = i + needle.length;
+      final boundaryOk =
+          end >= lower.length || lower[end] == ' ' || lower[end] == '\n';
+      final startOk =
+          i == 0 || lower[i - 1] == ' ' || lower[i - 1] == '\n';
+      if (startOk && boundaryOk) return true;
+      from = i + 1;
+    }
+  }
+
+  /// Drop from the valid list only when no other occurrence remains in [text].
+  /// Removing the last duplicate via X used to clear the list entry and strip
+  /// color/functionality from every other identical @/# still in the field.
+  void _unregisterTokenIfAbsent(
+    String text,
+    String triggerChar,
+    String name,
+  ) {
+    if (_textStillHasToken(text, triggerChar, name)) return;
+    if (triggerChar == '#') {
+      _tags.removeWhere((t) => t.toLowerCase() == name.toLowerCase());
+    } else if (triggerChar == '@') {
+      _mentions.removeWhere((m) => m.toLowerCase() == name.toLowerCase());
+    }
+  }
+
   /// Clean up tags and mentions that are no longer present in the text
   void _cleanupRemovedItems() {
     final text = _coloredController.text;
-
-    // Remove tags that are no longer in the text
-    _tags.removeWhere((tag) => !text.contains('#$tag'));
-
-    // Remove mentions that are no longer in the text
-    _mentions.removeWhere((mention) => !text.contains('@$mention'));
+    _tags.removeWhere((tag) => !_textStillHasToken(text, '#', tag));
+    _mentions.removeWhere(
+      (mention) => !_textStillHasToken(text, '@', mention),
+    );
   }
 
   bool get isPopupOpen => _isPopupOpen;
@@ -284,6 +319,16 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     widget.controller.addListener(_onWidgetControllerChanged);
 
     _focusNode.addListener(_onFocusChange);
+    _focusNode.onKeyEvent = (node, event) {
+      if (event is KeyDownEvent &&
+          (event.logicalKey == LogicalKeyboardKey.backspace ||
+              event.logicalKey == LogicalKeyboardKey.delete)) {
+        if (_tryDeleteTokenWithBackspace()) {
+          return KeyEventResult.handled;
+        }
+      }
+      return KeyEventResult.ignored;
+    };
   }
 
   void _onColoredControllerChanged() {
@@ -500,8 +545,11 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
   }
 
   int _getLastTriggerIndex(String text, int cursorPos) {
-    final lastAt = text.lastIndexOf('@', cursorPos - 1);
-    final lastHash = text.lastIndexOf('#', cursorPos - 1);
+    // Include the char under the caret so X works when the cursor sits on @/#.
+    final end = cursorPos.clamp(0, text.length);
+    final lastAt = text.lastIndexOf('@', end);
+    final lastHash = text.lastIndexOf('#', end);
+    if (lastAt < 0 && lastHash < 0) return -1;
     return lastAt > lastHash ? lastAt : lastHash;
   }
 
@@ -541,15 +589,25 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               color: Colors.transparent,
               child: TagMentionBottomSheet(
                 onItemSelected: (item) {
-                  // Remove old tag if we're replacing
-                  if (oldTag != null) {
-                    _tags.remove(oldTag);
-                  }
-
-                  _insertTextAtSavedCursor(item);
                   final clean = item.substring(1);
+                  // Register before insert so the first paint is already colored.
+                  if (!_tags.any((t) => t.toLowerCase() == clean.toLowerCase())) {
+                    _tags.add(clean);
+                  }
                   widget.onTagAdded(clean);
-                  _tags.add(clean); // ✅ Add to tag list
+                  _insertTextAtSavedCursor(item);
+                  // If this occurrence was renamed, drop old name only when no
+                  // other copies of it remain in the description.
+                  if (oldTag != null &&
+                      oldTag.toLowerCase() != clean.toLowerCase()) {
+                    _unregisterTokenIfAbsent(
+                      _coloredController.text,
+                      '#',
+                      oldTag,
+                    );
+                  }
+                  _coloredController.refreshColoredSpans();
+                  if (mounted) setState(() {});
 
                   // Always try to pop - if dialog is already closed, this will fail silently
                   try {
@@ -637,15 +695,25 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
               color: Colors.transparent,
               child: TagMentionBottomSheet(
                 onItemSelected: (item) {
-                  // Remove old mention if we're replacing
-                  if (oldMention != null) {
-                    _mentions.remove(oldMention);
-                  }
-
-                  _insertTextAtSavedCursor(item);
                   final clean = item.substring(1);
+                  // Register before insert so the first paint is already colored.
+                  if (!_mentions.any((m) => m.toLowerCase() == clean.toLowerCase())) {
+                    _mentions.add(clean);
+                  }
                   widget.onMentionAdded(clean);
-                  _mentions.add(clean); // ✅ Add to mention list
+                  _insertTextAtSavedCursor(item);
+                  // If this occurrence was renamed, drop old name only when no
+                  // other copies of it remain in the description.
+                  if (oldMention != null &&
+                      oldMention.toLowerCase() != clean.toLowerCase()) {
+                    _unregisterTokenIfAbsent(
+                      _coloredController.text,
+                      '@',
+                      oldMention,
+                    );
+                  }
+                  _coloredController.refreshColoredSpans();
+                  if (mounted) setState(() {});
 
                   // Always try to pop - if dialog is already closed, this will fail silently
                   try {
@@ -735,36 +803,168 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
 
   void _clearIncompleteText() {
     final currentText = _coloredController.text;
-    final cursorPos = _savedCursorPosition > 0
-        ? _savedCursorPosition
-        : _coloredController.selection.baseOffset;
+    // `_savedCursorPosition` may be 0 (valid) when the draft starts at offset 0.
+    var cursorPos = _savedCursorPosition;
+    if (cursorPos < 0) {
+      cursorPos = _coloredController.selection.baseOffset;
+    }
+    cursorPos = cursorPos.clamp(0, currentText.length);
 
-    if (cursorPos < 0) return;
+    if (currentText.isEmpty) return;
 
-    final triggerIndex = _getLastTriggerIndex(currentText, cursorPos);
+    // Prefer the token under/just before the caret (correct for last duplicate).
+    // `_getLastTriggerIndex` alone can bind to the wrong @/# when the caret
+    // sits on a trigger character.
+    var triggerIndex = _findTriggerForWord(
+      currentText,
+      cursorPos == 0 ? 1 : cursorPos,
+    );
+    if (triggerIndex == -1 &&
+        cursorPos < currentText.length &&
+        (currentText[cursorPos] == '@' || currentText[cursorPos] == '#')) {
+      triggerIndex = cursorPos;
+    }
+    if (triggerIndex == -1) {
+      triggerIndex = _getLastTriggerIndex(currentText, cursorPos);
+    }
     if (triggerIndex == -1) return;
 
-    int endIndex = cursorPos;
-    while (endIndex < currentText.length &&
-           currentText[endIndex] != ' ' &&
-           currentText[endIndex] != '\n') {
-      endIndex++;
-    }
-
-    final word = currentText.substring(triggerIndex + 1, endIndex);
     final triggerChar = currentText[triggerIndex];
+    final list = triggerChar == '#' ? _tags : _mentions;
 
-    if (triggerChar == '#' && _tags.any((t) => t.toLowerCase() == word.toLowerCase())) {
-      return;
-    }
-    if (triggerChar == '@' && _mentions.any((m) => m.toLowerCase() == word.toLowerCase())) {
-      return;
+    // Prefer deleting a full known multi-word token when present.
+    String? matchedName;
+    final afterTrigger = currentText.substring(triggerIndex + 1);
+    final afterLower = afterTrigger.toLowerCase();
+    for (final name in list) {
+      if (name.isEmpty) continue;
+      if (!afterLower.startsWith(name.toLowerCase())) continue;
+      final end = triggerIndex + 1 + name.length;
+      final boundaryOk =
+          end >= currentText.length ||
+          currentText[end] == ' ' ||
+          currentText[end] == '\n';
+      if (!boundaryOk) continue;
+      if (matchedName == null || name.length > matchedName.length) {
+        matchedName = name;
+      }
     }
 
-    final newText = currentText.replaceRange(triggerIndex, endIndex, '');
-    _coloredController.text = newText;
+    int endIndex;
+    String word;
+    if (matchedName != null) {
+      endIndex = triggerIndex + 1 + matchedName.length;
+      word = matchedName;
+    } else {
+      endIndex = cursorPos > triggerIndex ? cursorPos : triggerIndex + 1;
+      while (endIndex < currentText.length &&
+          currentText[endIndex] != ' ' &&
+          currentText[endIndex] != '\n') {
+        endIndex++;
+      }
+      word = currentText.substring(triggerIndex + 1, endIndex);
+    }
+
+    var deleteEnd = endIndex;
+    if (deleteEnd < currentText.length && currentText[deleteEnd] == ' ') {
+      deleteEnd++;
+    }
+
+    final newText = currentText.replaceRange(triggerIndex, deleteEnd, '');
+    // Only drop from the valid list when no other copy remains — otherwise
+    // deleting the last duplicate strips color from every earlier one.
+    if (word.isNotEmpty && (triggerChar == '#' || triggerChar == '@')) {
+      if (_textStillHasToken(newText, triggerChar, word)) {
+        // Ensure remaining copies stay registered (deduped add).
+        if (triggerChar == '#') {
+          if (!_tags.any((t) => t.toLowerCase() == word.toLowerCase())) {
+            _tags.add(word);
+          }
+        } else if (!_mentions.any((m) => m.toLowerCase() == word.toLowerCase())) {
+          _mentions.add(word);
+        }
+      } else {
+        _unregisterTokenIfAbsent(newText, triggerChar, word);
+      }
+    }
+
+    _coloredController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: triggerIndex),
+    );
     _previousText = newText;
-    _coloredController.selection = TextSelection.collapsed(offset: triggerIndex);
+    _coloredController.refreshColoredSpans();
+    if (mounted) setState(() {});
+  }
+
+  /// Backspace/delete at/inside a confirmed `#tag` / `@mention` deletes the whole token.
+  bool _tryDeleteTokenWithBackspace() {
+    final selection = _coloredController.selection;
+    if (!selection.isValid || !selection.isCollapsed) return false;
+    final text = _coloredController.text;
+    final cursor = selection.baseOffset;
+    if (text.isEmpty) return false;
+
+    int start;
+    int end;
+
+    // Cursor sitting on the `#`/`@` of a token (or Delete with caret before it).
+    if (cursor < text.length && (text[cursor] == '#' || text[cursor] == '@')) {
+      start = cursor;
+      end = cursor + 1;
+      while (end < text.length && text[end] != ' ' && text[end] != '\n') {
+        end++;
+      }
+    } else if (cursor > 0) {
+      // Cursor after/inside a token — delete the token that owns the prior char.
+      if (text[cursor - 1] == ' ' || text[cursor - 1] == '\n') return false;
+      end = cursor;
+      start = end - 1;
+      while (start > 0 && text[start] != ' ' && text[start] != '\n') {
+        start--;
+      }
+      if (text[start] == ' ' || text[start] == '\n') start++;
+    } else {
+      return false;
+    }
+
+    if (start >= end) return false;
+    final token = text.substring(start, end);
+    if (!token.startsWith('#') && !token.startsWith('@')) return false;
+    final name = token.substring(1);
+    if (name.isEmpty) return false;
+
+    final isTag = token.startsWith('#');
+    final isKnown = isTag
+        ? _tags.any((t) => t.toLowerCase() == name.toLowerCase())
+        : _mentions.any((m) => m.toLowerCase() == name.toLowerCase());
+    if (!isKnown) return false;
+
+    var deleteEnd = end;
+    if (deleteEnd < text.length && text[deleteEnd] == ' ') deleteEnd++;
+
+    final newText = text.replaceRange(start, deleteEnd, '');
+    final triggerChar = isTag ? '#' : '@';
+    if (_textStillHasToken(newText, triggerChar, name)) {
+      if (isTag) {
+        if (!_tags.any((t) => t.toLowerCase() == name.toLowerCase())) {
+          _tags.add(name);
+        }
+      } else if (!_mentions.any((m) => m.toLowerCase() == name.toLowerCase())) {
+        _mentions.add(name);
+      }
+    } else {
+      _unregisterTokenIfAbsent(newText, triggerChar, name);
+    }
+    _coloredController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: start),
+    );
+    _previousText = newText;
+    _cleanupRemovedItems();
+    _coloredController.refreshColoredSpans();
+    if (mounted) setState(() {});
+    return true;
   }
 
   void _insertTextAtCursor(String text) {

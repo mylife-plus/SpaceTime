@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:gal/gal.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:spacetime/app/l10n/l10n_loader.dart';
+import 'package:spacetime/app/modules/media_gps_upload/services/media_gps_file_metadata_service.dart';
 import 'package:spacetime/app/modules/ui/controllers/ui_controller.dart';
 import 'package:spacetime/app/shared/widgets/permission_open_settings_dialog.dart';
 
@@ -178,9 +181,27 @@ class MediaPickerPopup extends StatelessWidget {
   Future<bool> _ensureAndroidGalleryPermission() async {
     if (!Platform.isAndroid) return true;
     final photos = await Permission.photos.request();
-    if (photos.isGranted) return true;
+    final videos = await Permission.videos.request();
+    if (photos.isGranted || videos.isGranted) return true;
     final storage = await Permission.storage.request();
     return storage.isGranted;
+  }
+
+  static bool _looksLikeVideo(String path, {String? mimeType}) {
+    final mime = (mimeType ?? '').toLowerCase();
+    if (mime.startsWith('video/')) return true;
+    final ext = path.split('.').last.toLowerCase();
+    return const {
+      'mp4',
+      'mov',
+      'avi',
+      'mkv',
+      'flv',
+      'wmv',
+      'm4v',
+      '3gp',
+      'webm',
+    }.contains(ext);
   }
 
   Future<void> _handleCameraPhoto(BuildContext dialogContext) async {
@@ -202,7 +223,11 @@ class MediaPickerPopup extends StatelessWidget {
         _notifyNativePickerCancelled();
         return;
       }
-      await onMediaSelected([_normalizePickerPath(photoFile.path)], []);
+      final path = _normalizePickerPath(photoFile.path);
+      // Persist to the device gallery before handing the path to the memory
+      // flow so Photos/Gallery always has a copy (awaited, with failure UI).
+      await _saveCaptureToDeviceGallery(path, isVideo: false);
+      await onMediaSelected([path], []);
     });
   }
 
@@ -238,8 +263,49 @@ class MediaPickerPopup extends StatelessWidget {
         _notifyNativePickerCancelled();
         return;
       }
-      await onMediaSelected([], [_normalizePickerPath(videoFile.path)]);
+      final path = _normalizePickerPath(videoFile.path);
+      await _saveCaptureToDeviceGallery(path, isVideo: true);
+      await onMediaSelected([], [path]);
     });
+  }
+
+  /// Persist a camera capture into the system Photos / Gallery library.
+  static Future<void> _saveCaptureToDeviceGallery(
+    String path, {
+    required bool isVideo,
+  }) async {
+    try {
+      final hasAccess = await Gal.hasAccess(toAlbum: true);
+      if (!hasAccess) {
+        final granted = await Gal.requestAccess(toAlbum: true);
+        if (!granted) {
+          debugPrint('[MediaPicker] gallery save skipped — access denied');
+          showTrSnackbar(
+            'snackbar_camera_gallery_save_failed',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 3),
+            snackPosition: SnackPosition.BOTTOM,
+          );
+          return;
+        }
+      }
+      if (isVideo) {
+        await Gal.putVideo(path, album: 'SpaceTime');
+      } else {
+        await Gal.putImage(path, album: 'SpaceTime');
+      }
+      debugPrint('[MediaPicker] ✅ saved camera capture to gallery');
+    } catch (e, st) {
+      debugPrint('[MediaPicker] gallery save failed: $e\n$st');
+      showTrSnackbar(
+        'snackbar_camera_gallery_save_failed',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   static String _normalizePickerPath(String path) {
@@ -269,33 +335,38 @@ class MediaPickerPopup extends StatelessWidget {
       final imagePaths = <String>[];
       final videoPaths = <String>[];
 
-      if (Platform.isIOS) {
-        final selected = await ImagePicker().pickMultipleMedia();
-        for (final media in selected) {
-          final path = _normalizePickerPath(media.path);
-          final ext = path.split('.').last.toLowerCase();
-          if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp']
-              .contains(ext)) {
-            videoPaths.add(path);
-          } else {
-            imagePaths.add(path);
+      if (Platform.isAndroid) {
+        // FileType.media is photos-only on many OEMs. Custom + MIME-safe
+        // image/video extensions keeps both visible (same as Media GPS +).
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions:
+              MediaGpsFileMetadataService.androidPickerExtensions,
+          allowMultiple: true,
+          withData: false,
+        );
+        if (result != null) {
+          for (final file in result.files) {
+            if (file.path == null) continue;
+            final path = _normalizePickerPath(file.path!);
+            // Content URIs may lack an extension — use picker extension too.
+            final ext = (file.extension ?? '').toLowerCase();
+            final hint = ext.isNotEmpty ? '$path.$ext' : path;
+            if (_looksLikeVideo(hint)) {
+              videoPaths.add(path);
+            } else {
+              imagePaths.add(path);
+            }
           }
         }
       } else {
-        final result = await FilePicker.platform.pickFiles(
-          type: FileType.media,
-          allowMultiple: true,
-        );
-        if (result != null && result.files.isNotEmpty) {
-          for (final file in result.files) {
-            if (file.path == null) continue;
-            final extension = file.extension?.toLowerCase() ?? '';
-            if (['mp4', 'mov', 'avi', 'mkv', 'flv', 'wmv', 'm4v', '3gp']
-                .contains(extension)) {
-              videoPaths.add(file.path!);
-            } else {
-              imagePaths.add(file.path!);
-            }
+        final selected = await ImagePicker().pickMultipleMedia();
+        for (final media in selected) {
+          final path = _normalizePickerPath(media.path);
+          if (_looksLikeVideo(path, mimeType: media.mimeType)) {
+            videoPaths.add(path);
+          } else {
+            imagePaths.add(path);
           }
         }
       }

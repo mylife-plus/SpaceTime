@@ -11,10 +11,12 @@ List<String> memoryImagesCopyIsolateWork(Map<String, dynamic> message) {
   if (!dir.existsSync()) {
     dir.createSync(recursive: true);
   }
-  final out = <String>[];
+  // Keep 1:1 with [sources] so bulk import can slice by cluster index.
+  // Failed/missing files become '' (filtered by callers).
+  final out = List<String>.filled(sources.length, '');
   final base = DateTime.now().millisecondsSinceEpoch;
   for (var i = 0; i < sources.length; i++) {
-    var imagePath = sources[i] as String;
+    var imagePath = sources[i];
     if (imagePath.contains('%')) {
       try {
         imagePath = Uri.decodeFull(imagePath);
@@ -28,9 +30,9 @@ List<String> memoryImagesCopyIsolateWork(Map<String, dynamic> message) {
       final fileName = 'memory_${base}_$i.$ext';
       final targetPath = p.join(destDirAbsolute, fileName);
       sourceFile.copySync(targetPath);
-      out.add('memory_images/$fileName');
+      out[i] = 'memory_images/$fileName';
     } catch (_) {
-      // Skip unreadable paths; mirrors main-isolate save behavior.
+      // Leave '' — mirrors main-isolate skip behavior.
     }
   }
   return out;

@@ -1,11 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:exif/exif.dart';
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:spacetime/app/modules/media_gps_upload/services/media_capture_time.dart';
 import 'package:spacetime/app/modules/media_gps_upload/services/media_gps_gallery_service.dart';
-import 'package:video_player/video_player.dart';
 
 /// Resolved phone/library metadata for a picked file path.
 class GalleryResolvedMetadata {
@@ -19,19 +21,81 @@ class GalleryResolvedMetadata {
 }
 
 /// Links image_picker / file_picker outputs to [AssetEntity.id] for cross-flow dedupe.
+///
+/// Fast path only — never calls [AssetEntity.originFile] (that blocked Memory
+/// View on large libraries). Videos match on duration + capture time; images
+/// on EXIF time + dimensions. Content-id dedupe covers the rest.
 class GalleryAssetResolver {
   static const int _maxAlbumScan = 4000;
   static const int _batchSize = 400;
+  static const int _exifHeadBytes = 256 * 1024;
+
+  /// iOS PhotoManager album walks can hang indefinitely — never block UI
+  /// staging on them. Memory View uses [probeMetadataForPaths] first.
+  static const Duration albumLinkTimeout = Duration(seconds: 4);
+
+  /// Fast EXIF/mtime only — no PhotoManager. Safe to await on the staging path.
+  static Future<Map<String, GalleryResolvedMetadata>> probeMetadataForPaths(
+    List<String> paths,
+  ) async {
+    final out = <String, GalleryResolvedMetadata>{};
+    if (paths.isEmpty || kIsWeb) return out;
+
+    for (final raw in paths) {
+      final path = raw.trim();
+      if (path.isEmpty) continue;
+      final file = File(path);
+      if (!await file.exists()) continue;
+      final probe = await _probeFile(path, file);
+      if (probe == null) continue;
+      out[path] = GalleryResolvedMetadata(
+        mediaCreatedAt: probe.captureTime,
+      );
+      await Future<void>.delayed(Duration.zero);
+    }
+    return out;
+  }
 
   /// Maps absolute/normalized file path → gallery metadata (best effort).
+  ///
+  /// Set [linkGalleryAssetIds] false to skip the album walk (use
+  /// [probeMetadataForPaths] instead for UI-critical paths).
   static Future<Map<String, GalleryResolvedMetadata>> resolveMetadataForPaths(
     List<String> paths, {
     int maxAlbumScan = _maxAlbumScan,
+    bool linkGalleryAssetIds = true,
+    Duration? timeout,
+  }) async {
+    if (!linkGalleryAssetIds) {
+      return probeMetadataForPaths(paths);
+    }
+
+    final effectiveTimeout = timeout ?? albumLinkTimeout;
+    try {
+      return await _resolveWithAlbumLink(
+        paths,
+        maxAlbumScan: maxAlbumScan,
+      ).timeout(effectiveTimeout);
+    } on TimeoutException {
+      debugPrint(
+        '[GalleryAssetResolver] album link timed out after '
+        '${effectiveTimeout.inMilliseconds}ms — falling back to EXIF/mtime',
+      );
+      return probeMetadataForPaths(paths);
+    } catch (e, st) {
+      debugPrint('[GalleryAssetResolver] album link failed: $e\n$st');
+      return probeMetadataForPaths(paths);
+    }
+  }
+
+  static Future<Map<String, GalleryResolvedMetadata>> _resolveWithAlbumLink(
+    List<String> paths, {
+    required int maxAlbumScan,
   }) async {
     final out = <String, GalleryResolvedMetadata>{};
     if (paths.isEmpty || kIsWeb) return out;
     if (!await MediaGpsGalleryService.hasAuthorizedGalleryAccess()) {
-      return out;
+      return probeMetadataForPaths(paths);
     }
 
     final pending = <String, _PickedFileProbe>{};
@@ -42,11 +106,12 @@ class GalleryAssetResolver {
       if (!await file.exists()) continue;
       final probe = await _probeFile(path, file);
       if (probe != null) pending[path] = probe;
+      await Future<void>.delayed(Duration.zero);
     }
     if (pending.isEmpty) return out;
 
-    final albums =
-        await PhotoManager.getAssetPathList(type: RequestType.common);
+    final albums = await PhotoManager.getAssetPathList(type: RequestType.common)
+        .timeout(const Duration(seconds: 2));
     if (albums.isEmpty) {
       for (final entry in pending.entries) {
         out[entry.key] = GalleryResolvedMetadata(
@@ -57,12 +122,17 @@ class GalleryAssetResolver {
     }
 
     final album = albums.first;
-    final total = await album.assetCountAsync;
+    final total = await album.assetCountAsync
+        .timeout(const Duration(seconds: 2));
     final scanLimit = math.min(total, maxAlbumScan);
 
-    for (var start = 0; start < scanLimit && pending.isNotEmpty; start += _batchSize) {
+    for (var start = 0;
+        start < scanLimit && pending.isNotEmpty;
+        start += _batchSize) {
       final end = math.min(start + _batchSize, scanLimit);
-      final entities = await album.getAssetListRange(start: start, end: end);
+      final entities = await album
+          .getAssetListRange(start: start, end: end)
+          .timeout(const Duration(seconds: 2));
       for (final entity in entities) {
         if (pending.isEmpty) break;
         final matches = <String>[];
@@ -71,14 +141,17 @@ class GalleryAssetResolver {
             matches.add(entry.key);
           }
         }
-        for (final path in matches) {
-          out[path] = GalleryResolvedMetadata(
-            assetId: entity.id,
-            mediaCreatedAt: entity.createDateTime.toUtc(),
-          );
-          pending.remove(path);
-        }
+        // Ambiguous: same entity matched multiple pending files — skip.
+        if (matches.length != 1) continue;
+        final path = matches.first;
+        out[path] = GalleryResolvedMetadata(
+          assetId: entity.id,
+          mediaCreatedAt:
+              MediaCaptureTime.wallClock(entity.createDateTime),
+        );
+        pending.remove(path);
       }
+      await Future<void>.delayed(Duration.zero);
     }
 
     for (final entry in pending.entries) {
@@ -112,29 +185,41 @@ class GalleryAssetResolver {
     if (probe.isVideo != entityIsVideo) return false;
 
     if (probe.isVideo) {
+      final dur = entity.videoDuration.inMilliseconds;
+      if (dur <= 0) return false;
+      if (probe.videoDurationMs > 0 &&
+          (dur - probe.videoDurationMs).abs() > 500) {
+        return false;
+      }
       if (probe.width > 0 &&
           (entity.width != probe.width || entity.height != probe.height)) {
         return false;
       }
-      final dur = entity.videoDuration.inMilliseconds;
-      if (dur > 0 && probe.videoDurationMs > 0) {
-        if ((dur - probe.videoDurationMs).abs() > 1500) return false;
+      final capture = probe.captureTime;
+      if (capture != null) {
+        final ageFromNow = DateTime.now().difference(capture).abs();
+        final looksLikeCacheCopy = ageFromNow < const Duration(minutes: 3);
+        if (!looksLikeCacheCopy) {
+          final delta =
+              entity.createDateTime.difference(capture).inSeconds.abs();
+          return delta <= 3;
+        }
       }
-      return probe.width > 0 || probe.videoDurationMs > 0;
+      // Android FilePicker cache copy: duration(+dims) is the best signal.
+      return probe.videoDurationMs > 0;
     }
 
-    if (probe.captureTime != null) {
-      final delta = entity.createDateTime
-          .difference(probe.captureTime!)
-          .inSeconds
-          .abs();
-      if (delta > 5) return false;
-    }
+    // Images: EXIF time + dims (picker may re-encode — never require byte size).
+    if (probe.captureTime == null) return false;
     if (probe.width > 0 &&
         (entity.width != probe.width || entity.height != probe.height)) {
       return false;
     }
-    return probe.width > 0 || probe.captureTime != null;
+    final delta = entity.createDateTime
+        .difference(probe.captureTime!)
+        .inSeconds
+        .abs();
+    return delta <= 5;
   }
 
   static Future<_PickedFileProbe?> _probeFile(
@@ -155,48 +240,48 @@ class GalleryAssetResolver {
       ].any(lower.endsWith);
 
       if (isVideo) {
-        int vWidth = 0, vHeight = 0, vDurationMs = 0;
-        VideoPlayerController? vc;
+        // Never use FilePicker cache mtime as capture — on Android that is the
+        // copy time (see logs: video dedupeKey used 04:21 while MediaStore was
+        // 02:32). Prefer MP4/MOV mvhd creation time + duration.
+        DateTime? mvhdTime;
+        var durationMs = 0;
         try {
-          vc = VideoPlayerController.file(file);
-          await vc.initialize();
-          final sz = vc.value.size;
-          vWidth = sz.width.round();
-          vHeight = sz.height.round();
-          vDurationMs = vc.value.duration.inMilliseconds;
-        } catch (_) {
-        } finally {
-          await vc?.dispose();
-        }
+          final bytes = await MediaCaptureTime.readVideoProbeBytes(file)
+              .timeout(const Duration(seconds: 2));
+          final mvhd = MediaCaptureTime.parseMp4Mvhd(bytes);
+          mvhdTime = mvhd.createdAt;
+          durationMs = mvhd.durationMs;
+        } catch (_) {}
         return _PickedFileProbe(
           fileSize: fileSize,
-          width: vWidth,
-          height: vHeight,
+          width: 0,
+          height: 0,
           isVideo: true,
-          videoDurationMs: vDurationMs,
-          captureTime: null,
+          videoDurationMs: durationMs,
+          captureTime:
+              mvhdTime ?? MediaCaptureTime.wallClock(stat.modified),
         );
       }
 
+      // Only the file head — full readAsBytes was freezing Memory View on
+      // large camera JPEGs/HEICs.
       DateTime? exifDate;
       int exifWidth = 0, exifHeight = 0;
       try {
-        final bytes = await file.readAsBytes();
+        final bytes = await _readFileHead(file, _exifHeadBytes)
+            .timeout(const Duration(seconds: 2));
         if (bytes.isNotEmpty) {
-          final data = await readExifFromBytes(bytes);
+          final data = await readExifFromBytes(bytes)
+              .timeout(const Duration(seconds: 2));
           if (data.isNotEmpty) {
             final rawDate = data['EXIF DateTimeOriginal']?.printable ??
                 data['Image DateTime']?.printable ??
                 data['EXIF DateTimeDigitized']?.printable;
-            if (rawDate != null && rawDate.length >= 10) {
-              final normalized = rawDate
-                  .replaceFirst(':', '-')
-                  .replaceFirst(':', '-')
-                  .replaceAll(' ', 'T');
-              exifDate = DateTime.tryParse(normalized)?.toUtc();
-            }
+            // Local wall-clock — do NOT .toUtc() (Android TZ shift vs MediaStore).
+            exifDate = MediaCaptureTime.parseExif(rawDate);
             final wTag = data['EXIF ExifImageWidth'] ?? data['Image ImageWidth'];
-            final hTag = data['EXIF ExifImageLength'] ?? data['Image ImageLength'];
+            final hTag =
+                data['EXIF ExifImageLength'] ?? data['Image ImageLength'];
             exifWidth = int.tryParse(wTag?.printable ?? '') ?? 0;
             exifHeight = int.tryParse(hTag?.printable ?? '') ?? 0;
           }
@@ -209,11 +294,24 @@ class GalleryAssetResolver {
         height: exifHeight,
         isVideo: false,
         videoDurationMs: 0,
-        captureTime: exifDate,
+        captureTime:
+            exifDate ?? MediaCaptureTime.wallClock(stat.modified),
       );
     } catch (e, st) {
       debugPrint('[GalleryAssetResolver] probe $path: $e\n$st');
       return null;
+    }
+  }
+
+  static Future<Uint8List> _readFileHead(File file, int maxBytes) async {
+    final raf = await file.open();
+    try {
+      final len = await raf.length();
+      final n = math.min(len, maxBytes);
+      if (n <= 0) return Uint8List(0);
+      return await raf.read(n);
+    } finally {
+      await raf.close();
     }
   }
 }
