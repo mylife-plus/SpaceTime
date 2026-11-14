@@ -687,7 +687,16 @@ class MemoryController extends GetxController {
   }
 
   // Save videos to app directory and return RELATIVE file paths
-  Future<List<String>> saveVideosToAppDirectory(List<String> videoPaths) async {
+  /// Copy videos into app storage; returns relative paths (`memory_videos/...`).
+  /// When [preserveSourceIndex] is true, result is 1:1 with [videoPaths]
+  /// (failed copies are `''`) so bulk GPS import can slice by cluster.
+  Future<List<String>> saveVideosToAppDirectory(
+    List<String> videoPaths, {
+    bool preserveSourceIndex = false,
+  }) async {
+    if (videoPaths.isEmpty) {
+      return preserveSourceIndex ? <String>[] : <String>[];
+    }
     try {
       // Get app documents directory
       final appDir = await getApplicationDocumentsDirectory();
@@ -698,48 +707,61 @@ class MemoryController extends GetxController {
         await videosDir.create(recursive: true);
       }
 
+      Future<String?> copyOne(String videoPath, int index) async {
+        try {
+          final normalized = normalizeLocalFilePath(videoPath);
+          final existing = await _relativeVideoPathIfAlreadyStaged(
+            normalized,
+            appDir.path,
+          );
+          if (existing != null) return existing;
+          final sourceFile = File(normalized);
+          if (!await sourceFile.exists()) return null;
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final extension = normalized.split('.').last.toLowerCase();
+          final ext = extension.isEmpty ? 'mp4' : extension;
+          final fileName = 'memory_${timestamp}_$index.$ext';
+          final targetPath = '${videosDir.path}/$fileName';
+          await sourceFile
+              .copy(targetPath)
+              .timeout(const Duration(seconds: 60));
+          debugPrint(
+            'Video saved to app directory: $fileName (relative path)',
+          );
+          return 'memory_videos/$fileName';
+        } catch (e) {
+          debugPrint('Error saving video[$index]: $e');
+          return null;
+        }
+      }
+
       // Copy videos in parallel (bounded) — file copies are async I/O, so a
       // handful in flight finishes far faster than one-at-a-time for bulk
       // imports. Index keeps each generated filename unique despite parallelism.
       final results = await mapWithConcurrency<String, String?>(
         videoPaths,
         _mediaCopyConcurrency,
-        (videoPath, index) async {
-          try {
-            final normalized = normalizeLocalFilePath(videoPath);
-            final existing = await _relativeVideoPathIfAlreadyStaged(
-              normalized,
-              appDir.path,
-            );
-            if (existing != null) return existing;
-            final sourceFile = File(normalized);
-            if (await sourceFile.exists()) {
-              final timestamp = DateTime.now().millisecondsSinceEpoch;
-              final extension = normalized.split('.').last.toLowerCase();
-              final fileName = 'memory_${timestamp}_$index.$extension';
-              final targetPath = '${videosDir.path}/$fileName';
-
-              // Copy original video to app directory
-              await sourceFile.copy(targetPath);
-
-              debugPrint(
-                'Video saved to app directory: $fileName (relative path)',
-              );
-              // Store RELATIVE path instead of absolute path
-              return 'memory_videos/$fileName';
-            }
-          } catch (e) {
-            debugPrint('Error saving video: $e');
-          }
-          return null;
-        },
+        copyOne,
       );
-      return results.whereType<String>().toList();
+      final out = List<String?>.from(results);
+      // Serial retry — same silent-drop issue as images on large Media GPS batches.
+      for (var i = 0; i < out.length; i++) {
+        if (out[i] != null && out[i]!.isNotEmpty) continue;
+        out[i] = await copyOne(videoPaths[i], 10000 + i);
+      }
+      if (preserveSourceIndex) {
+        return [
+          for (final p in out) (p != null && p.isNotEmpty) ? p : '',
+        ];
+      }
+      return out.whereType<String>().where((p) => p.isNotEmpty).toList();
     } catch (e) {
       debugPrint('Error creating videos directory: $e');
     }
 
-    return <String>[];
+    return preserveSourceIndex
+        ? List<String>.filled(videoPaths.length, '')
+        : <String>[];
   }
 
   /// Concurrency cap for bulk media file copies (videos/audio) during import.

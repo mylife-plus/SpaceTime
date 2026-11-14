@@ -763,13 +763,7 @@ class MediaGpsUploadController extends GetxController {
         continue;
       }
       if (_existingTrackFingerprints.contains(fp) ||
-          _matchesExistingCoordinateRow(
-            _existingCoordinateRows,
-            c.when,
-            c.latitude,
-            c.longitude,
-            fp,
-          )) {
+          _isExistingGalleryFingerprint(fp)) {
         dup++;
         continue;
       }
@@ -787,13 +781,7 @@ class MediaGpsUploadController extends GetxController {
       final fp = c.fingerprint;
       if (seen.contains(fp)) continue;
       if (_existingTrackFingerprints.contains(fp) ||
-          _matchesExistingCoordinateRow(
-            _existingCoordinateRows,
-            c.when,
-            c.latitude,
-            c.longitude,
-            fp,
-          )) {
+          _isExistingGalleryFingerprint(fp)) {
         continue;
       }
       seen.add(fp);
@@ -802,24 +790,13 @@ class MediaGpsUploadController extends GetxController {
     return filtered;
   }
 
-  bool _matchesExistingCoordinateRow(
-    List<Map<String, dynamic>> rows,
-    DateTime when,
-    double lat,
-    double lng,
-    String fingerprint,
-  ) {
-    final d = _localDateKey(when);
-    for (final r in rows) {
+  /// Exact prior Media-GPS gallery fingerprint only — Memory View memories
+  /// (null / non-gallery fingerprint) never block a new preview cluster.
+  bool _isExistingGalleryFingerprint(String fingerprint) {
+    if (fingerprint.isEmpty) return false;
+    for (final r in _existingCoordinateRows) {
       final fp = r[DatabaseHelper.columnTrackImportFingerprint] as String?;
       if (fp != null && fp.isNotEmpty && fp == fingerprint) return true;
-      final latE = (r[DatabaseHelper.columnLocationLatitude] as num?)?.toDouble();
-      final lngE = (r[DatabaseHelper.columnLocationLongitude] as num?)?.toDouble();
-      if (latE == null || lngE == null) continue;
-      if ((r[DatabaseHelper.columnDate] as String?) != d) continue;
-      if (fp == null || fp.isEmpty) {
-        if ((lat - latE).abs() < 1e-5 && (lng - lngE).abs() < 1e-5) return true;
-      }
     }
     return false;
   }
@@ -1129,21 +1106,14 @@ class MediaGpsUploadController extends GetxController {
         debugPrint('[MediaGpsUpload] geocoder warm-up: $e');
       }
 
-      var galleryMergeRows =
-          await DatabaseHelper.instance.queryMemoriesGalleryMergeCandidates();
-      final minT = KmzImportPipeline.durationForTimeKey(
-        selectedMinTimeApartKey.value,
-      );
-      final minM = KmzImportPipeline.metersForDistanceKey(
-        selectedMinMeterApartKey.value,
-      );
-
       var inserted = 0;
       var dupRuntime = 0;
       final insertedItems = <Map<String, dynamic>>[];
       final insertedMemoryIds = <int>{};
 
-      // Phase 0: drop clusters already imported (dedupe by fingerprint).
+      // Phase 0: drop only clusters whose exact gallery fingerprint was already
+      // imported via Media GPS — never skip because a Memory View memory shares
+      // the same date/place (those stay as separate memories).
       final pendingClusters = <MediaGpsClusterCandidate>[];
       for (final c in _lastCandidates) {
         if (fpLive.contains(c.fingerprint)) {
@@ -1266,9 +1236,8 @@ class MediaGpsUploadController extends GetxController {
               },
             );
 
-      // Phase 3: persist clusters SEQUENTIALLY. The merge decision depends on
-      // memories created earlier in THIS import (galleryMergeRows grows as we
-      // insert), so this stage must stay ordered. Images are already copied.
+      // Phase 3: one new memory per Preview cluster — never append into an
+      // existing Memory View (or prior GPS) memory that shares date/time/place.
       final saveTotal = pendingClusters.length;
       for (var ci = 0; ci < pendingClusters.length; ci++) {
         final c = pendingClusters[ci];
@@ -1281,13 +1250,6 @@ class MediaGpsUploadController extends GetxController {
         importBlock.setProgress('${ci + 1} / $saveTotal');
 
         try {
-          final mergeId = _findMergeTargetGalleryMemoryId(
-            c: c,
-            galleryRows: galleryMergeRows,
-            minT: minT,
-            minM: minM,
-          );
-
           final clusterAssetRecords = _galleryRecordsForItems(c.items);
           final range = imageIndexRanges[ci];
           final preSavedImages = relativeByFlatIndex
@@ -1295,47 +1257,21 @@ class MediaGpsUploadController extends GetxController {
               .where((p) => p.isNotEmpty)
               .toList();
 
-          late final int memoryId;
-          if (mergeId != null) {
-            await mem
-                .appendImportedGalleryMediaToMemory(
-                  memoryId: mergeId,
-                  imageAbsolutePaths: const [],
-                  videoAbsolutePaths: videoPaths,
-                  audioAbsolutePaths: audioPaths,
-                  galleryAssetRecords: clusterAssetRecords,
-                  preSavedImageRelativePaths: preSavedImages,
-                )
-                .timeout(const Duration(seconds: 45));
-            memoryId = mergeId;
-          } else {
-            memoryId = await mem
-                .saveImportedGalleryClusterMemory(
-                  when: c.when,
-                  latitude: c.latitude,
-                  longitude: c.longitude,
-                  imageAbsolutePaths: const [],
-                  videoAbsolutePaths: videoPaths,
-                  audioAbsolutePaths: audioPaths,
-                  trackImportFingerprint: c.fingerprint,
-                  galleryAssetRecords: clusterAssetRecords,
-                  skipReverseGeocode: true,
-                  preSavedImageRelativePaths: preSavedImages,
-                  generateVideoThumbnails: false,
-                )
-                .timeout(const Duration(seconds: 45));
-            galleryMergeRows = [
-              ...galleryMergeRows,
-              {
-                DatabaseHelper.columnId: memoryId,
-                DatabaseHelper.columnCreatedAt:
-                    c.when.toLocal().toIso8601String(),
-                DatabaseHelper.columnLocationLatitude: c.latitude,
-                DatabaseHelper.columnLocationLongitude: c.longitude,
-                DatabaseHelper.columnTrackImportFingerprint: c.fingerprint,
-              },
-            ];
-          }
+          final memoryId = await mem
+              .saveImportedGalleryClusterMemory(
+                when: c.when,
+                latitude: c.latitude,
+                longitude: c.longitude,
+                imageAbsolutePaths: const [],
+                videoAbsolutePaths: videoPaths,
+                audioAbsolutePaths: audioPaths,
+                trackImportFingerprint: c.fingerprint,
+                galleryAssetRecords: clusterAssetRecords,
+                skipReverseGeocode: true,
+                preSavedImageRelativePaths: preSavedImages,
+                generateVideoThumbnails: false,
+              )
+              .timeout(const Duration(seconds: 45));
           fpLive.add(c.fingerprint);
           for (final record in clusterAssetRecords) {
             final id = record.assetId;
@@ -1454,49 +1390,6 @@ class MediaGpsUploadController extends GetxController {
     }
     // Reverse-geocoding now happens up front during commitUpload (Phase 2), so
     // memories are inserted with location already filled — no deferred backfill.
-  }
-
-  /// Same place (~5 m), or close in **both** time and distance of an existing
-  /// gallery memory (matches media AND-to-merge clustering).
-  int? _findMergeTargetGalleryMemoryId({
-    required MediaGpsClusterCandidate c,
-    required List<Map<String, dynamic>> galleryRows,
-    required Duration minT,
-    required double minM,
-  }) {
-    const sameSpotMeters = 5.0;
-    int? bestId;
-    var bestScore = double.infinity;
-    for (final r in galleryRows) {
-      final id = r[DatabaseHelper.columnId] as int?;
-      if (id == null) continue;
-      final mlat =
-          (r[DatabaseHelper.columnLocationLatitude] as num?)?.toDouble();
-      final mlng =
-          (r[DatabaseHelper.columnLocationLongitude] as num?)?.toDouble();
-      if (mlat == null || mlng == null) continue;
-      final m = KmzImportPipeline.metersBetween(
-        c.latitude,
-        c.longitude,
-        mlat,
-        mlng,
-      );
-      final raw = r[DatabaseHelper.columnCreatedAt]?.toString();
-      final memWhen = raw == null ? null : DateTime.tryParse(raw);
-      if (memWhen == null) continue;
-      final dt = c.when.toUtc().difference(memWhen.toUtc()).abs();
-      final sameSpot = m <= sameSpotMeters;
-      // Dual of media split-on-either: merge only when still within min time
-      // AND min distance (space-distant near-time photos stay separate).
-      final inWindow = m < minM && dt < minT;
-      if (!sameSpot && !inWindow) continue;
-      final score = m + dt.inMilliseconds / 1e6;
-      if (score < bestScore) {
-        bestScore = score;
-        bestId = id;
-      }
-    }
-    return bestId;
   }
 
   /// Remaining entries = raw − ignored − duplicates (same as GPX/KMZ upload).
