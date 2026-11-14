@@ -242,17 +242,25 @@ class MediaGpsUploadController extends GetxController {
       await MediaGpsGalleryService.ensureMediaLocationAccess();
       if (gen != _galleryLoadGen) return;
 
-      final list = await MediaGpsGalleryService.loadRecentAssets(
-        onProgress: (snapshot) {
-          if (gen != _galleryLoadGen) return;
-          _assignGalleryListPreservingFilePicks(snapshot);
-        },
-        onFirstBatchDone: () {
-          if (gen != _galleryLoadGen) return;
-          // Unlock selection / empty state while remaining batches scan.
-          galleryLoading.value = false;
-        },
-      );
+      List<MediaGpsPickedAsset> list = const [];
+      for (var attempt = 0; attempt < 2; attempt++) {
+        list = await MediaGpsGalleryService.loadRecentAssets(
+          onProgress: (snapshot) {
+            if (gen != _galleryLoadGen) return;
+            _assignGalleryListPreservingFilePicks(snapshot);
+          },
+          onFirstBatchDone: () {
+            if (gen != _galleryLoadGen) return;
+            galleryLoading.value = false;
+          },
+        );
+        if (gen != _galleryLoadGen) return;
+        if (list.isNotEmpty) break;
+        debugPrint(
+          '[MediaGpsUpload] gallery load empty — retry ${attempt + 1}',
+        );
+        await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
+      }
       if (gen != _galleryLoadGen) return;
       _assignGalleryListPreservingFilePicks(list);
       await _refreshDedupeDataAndRecompute();

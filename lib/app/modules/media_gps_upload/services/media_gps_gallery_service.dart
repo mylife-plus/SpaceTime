@@ -22,10 +22,11 @@ const PermissionRequestOption kMediaGpsGalleryPermissionRequest =
 );
 
 class MediaGpsGalleryService {
-  static const int _firstPageSize = 800;
+  /// Max unique GPS-bearing on-device assets shown on Upload Files.
+  static const int _firstPageSize = 50000;
 
   /// Upper bound on library positions scanned per album when collecting GPS assets.
-  static const int _maxAlbumPositionsScan = 8000;
+  static const int _maxAlbumPositionsScan = 50000;
 
   /// Parallel EXIF / location reads. Keep modest on mid-range Android to
   /// avoid ExifInterface thrashing / input ANRs while the gallery is open.
@@ -66,16 +67,36 @@ class MediaGpsGalleryService {
       // where DATE_TAKEN is a UTC instant and naive EXIF .toUtc() used to drift.
       final t = MediaCaptureTime.wallClock(e.createDateTime);
       // Prefer sync fields when present; fall back to EXIF via latlngAsync.
+      // Retry once — concurrent MediaStore/Photos reads often return null first.
       double? lat = e.latitude;
       double? lng = e.longitude;
-      if (lat == null ||
+      final needsAsync = lat == null ||
           lng == null ||
           (lat == 0 && lng == 0) ||
           lat.isNaN ||
-          lng.isNaN) {
-        final latlng = await e.latlngAsync();
-        lat = latlng?.latitude;
-        lng = latlng?.longitude;
+          lng.isNaN;
+      if (needsAsync) {
+        for (var attempt = 0; attempt < 2; attempt++) {
+          try {
+            final latlng = await e
+                .latlngAsync()
+                .timeout(const Duration(seconds: 4));
+            lat = latlng?.latitude;
+            lng = latlng?.longitude;
+            if (lat != null &&
+                lng != null &&
+                !(lat == 0 && lng == 0) &&
+                !lat.isNaN &&
+                !lng.isNaN) {
+              break;
+            }
+          } catch (_) {
+            // retry
+          }
+          if (attempt == 0) {
+            await Future<void>.delayed(const Duration(milliseconds: 80));
+          }
+        }
       }
       // Do NOT probe video file containers here — readMetadata can scan up to
       // 48MB + VideoPlayer init per asset and blocked galleryLoading forever.
