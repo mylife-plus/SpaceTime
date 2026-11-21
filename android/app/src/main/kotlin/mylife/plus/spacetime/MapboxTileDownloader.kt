@@ -1,4 +1,4 @@
-package plus.mylife.spacetime
+package mylife.plus.spacetime
 
 import android.os.Handler
 import android.os.Looper

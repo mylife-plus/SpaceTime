@@ -52,8 +52,47 @@ class TagMentionBottomSheet extends StatefulWidget {
 class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   final TextEditingController editController = TextEditingController();
   final TextEditingController searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   late TagMentionController controller;
   bool _isUpdatingFromNotifier = false; // Flag to prevent circular updates
+
+  bool _dismissingFromEmptyDelete = false;
+
+  bool get _searchIsEmpty =>
+      searchController.text.isEmpty && widget.searchNotifier.value.isEmpty;
+
+  void _dismissFromEmptyDelete() {
+    if (_dismissingFromEmptyDelete) return;
+    _dismissingFromEmptyDelete = true;
+    widget.onEditingComplete?.call();
+  }
+
+  /// Soft/hardware delete with empty search → remove `@`/`#` and dismiss popup.
+  KeyEventResult _onSearchKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey != LogicalKeyboardKey.backspace &&
+        event.logicalKey != LogicalKeyboardKey.delete) {
+      return KeyEventResult.ignored;
+    }
+    if (!_searchIsEmpty) return KeyEventResult.ignored;
+    if (!_searchFocusNode.hasFocus) return KeyEventResult.ignored;
+    _dismissFromEmptyDelete();
+    return KeyEventResult.handled;
+  }
+
+  bool _onHardwareKey(KeyEvent event) {
+    if (!_searchFocusNode.hasFocus) return false;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (event.logicalKey != LogicalKeyboardKey.backspace &&
+        event.logicalKey != LogicalKeyboardKey.delete) {
+      return false;
+    }
+    if (!_searchIsEmpty) return false;
+    _dismissFromEmptyDelete();
+    return true;
+  }
 
   /// Custom text input formatter that denies spaces and shows a popup
   TextInputFormatter _createNoSpaceFormatter() {
@@ -98,6 +137,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
 
     // Add listener to searchNotifier to update when search changes
     widget.searchNotifier.addListener(_onSearchChanged);
+    _searchFocusNode.onKeyEvent = _onSearchKeyEvent;
+    // Android soft-IME backspace on empty field often bypasses Focus.onKeyEvent.
+    HardwareKeyboard.instance.addHandler(_onHardwareKey);
 
     // Listen to editing state changes
     ever(controller.isEditing, (isEditing) {
@@ -308,6 +350,9 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
   @override
   void dispose() {
     widget.searchNotifier.removeListener(_onSearchChanged);
+    HardwareKeyboard.instance.removeHandler(_onHardwareKey);
+    _searchFocusNode.onKeyEvent = null;
+    _searchFocusNode.dispose();
     editController.dispose();
     searchController.dispose();
     super.dispose();
@@ -370,6 +415,7 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                       builder: (context, searchText, child) {
                         return TextField(
                           controller: searchController,
+                          focusNode: _searchFocusNode,
                           autofocus: true,
                           textInputAction: TextInputAction.done,
                           inputFormatters: [
@@ -394,7 +440,6 @@ class _TagMentionBottomSheetState extends State<TagMentionBottomSheet> {
                             fontWeight: FontWeight.w400,
                           ),
                           decoration: InputDecoration(
-                            
                             hintText: 'hinttext_search'.tr,
                             hintStyle: GoogleFonts.kumbhSans(
                               color: uiController.darkMode.value

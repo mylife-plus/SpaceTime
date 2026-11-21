@@ -99,16 +99,8 @@ class DataController extends GetxController {
       }
       final path = res.filePath;
       if (path != null && path.isNotEmpty) {
-        // Android: confirm Downloads save before the share sheet.
-        if (!kIsWeb && Platform.isAndroid) {
-          showTrSnackbar(
-            res.messageKey,
-            args: res.messageArgs,
-            backgroundColor: Colors.green.shade700,
-            colorText: Colors.white,
-            duration: const Duration(seconds: 4),
-          );
-        }
+        // Android saves to Downloads first, then opens share — no snackbar
+        // before the user picks a share/save target (felt like "already saved").
         await Future<void>.delayed(Duration.zero);
         await _showBackupExportSheet(
           path: path,

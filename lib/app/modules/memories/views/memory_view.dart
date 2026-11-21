@@ -1440,6 +1440,16 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
       final memoryController = Get.find<MemoryController>();
       debugPrint('MemoryView: handleSave - Got MemoryController');
 
+      // Loader on tick until geocoder + location name are ready, then save.
+      _setBusy(true);
+      await _waitForBusyOverlayPaint();
+      try {
+        await memoryController.ensureLocationReadyForSave();
+      } catch (e) {
+        debugPrint('MemoryView: handleSave - location ready wait: $e');
+      }
+      if (!mounted) return;
+
       final description = _descriptionController.text;
       debugPrint(
         'MemoryView: handleSave - Description: ${description.substring(0, description.length > 50 ? 50 : description.length)}...',
@@ -1573,6 +1583,7 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           debugPrint(
             'MemoryView: handleSave - EDIT MODE - Validation failed: ${validationResult['messageKey']}',
           );
+          _setBusy(false);
           _showValidationError(validationResult['messageKey'] as String);
           return;
         }
@@ -1724,12 +1735,10 @@ class _MemoryViewState extends State<MemoryView> with WidgetsBindingObserver {
           debugPrint(
             'MemoryView: handleSave - CREATE MODE - Validation failed: ${validationResult['messageKey']}',
           );
+          _setBusy(false);
           _showValidationError(validationResult['messageKey'] as String);
           return;
         }
-
-        _setBusy(true);
-        await _waitForBusyOverlayPaint();
 
         debugPrint(
           'MemoryView: handleSave - CREATE MODE - Saving memory to database',

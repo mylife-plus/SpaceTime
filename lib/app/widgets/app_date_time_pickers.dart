@@ -81,22 +81,43 @@ ThemeData appPickerTheme(BuildContext _, UiController ui) {
       shadowColor: Colors.transparent,
       headerBackgroundColor: accent,
       headerForegroundColor: Colors.white,
+      // Out-of-range (before first / after last memory) must read as gray —
+      // including "today" when today itself is outside the memory bounds.
       dayForegroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) return Colors.white;
         if (states.contains(WidgetState.disabled)) {
-          return isDark ? Colors.grey[600]! : Colors.grey[400]!;
+          return isDark ? Colors.white38 : Colors.black38;
         }
+        if (states.contains(WidgetState.selected)) return Colors.white;
         return isDark ? Colors.white : Colors.black;
       }),
       dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return Colors.transparent;
         if (states.contains(WidgetState.selected)) return accent;
         return Colors.transparent;
       }),
-      todayForegroundColor: WidgetStateProperty.all(accent),
-      todayBackgroundColor: WidgetStateProperty.all(Colors.transparent),
+      todayForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return isDark ? Colors.white38 : Colors.black38;
+        }
+        if (states.contains(WidgetState.selected)) return Colors.white;
+        return accent;
+      }),
+      todayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return Colors.transparent;
+        if (states.contains(WidgetState.selected)) return accent;
+        return Colors.transparent;
+      }),
       yearForegroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return isDark ? Colors.white38 : Colors.black38;
+        }
         if (states.contains(WidgetState.selected)) return Colors.white;
         return isDark ? Colors.white : Colors.black;
+      }),
+      yearBackgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return Colors.transparent;
+        if (states.contains(WidgetState.selected)) return accent;
+        return Colors.transparent;
       }),
     ),
     timePickerTheme: TimePickerThemeData(

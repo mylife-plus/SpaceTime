@@ -21,19 +21,46 @@ const PermissionRequestOption kMediaGpsGalleryPermissionRequest =
   iosAccessLevel: IosAccessLevel.readWrite,
 );
 
-class MediaGpsGalleryService {
-  /// Max unique GPS-bearing on-device assets shown on Upload Files.
-  static const int _firstPageSize = 50000;
+/// Cursor for oldest-first GPS paging (PhotoManager index 0 = newest).
+class MediaGpsGalleryScanState {
+  MediaGpsGalleryScanState({
+    required this.commonAlbum,
+    required this.commonTotal,
+    required this.commonCursorEnd,
+    this.videoAlbum,
+    this.videoTotal = 0,
+    this.videoCursorEnd = 0,
+  });
 
-  /// Upper bound on library positions scanned per album when collecting GPS assets.
-  static const int _maxAlbumPositionsScan = 50000;
+  final AssetPathEntity? commonAlbum;
+  final int commonTotal;
+  /// Next exclusive end index while scanning toward 0 (oldest → newer).
+  int commonCursorEnd;
+
+  final AssetPathEntity? videoAlbum;
+  final int videoTotal;
+  int videoCursorEnd;
+
+  bool get hasMore {
+    final commonMore =
+        commonAlbum != null && commonCursorEnd > 0;
+    final videoMore = Platform.isAndroid &&
+        videoAlbum != null &&
+        videoCursorEnd > 0;
+    return commonMore || videoMore;
+  }
+}
+
+class MediaGpsGalleryService {
+  /// GPS assets loaded per page (initial + each scroll page).
+  static const int pageSize = 50;
+
+  /// Max library positions scanned while filling one page (avoids hanging).
+  static const int _maxPositionsPerPage = 4000;
 
   /// Parallel EXIF / location reads. Keep modest on mid-range Android to
   /// avoid ExifInterface thrashing / input ANRs while the gallery is open.
-  static const int _gpsCheckConcurrency = 4;
-
-  /// If this many assets yield zero GPS, stop (missing ACCESS_MEDIA_LOCATION).
-  static const int _earlyAbortAfterNoGps = 400;
+  static int get _gpsCheckConcurrency => Platform.isIOS ? 6 : 4;
 
   /// Does not prompt — used before localized priming dialogs elsewhere.
   static Future<bool> hasAuthorizedGalleryAccess() async {
@@ -55,10 +82,41 @@ class MediaGpsGalleryService {
     return state.hasAccess;
   }
 
+  static bool _coordsOk(double? lat, double? lng) {
+    if (lat == null || lng == null) return false;
+    if (lat.isNaN || lng.isNaN) return false;
+    if (lat == 0 && lng == 0) return false;
+    return true;
+  }
+
   static Future<MediaGpsPickedAsset?> _gpsAssetOrNull(AssetEntity e) async {
     try {
-      // Upload Files page: on-device only — hide confirmed iCloud-only items.
-      // Timeouts must not drop on-phone assets (that capped the grid at ~12).
+      // Prefer sync fields when present; fall back to EXIF via latlngAsync.
+      // Retry once — concurrent MediaStore/Photos reads often return null first.
+      double? lat = e.latitude;
+      double? lng = e.longitude;
+      if (!_coordsOk(lat, lng)) {
+        for (var attempt = 0; attempt < 2; attempt++) {
+          try {
+            final latlng = await e
+                .latlngAsync()
+                .timeout(const Duration(seconds: 3));
+            lat = latlng?.latitude;
+            lng = latlng?.longitude;
+            if (_coordsOk(lat, lng)) break;
+          } catch (_) {
+            // retry
+          }
+          if (attempt == 0) {
+            await Future<void>.delayed(const Duration(milliseconds: 60));
+          }
+        }
+      }
+      // No GPS → skip before the slower on-device check (keeps iOS scan moving).
+      if (!_coordsOk(lat, lng)) return null;
+
+      // On-device only — hide confirmed iCloud-only. Short timeout + optimistic
+      // so large libraries don't block the spinner / first grid paint.
       if (!await isOnDevice(e, optimisticOnTimeout: true)) {
         return null;
       }
@@ -66,38 +124,6 @@ class MediaGpsGalleryService {
       // Wall-clock local components — matches EXIF DateTimeOriginal on Android
       // where DATE_TAKEN is a UTC instant and naive EXIF .toUtc() used to drift.
       final t = MediaCaptureTime.wallClock(e.createDateTime);
-      // Prefer sync fields when present; fall back to EXIF via latlngAsync.
-      // Retry once — concurrent MediaStore/Photos reads often return null first.
-      double? lat = e.latitude;
-      double? lng = e.longitude;
-      final needsAsync = lat == null ||
-          lng == null ||
-          (lat == 0 && lng == 0) ||
-          lat.isNaN ||
-          lng.isNaN;
-      if (needsAsync) {
-        for (var attempt = 0; attempt < 2; attempt++) {
-          try {
-            final latlng = await e
-                .latlngAsync()
-                .timeout(const Duration(seconds: 4));
-            lat = latlng?.latitude;
-            lng = latlng?.longitude;
-            if (lat != null &&
-                lng != null &&
-                !(lat == 0 && lng == 0) &&
-                !lat.isNaN &&
-                !lng.isNaN) {
-              break;
-            }
-          } catch (_) {
-            // retry
-          }
-          if (attempt == 0) {
-            await Future<void>.delayed(const Duration(milliseconds: 80));
-          }
-        }
-      }
       // Do NOT probe video file containers here — readMetadata can scan up to
       // 48MB + VideoPlayer init per asset and blocked galleryLoading forever.
       // GPS for gallery items comes from MediaStore / latlngAsync only; file
@@ -126,135 +152,109 @@ class MediaGpsGalleryService {
     }
   }
 
-  static Future<void> _collectGpsAssetsFromAlbum({
-    required AssetPathEntity album,
-    required Map<String, MediaGpsPickedAsset> out,
-    required int targetUniqueCount,
-    required int maxPositionsToScan,
-    void Function(List<MediaGpsPickedAsset> snapshot)? onProgress,
-    VoidCallback? onFirstBatchDone,
-  }) async {
-    final totalAlbum = await album.assetCountAsync;
-    final scanLimit = math.min(totalAlbum, maxPositionsToScan);
-    if (scanLimit == 0) {
-      onFirstBatchDone?.call();
-      return;
-    }
-
-    const batchSize = 200;
-    var scanned = 0;
-    var firstBatch = true;
-
-    void emitProgress() {
-      if (onProgress == null) return;
-      final list = out.values.toList()
-        ..sort((a, b) => b.createTime.compareTo(a.createTime));
-      onProgress(list);
-    }
-
-    for (var start = 0;
-        start < scanLimit && out.length < targetUniqueCount;
-        start += batchSize) {
-      final end = math.min(start + batchSize, scanLimit);
-      final entities = await album.getAssetListRange(start: start, end: end);
-      scanned += entities.length;
-
-      final found = await mapWithConcurrency<AssetEntity, MediaGpsPickedAsset?>(
-        entities,
-        _gpsCheckConcurrency,
-        (e, _) => _gpsAssetOrNull(e),
-      );
-      for (final picked in found) {
-        if (picked == null) continue;
-        if (out.length >= targetUniqueCount) break;
-        out[picked.id] = picked;
-      }
-
-      emitProgress();
-      if (firstBatch) {
-        firstBatch = false;
-        onFirstBatchDone?.call();
-      }
-
-      // iCloud-heavy libraries skip many positions before a GPS hit — scan
-      // further before aborting (was stopping after ~400 and showing ~12).
-      if (out.isEmpty && scanned >= _earlyAbortAfterNoGps * 3) {
-        debugPrint(
-          '[MediaGpsGalleryService] aborting GPS scan after $scanned '
-          'assets with 0 GPS hits (check ACCESS_MEDIA_LOCATION)',
-        );
-        return;
-      }
-    }
-
-    if (firstBatch) onFirstBatchDone?.call();
+  static List<MediaGpsPickedAsset> sortOldestFirst(
+    Iterable<MediaGpsPickedAsset> items,
+  ) {
+    final list = items.toList()
+      ..sort((a, b) => a.createTime.compareTo(b.createTime));
+    return list;
   }
 
-  /// Recent photos / videos **with GPS in library metadata** only (newest batch first).
-  ///
-  /// [onProgress] is called as GPS assets are found so the UI can leave the
-  /// spinner and allow selection before the full scan finishes.
-  /// [onFirstBatchDone] fires after the first EXIF batch so the spinner can clear
-  /// even when that batch has no GPS yet (user can use + / empty state).
-  static Future<List<MediaGpsPickedAsset>> loadRecentAssets({
-    int maxCount = _firstPageSize,
-    void Function(List<MediaGpsPickedAsset> snapshot)? onProgress,
-    VoidCallback? onFirstBatchDone,
-  }) async {
-    if (!await hasAuthorizedGalleryAccess()) {
-      onFirstBatchDone?.call();
-      return [];
-    }
+  /// Open albums and place cursors at the oldest end (index = total).
+  static Future<MediaGpsGalleryScanState?> beginOldestFirstScan() async {
+    if (!await hasAuthorizedGalleryAccess()) return null;
 
-    final merged = <String, MediaGpsPickedAsset>{};
-    var firstBatchNotified = false;
-    void notifyFirstBatch() {
-      if (firstBatchNotified) return;
-      firstBatchNotified = true;
-      onFirstBatchDone?.call();
-    }
-
-    // Photos + videos (RequestType.common excludes audio).
     final commonPaths =
         await PhotoManager.getAssetPathList(type: RequestType.common);
-    if (commonPaths.isNotEmpty) {
-      await _collectGpsAssetsFromAlbum(
-        album: commonPaths.first,
-        out: merged,
-        targetUniqueCount: maxCount,
-        maxPositionsToScan: _maxAlbumPositionsScan,
-        onProgress: onProgress,
-        onFirstBatchDone: notifyFirstBatch,
-      );
-    }
+    final commonAlbum = commonPaths.isEmpty ? null : commonPaths.first;
+    final commonTotal =
+        commonAlbum == null ? 0 : await commonAlbum.assetCountAsync;
 
-    // Some Android OEMs put videos only under the video album; scan that too
-    // so GPS-bearing videos are not invisible in the media GPS picker.
-    if (merged.length < maxCount && Platform.isAndroid) {
+    AssetPathEntity? videoAlbum;
+    var videoTotal = 0;
+    if (Platform.isAndroid) {
       final videoPaths =
           await PhotoManager.getAssetPathList(type: RequestType.video);
       if (videoPaths.isNotEmpty) {
-        await _collectGpsAssetsFromAlbum(
-          album: videoPaths.first,
-          out: merged,
-          targetUniqueCount: maxCount,
-          maxPositionsToScan: _maxAlbumPositionsScan,
-          onProgress: onProgress,
-          onFirstBatchDone: notifyFirstBatch,
-        );
+        videoAlbum = videoPaths.first;
+        videoTotal = await videoAlbum.assetCountAsync;
       }
     }
 
-    if (!firstBatchNotified) notifyFirstBatch();
+    return MediaGpsGalleryScanState(
+      commonAlbum: commonAlbum,
+      commonTotal: commonTotal,
+      commonCursorEnd: commonTotal,
+      videoAlbum: videoAlbum,
+      videoTotal: videoTotal,
+      videoCursorEnd: videoTotal,
+    );
+  }
 
-    if (merged.isEmpty) return [];
+  /// Fill up to [pageSize] new GPS assets by scanning oldest → newer.
+  /// Skips ids already in [excludeIds]. Advances [state] cursors.
+  static Future<List<MediaGpsPickedAsset>> loadNextGpsPage({
+    required MediaGpsGalleryScanState state,
+    Set<String> excludeIds = const {},
+    int pageSize = MediaGpsGalleryService.pageSize,
+  }) async {
+    final out = <String, MediaGpsPickedAsset>{};
+    var positionsScanned = 0;
 
-    final list = merged.values.toList()
-      ..sort((a, b) => b.createTime.compareTo(a.createTime));
-    if (list.length > maxCount) {
-      return list.take(maxCount).toList();
+    Future<void> scanAlbum({
+      required AssetPathEntity? album,
+      required int Function() getCursorEnd,
+      required void Function(int) setCursorEnd,
+    }) async {
+      if (album == null) return;
+      while (out.length < pageSize &&
+          getCursorEnd() > 0 &&
+          positionsScanned < _maxPositionsPerPage) {
+        final end = getCursorEnd();
+        final start = math.max(0, end - 120);
+        final entities = await album.getAssetListRange(start: start, end: end);
+        setCursorEnd(start);
+        positionsScanned += entities.length;
+        if (entities.isEmpty) continue;
+
+        // Range is newest→oldest within the window; check oldest first.
+        final ordered = entities.reversed.toList(growable: false);
+        final found =
+            await mapWithConcurrency<AssetEntity, MediaGpsPickedAsset?>(
+          ordered,
+          _gpsCheckConcurrency,
+          (e, _) => _gpsAssetOrNull(e),
+        );
+        for (final picked in found) {
+          if (picked == null) continue;
+          if (excludeIds.contains(picked.id) || out.containsKey(picked.id)) {
+            continue;
+          }
+          out[picked.id] = picked;
+          if (out.length >= pageSize) break;
+        }
+      }
     }
-    return list;
+
+    await scanAlbum(
+      album: state.commonAlbum,
+      getCursorEnd: () => state.commonCursorEnd,
+      setCursorEnd: (v) => state.commonCursorEnd = v,
+    );
+
+    if (out.length < pageSize && Platform.isAndroid) {
+      await scanAlbum(
+        album: state.videoAlbum,
+        getCursorEnd: () => state.videoCursorEnd,
+        setCursorEnd: (v) => state.videoCursorEnd = v,
+      );
+    }
+
+    debugPrint(
+      '[MediaGpsGalleryService] page +${out.length} GPS '
+      '(scanned~$positionsScanned positions, hasMore=${state.hasMore})',
+    );
+    return sortOldestFirst(out.values);
   }
 
   /// True when the asset is already on-device (Android always; iOS skips iCloud-only).
@@ -268,7 +268,7 @@ class MediaGpsGalleryService {
     if (Platform.isAndroid) return true;
     try {
       return await entity.isLocallyAvailable(isOrigin: false).timeout(
-            const Duration(seconds: 5),
+            Duration(milliseconds: optimisticOnTimeout ? 900 : 3000),
             onTimeout: () => optimisticOnTimeout,
           );
     } catch (_) {
@@ -287,7 +287,7 @@ class MediaGpsGalleryService {
       }
       // Prefer compressed local file; never call originFile (iCloud fetch).
       final file = await entity.file.timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 25),
         onTimeout: () {
           debugPrint(
             '[MediaGpsGalleryService] exportToTempFile timeout id=${entity.id}',

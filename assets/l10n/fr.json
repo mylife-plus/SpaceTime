@@ -89,6 +89,8 @@
   "media_gps_snackbar_gallery_failed": "Impossible de charger la galerie@@@Une erreur s'est produite lors du chargement de vos photos et vidéos. Veuillez réessayer.",
   "media_gps_snackbar_import_failed": "Échec de l'importation@@@Une erreur s'est produite lors de l'enregistrement de vos souvenirs. Veuillez réessayer.",
   "media_gps_snackbar_selection_limit": "Limite de sélection atteinte@@@Vous pouvez sélectionner jusqu'à 100 fichiers à la fois.",
+  "media_gps_gallery_scanning": "Recherche d’autres photos avec localisation…",
+  "media_gps_snackbar_export_partial": "Certains fichiers n’ont pas pu être copiés@@@$1 fichier(s) sur $2 sélectionné(s) ont été ignorés. Resélectionnez-les et réessayez.",
   "media_gps_snackbar_not_enough_storage": "Espace insuffisant pour importer@@@Libérez de l'espace sur cet appareil et réessayez.",
   "media_gps_snackbar_storage_check_failed": "Impossible de vérifier l'espace disque@@@Redémarrez l'application et réessayez. L'importation a été annulée.",
   "apptexts_upload_memories": "Importer les données de l'app",

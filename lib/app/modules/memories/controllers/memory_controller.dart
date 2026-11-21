@@ -19,6 +19,7 @@ import 'dart:ui' as ui;
 import '../../../services/memory_db.dart';
 import 'package:spacetime/app/l10n/l10n_loader.dart';
 import 'package:spacetime/app/modules/media_gps_upload/models/media_gps_cluster_candidate.dart';
+import 'package:spacetime/app/utils/memory_image_display_optimize.dart';
 import 'package:spacetime/app/utils/memory_images_copy_compute.dart';
 import 'package:spacetime/app/utils/concurrency.dart';
 import 'package:spacetime/app/utils/video_thumbnail_cache_manager.dart';
@@ -289,6 +290,48 @@ class MemoryController extends GetxController {
     }
   }
 
+  bool get hasEnhancedLocationInfo =>
+      locationFlag.value.isNotEmpty ||
+      locationCountry.value.isNotEmpty ||
+      locationCity.value.isNotEmpty ||
+      locationName.value.isNotEmpty;
+
+  /// Wait for geocoder + location name before Memory View save (add/edit).
+  Future<void> ensureLocationReadyForSave({
+    Duration timeout = const Duration(seconds: 25),
+  }) async {
+    if (!Get.isRegistered<GeocodingIsolateService>()) {
+      Get.put(GeocodingIsolateService(), permanent: true);
+    }
+    try {
+      await GeocodingIsolateService.instance
+          .ensureInitialized(timeout: timeout);
+    } catch (e) {
+      debugPrint('[MemoryController] geocoder ensure for save: $e');
+    }
+
+    // In-flight GPS/geocode from screen open — wait it out.
+    if (isFetchingLocation.value) {
+      final sw = Stopwatch()..start();
+      while (isFetchingLocation.value && sw.elapsed < timeout) {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+      }
+    }
+
+    if (hasEnhancedLocationInfo) return;
+
+    if (selectedLocation.value.trim().isNotEmpty) {
+      await fetchEnhancedLocationFromSelectedLocation()
+          .timeout(timeout, onTimeout: () {});
+      return;
+    }
+
+    // Create flow: GPS may still be deferred — fetch now before save.
+    if (ifCalledFromMemoryView) {
+      await fetchCurrentLocation().timeout(timeout, onTimeout: () {});
+    }
+  }
+
   void setDate(DateTime date) => selectedDate.value = date;
   void setTime(TimeOfDay time) => selectedTime.value = time;
 
@@ -507,10 +550,14 @@ class MemoryController extends GetxController {
   /// Large batches use [compute] so file I/O does not block the UI isolate.
   /// When [preserveSourceIndex] is true, the result is 1:1 with [imagePaths]
   /// (failed copies are `''`) so bulk GPS import can slice by cluster.
+  ///
+  /// [displayOptimize]: resize/recompress to ~2048px JPEG (Media GPS import).
+  /// Gallery originals on the phone are never modified.
   Future<List<String>> saveImagesToAppDirectory(
     List<String> imagePaths, {
     bool forceBackgroundCopy = false,
     bool preserveSourceIndex = false,
+    bool displayOptimize = false,
   }) async {
     if (imagePaths.isEmpty) return [];
 
@@ -521,10 +568,13 @@ class MemoryController extends GetxController {
           .map(normalizeLocalFilePath)
           .toList(growable: false);
 
+      // Compress needs platform channels — stay on the UI isolate.
       // iOS: never use compute() for Photos/tmp paths — background isolates
-      // have hung indefinitely during Media GPS import. Android keeps isolate.
+      // have hung indefinitely during Media GPS import. Android keeps isolate
+      // only for plain copy.
       final useIsolate = !kIsWeb &&
           forceBackgroundCopy &&
+          !displayOptimize &&
           !Platform.isIOS &&
           normalizedSources.isNotEmpty;
       if (useIsolate) {
@@ -553,12 +603,14 @@ class MemoryController extends GetxController {
           normalizedSources,
           imagesDirPath,
           appDir.path,
+          displayOptimize: displayOptimize,
         );
       }
       return _saveImagesToAppDirectorySequential(
         normalizedSources,
         imagesDirPath,
         appDir.path,
+        displayOptimize: displayOptimize,
       );
     } catch (e) {
       debugPrint('Error creating images directory: $e');
@@ -569,12 +621,32 @@ class MemoryController extends GetxController {
         : <String>[];
   }
 
+  Future<bool> _stageImageFile({
+    required String sourcePath,
+    required String targetPath,
+    required bool displayOptimize,
+  }) async {
+    if (displayOptimize) {
+      final ok = await MemoryImageDisplayOptimize.writeOptimizedJpeg(
+        sourcePath: sourcePath,
+        destPath: targetPath,
+      );
+      if (ok) return true;
+      debugPrint(
+        '[MemoryController] display optimize failed — falling back to copy',
+      );
+    }
+    await File(sourcePath).copy(targetPath).timeout(const Duration(seconds: 20));
+    return true;
+  }
+
   /// 1:1 with [imagePaths]; failed entries stay `''`.
   Future<List<String>> _saveImagesToAppDirectoryIndexed(
     List<String> imagePaths,
     String imagesDirPath,
-    String appDocumentsPath,
-  ) async {
+    String appDocumentsPath, {
+    bool displayOptimize = false,
+  }) async {
     final out = List<String>.filled(imagePaths.length, '');
     final imagesDir = Directory(imagesDirPath);
     if (!await imagesDir.exists()) {
@@ -591,13 +663,19 @@ class MemoryController extends GetxController {
         } else {
           final sourceFile = File(imagePath);
           if (await sourceFile.exists()) {
-            final extension = imagePath.split('.').last.toLowerCase();
-            final ext = extension.isEmpty ? 'jpg' : extension;
+            final ext = displayOptimize
+                ? 'jpg'
+                : () {
+                    final e = imagePath.split('.').last.toLowerCase();
+                    return e.isEmpty ? 'jpg' : e;
+                  }();
             final fileName = 'memory_${timestamp}_$idx.$ext';
             final targetPath = '${imagesDir.path}/$fileName';
-            await sourceFile
-                .copy(targetPath)
-                .timeout(const Duration(seconds: 20));
+            await _stageImageFile(
+              sourcePath: imagePath,
+              targetPath: targetPath,
+              displayOptimize: displayOptimize,
+            );
             out[idx] = 'memory_images/$fileName';
           }
         }
@@ -613,8 +691,9 @@ class MemoryController extends GetxController {
   Future<List<String>> _saveImagesToAppDirectorySequential(
     List<String> imagePaths,
     String imagesDirPath,
-    String appDocumentsPath,
-  ) async {
+    String appDocumentsPath, {
+    bool displayOptimize = false,
+  }) async {
     final savedImagePaths = <String>[];
     final imagesDir = Directory(imagesDirPath);
     if (!await imagesDir.exists()) {
@@ -633,14 +712,21 @@ class MemoryController extends GetxController {
         final sourceFile = File(imagePath);
         if (await sourceFile.exists()) {
           final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final extension = imagePath.split('.').last.toLowerCase();
+          final ext = displayOptimize
+              ? 'jpg'
+              : () {
+                  final e = imagePath.split('.').last.toLowerCase();
+                  return e.isEmpty ? 'jpg' : e;
+                }();
           final fileName =
-              'memory_${timestamp}_${savedImagePaths.length}.$extension';
+              'memory_${timestamp}_${savedImagePaths.length}.$ext';
           final targetPath = '${imagesDir.path}/$fileName';
 
-          await sourceFile
-              .copy(targetPath)
-              .timeout(const Duration(seconds: 20));
+          await _stageImageFile(
+            sourcePath: imagePath,
+            targetPath: targetPath,
+            displayOptimize: displayOptimize,
+          );
           savedImagePaths.add('memory_images/$fileName');
           debugPrint('Image saved to app directory: $fileName (relative path)');
         }

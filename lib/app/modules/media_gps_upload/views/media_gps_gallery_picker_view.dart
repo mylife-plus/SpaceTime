@@ -23,6 +23,7 @@ class MediaGpsGalleryPickerView extends GetView<MediaGpsUploadController> {
     return Obx(() {
       final _ = ui.selectedLanguage.value;
       final loading = controller.galleryLoading.value;
+      final loadingMore = controller.galleryLoadingMore.value;
       final assets = controller.galleryAssets;
       final limited = controller.photoLibraryLimitedAccess.value;
       final selected = controller.selectedAssetIds.length;
@@ -95,10 +96,12 @@ class MediaGpsGalleryPickerView extends GetView<MediaGpsUploadController> {
                       ),
                     ),
                     Expanded(
+                      // Only selected count — total GPS files is unknown until
+                      // the lazy scan finishes (client: don't show X of Y).
                       child: Text(
                         trKey(
-                          'media_gps_gallery_selected_of_total',
-                          [selected, assets.length],
+                          'media_gps_gallery_selected_count',
+                          [selected],
                         ),
                         textAlign: TextAlign.center,
                         style: AppFonts.bold(15, color: centerLabelColor),
@@ -119,6 +122,32 @@ class MediaGpsGalleryPickerView extends GetView<MediaGpsUploadController> {
                 ),
               ),
             ),
+            if (!loading && loadingMore && assets.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: accent,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'media_gps_gallery_scanning'.tr,
+                        style: AppFonts.medium(
+                          12,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (loading)
               const Expanded(child: Center(child: CircularProgressIndicator()))
             else if (assets.isEmpty && limited)
@@ -216,12 +245,21 @@ class _GalleryBulkDragGridState extends State<_GalleryBulkDragGrid> {
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
+    _scrollController = ScrollController()..addListener(_onScrollForLazyLoad);
+  }
+
+  void _onScrollForLazyLoad() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 480) {
+      unawaited(widget.controller.loadMoreGalleryIfNeeded());
+    }
   }
 
   @override
   void dispose() {
     _longPressTimer?.cancel();
+    _scrollController.removeListener(_onScrollForLazyLoad);
     _scrollController.dispose();
     super.dispose();
   }
@@ -295,6 +333,9 @@ class _GalleryBulkDragGridState extends State<_GalleryBulkDragGrid> {
     final accent = widget.accent;
     return Obx(() {
       final assets = widget.controller.galleryAssets;
+      final loadingMore = widget.controller.galleryLoadingMore.value;
+      final hasMore = widget.controller.galleryHasMore.value;
+      final footerSlots = (loadingMore || hasMore) ? 1 : 0;
       return Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: _onPointerDown,
@@ -311,8 +352,26 @@ class _GalleryBulkDragGridState extends State<_GalleryBulkDragGrid> {
             mainAxisSpacing: _spacing,
             childAspectRatio: _aspectRatio,
           ),
-          itemCount: assets.length,
+          itemCount: assets.length + footerSlots,
           itemBuilder: (context, i) {
+            if (i >= assets.length) {
+              // Trigger another page when the footer becomes visible.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                unawaited(widget.controller.loadMoreGalleryIfNeeded());
+              });
+              return Center(
+                child: loadingMore
+                    ? SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: accent,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              );
+            }
             return Obx(() {
               final a = widget.controller.galleryAssets[i];
               final sel = widget.controller.isSelected(a.id);

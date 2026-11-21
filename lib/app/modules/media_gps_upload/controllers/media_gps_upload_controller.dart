@@ -36,6 +36,12 @@ class MediaGpsUploadController extends GetxController {
   final RxBool isBusy = false.obs;
   final RxBool isPreparingPreviewLocations = false.obs;
   final RxBool galleryLoading = false.obs;
+  /// True while the first GPS page is loading (full-screen spinner).
+  final RxBool galleryScanning = false.obs;
+  /// True while a scroll-triggered page is loading more GPS assets.
+  final RxBool galleryLoadingMore = false.obs;
+  /// More oldest→newer GPS pages available from the library.
+  final RxBool galleryHasMore = false.obs;
   final RxBool filesImporting = false.obs;
   /// True when OS grants only partial / “limited” library access (iOS + newer Android).
   final RxBool photoLibraryLimitedAccess = false.obs;
@@ -81,7 +87,13 @@ class MediaGpsUploadController extends GetxController {
 
   bool _autoDateRangeOnNextSync = false;
 
+  /// True after user taps Select all on the currently loaded page.
+  /// Cleared when a later page appends more assets (selection is no longer "all").
+  bool _selectAllWanted = false;
+
   int _galleryLoadGen = 0;
+  Completer<void>? _galleryLoadCompleter;
+  MediaGpsGalleryScanState? _galleryScanState;
 
   @override
   void onClose() {
@@ -227,41 +239,64 @@ class MediaGpsUploadController extends GetxController {
     for (final a in filePicked) {
       byId[a.id] = a;
     }
-    final merged = byId.values.toList()
-      ..sort((a, b) => b.createTime.compareTo(a.createTime));
-    galleryAssets.assignAll(merged);
+    galleryAssets.assignAll(MediaGpsGalleryService.sortOldestFirst(byId.values));
+  }
+
+  /// Append a lazy-loaded page. Deactivates Select all if it was active —
+  /// newly visible files mean the prior selection is no longer "all".
+  void _appendGalleryPage(List<MediaGpsPickedAsset> page) {
+    if (page.isEmpty) return;
+    final hadSelectAll = _selectAllWanted;
+    final byId = {for (final a in galleryAssets) a.id: a};
+    for (final a in page) {
+      byId.putIfAbsent(a.id, () => a);
+    }
+    galleryAssets.assignAll(MediaGpsGalleryService.sortOldestFirst(byId.values));
+    if (hadSelectAll) {
+      _selectAllWanted = false;
+    }
   }
 
   Future<void> ensureGalleryLoaded({bool force = false}) async {
-    if (!force && galleryAssets.isNotEmpty) return;
+    if (!force &&
+        galleryAssets.any((a) => !a.isFromFile) &&
+        !galleryLoading.value) {
+      return;
+    }
 
     final gen = ++_galleryLoadGen;
+    final completer = Completer<void>();
+    _galleryLoadCompleter = completer;
     galleryLoading.value = true;
+    galleryScanning.value = true;
+    galleryLoadingMore.value = false;
+    galleryHasMore.value = false;
+    _galleryScanState = null;
     try {
       // Android: ensure ACCESS_MEDIA_LOCATION before EXIF GPS reads.
       await MediaGpsGalleryService.ensureMediaLocationAccess();
       if (gen != _galleryLoadGen) return;
 
+      MediaGpsGalleryScanState? state;
       List<MediaGpsPickedAsset> list = const [];
       for (var attempt = 0; attempt < 2; attempt++) {
-        list = await MediaGpsGalleryService.loadRecentAssets(
-          onProgress: (snapshot) {
-            if (gen != _galleryLoadGen) return;
-            _assignGalleryListPreservingFilePicks(snapshot);
-          },
-          onFirstBatchDone: () {
-            if (gen != _galleryLoadGen) return;
-            galleryLoading.value = false;
-          },
-        );
+        state = await MediaGpsGalleryService.beginOldestFirstScan();
         if (gen != _galleryLoadGen) return;
-        if (list.isNotEmpty) break;
+        if (state == null) {
+          list = const [];
+          break;
+        }
+        list = await MediaGpsGalleryService.loadNextGpsPage(state: state);
+        if (gen != _galleryLoadGen) return;
+        if (list.isNotEmpty || !state.hasMore) break;
         debugPrint(
-          '[MediaGpsUpload] gallery load empty — retry ${attempt + 1}',
+          '[MediaGpsUpload] gallery first page empty — retry ${attempt + 1}',
         );
         await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
       }
       if (gen != _galleryLoadGen) return;
+      _galleryScanState = state;
+      galleryHasMore.value = state?.hasMore ?? false;
       _assignGalleryListPreservingFilePicks(list);
       await _refreshDedupeDataAndRecompute();
       recomputeStats();
@@ -279,8 +314,57 @@ class MediaGpsUploadController extends GetxController {
         await refreshPhotoLibraryAccessFlag();
       }
     } finally {
+      if (!completer.isCompleted) completer.complete();
+      if (identical(_galleryLoadCompleter, completer)) {
+        _galleryLoadCompleter = null;
+      }
       if (gen == _galleryLoadGen) {
         galleryLoading.value = false;
+        galleryScanning.value = false;
+      }
+    }
+  }
+
+  /// Scroll near end → load next ~50 GPS assets (oldest → newer).
+  Future<void> loadMoreGalleryIfNeeded() async {
+    if (galleryLoading.value ||
+        galleryLoadingMore.value ||
+        !galleryHasMore.value) {
+      return;
+    }
+    final state = _galleryScanState;
+    if (state == null || !state.hasMore) {
+      galleryHasMore.value = false;
+      return;
+    }
+
+    final gen = _galleryLoadGen;
+    galleryLoadingMore.value = true;
+    try {
+      final existingIds = galleryAssets.map((a) => a.id).toSet();
+      final page = await MediaGpsGalleryService.loadNextGpsPage(
+        state: state,
+        excludeIds: existingIds,
+      );
+      if (gen != _galleryLoadGen) return;
+      _appendGalleryPage(page);
+      galleryHasMore.value = state.hasMore;
+      // If this page added nothing but album remains, try one more stretch.
+      if (page.isEmpty && state.hasMore) {
+        final again = await MediaGpsGalleryService.loadNextGpsPage(
+          state: state,
+          excludeIds: galleryAssets.map((a) => a.id).toSet(),
+        );
+        if (gen != _galleryLoadGen) return;
+        _appendGalleryPage(again);
+        galleryHasMore.value = state.hasMore;
+      }
+      recomputeStats();
+    } catch (e, st) {
+      debugPrint('[MediaGpsUpload] gallery load more: $e\n$st');
+    } finally {
+      if (gen == _galleryLoadGen) {
+        galleryLoadingMore.value = false;
       }
     }
   }
@@ -534,9 +618,7 @@ class MediaGpsUploadController extends GetxController {
       byId[a.id] = a;
       if (a.hasGps) existingMetaKeys.add(_fileContentMetaKey(a));
     }
-    final merged = byId.values.toList()
-      ..sort((a, b) => b.createTime.compareTo(a.createTime));
-    galleryAssets.assignAll(merged);
+    galleryAssets.assignAll(MediaGpsGalleryService.sortOldestFirst(byId.values));
     var limitHit = false;
     for (final a in incoming) {
       if (!byId.containsKey(a.id)) continue; // skipped as duplicate
@@ -592,6 +674,7 @@ class MediaGpsUploadController extends GetxController {
   }
 
   void selectAllInGallery() {
+    _selectAllWanted = true;
     selectedAssetIds.clear();
     final ids = galleryAssets.map((e) => e.id).toList();
     if (ids.length > maxSelection) {
@@ -605,6 +688,7 @@ class MediaGpsUploadController extends GetxController {
   }
 
   void unselectAllInGallery() {
+    _selectAllWanted = false;
     selectedAssetIds.clear();
     _markSelectionChanged();
     recomputeStats();
@@ -612,6 +696,7 @@ class MediaGpsUploadController extends GetxController {
 
   void toggleAssetSelection(String id) {
     if (selectedAssetIds.contains(id)) {
+      _selectAllWanted = false;
       selectedAssetIds.remove(id);
     } else {
       if (selectedAssetIds.length >= maxSelection) {
@@ -1038,18 +1123,18 @@ class MediaGpsUploadController extends GetxController {
   /// asset — and any cluster whose every asset failed — from the upload.
   Future<String?> _resolveExportPathWithRetry(
     MediaGpsPickedAsset asset, {
-    int attempts = 2,
+    int attempts = 4,
   }) async {
     for (var attempt = 0; attempt < attempts; attempt++) {
       try {
         final path = await MediaGpsGalleryService.resolveExportPath(asset)
-            .timeout(const Duration(seconds: 10));
+            .timeout(Duration(seconds: GetPlatform.isIOS ? 30 : 15));
         if (path != null && path.isNotEmpty) return path;
       } catch (e) {
         debugPrint('[MediaGpsUpload] export attempt ${attempt + 1} failed: $e');
       }
       if (attempt < attempts - 1) {
-        await Future<void>.delayed(Duration(milliseconds: 150 * (attempt + 1)));
+        await Future<void>.delayed(Duration(milliseconds: 250 * (attempt + 1)));
       }
     }
     return null;
@@ -1067,6 +1152,21 @@ class MediaGpsUploadController extends GetxController {
     await Future<void>.delayed(const Duration(milliseconds: 16));
 
     try {
+      // Wait only for the in-flight first/more page — never full-library scan.
+      final pendingLoad = _galleryLoadCompleter?.future;
+      if (pendingLoad != null) {
+        await pendingLoad.timeout(
+          const Duration(seconds: 90),
+          onTimeout: () {},
+        );
+      }
+      if (galleryLoadingMore.value) {
+        final sw = Stopwatch()..start();
+        while (galleryLoadingMore.value && sw.elapsed < const Duration(seconds: 60)) {
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+        }
+      }
+
       await _refreshDedupeDataAndRecompute();
       if (_lastCandidates.isEmpty) {
         _showNoNewMemoriesToUploadSnackbar();
@@ -1109,7 +1209,7 @@ class MediaGpsUploadController extends GetxController {
       var geocoderReady = false;
       try {
         geocoderReady = await GeocodingIsolateService.instance
-            .ensureInitialized(timeout: const Duration(seconds: 8));
+            .ensureInitialized(timeout: const Duration(seconds: 20));
       } catch (e) {
         debugPrint('[MediaGpsUpload] geocoder warm-up: $e');
       }
@@ -1146,17 +1246,36 @@ class MediaGpsUploadController extends GetxController {
       // iOS Photos/iCloud hates many parallel entity.file calls — keep low.
       final exportConcurrency =
           (GetPlatform.isIOS ? 2 : _uploadConcurrency);
-      final resolvedPaths = await mapWithConcurrency<MediaGpsPickedAsset, String?>(
-        flatAssets,
-        exportConcurrency,
-        (asset, _) => _resolveExportPathWithRetry(asset),
+      final resolvedPaths = List<String?>.from(
+        await mapWithConcurrency<MediaGpsPickedAsset, String?>(
+          flatAssets,
+          exportConcurrency,
+          (asset, _) => _resolveExportPathWithRetry(asset),
+        ),
       );
+      // Serial fallback for anything parallel export still missed (iOS flaky).
+      for (var k = 0; k < resolvedPaths.length; k++) {
+        final path = resolvedPaths[k];
+        if (path != null && path.isNotEmpty) continue;
+        resolvedPaths[k] = await _resolveExportPathWithRetry(
+          flatAssets[k],
+          attempts: 3,
+        );
+      }
+
       final droppedAssets =
           resolvedPaths.where((p) => p == null || p.isEmpty).length;
       if (droppedAssets > 0) {
         debugPrint(
           '[MediaGpsUpload] WARNING: $droppedAssets/${flatAssets.length} assets '
           'could not be exported after retries and were skipped.',
+        );
+        showTrSnackbar(
+          'media_gps_snackbar_export_partial',
+          args: [droppedAssets, flatAssets.length],
+          backgroundColor: Colors.orange.shade800,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 4),
         );
       }
 
@@ -1233,8 +1352,10 @@ class MediaGpsUploadController extends GetxController {
               flatImages,
               forceBackgroundCopy: !GetPlatform.isIOS,
               preserveSourceIndex: true,
+              // ~2048px JPEG — faster fullscreen later; gallery originals untouched.
+              displayOptimize: true,
             ).timeout(
-              Duration(seconds: 12 + flatImages.length * 4),
+              Duration(seconds: 20 + flatImages.length * 8),
               onTimeout: () {
                 debugPrint(
                   '[MediaGpsUpload] image copy timed out after '

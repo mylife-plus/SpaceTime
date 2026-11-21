@@ -9,6 +9,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mapbox;
 import 'package:spacetime/app/modules/add_memories/views/mini_widgets/search_overly.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/map_fab.dart';
 import 'package:spacetime/app/modules/map/views/mini_widgets/top_buttons.dart';
+import 'package:spacetime/app/helpers/mapbox_gesture_helper.dart';
 import 'package:spacetime/app/helpers/mapbox_zoom_helper.dart';
 import '../../controllers/map_controller_new.dart';
 // Note: Permission-related imports removed as location check is disabled
@@ -23,6 +24,8 @@ import 'map_filter_overlay.dart';
 import '../../../../../services/mbtiles_download_service.dart';
 import '../../../../../services/mbtiles_server_service.dart';
 import '../../../../../services/style_json_download_service.dart';
+import '../../../../../services/geocoding_isolate_service.dart';
+import '../../../../utils/offline_geocoder.dart';
 
 class MapViewWidgetNew extends StatefulWidget {
   const MapViewWidgetNew({super.key});
@@ -78,11 +81,24 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
     _logInitTiming('initState');
 
     controller = Get.find<MapControllerNew>();
+    _ensureGeocoderWarmUp();
 
     // One frame after mount so ModalRoute is ready; no artificial delay (avoids felt lag).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _beginTileServerInit();
     });
+  }
+
+  void _ensureGeocoderWarmUp() {
+    if (!Get.isRegistered<GeocodingIsolateService>()) {
+      Get.put(GeocodingIsolateService(), permanent: true);
+    }
+    final service = GeocodingIsolateService.instance;
+    if (service.isInitialized.value &&
+        OfflineGeocoder.instance.isInitialized) {
+      return;
+    }
+    unawaited(service.warmUp());
   }
 
   void _beginTileServerInit() {
@@ -503,6 +519,7 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
           controller.mapboxMap = mapboxMap;
 
           await mapbox.OfflineSwitch.shared.setMapboxStackConnected(true);
+          await MapboxGestureHelper.applyIosLikePanGestures(mapboxMap);
           controller.onMapCreated(mapboxMap);
           mapboxMap.compass.updateSettings(
             mapbox.CompassSettings(enabled: false),
@@ -595,6 +612,8 @@ class _MapViewWidgetNewState extends State<MapViewWidgetNew>
             debugPrint(
               '[MapViewWidgetNew] 🌐 Online mode ENABLED - localhost tile server can now be accessed',
             );
+
+            await MapboxGestureHelper.applyIosLikePanGestures(mapboxMap);
 
             // Before loadStyleJson so onStyleLoaded cannot be undone by a late onMapCreated.
             controller.onMapCreated(mapboxMap);

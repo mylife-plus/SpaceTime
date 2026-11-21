@@ -89,6 +89,8 @@
   "media_gps_snackbar_gallery_failed": "Galerie konnte nicht geladen werden@@@Beim Laden deiner Fotos und Videos ist ein Fehler aufgetreten. Bitte versuche es erneut.",
   "media_gps_snackbar_import_failed": "Import fehlgeschlagen@@@Beim Speichern deiner Erinnerungen ist ein Fehler aufgetreten. Bitte versuche es erneut.",
   "media_gps_snackbar_selection_limit": "Auswahllimit erreicht@@@Du kannst maximal 100 Dateien auf einmal auswählen.",
+  "media_gps_gallery_scanning": "Weitere Fotos mit Standort werden gesucht…",
+  "media_gps_snackbar_export_partial": "Einige Dateien konnten nicht kopiert werden@@@$1 von $2 ausgewählten Dateien wurden übersprungen. Erneut auswählen und erneut versuchen.",
   "media_gps_snackbar_not_enough_storage": "Nicht genug Speicher zum Importieren@@@Schaffe Speicherplatz auf diesem Gerät und versuche es erneut.",
   "media_gps_snackbar_storage_check_failed": "Speicher konnte nicht geprüft werden@@@Starte die App neu und versuche es erneut. Der Import wurde abgebrochen.",
   "apptexts_upload_memories": "App-Daten hochladen",

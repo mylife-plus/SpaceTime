@@ -932,7 +932,24 @@ class MemoryDescriptionFieldState extends State<MemoryDescriptionField> {
     final token = text.substring(start, end);
     if (!token.startsWith('#') && !token.startsWith('@')) return false;
     final name = token.substring(1);
-    if (name.isEmpty) return false;
+    // Lone `@` / `#` (popup open or just typed): delete trigger + close popup.
+    if (name.isEmpty) {
+      if (_isPopupOpen) {
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (_) {}
+        _removeIncompleteTextAndClosePopup();
+        return true;
+      }
+      final newText = text.replaceRange(start, end, '');
+      _coloredController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: start),
+      );
+      _previousText = newText;
+      if (mounted) setState(() {});
+      return true;
+    }
 
     final isTag = token.startsWith('#');
     final isKnown = isTag

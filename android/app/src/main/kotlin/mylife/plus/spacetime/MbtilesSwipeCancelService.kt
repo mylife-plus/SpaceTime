@@ -1,4 +1,4 @@
-package plus.mylife.spacetime
+package mylife.plus.spacetime
 
 import android.app.NotificationManager
 import android.app.Service

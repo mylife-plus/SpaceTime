@@ -885,9 +885,19 @@ class MbtilesDownloadService extends GetxController
 
       final tilesDir = Directory('${appDir.path}/offline_tiles');
       // Incomplete destination + any legacy snapshot copy.
+      // Never delete a finished tiles.mbtiles — cold-start used to wipe a
+      // valid 4.5GB file whenever prefs said "not downloaded".
       for (final name in [LOCAL_MBTILES_FILENAME, _stablePartialName]) {
         final partial = File('${tilesDir.path}/$name');
         if (!await partial.exists()) continue;
+        if (name == LOCAL_MBTILES_FILENAME &&
+            await _fileLooksLikeCompleteMbtiles(partial)) {
+          debugPrint(
+            '[MbtilesDownload] 🛡️ Keeping complete $name — skipping wipe',
+          );
+          unawaited(_recoverCompletedMbtilesFromDisk());
+          continue;
+        }
         final len = await partial.length();
         try {
           await partial.delete();
@@ -1365,12 +1375,12 @@ class MbtilesDownloadService extends GetxController
   static const Duration _quietProgressHint = Duration(seconds: 20);
 
   /// Stall watchdog: if progress hasn't moved for [_stallTimeout] while
-  /// `isDownloading` is true, force Range-resume so users are not stuck
-  /// for 10+ minutes with working internet (client report).
-  static const Duration _stallTimeout = Duration(minutes: 4);
+  /// `isDownloading` is true, force Range-resume so users are not stuck.
+  /// Restored to 15 min (was 4) — shorter window caused iOS pause+resume thrash.
+  static const Duration _stallTimeout = Duration(minutes: 15);
   /// After a network blip the native task often stays `running` but transfers
-  /// nothing. Kick resume quickly — duplicate FGS workers make this worse.
-  static const Duration _zombieRunningTimeout = Duration(seconds: 25);
+  /// nothing. Android kicks sooner; iOS uses the longer stall window above.
+  static const Duration _zombieRunningTimeout = Duration(seconds: 60);
 
   /// Product rule: after reopen, only hard-restart if nothing moved for this
   /// long. Shorter windows (15–30s) false-fired while iOS was inactive /
@@ -1508,6 +1518,62 @@ class MbtilesDownloadService extends GetxController
     }
     final appDir = await getApplicationSupportDirectory();
     return '${appDir.path}/offline_tiles/$LOCAL_MBTILES_FILENAME';
+  }
+
+  /// Same threshold as finalize — a finished package on disk must never be
+  /// treated as an "orphan partial" and wiped on cold start.
+  static const int _completeMbtilesMinBytes = 3500 * 1024 * 1024; // 3.5 GB
+
+  Future<bool> _fileLooksLikeCompleteMbtiles(File file) async {
+    try {
+      if (!await file.exists()) return false;
+      final len = await file.length();
+      if (len < _completeMbtilesMinBytes) return false;
+      final bytes = await file.openRead(0, 32).first;
+      final header = String.fromCharCodes(bytes.take(16).toList());
+      return header.startsWith('SQLite format 3');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// If prefs were lost/cleared but a finished tiles.mbtiles is still on disk,
+  /// restore prefs and treat the download as complete (both iOS + Android).
+  Future<String?> _recoverCompletedMbtilesFromDisk() async {
+    try {
+      final candidates = <String>{};
+      final resolved = await _resolveLocalMbtilesPath();
+      candidates.add(resolved);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString(PREFS_KEY_MBTILES_PATH);
+        if (saved != null && saved.isNotEmpty) candidates.add(saved);
+      } catch (_) {}
+
+      for (final path in candidates) {
+        final file = File(path);
+        if (!await _fileLooksLikeCompleteMbtiles(file)) continue;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, true);
+        await prefs.setBool('mbtiles_download_completed', true);
+        await prefs.setString(PREFS_KEY_MBTILES_PATH, path);
+        final estimatedTileCount = ((await file.length()) / 20000).round();
+        await prefs.setInt('offline_downloaded_tile_count', estimatedTileCount);
+        _localMbtilesPath = path;
+        isCompleted.value = true;
+        isDownloading.value = false;
+        hasError.value = false;
+        errorMessage.value = '';
+        _applyProgress(1.0);
+        debugPrint(
+          '[MbtilesDownload] ✅ Recovered completed tiles from disk: $path',
+        );
+        return path;
+      }
+    } catch (e) {
+      debugPrint('[MbtilesDownload] ⚠️ Disk recovery failed: $e');
+    }
+    return null;
   }
 
   void _startProgressPolling({bool fast = false, bool resetWatchdog = true}) {
@@ -2024,12 +2090,14 @@ class MbtilesDownloadService extends GetxController
             _applyProgress(preferred.progress);
           }
           final status = preferred.status;
-          // After offline/connectivity, a DB "running" task is often a zombie
-          // (no bytes). Always pause+resume to kick the native worker instead
-          // of waiting on the 4‑minute stall watchdog.
-          final kickRunning = reason.contains('connectivity') ||
-              reason.contains('grace_expired') ||
-              reason.contains('app_resumed');
+          // Android may pause+resume a zombie "running" worker after offline.
+          // iOS: never pause a healthy running/enqueued URLSession — device
+          // logs showed every Home→open did pause→resume and raw progress 0.
+          final kickRunning = !Platform.isIOS &&
+              (reason.contains('connectivity') ||
+                  reason.contains('grace_expired') ||
+                  reason.contains('app_resumed') ||
+                  reason.contains('stall'));
           if ((status == TaskStatus.running || status == TaskStatus.enqueued) &&
               !kickRunning) {
             _backgroundTask = existing;
@@ -2051,7 +2119,10 @@ class MbtilesDownloadService extends GetxController
                       status == TaskStatus.enqueued));
           if (shouldResume) {
             await _protectResumeDataFromTruncation();
-            if (status == TaskStatus.running || status == TaskStatus.enqueued) {
+            // Only pause-to-resume when kicking a presumed-dead running worker.
+            if (kickRunning &&
+                (status == TaskStatus.running ||
+                    status == TaskStatus.enqueued)) {
               try {
                 await FileDownloader().pause(existing);
                 await Future<void>.delayed(const Duration(milliseconds: 300));
@@ -2178,7 +2249,19 @@ class MbtilesDownloadService extends GetxController
       math.max(_lastLiveTempBytes, downloadedBytes.value),
       _maxBytesSeen,
     );
-    final ok = await _tryAutoResume(reason: 'app_resumed', force: false);
+    // Pause return: soft-resume a few times before any wipe grace (iOS
+    // URLSession often needs a moment after Home → foreground).
+    var ok = await _tryAutoResume(reason: 'app_resumed', force: false);
+    if (!ok && Platform.isIOS) {
+      for (var i = 0; i < 2 && !ok; i++) {
+        await Future<void>.delayed(Duration(milliseconds: 600 * (i + 1)));
+        if (isCompleted.value || _wasOffline || !_appInForeground) break;
+        ok = await _tryAutoResume(
+          reason: 'app_resumed_retry_${i + 1}',
+          force: false,
+        );
+      }
+    }
     await _restoreKnownProgressUi('app_resume_after_soft');
     _startAndroidProgressPolling();
     if (ok) {
@@ -2280,6 +2363,8 @@ class MbtilesDownloadService extends GetxController
         if (path != null && await File(path).exists()) return;
       }
     } catch (_) {}
+    // Prefs may be missing after a kill — recover finished file instead of wipe.
+    if (await _recoverCompletedMbtilesFromDisk() != null) return;
     debugPrint(
       '[MbtilesDownload] 🧹 Clearing leftover tile files ($reason)',
     );
@@ -2319,12 +2404,18 @@ class MbtilesDownloadService extends GetxController
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
+        // Pause ≠ kill: keep URLSession/FGS running, freeze UI at last %, and
+        // cancel any 15s wipe timer so background quiet cannot wipe progress.
         _appInForeground = false;
+        _clearReconnectWindow(reason: 'app_paused_preserve');
+        if ((isDownloading.value || downloadProgress.value > 0) &&
+            !isCompleted.value) {
+          unawaited(_markDownloadInProgress());
+          unawaited(_restoreKnownProgressUi('app_paused'));
+        }
         break;
       case AppLifecycleState.detached:
-        // Best-effort cancel when the engine is tearing down (iOS force-quit
-        // often skips this; cold-start [_checkForResumedDownloads] is the
-        // reliable path). Android also has MainActivity.onTaskRemoved.
+        // Kill / engine teardown — cancel workers; cold-start wipe owns cleanup.
         _appInForeground = false;
         if (isDownloading.value && !isCompleted.value) {
           unawaited(cancelDownload());
@@ -2363,6 +2454,13 @@ class MbtilesDownloadService extends GetxController
       );
       return;
     }
+    // Never arm wipe-while-paused — Home/background quiet is not a reconnect fail.
+    if (!_appInForeground) {
+      debugPrint(
+        '[MbtilesDownload] ⏱️ Skip 15s grace while paused ($reason)',
+      );
+      return;
+    }
     _resumeWatchBaselineBytes = baselineBytes;
     if (_disconnectOrPauseAt != null && _reconnectGraceTimer != null) {
       debugPrint(
@@ -2391,6 +2489,13 @@ class MbtilesDownloadService extends GetxController
   /// Does not wipe merely because bytes are quiet after a successful resume.
   Future<void> _onReconnectGraceExpired() async {
     if (isCompleted.value) return;
+    if (!_appInForeground) {
+      debugPrint(
+        '[MbtilesDownload] ⏱️ Grace fired while paused — preserving partials',
+      );
+      _clearReconnectWindow(reason: 'grace_paused_preserve');
+      return;
+    }
     if (_wasOffline) {
       debugPrint(
         '[MbtilesDownload] ⏱️ Grace fired offline — preserving partials',
@@ -2650,7 +2755,9 @@ class MbtilesDownloadService extends GetxController
     try {
       await Future.delayed(const Duration(milliseconds: 500));
 
-      if (await isMbtilesDownloaded()) {
+      // Restore prefs from a finished file before any wipe path runs.
+      if (await _recoverCompletedMbtilesFromDisk() != null ||
+          await isMbtilesDownloaded()) {
         debugPrint(
           '[MbtilesDownload] ✅ Complete download already on disk — skip relaunch',
         );
@@ -3073,9 +3180,6 @@ class MbtilesDownloadService extends GetxController
 
       if (isDownloaded && savedPath != null) {
         final file = File(savedPath);
-        // file.delete();
-                // final file1 = File(savedPath);
-
         final exists = await file.exists();
         
         debugPrint('[MbtilesDownload] 🔍 File exists check: $exists for path: $savedPath');
@@ -3090,30 +3194,17 @@ class MbtilesDownloadService extends GetxController
           isCompleted.value = true;
 
           return true;
-        } else {
-          debugPrint('[MbtilesDownload] ❌ File does not exist at saved path: $savedPath');
-          debugPrint('[MbtilesDownload] 🔄 Clearing saved preferences (file was deleted or app was reinstalled)');
-          // Clear the saved preferences since the file doesn't exist
-          await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, false);
-          await prefs.remove(PREFS_KEY_MBTILES_PATH);
-          await prefs.remove('offline_downloaded_tile_count');
-
-          // Do not wipe live download UI state — a check during an in-flight
-          // download was resetting progress to 0% (and briefly showing -400%).
-          final hasPartial = _maxBytesSeen > 0 ||
-              downloadedBytes.value > 0 ||
-              _lastGoodProgress > 0;
-          if (!isDownloading.value && !hasPartial) {
-            hasError.value = false;
-            errorMessage.value = "";
-            isCompleted.value = false;
-            downloadProgress.value = 0.0;
-            _lastGoodProgress = 0.0;
-            _setStatusText('mbtiles_status_ready_to_download');
-          }
         }
-      } else {
-        debugPrint('[MbtilesDownload] ❌ MBTiles not marked as downloaded in preferences');
+
+        debugPrint('[MbtilesDownload] ❌ File does not exist at saved path: $savedPath');
+        // Prefs path stale — try default Application Support location first.
+        final recovered = await _recoverCompletedMbtilesFromDisk();
+        if (recovered != null) return true;
+
+        debugPrint('[MbtilesDownload] 🔄 Clearing saved preferences (file was deleted or app was reinstalled)');
+        await prefs.setBool(PREFS_KEY_MBTILES_DOWNLOADED, false);
+        await prefs.remove(PREFS_KEY_MBTILES_PATH);
+        await prefs.remove('offline_downloaded_tile_count');
 
         final hasPartial = _maxBytesSeen > 0 ||
             downloadedBytes.value > 0 ||
@@ -3125,8 +3216,25 @@ class MbtilesDownloadService extends GetxController
           downloadProgress.value = 0.0;
           _lastGoodProgress = 0.0;
           _setStatusText('mbtiles_status_ready_to_download');
-          // Drop any leftover incomplete tiles / temps so a later Start is
-          // clean (prefs say not downloaded ⇒ partials are orphans).
+        }
+      } else {
+        debugPrint('[MbtilesDownload] ❌ MBTiles not marked as downloaded in preferences');
+
+        // Finished file often survives when prefs were cleared / never written.
+        final recovered = await _recoverCompletedMbtilesFromDisk();
+        if (recovered != null) return true;
+
+        final hasPartial = _maxBytesSeen > 0 ||
+            downloadedBytes.value > 0 ||
+            _lastGoodProgress > 0;
+        if (!isDownloading.value && !hasPartial) {
+          hasError.value = false;
+          errorMessage.value = "";
+          isCompleted.value = false;
+          downloadProgress.value = 0.0;
+          _lastGoodProgress = 0.0;
+          _setStatusText('mbtiles_status_ready_to_download');
+          // Only wipe true orphans — never a complete package.
           unawaited(
             clearOrphanPartialsWhenIdle(
               reason: 'prefs not marked downloaded',

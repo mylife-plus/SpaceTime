@@ -21,10 +21,11 @@ class GeocodingIsolateService extends GetxService {
     unawaited(warmUp());
   }
 
-  /// Prefetch OfflineGeocoder + NearestRegion CSVs so the first Add Memories
-  /// location pin is not stuck waiting on a multi-second cold parse.
+  /// Prefetch OfflineGeocoder (+ best-effort NearestRegion) so the first Add
+  /// Memories location pin is not stuck waiting on a multi-second cold parse.
   Future<void> warmUp() async {
-    if (isInitialized.value && OfflineGeocoder.instance.isInitialized) {
+    if (OfflineGeocoder.instance.isInitialized) {
+      isInitialized.value = true;
       return;
     }
     _warmFuture ??= _warmUpImpl();
@@ -34,23 +35,37 @@ class GeocodingIsolateService extends GetxService {
   Future<void> _warmUpImpl() async {
     try {
       final geocoder = OfflineGeocoder.instance;
-      await geocoder.init().timeout(const Duration(seconds: 12));
-      // Region names (FCT, etc.) — load in parallel with nothing else once
-      // cities CSV is ready; first findNearest() used to return null.
-      await NearestRegionService()
-          .loadFromAssets()
-          .timeout(const Duration(seconds: 8));
-      isInitialized.value = true;
+      // Cities CSV + KD-tree can take ~13s on device — must succeed for reverse
+      // geocode. Keep this as the only hard requirement.
+      await geocoder.init().timeout(const Duration(seconds: 20));
+
+      // Region names (FCT, etc.) are nice-to-have. OfflineGeocoder falls back
+      // to state_name when NearestRegion is not ready — do not fail warm-up.
+      try {
+        await NearestRegionService()
+            .loadFromAssets()
+            .timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint(
+          '[GeocodingIsolateService] NearestRegion warm-up deferred: $e',
+        );
+      }
+
+      isInitialized.value = OfflineGeocoder.instance.isInitialized;
       debugPrint(
-        '[GeocodingIsolateService] Warm-up complete (OfflineGeocoder + NearestRegion)',
+        '[GeocodingIsolateService] Warm-up complete '
+        '(OfflineGeocoder ready=${isInitialized.value})',
       );
     } catch (e) {
       debugPrint(
         '[GeocodingIsolateService] Failed to warm geocoding: $e',
       );
-      isInitialized.value = false;
-      // Allow a later retry after a failed/timed-out warm-up.
-      _warmFuture = null;
+      // Recover if OfflineGeocoder finished despite a timeout on this waiter.
+      isInitialized.value = OfflineGeocoder.instance.isInitialized;
+      // Allow a later retry only when cities geocoder is still not ready.
+      if (!isInitialized.value) {
+        _warmFuture = null;
+      }
     }
   }
 
@@ -110,12 +125,13 @@ class GeocodingIsolateService extends GetxService {
     }
   }
 
-  /// Ensure service is initialized and ready.
+  /// Ensure OfflineGeocoder is ready (NearestRegion is best-effort).
   /// Hard-capped so Media GPS upload cannot hang forever on CSV load.
   Future<bool> ensureInitialized({
-    Duration timeout = const Duration(seconds: 10),
+    Duration timeout = const Duration(seconds: 20),
   }) async {
-    if (isInitialized.value && OfflineGeocoder.instance.isInitialized) {
+    if (OfflineGeocoder.instance.isInitialized) {
+      isInitialized.value = true;
       return true;
     }
 
@@ -125,12 +141,15 @@ class GeocodingIsolateService extends GetxService {
 
     try {
       await warmUp().timeout(timeout);
-      return isInitialized.value && OfflineGeocoder.instance.isInitialized;
     } catch (e) {
       debugPrint('[GeocodingIsolateService] Failed to initialize service: $e');
-      isInitialized.value = false;
-      return false;
     }
+
+    // Gate on OfflineGeocoder only — region CSV may still be loading lazily
+    // inside OfflineGeocoder.reverseGeocode.
+    final ready = OfflineGeocoder.instance.isInitialized;
+    isInitialized.value = ready;
+    return ready;
   }
 
   /// Get current service status
